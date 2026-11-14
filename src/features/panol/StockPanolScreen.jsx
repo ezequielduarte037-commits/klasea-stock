@@ -17,7 +17,7 @@ import { fichasPanolPorConfirmar, productosACrear } from "@/features/panol/produ
 import PanolTrasladosSedePanel from "@/features/panol/PanolTrasladosSedePanel";
 import { canonicalPanolSede, crearObraExterna, DEVOLUCION_MOTIVOS, DEVOLUCION_NECESITA, DEVOLUCION_RESPONSABLE, fetchConsumibleIds, fetchFichasPanolPendientes, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolInTransitInventory, fetchPanolReplenishmentCatalog, registrarDevolucion, sinConsumibles } from "@/features/panol/panolApi";
 import { fmtDate, rowDelta, rowHasRecordedEgreso, rowIsAnulado, rowIsTransit, rowMovementAt, rowSource } from "@/features/panol/panolMovimientos";
-import { nombreDeMovimiento, rowIsAsignacionStock, rowIsLiberacionStock, rowIsMovimientoEspejo, rowIsReasignacionRetirada, rowIsReasignacionSinObra } from "@/features/panol/stockGrupos";
+import { nombreDeMovimiento, rowEgresoKind, rowInHistory, rowIsMovimientoEspejo, rowIsReasignacionRetirada, rowIsReasignacionSinObra, rowRecepcionOriginal } from "@/features/panol/stockGrupos";
 import { fetchCierresAbiertosPorObra } from "@/features/panol/obraCierreApi";
 import PanelConsumiblesDeObra from "@/features/materiales/obra/PanelConsumiblesDeObra";
 import { ListaSobrantesObraPanel } from "@/features/panol/SobrantesObraScreen";
@@ -444,6 +444,7 @@ function movDestino(row) {
 const MOV_KIND = {
   ingreso:      { label: "Ingreso",      color: C.green,  sign: "+" },
   egreso:       { label: "Egreso",       color: C.red,    sign: "−" },
+  instalado:    { label: "Instalado",    color: C.teal,   sign: "" },
   solicitud:    { label: "Retiro solicitud", color: C.red, sign: "−" },
   asignacion:   { label: "Asignación",   color: C.blue,   sign: "→" },
   reasignacion: { label: "Reasignación", color: C.violet, sign: "→" },
@@ -465,27 +466,11 @@ function rowMovementKind(row) {
   const label = String(row.tipo_label || "").toLowerCase();
   if (src === "transferencia_egreso_sede") return "traslado_salida";
   if (src === "transferencia_ingreso_sede") return label.includes("cancelado") ? "traslado_cancelado" : "traslado_llegada";
-  if (rowIsLiberacionStock(row)) return "liberacion";
-  // Mover algo a la obra donde ya estaba no es una reasignación: es un egreso
-  // comun. Aparecia como "REASIGNACION 52-23 -> 52-23", un movimiento que no
-  // mueve nada de lugar y que no habia forma de entender leyendolo.
-  // Se evalua acá y no sólo al guardar para que los ya registrados tambien se
-  // lean bien.
-  const destinoRedundante = row.egreso_destino_obra_id
-    && row.obra_id
-    && row.egreso_destino_obra_id === row.obra_id;
-  if (destinoRedundante) return "egreso";
   if (src === "solicitud_consumible_retiro") return "consumible";
   if (src === "egreso_solicitud") return "solicitud";
-  if (rowIsAsignacionStock(row)) return row.obra_origen_id ? "reasignacion" : "asignacion";
-  if (row.egreso_destino_obra_id) return row.obra_id ? "reasignacion_egreso" : "asignacion_egreso";
-  if (src === "transferencia_egreso") {
-    if (label.includes("liber")) return "liberacion";
-    return row.obra_id ? "reasignacion_egreso" : "asignacion_egreso";
-  }
-  if (rowIsReasignacionSinObra(row) || rowIsReasignacionRetirada(row)) return "reasignacion_egreso";
-  if (rowHasRecordedEgreso(row)) return "egreso";
-  return "ingreso";
+  if (!rowInHistory(row)) return "ingreso";
+  const kind = rowEgresoKind(row);
+  return kind === "egreso_obra" ? "asignacion_egreso" : kind;
 }
 
 function cleanHumanField(value) {
@@ -551,8 +536,10 @@ function MovRow({ m, obraById, onDevolucion, isMobile = false }) {
   const esSalida = MOV_SALIDA.has(m.kind);
   const { nombre: desc, historico: descHistorica } = nombreDeMovimiento(m.row);
   const variant = String(m.row.variante || "").trim();
-  const retira = rowMovimientoRetira(m.row);
-  const usuario = rowMovimientoUsuario(m.row) || "sin registrar";
+  const instalado = m.kind === "instalado";
+  const retira = instalado ? "" : rowMovimientoRetira(m.row);
+  const recepcion = rowRecepcionOriginal(m.row);
+  const usuario = instalado ? "" : rowMovimientoUsuario(m.row) || "sin registrar";
   return (
     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0, 1fr) auto" : "108px minmax(0, 1fr) auto", gap: isMobile ? 8 : 12, alignItems: "start", padding: "10px 12px", border: `1px solid ${C.border}`, borderRadius: 10, background: C.panelSolid, opacity: m.anulado ? 0.55 : 1 }}>
       <span style={{ width: "fit-content", fontSize: 9.5, fontWeight: 750, color: col, background: C.panel, border: `1px solid ${col}`, borderRadius: 999, padding: "3px 7px", textTransform: "uppercase", letterSpacing: 0.3, whiteSpace: "nowrap" }}>{m.anulado ? "Anulado" : meta.label}</span>
@@ -575,7 +562,8 @@ function MovRow({ m, obraById, onDevolucion, isMobile = false }) {
             <span>{movDetalleDestino(m.row, m.kind, obraById)}</span>
             {variant && <span>Variante: {variant}</span>}
             {retira && <span>Retira: {retira}</span>}
-            <span>Usuario: {usuario}</span>
+            {recepcion && <span>Ingreso original · +{fmtQty(recepcion.cantidad)} {m.row.unidad || "u"} · {fmtDate(recepcion.fecha)}</span>}
+            {usuario && <span>Usuario: {usuario}</span>}
             {detalle && <span style={{ color: C.muted }}>{detalle}</span>}
           </div>
         </div>
@@ -626,7 +614,7 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
     })
     // Cada asignación o liberación tiene dos filas contables y una sola acción.
     .filter((m) => !rowIsMovimientoEspejo(m.row))
-    .filter((m) => m.delta !== 0 || rowHasRecordedEgreso(m.row) || m.kind === "consumible" || MOV_INTERNAL.has(m.kind));
+    .filter((m) => m.delta !== 0 || rowHasRecordedEgreso(m.row) || m.kind === "instalado" || m.kind === "consumible" || MOV_INTERNAL.has(m.kind));
     return ledger
     .filter((m) => {
       if (!incluirAnulados && m.anulado) return false;
@@ -638,7 +626,8 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
       if (q.trim()) {
         const t = norm(q);
         const destino = movDetalleDestino(m.row, m.kind, obraById);
-        const hay = norm([m.row.descripcion, m.row.codigo, m.row.variante, destino, m.row.proveedor, m.row.origen, m.row.retirado_por, m.row.egreso_por_nombre, m.row.created_by_nombre, m.row.egreso_nota, m.row.stock_nota, m.row.notas].filter(Boolean).join(" "));
+        const personas = m.kind === "instalado" ? [] : [m.row.retirado_por, m.row.egreso_por_nombre, m.row.created_by_nombre];
+        const hay = norm([m.row.descripcion, m.row.codigo, m.row.variante, destino, m.row.proveedor, m.row.origen, MOV_KIND[m.kind]?.label, ...personas, m.row.egreso_nota, m.row.stock_nota, m.row.notas].filter(Boolean).join(" "));
         if (!hay.includes(t)) return false;
       }
       return true;
@@ -647,13 +636,14 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
   }, [rows, q, tipo, sedeF, desde, hasta, incluirAnulados, obraById]);
 
   const kpis = useMemo(() => {
-    let ing = 0, egr = 0, tras = 0, uIn = 0, uOut = 0;
+    let ing = 0, egr = 0, instalados = 0, tras = 0, uIn = 0, uOut = 0;
     for (const m of movimientos) {
       if (m.kind === "egreso" || m.kind === "solicitud") { egr += 1; uOut += m.cant; }
       else if (m.kind === "ingreso") { ing += 1; uIn += m.cant; }
+      else if (m.kind === "instalado") { instalados += 1; }
       else { tras += 1; }
     }
-    return { ing, egr, tras, uIn, uOut };
+    return { ing, egr, instalados, tras, uIn, uOut };
   }, [movimientos]);
 
   const advancedFilterCount = [sedeF !== "todas", desde, hasta, incluirAnulados].filter(Boolean).length;
@@ -724,6 +714,7 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
           <option value="todos">Todos</option>
           <option value="ingreso">Ingresos</option>
           <option value="egreso">Egresos</option>
+          <option value="instalado">Instalados</option>
           <option value="solicitud">Retiros por solicitud</option>
           <option value="traspasos">Traspasos (todos)</option>
           <option value="asignacion">Asignaciones</option>
@@ -751,6 +742,7 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             <MovKpi label="Ingresos" value={kpis.ing} detail={`${fmtQty(kpis.uIn)} u`} color={C.green} />
             <MovKpi label="Egresos" value={kpis.egr} detail={`${fmtQty(kpis.uOut)} u`} color={C.red} />
+            <MovKpi label="Instalados" value={kpis.instalados} color={C.teal} />
             <MovKpi label="Traspasos" value={kpis.tras} detail="internos" color={C.blue} />
             <MovKpi label="Total" value={movimientos.length} detail="filtrados" color={C.violet} />
           </div>

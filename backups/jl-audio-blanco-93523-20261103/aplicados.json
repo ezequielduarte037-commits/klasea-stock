@@ -1,0 +1,82 @@
+[
+  {
+    "table": "panol_materiales",
+    "id": "b03dd940-caed-4660-92e1-c140b0d3fba0",
+    "patch": {
+      "descripcion": "JL AUDIO M3-770X-S-Gw-i Speaker BLANCO (93523)",
+      "alias": "PARLANTE JL M3-770X-S-Gw-i | JL Audio 93523 | Blanco brillante con LED",
+      "codigo_barra": "699440935234",
+      "proveedor": "Garmin",
+      "proveedor_id": "a79b3061-4caa-492f-a1e4-3eed23065de3",
+      "ubicacion": "K1-1",
+      "notas": "Corrección solicitada por Ezequiel el 03/11/2026 con fotos del producto y su caja: las 3 unidades disponibles cargadas como PARLANTE DE TORRE JL 7.7 M3-770 BLANCO corresponden a JL Audio M3-770X-S-Gw-i, código 93523, blanco brillante con LED, UPC 699440935234. Se corrige la identidad del saldo actual sin agregar ni descontar unidades; se conserva el historial anterior.\nSe retira el alias 93539 porque corresponde al parlante de torre M3-770ETXv3-Gw-S-Gw-i, un modelo diferente. Se conserva la unidad de inventario existente."
+    }
+  },
+  {
+    "table": "panol_obra_materiales_snapshot",
+    "id": "7dbd2981-0d45-420e-908b-c151770c2634",
+    "patch": {
+      "material_id": "b03dd940-caed-4660-92e1-c140b0d3fba0",
+      "requisito_material_id": "b03dd940-caed-4660-92e1-c140b0d3fba0",
+      "descripcion": "JL AUDIO M3-770X-S-Gw-i Speaker BLANCO (93523)",
+      "codigo": "93523",
+      "notas": "Corrección solicitada por Ezequiel el 03/11/2026 con fotos del producto y su caja: las 3 unidades disponibles cargadas como PARLANTE DE TORRE JL 7.7 M3-770 BLANCO corresponden a JL Audio M3-770X-S-Gw-i, código 93523, blanco brillante con LED, UPC 699440935234. Se corrige la identidad del saldo actual sin agregar ni descontar unidades; se conserva el historial anterior."
+    }
+  },
+  {
+    "table": "purchase_request_items",
+    "id": "4e614cd2-c861-4eb2-9878-b15e28f75cdf",
+    "patch": {
+      "description": "JL AUDIO M3-770X-S-Gw-i Speaker BLANCO (93523)",
+      "material_id": "b03dd940-caed-4660-92e1-c140b0d3fba0",
+      "requisito_material_id": "b03dd940-caed-4660-92e1-c140b0d3fba0",
+      "catalog_source": "panol",
+      "supplier_code": "93523"
+    }
+  },
+  {
+    "table": "panol_obra_materiales_snapshot",
+    "id": "ab8e5793-c968-47dc-8877-c91d34c06035",
+    "patch": {
+      "descripcion": "JL AUDIO M3-770X-S-Gw-i Speaker BLANCO (93523)",
+      "codigo": "93523"
+    }
+  },
+  {
+    "table": "panol_envio_items",
+    "id": "ae8f45fc-bf5e-426a-80e2-88e35fefb7f9",
+    "patch": {
+      "descripcion": "JL AUDIO M3-770X-S-Gw-i Speaker BLANCO (93523)",
+      "codigo": "93523"
+    }
+  },
+  {
+    "table": "panol_obra_materiales_snapshot",
+    "id": "4438a6b1-95a6-4358-b411-5f648ab52f16",
+    "patch": {
+      "material_id": "0b26436f-2c70-4357-8e68-e8c1845c630f",
+      "requisito_material_id": "0b26436f-2c70-4357-8e68-e8c1845c630f",
+      "codigo": "93539",
+      "notas": "Corrección de identidad 03/11/2026: el modelo de torre 93539 se separa de la ficha del coaxial blanco 93523. Se conserva el pedido original, su cantidad y su estado."
+    }
+  },
+  {
+    "table": "panol_envio_items",
+    "id": "c583cc96-ac24-436d-93e4-651fc8687a46",
+    "patch": {
+      "material_id": "0b26436f-2c70-4357-8e68-e8c1845c630f",
+      "requisito_material_id": "0b26436f-2c70-4357-8e68-e8c1845c630f",
+      "codigo": "93539"
+    }
+  },
+  {
+    "table": "purchase_request_items",
+    "id": "20793dfc-2298-41e7-938c-73a8ac8e197e",
+    "patch": {
+      "material_id": "0b26436f-2c70-4357-8e68-e8c1845c630f",
+      "requisito_material_id": "0b26436f-2c70-4357-8e68-e8c1845c630f",
+      "catalog_source": "panol",
+      "supplier_code": "93539"
+    }
+  }
+]

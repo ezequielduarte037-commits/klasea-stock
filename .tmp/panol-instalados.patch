@@ -1,0 +1,498 @@
+diff --git a/src/features/panol/MapaPanolTab.jsx b/src/features/panol/MapaPanolTab.jsx
+index 6d90e6f..804f5f1 100644
+--- a/src/features/panol/MapaPanolTab.jsx
++++ b/src/features/panol/MapaPanolTab.jsx
+@@ -5,7 +5,7 @@ import Cargando from "@/components/ui/Cargando";
+ import { supabase } from "@/supabaseClient";
+ import { enLotesDeIds, guardarUbicacionMaterial, registrarCambioUbicacionMaterial } from "./panolApi";
+ import { parseUbicacion } from "./ubicacionUtils";
+-import { fmtDate, rowDelta, rowIsAnulado, rowMovementAt } from "@/features/panol/panolMovimientos";
++import { fmtDate, rowDelta, rowIsAnulado, rowIsInstalled, rowMovementAt } from "@/features/panol/panolMovimientos";
+ 
+ // Mapa digital del pañol (Chubut 2120) — plano a escala real (1965×950 cm).
+ // Buscás un producto y se ilumina la estantería donde vive; click → ficha con la
+@@ -1199,7 +1199,7 @@ function EstanteriaPanel({ est, mats, stockByMaterialId = {}, onClose, onMatClic
+ 
+ // ── Modal de Detalle de Material (Radiografía) ──
+ function movimientoQty(row) {
+-  const n = Number(row.cantidad_egresada || row.cantidad || 0);
++  const n = Number(rowIsInstalled(row) ? row.cantidad : row.cantidad_egresada || row.cantidad || 0);
+   return Number.isFinite(n) ? Math.abs(n) : 0;
+ }
+ 
+@@ -1207,8 +1207,10 @@ function movimientoMeta(row) {
+   const source = String(row.source || "").toLowerCase();
+   const anulado = rowIsAnulado(row);
+   const isTransfer = source.includes("transferencia");
++  const instalado = rowIsInstalled(row);
+   const isOut = row.estado === "egresado" || source.startsWith("egreso") || source.startsWith("transferencia_egreso");
+-  if (anulado) return { label: "Anulado", color: C.dim, bg: C.panel, border: C.border, icon: Ban, sign: isOut ? "-" : "+" };
++  if (anulado) return { label: "Anulado", color: C.dim, bg: C.panel, border: C.border, icon: Ban, sign: instalado ? "" : isOut ? "−" : "+" };
++  if (instalado) return { label: "Instalado", color: C.teal, bg: C.tealL, border: C.tealB, icon: Check, sign: "" };
+   if (isTransfer) return { label: "Transferencia", color: C.violet, bg: "rgba(124,58,237,0.10)", border: "rgba(124,58,237,0.26)", icon: Move, sign: isOut ? "-" : "+" };
+   if (isOut) return { label: "Egreso", color: C.red, bg: C.redL, border: C.redB, icon: ArrowUpRight, sign: "-" };
+   if (row.estado === "problema") return { label: "Problema", color: C.violet, bg: C.violetL, border: C.violetB, icon: AlertTriangle, sign: "" };
+@@ -1221,7 +1223,7 @@ function MovimientoTimelineRow({ row }) {
+   const anulado = rowIsAnulado(row);
+   const obra = row.obra;
+   const detalle = [
+-    row.retirado_por ? `Retira: ${row.retirado_por}` : "",
++    !rowIsInstalled(row) && row.retirado_por ? `Retira: ${row.retirado_por}` : "",
+     row.egreso_nota || row.notas || "",
+   ].filter(Boolean).join(" · ");
+   return (
+diff --git a/src/features/panol/StockPanolScreen.jsx b/src/features/panol/StockPanolScreen.jsx
+index 8acaf5c..a1ce3e4 100644
+--- a/src/features/panol/StockPanolScreen.jsx
++++ b/src/features/panol/StockPanolScreen.jsx
+@@ -16,7 +16,7 @@ import ProductosACrearPanel from "@/features/panol/ProductosACrearPanel";
+ import { fichasPanolPorConfirmar, productosACrear } from "@/features/panol/productosACrear";
+ import PanolTrasladosSedePanel from "@/features/panol/PanolTrasladosSedePanel";
+ import { canonicalPanolSede, crearObraExterna, DEVOLUCION_MOTIVOS, DEVOLUCION_NECESITA, DEVOLUCION_RESPONSABLE, fetchConsumibleIds, fetchFichasPanolPendientes, fetchMaterialesEgreso, fetchObrasEgreso, fetchPanolInTransitInventory, fetchPanolReplenishmentCatalog, registrarDevolucion, sinConsumibles } from "@/features/panol/panolApi";
+-import { fmtDate, rowDelta, rowHasRecordedEgreso, rowIsAnulado, rowIsTransit, rowMovementAt, rowSource } from "@/features/panol/panolMovimientos";
++import { fmtDate, rowDelta, rowHasRecordedEgreso, rowIsAnulado, rowIsInstalled, rowIsTransit, rowMovementAt, rowSource } from "@/features/panol/panolMovimientos";
+ import { nombreDeMovimiento, rowIsAsignacionStock, rowIsLiberacionStock, rowIsMovimientoEspejo, rowIsReasignacionRetirada, rowIsReasignacionSinObra } from "@/features/panol/stockGrupos";
+ import { fetchCierresAbiertosPorObra } from "@/features/panol/obraCierreApi";
+ import PanelConsumiblesDeObra from "@/features/materiales/obra/PanelConsumiblesDeObra";
+@@ -444,6 +444,7 @@ function movDestino(row) {
+ const MOV_KIND = {
+   ingreso:      { label: "Ingreso",      color: C.green,  sign: "+" },
+   egreso:       { label: "Egreso",       color: C.red,    sign: "−" },
++  instalado:    { label: "Instalado",    color: C.teal,   sign: "" },
+   solicitud:    { label: "Retiro solicitud", color: C.red, sign: "−" },
+   asignacion:   { label: "Asignación",   color: C.blue,   sign: "→" },
+   reasignacion: { label: "Reasignación", color: C.violet, sign: "→" },
+@@ -461,6 +462,7 @@ const MOV_INTERNAL = new Set(["asignacion", "reasignacion", "asignacion_egreso",
+ const MOV_SALIDA = new Set(["egreso", "solicitud", "asignacion_egreso", "reasignacion_egreso", "consumible"]);
+ 
+ function rowMovementKind(row) {
++  if (rowIsInstalled(row)) return "instalado";
+   const src = rowSource(row);
+   const label = String(row.tipo_label || "").toLowerCase();
+   if (src === "transferencia_egreso_sede") return "traslado_salida";
+@@ -551,8 +553,9 @@ function MovRow({ m, obraById, onDevolucion, isMobile = false }) {
+   const esSalida = MOV_SALIDA.has(m.kind);
+   const { nombre: desc, historico: descHistorica } = nombreDeMovimiento(m.row);
+   const variant = String(m.row.variante || "").trim();
+-  const retira = rowMovimientoRetira(m.row);
+-  const usuario = rowMovimientoUsuario(m.row) || "sin registrar";
++  const instalado = m.kind === "instalado";
++  const retira = instalado ? "" : rowMovimientoRetira(m.row);
++  const usuario = instalado ? "" : rowMovimientoUsuario(m.row) || "sin registrar";
+   return (
+     <div style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0, 1fr) auto" : "108px minmax(0, 1fr) auto", gap: isMobile ? 8 : 12, alignItems: "start", padding: "10px 12px", border: `1px solid ${C.border}`, borderRadius: 10, background: C.panelSolid, opacity: m.anulado ? 0.55 : 1 }}>
+       <span style={{ width: "fit-content", fontSize: 9.5, fontWeight: 750, color: col, background: C.panel, border: `1px solid ${col}`, borderRadius: 999, padding: "3px 7px", textTransform: "uppercase", letterSpacing: 0.3, whiteSpace: "nowrap" }}>{m.anulado ? "Anulado" : meta.label}</span>
+@@ -575,7 +578,7 @@ function MovRow({ m, obraById, onDevolucion, isMobile = false }) {
+             <span>{movDetalleDestino(m.row, m.kind, obraById)}</span>
+             {variant && <span>Variante: {variant}</span>}
+             {retira && <span>Retira: {retira}</span>}
+-            <span>Usuario: {usuario}</span>
++            {usuario && <span>Usuario: {usuario}</span>}
+             {detalle && <span style={{ color: C.muted }}>{detalle}</span>}
+           </div>
+         </div>
+@@ -626,7 +629,7 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
+     })
+     // Cada asignación o liberación tiene dos filas contables y una sola acción.
+     .filter((m) => !rowIsMovimientoEspejo(m.row))
+-    .filter((m) => m.delta !== 0 || rowHasRecordedEgreso(m.row) || m.kind === "consumible" || MOV_INTERNAL.has(m.kind));
++    .filter((m) => m.delta !== 0 || rowHasRecordedEgreso(m.row) || m.kind === "instalado" || m.kind === "consumible" || MOV_INTERNAL.has(m.kind));
+     return ledger
+     .filter((m) => {
+       if (!incluirAnulados && m.anulado) return false;
+@@ -638,7 +641,8 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
+       if (q.trim()) {
+         const t = norm(q);
+         const destino = movDetalleDestino(m.row, m.kind, obraById);
+-        const hay = norm([m.row.descripcion, m.row.codigo, m.row.variante, destino, m.row.proveedor, m.row.origen, m.row.retirado_por, m.row.egreso_por_nombre, m.row.created_by_nombre, m.row.egreso_nota, m.row.stock_nota, m.row.notas].filter(Boolean).join(" "));
++        const personas = m.kind === "instalado" ? [] : [m.row.retirado_por, m.row.egreso_por_nombre, m.row.created_by_nombre];
++        const hay = norm([m.row.descripcion, m.row.codigo, m.row.variante, destino, m.row.proveedor, m.row.origen, MOV_KIND[m.kind]?.label, ...personas, m.row.egreso_nota, m.row.stock_nota, m.row.notas].filter(Boolean).join(" "));
+         if (!hay.includes(t)) return false;
+       }
+       return true;
+@@ -647,13 +651,14 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
+   }, [rows, q, tipo, sedeF, desde, hasta, incluirAnulados, obraById]);
+ 
+   const kpis = useMemo(() => {
+-    let ing = 0, egr = 0, tras = 0, uIn = 0, uOut = 0;
++    let ing = 0, egr = 0, instalados = 0, tras = 0, uIn = 0, uOut = 0;
+     for (const m of movimientos) {
+       if (m.kind === "egreso" || m.kind === "solicitud") { egr += 1; uOut += m.cant; }
+       else if (m.kind === "ingreso") { ing += 1; uIn += m.cant; }
++      else if (m.kind === "instalado") { instalados += 1; }
+       else { tras += 1; }
+     }
+-    return { ing, egr, tras, uIn, uOut };
++    return { ing, egr, instalados, tras, uIn, uOut };
+   }, [movimientos]);
+ 
+   const advancedFilterCount = [sedeF !== "todas", desde, hasta, incluirAnulados].filter(Boolean).length;
+@@ -724,6 +729,7 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
+           <option value="todos">Todos</option>
+           <option value="ingreso">Ingresos</option>
+           <option value="egreso">Egresos</option>
++          <option value="instalado">Instalados</option>
+           <option value="solicitud">Retiros por solicitud</option>
+           <option value="traspasos">Traspasos (todos)</option>
+           <option value="asignacion">Asignaciones</option>
+@@ -751,6 +757,7 @@ function MovimientosPanel({ rows = [], obras = [], isMobile = false, consumibles
+           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+             <MovKpi label="Ingresos" value={kpis.ing} detail={`${fmtQty(kpis.uIn)} u`} color={C.green} />
+             <MovKpi label="Egresos" value={kpis.egr} detail={`${fmtQty(kpis.uOut)} u`} color={C.red} />
++            <MovKpi label="Instalados" value={kpis.instalados} color={C.teal} />
+             <MovKpi label="Traspasos" value={kpis.tras} detail="internos" color={C.blue} />
+             <MovKpi label="Total" value={movimientos.length} detail="filtrados" color={C.violet} />
+           </div>
+diff --git a/src/features/panol/StockWmsPanel.jsx b/src/features/panol/StockWmsPanel.jsx
+index c73e870..8e8c41e 100644
+--- a/src/features/panol/StockWmsPanel.jsx
++++ b/src/features/panol/StockWmsPanel.jsx
+@@ -34,7 +34,7 @@ import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
+ import { materialBarcodeList, materialBarcodeText } from "@/features/materiales/materialBarcodes";
+ import { materialMatchIsStrong, materialMatchScore, topMaterialMatches } from "@/features/panol/materialMatch";
+ import { buscarEmpleadoPorNfc, evaluarRetiro, normalizeNfcUid } from "@/features/rrhh/api";
+-import { fmtDate, rowCountsAsStock, rowDelta, rowHasRecordedEgreso, rowIsAnulado, rowIsLocationChange, rowIsTransit, rowMovementAt } from "@/features/panol/panolMovimientos";
++import { fmtDate, rowCountsAsStock, rowDelta, rowHasRecordedEgreso, rowIsAnulado, rowIsInstalled, rowIsLocationChange, rowIsTransit, rowMovementAt } from "@/features/panol/panolMovimientos";
+ import { openEgresoDisplayWindow, publishEgresoDisplay, resetEgresoDisplay } from "@/features/panol/egresoDisplay";
+ import {
+   crearEnvio,
+@@ -361,6 +361,7 @@ function rowMatchesObraFilter(row, filterValue) {
+ 
+ function rowEgresoMeta(row) {
+   const kind = rowEgresoKind(row);
++  if (kind === "instalado") return { label: "Instalado", color: C.teal };
+   if (kind === "asignacion") return { label: "Asignación", color: C.blue };
+   if (kind === "reasignacion") return { label: "Reasignación", color: C.violet };
+   if (kind === "liberacion") return { label: "A stock", color: C.violet };
+@@ -406,14 +407,16 @@ function cleanHumanField(value) {
+ }
+ 
+ function rowMovimientoRetira(row) {
+-  return cleanHumanField(row.retirado_por || "");
++  return rowIsInstalled(row) ? "" : cleanHumanField(row.retirado_por || "");
+ }
+ 
+ function rowMovimientoUsuario(row) {
+-  return cleanHumanField(row.egreso_por_nombre || row.egreso_actor?.username || row.created_by_nombre || row.created_by_actor?.username || row.egreso_por || row.created_by || "");
++  if (rowIsInstalled(row)) return "";
++  return cleanHumanField(row.egreso_por_nombre || row.egreso_actor?.username || row.created_by_nombre || row.created_by_actor?.username || row.egreso_por || row.created_by || "") || "sin registrar";
+ }
+ 
+ function rowSearchText(row) {
++  const instalado = rowIsInstalled(row);
+   return norm([
+     row.descripcion,
+     row.requisito_descripcion,
+@@ -427,10 +430,8 @@ function rowSearchText(row) {
+     row.categoria_nombre,
+     rowObraLabel(row),
+     rowSede(row),
+-    row.estado,
+-    row.retirado_por,
+-    row.egreso_por_nombre,
+-    row.created_by_nombre,
++    instalado ? "instalado" : row.estado,
++    ...(instalado ? [] : [row.retirado_por, row.egreso_por_nombre, row.created_by_nombre]),
+     row.egreso_nota,
+     row.stock_nota,
+     row.sector_destino,
+@@ -1397,19 +1398,20 @@ function LocationButton({ location, active, onClick, cierre }) {
+ function KardexRow({ row, onRevert, busy, obraById, onDevolucion }) {
+   const delta = rowDelta(row);
+   const isLocation = rowIsLocationChange(row);
+-  const isOut = row.estado === "egresado";
++  const instalado = rowIsInstalled(row);
++  const isOut = row.estado === "egresado" && !instalado;
+   const isAssignment = rowIsAsignacionStock(row);
+   const isLiberacion = rowEgresoKind(row) === "liberacion";
+   const isTransit = rowIsTransit(row);
+   const egresoMeta = rowEgresoMeta(row);
+   const displayedDelta = isOut && rowHasRecordedEgreso(row) ? -rowEgresoQuantity(row) : delta;
+-  const label = isLocation ? "Ubicación" : isAssignment ? egresoMeta.label : isTransit ? "Tránsito" : isOut ? egresoMeta.label : row.estado === "problema" ? "Problema" : "Ingreso";
+-  const labelColor = isLocation ? C.blue : isAssignment ? egresoMeta.color : isTransit ? C.violet : isOut ? egresoMeta.color : C.green;
++  const label = isLocation ? "Ubicación" : isAssignment || instalado || isOut ? egresoMeta.label : isTransit ? "Tránsito" : row.estado === "problema" ? "Problema" : "Ingreso";
++  const labelColor = isLocation ? C.blue : isAssignment || instalado || isOut ? egresoMeta.color : isTransit ? C.violet : C.green;
+   const { nombre: descripcion, historico: descripcionHistorica } = nombreDeMovimiento(row);
+   const variante = String(row.variante || "").trim();
+   const ruta = (isOut || isAssignment) ? rowMovimientoRuta(row, obraById) : `${rowObraLabel(row)} · ${rowSede(row) || "Sin sede"}`;
+   const retira = rowMovimientoRetira(row);
+-  const usuario = rowMovimientoUsuario(row) || "sin registrar";
++  const usuario = rowMovimientoUsuario(row);
+   const nota = String(row.egreso_nota || row.notas || "").replace(/\[anulado\]/gi, "").trim();
+   // Guard B: deshabilitar Revertir si ya contiene "[anulado]" en notas
+   const yaAnulado = rowIsAnulado(row);
+@@ -1426,8 +1428,8 @@ function KardexRow({ row, onRevert, busy, obraById, onDevolucion }) {
+           </span>
+           {row.codigo && <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 10 }}>{row.codigo}</span>}
+         </div>
+-        <span style={{ flexShrink: 0, color: isLiberacion ? C.violet : displayedDelta < 0 ? C.red : displayedDelta > 0 ? C.green : C.dim, fontFamily: C.mono, fontSize: 14, fontWeight: 750 }}>
+-          {isLiberacion ? `←${fmtQty(rowEgresoQuantity(row))}` : `${displayedDelta > 0 ? "+" : ""}${fmtQty(displayedDelta)}`} {row.unidad || ""}
++        <span style={{ flexShrink: 0, color: instalado ? C.teal : isLiberacion ? C.violet : displayedDelta < 0 ? C.red : displayedDelta > 0 ? C.green : C.dim, fontFamily: C.mono, fontSize: 14, fontWeight: 750 }}>
++          {instalado ? fmtQty(rowEgresoQuantity(row)) : isLiberacion ? `←${fmtQty(rowEgresoQuantity(row))}` : `${displayedDelta > 0 ? "+" : ""}${fmtQty(displayedDelta)}`} {row.unidad || ""}
+         </span>
+       </div>
+       <div style={{ color: C.text, fontSize: 11, lineHeight: 1.4, overflowWrap: "anywhere" }}>{ruta}</div>
+@@ -1435,7 +1437,7 @@ function KardexRow({ row, onRevert, busy, obraById, onDevolucion }) {
+         <span>{fmtDate(rowMovementAt(row))}</span>
+         {variante && <span>Variante: {variante}</span>}
+         {retira && <span>Retira: {retira}</span>}
+-        <span>Usuario: {usuario}</span>
++        {usuario && <span>Usuario: {usuario}</span>}
+       </div>
+       {nota && <div style={{ color: C.muted, fontSize: 10.5, lineHeight: 1.4, paddingLeft: 8, borderLeft: `2px solid ${C.border2}` }}>{nota}</div>}
+       {/* Revertir y devolver son cosas distintas y conviven:
+@@ -1473,13 +1475,14 @@ function KardexRow({ row, onRevert, busy, obraById, onDevolucion }) {
+ function EgresosHistoryView({ rows, loading, obras, isMobile, onOpenProduct }) {
+   const obraById = useMemo(() => new Map((obras || []).map((obra) => [obra.id, obra])), [obras]);
+   const totals = useMemo(() => {
+-    const unidades = rows.reduce((sum, row) => sum + rowEgresoQuantity(row), 0);
++    const unidades = rows.reduce((sum, row) => sum + (rowIsInstalled(row) ? 0 : rowEgresoQuantity(row)), 0);
+     const hoy = rows.filter((row) => isToday(rowMovementAt(row))).length;
+     const materiales = new Set(rows.map((row) => row.material_id || norm([row.codigo, row.descripcion].filter(Boolean).join(" ")) || row.id));
+     return { unidades, hoy, materiales: materiales.size };
+   }, [rows]);
+ 
+   function destinoLabel(row) {
++    if (rowIsInstalled(row)) return rowObraLabel(row);
+     const destinoObra = rowDestinoMovimientoLabel(row, obraById);
+     if (destinoObra) return destinoObra;
+     if (row.sector_destino) return row.sector_destino;
+@@ -1488,10 +1491,11 @@ function EgresosHistoryView({ rows, loading, obras, isMobile, onOpenProduct }) {
+ 
+   function detalleLabel(row) {
+     const variante = String(row.variante || "").trim();
++    const usuario = rowMovimientoUsuario(row);
+     return [
+       variante ? `Variante: ${variante}` : "",
+       rowMovimientoRetira(row) ? `Retira: ${rowMovimientoRetira(row)}` : "",
+-      `Usuario: ${rowMovimientoUsuario(row) || "sin registrar"}`,
++      usuario ? `Usuario: ${usuario}` : "",
+       row.egreso_nota || row.notas || "",
+     ]
+       .filter(Boolean)
+@@ -1503,7 +1507,7 @@ function EgresosHistoryView({ rows, loading, obras, isMobile, onOpenProduct }) {
+       <div style={{ padding: "13px 14px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+         <div>
+           <div style={{ color: C.text, fontSize: 15, fontWeight: 750 }}>Historial de movimientos</div>
+-          <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Egresos, asignaciones y reasignaciones ya registradas.</div>
++          <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Egresos, asignaciones, reasignaciones e instalaciones.</div>
+         </div>
+         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+           <span style={{ border: `1px solid ${C.border}`, background: C.bg, color: C.text, borderRadius: 999, padding: "6px 9px", fontSize: 11, fontWeight: 700 }}>{rows.length} movimientos</span>
+@@ -1521,7 +1525,7 @@ function EgresosHistoryView({ rows, loading, obras, isMobile, onOpenProduct }) {
+           const qtyOut = rowEgresoQuantity(row);
+           const tipoMeta = rowEgresoMeta(row);
+           const isAssignment = rowIsAsignacionStock(row);
+-          const qtyPrefix = rowEgresoKind(row) === "liberacion" ? "←" : isAssignment ? "→" : "-";
++          const qtyPrefix = rowIsInstalled(row) ? "" : rowEgresoKind(row) === "liberacion" ? "←" : isAssignment ? "→" : "−";
+           return (
+             <div
+               key={row.id}
+diff --git a/src/features/panol/mostrador/UltimosPanol.jsx b/src/features/panol/mostrador/UltimosPanol.jsx
+index 0e9cda0..c0ad151 100644
+--- a/src/features/panol/mostrador/UltimosPanol.jsx
++++ b/src/features/panol/mostrador/UltimosPanol.jsx
+@@ -1,6 +1,6 @@
+ import { useMemo } from "react";
+ import { Link } from "react-router-dom";
+-import { ArrowUpFromLine, RotateCcw, Warehouse } from "lucide-react";
++import { ArrowUpFromLine, Check, RotateCcw, Warehouse } from "lucide-react";
+ import { fmtNum } from "@/features/consumibles/mostrador/mostradorLogica";
+ import { ultimosMovimientos } from "./mostradorPanolLogica";
+ 
+@@ -34,21 +34,22 @@ export default function UltimosPanol({ rows = [], obras = [], sede, onActualizar
+         ) : null}
+       </div>
+ 
+-      {!grupos.length ? <div className="mst-vacio">Todavía no hay egresos en esta sede.</div> : null}
++      {!grupos.length ? <div className="mst-vacio">Todavía no hay movimientos en esta sede.</div> : null}
+ 
+       {grupos.map((g) => {
+         const asignacion = g.tipo === "asignacion";
+         const liberacion = g.tipo === "liberacion";
++        const instalado = g.tipo === "instalado";
+         const interno = asignacion || liberacion;
+-        const etiqueta = liberacion ? "A stock" : asignacion ? "Asignación" : "Retiro";
++        const etiqueta = instalado ? "Instalado" : liberacion ? "A stock" : asignacion ? "Asignación" : "Retiro";
+         return (
+           <div key={g.clave} className={`mst-mov${g.anulado ? " is-anulado" : ""}`}>
+             <div className="mst-mov-fila">
+-              <span className="mst-tipo is-retiro" style={interno ? { color: "var(--teal)", background: "var(--teal-soft)" } : undefined} aria-label={etiqueta}>
+-                {interno ? <Warehouse size={13} /> : <ArrowUpFromLine size={13} />}
++              <span className="mst-tipo is-retiro" style={interno || instalado ? { color: "var(--teal)", background: "var(--teal-soft)" } : undefined} aria-label={etiqueta}>
++                {instalado ? <Check size={13} /> : interno ? <Warehouse size={13} /> : <ArrowUpFromLine size={13} />}
+               </span>
+               <span className="mst-mov-hora">{hora(g.at)}</span>
+-              <span className="mst-mov-quien">{g.quien || (interno ? etiqueta : "Sin nombre")}</span>
++              <span className="mst-mov-quien">{g.quien || (interno || instalado ? etiqueta : "Sin nombre")}</span>
+             </div>
+             <div className="mst-mov-items">
+               {g.items.slice(0, 3).map((it, i) => (
+@@ -57,7 +58,7 @@ export default function UltimosPanol({ rows = [], obras = [], sede, onActualizar
+               {g.items.length > 3 ? <span> y {g.items.length - 3} más</span> : null}
+             </div>
+             <div className="mst-mov-sub">
+-              {liberacion ? "" : "→ "}{g.destino}
++              {liberacion || instalado ? "" : "→ "}{g.destino}
+               {g.anulado ? <span style={{ color: "var(--red)" }}> · anulado</span> : null}
+             </div>
+           </div>
+diff --git a/src/features/panol/mostrador/mostradorPanolLogica.js b/src/features/panol/mostrador/mostradorPanolLogica.js
+index 6ee8346..d98c18a 100644
+--- a/src/features/panol/mostrador/mostradorPanolLogica.js
++++ b/src/features/panol/mostrador/mostradorPanolLogica.js
+@@ -525,15 +525,16 @@ export function ultimosMovimientos(rows = [], { obras = [], sede = "todas", limi
+     const kind = rowEgresoKind(row);
+     const asignacion = kind === "asignacion" || kind === "reasignacion";
+     const liberacion = kind === "liberacion";
+-    const tipo = liberacion ? "liberacion" : asignacion ? "asignacion" : "retiro";
++    const instalado = kind === "instalado";
++    const tipo = instalado ? "instalado" : liberacion ? "liberacion" : asignacion ? "asignacion" : "retiro";
+     const destino = liberacion
+       ? `${codigo(rowObraId(row)) || rowObraLabel(row)} → Stock general ${rowSede(row)}`.trim()
+-      : asignacion
++      : asignacion || instalado
+       ? codigo(rowObraId(row)) || rowObraLabel(row)
+       : row.egreso_destino_obra_id
+         ? codigo(row.egreso_destino_obra_id) || row.egreso_destino_obra?.codigo || "obra"
+         : rowObraId(row) ? rowObraLabel(row) : limpio(row.sector_destino) || "sin obra";
+-    const quien = limpio(row.retirado_por);
++    const quien = instalado ? "" : limpio(row.retirado_por);
+     const clave = [minuto(at), tipo, quien, destino].join("|");
+     if (!grupos.has(clave)) grupos.set(clave, { clave, at, tipo, quien, destino, items: new Map(), filas: 0, anuladas: 0 });
+     const g = grupos.get(clave);
+diff --git a/src/features/panol/mostrador/mostradorPanolLogica.test.mjs b/src/features/panol/mostrador/mostradorPanolLogica.test.mjs
+index 752853e..b4a55c9 100644
+--- a/src/features/panol/mostrador/mostradorPanolLogica.test.mjs
++++ b/src/features/panol/mostrador/mostradorPanolLogica.test.mjs
+@@ -216,6 +216,22 @@ test("los últimos movimientos juntan un mismo carrito", () => {
+   assert.equal(ultimosMovimientos(ledger(), { obras: OBRAS, sede: "Chubut" }).length, 0);
+ });
+ 
++test("los instalados ya guardados aparecen por obra y sin persona de retiro", () => {
++  const instalado = fila({
++    id: "instalado", material_id: "m2", descripcion: "Bomba de prueba", obra_id: "o1",
++    obra: OBRAS.find((obra) => obra.id === "o1"),
++    source: "transferencia_ingreso", estado: "egresado", cantidad: 3, cantidad_egresada: 0,
++    retirado_por: " instalado en el barco ", egreso_por_nombre: "gaston.tec",
++    egreso_at: "2026-11-14T13:50:00Z",
++  });
++  const retiro = { ...instalado, id: "retiro", cantidad: 1, cantidad_egresada: 1, retirado_por: "Operario" };
++  const grupos = ultimosMovimientos([instalado, retiro], { obras: OBRAS, sede: "Pampa" });
++  assert.deepEqual(grupos.map(({ tipo, quien, destino, items }) => [tipo, quien, destino, items[0].cantidad]), [
++    ["instalado", "", "52-27", 3],
++    ["retiro", "Operario", "52-27", 1],
++  ]);
++});
++
+ test("la pantalla del operario dice si es retiro o asignación", () => {
+   const bomba = grupo(gruposEgresables(ledger()), "m2");
+   const cart = sumarAlCarrito([], bomba, bomba.conSaldo[0]).cart;
+diff --git a/src/features/panol/panolMovimientos.js b/src/features/panol/panolMovimientos.js
+index af3f82b..a1413d1 100644
+--- a/src/features/panol/panolMovimientos.js
++++ b/src/features/panol/panolMovimientos.js
+@@ -1,3 +1,5 @@
++import { esInstalado } from "../materiales/obra/cambioEstadoLote.js";
++
+ export function fmtDate(ts) {
+   if (!ts) return "-";
+   return new Date(ts).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+@@ -53,7 +55,12 @@ export function rowIsEgreso(row = {}) {
+  */
+ export function rowHasRecordedEgreso(row = {}) {
+   if (rowIsEgreso(row)) return true;
+-  return String(row.estado || "").trim().toLowerCase() === "egresado";
++  return !rowIsInstalled(row) && String(row.estado || "").trim().toLowerCase() === "egresado";
++}
++
++export function rowIsInstalled(row = {}) {
++  return String(row.estado || "").trim().toLowerCase() === "egresado"
++    && esInstalado(row) && !rowIsEgreso(row);
+ }
+ 
+ export function rowIsLocationChange(row = {}) {
+diff --git a/src/features/panol/panolMovimientos.test.mjs b/src/features/panol/panolMovimientos.test.mjs
+index 7e4f419..22d385f 100644
+--- a/src/features/panol/panolMovimientos.test.mjs
++++ b/src/features/panol/panolMovimientos.test.mjs
+@@ -1,6 +1,6 @@
+ import test from "node:test";
+ import assert from "node:assert/strict";
+-import { rowDelta, rowHasRecordedEgreso, rowIsEgreso } from "./panolMovimientos.js";
++import { rowDelta, rowHasRecordedEgreso, rowIsEgreso, rowIsInstalled } from "./panolMovimientos.js";
+ 
+ test("un retiro total conserva el origen sin duplicar el descuento de stock", () => {
+   const row = {
+@@ -67,6 +67,21 @@ test("los movimientos de egreso explícitos conservan su delta negativo", () =>
+   assert.equal(rowDelta(row), -1);
+ });
+ 
++test("la marca de instalación distingue los registros de obra de los egresos físicos", () => {
++  const instalado = {
++    source: "matriz", estado: "egresado", cantidad: 3, cantidad_egresada: 0,
++    retirado_por: "Instalado en el barco", egreso_por: "operator-id",
++  };
++  const egreso = { ...instalado, source: "egreso_solicitud", cantidad_egresada: 1 };
++  assert.equal(rowIsInstalled(instalado), true);
++  assert.equal(rowHasRecordedEgreso(instalado), false);
++  assert.equal(rowDelta(instalado), 0);
++  assert.equal(rowIsInstalled({ ...instalado, estado: "pendiente" }), false);
++  assert.equal(rowIsInstalled(egreso), false);
++  assert.equal(rowHasRecordedEgreso(egreso), true);
++  assert.equal(rowDelta(egreso), -1);
++});
++
+ test("un traslado entre sedes conserva el total y no suma destino hasta confirmar llegada", () => {
+   const recibidoChubut = { source: "remito", estado: "en_panol", recepcion_estado: "recibido", stock_sede: "Chubut", cantidad: 4 };
+   const despacho = { source: "transferencia_egreso_sede", estado: "egresado", recepcion_estado: "egresado", stock_sede: "Chubut", cantidad: 2, cantidad_egresada: 2 };
+diff --git a/src/features/panol/stockGrupos.js b/src/features/panol/stockGrupos.js
+index dfb15af..888c191 100644
+--- a/src/features/panol/stockGrupos.js
++++ b/src/features/panol/stockGrupos.js
+@@ -1,5 +1,5 @@
+ import { materialBarcodeList } from "../materiales/materialBarcodes.js";
+-import { rowCountsAsStock, rowDelta, rowHasRecordedEgreso, rowIsTransit, rowSource } from "./panolMovimientos.js";
++import { rowCountsAsStock, rowDelta, rowHasRecordedEgreso, rowIsInstalled, rowIsTransit, rowSource } from "./panolMovimientos.js";
+ 
+ /*
+  * Agrupación del ledger de pañol en productos y ubicaciones, y el renglón del
+@@ -609,7 +609,8 @@ export function egresoDisplayItems(cart = [], obras = [], destinoObraId = "") {
+ }
+ 
+ export function rowIsAsignacionStock(row) {
+-  return rowSource(row) === "transferencia_ingreso" && !!rowObraId(row) && !rowHasRecordedEgreso(row);
++  return rowSource(row) === "transferencia_ingreso" && !!rowObraId(row)
++    && !rowIsInstalled(row) && !rowHasRecordedEgreso(row);
+ }
+ 
+ export function rowIsLiberacionStock(row) {
+@@ -638,7 +639,7 @@ export function rowIsMovimientoEspejo(row) {
+   // Si después se retira ese ingreso, su salida física sí debe verse.
+   return rowIsAsignacionMirrorOut(row)
+     || (rowSource(row) === "transferencia_ingreso" && !rowObraId(row)
+-      && !!row.obra_origen_id && !rowHasRecordedEgreso(row));
++      && !!row.obra_origen_id && !rowIsInstalled(row) && !rowHasRecordedEgreso(row));
+ }
+ 
+ // Material de una obra que salió hacia un destino que no es una obra cargada
+@@ -653,10 +654,11 @@ export function rowIsReasignacionSinObra(row) {
+ }
+ 
+ export function rowInHistory(row) {
+-  return !rowIsMovimientoEspejo(row) && (rowIsAsignacionStock(row) || rowHasRecordedEgreso(row));
++  return !rowIsMovimientoEspejo(row) && (rowIsInstalled(row) || rowIsAsignacionStock(row) || rowHasRecordedEgreso(row));
+ }
+ 
+ export function rowEgresoKind(row) {
++  if (rowIsInstalled(row)) return "instalado";
+   const source = rowSource(row);
+   if (rowIsLiberacionStock(row)) return "liberacion";
+   if (rowIsAsignacionStock(row)) {
+@@ -670,5 +672,6 @@ export function rowEgresoKind(row) {
+ }
+ 
+ export function rowEgresoQuantity(row) {
++  if (rowIsInstalled(row)) return Math.abs(qty(row.cantidad, 1));
+   return Math.abs(rowDelta(row)) || Math.abs(qty(row.cantidad_egresada, qty(row.cantidad, 1)));
+ }

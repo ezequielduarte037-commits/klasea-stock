@@ -1,0 +1,93 @@
+diff --git a/src/features/consumibles/api.js b/src/features/consumibles/api.js
+index 5c9fac50..21c3833d 100644
+--- a/src/features/consumibles/api.js
++++ b/src/features/consumibles/api.js
+@@ -145,7 +145,7 @@ async function traerTodo(armarConsulta) {
+  *
+  * `sede` define el campo `stock` de cada ítem; `stockPorSede` trae las dos.
+  */
+-export async function fetchCatalogo({ sede = null, incluirInactivos = false } = {}) {
++export async function fetchCatalogo({ sede = null, incluirInactivos = false, incluirStock = true } = {}) {
+   const materiales = () => {
+     let q = supabase
+       .from("panol_materiales")
+@@ -163,7 +163,7 @@ export async function fetchCatalogo({ sede = null, incluirInactivos = false } =
+     traerTodo(materiales),
+     traerTodo(() => supabase.from("panol_categorias").select("id,nombre,parent_id").order("id")),
+     traerTodo(() => supabase.from("consumibles_config").select("*").order("material_id")),
+-    traerTodo(() => supabase.from("consumibles_stock").select("*").order("material_id").order("sede")),
++    incluirStock ? traerTodo(() => supabase.from("consumibles_stock").select("*").order("material_id").order("sede")) : [],
+   ]);
+ 
+   const ids = mats.map((m) => m.id);
+diff --git a/src/features/consumibles/ingresos/IngresosTab.jsx b/src/features/consumibles/ingresos/IngresosTab.jsx
+index 433d340a..13f0255d 100644
+--- a/src/features/consumibles/ingresos/IngresosTab.jsx
++++ b/src/features/consumibles/ingresos/IngresosTab.jsx
+@@ -81,6 +81,7 @@ function Ingresos({ sede }) {
+ 
+   const [catalogo, setCatalogo] = useState(null);
+   const [historial, setHistorial] = useState(null);
++  const [errorHistorial, setErrorHistorial] = useState("");
+   const [errorCarga, setErrorCarga] = useState("");
+   const [borrador, setBorrador] = useState(() => leerBorrador(sede));
+   const [busqueda, setBusqueda] = useState("");
+@@ -93,18 +94,28 @@ function Ingresos({ sede }) {
+   const pedidoPedido = params.get("pedido");
+ 
+   const cargarHistorial = useCallback(async () => {
+-    const filas = await fetchMovimientos({
++    setErrorHistorial("");
++    try {
++    const filas = await conPlazoLectura(fetchMovimientos({
+       sede,
+       tipos: ["ingreso"],
+       desde: new Date(Date.now() - 120 * DIA_MS).toISOString(),
+       incluirAnulados: true,
+       limite: 3000,
+-    });
++    }), 25000);
+     setHistorial(filas);
++    return filas;
++    } catch (err) {
++      setErrorHistorial(err.message || String(err));
++      throw err;
++    }
+   }, [sede]);
+ 
+   const cargar = useCallback(async () => {
+-    const [cat] = await conPlazoLectura(Promise.all([fetchCatalogo({ sede }), cargarHistorial()]));
++    setErrorCarga("");
++    // El historial y los pedidos no bloquean la búsqueda ni el borrador.
++    cargarHistorial().catch(() => {});
++    const cat = await conPlazoLectura(fetchCatalogo({ sede, incluirStock: false }), 25000);
+     setCatalogo(cat);
+     // Sin pedidos se carga el remito a mano como siempre: si esta lectura falla no frena el ingreso.
+     fetchPedidos(sede)
+@@ -267,10 +278,14 @@ function Ingresos({ sede }) {
+     enviandoRef.current = true;
+     setGuardando(true);
+     try {
+-    if (repetido && !borrador.envio) {
++    // Si el historial todavía no llegó, verificar duplicados antes de escribir.
++    const repetidoAlConfirmar = !borrador.envio && (historial == null || errorHistorial)
++      ? remitoRepetido(agruparIngresos(await cargarHistorial()), borrador.remito)
++      : repetido;
++    if (repetidoAlConfirmar && !borrador.envio) {
+       const ok = await confirmar({
+         title: "Ese remito ya se cargó",
+-        message: `El remito ${repetido.remito} se cargó el ${fechaHora(repetido.fecha)}. Si lo cargás de nuevo, el stock entra dos veces.`,
++        message: `El remito ${repetidoAlConfirmar.remito} se cargó el ${fechaHora(repetidoAlConfirmar.fecha)}. Si lo cargás de nuevo, el stock entra dos veces.`,
+         confirmLabel: "Cargarlo igual",
+         tone: "danger",
+       });
+@@ -518,7 +533,8 @@ function Ingresos({ sede }) {
+               <RefreshCw size={16} />
+             </button>
+           </header>
+-          {historial == null ? (
++          {errorHistorial && <p className="ing-alerta" role="alert">No se pudieron actualizar los ingresos anteriores. {errorHistorial} Tocá Actualizar para reintentar.</p>}
++          {historial == null && errorHistorial ? null : historial == null ? (
+             <Cargando compacto />
+           ) : grupos.length === 0 ? (
+             <p className="ing-dim">Todavía no se cargó ningún ingreso en {sede}.</p>

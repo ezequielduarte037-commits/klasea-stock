@@ -1,0 +1,105 @@
+// Borradores / ingresos pendientes a Pañol (persistidos en localStorage).
+// Permite pausar un ingreso a medio cargar y retomarlo después.
+const PENDIENTES_KEY = "panol-ingresos-pendientes";
+const PAPELERA_KEY = "panol-ingresos-papelera";
+const MAX_PENDIENTES = 20;
+const MAX_PAPELERA = 10;
+// Una papelera que no se vacía sola deja de ser una papelera: a la semana lo
+// borrado ya no se recupera, sólo estorba arriba de la pantalla.
+const DIAS_PAPELERA = 7;
+
+function leerLista(key) {
+  try {
+    const raw = JSON.parse(localStorage.getItem(key) || "[]");
+    return Array.isArray(raw) ? raw : [];
+  } catch {
+    return [];
+  }
+}
+
+function escribirLista(key, list) {
+  try {
+    localStorage.setItem(key, JSON.stringify(list));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Un borrador sin items ni observaciones no tiene nada que retomar: era el
+// "Malacate . 0 items" que quedaba colgado arriba de la pantalla por haber
+// tipeado una referencia y salir. Se limpian al leer, no solo al escribir,
+// porque los que ya quedaron guardados nadie los va a sacar a mano.
+function tieneAlgo(d) {
+  return !!(
+    String(d?.observaciones || "").trim()
+    || (Array.isArray(d?.items) && d.items.some((it) => String(it?.descripcion || it?.codigo || it?.cantidad || "").trim()))
+  );
+}
+
+export function leerIngresosPendientes() {
+  const list = leerLista(PENDIENTES_KEY);
+  const utiles = list.filter(tieneAlgo);
+  if (utiles.length !== list.length) escribirLista(PENDIENTES_KEY, utiles);
+  return utiles;
+}
+
+// Borrar un borrador NO lo destruye: pasa a la papelera. Un click de más en la X
+// no puede costar un ingreso entero cargado a mano.
+export function borrarIngresoPendiente(id) {
+  const list = leerIngresosPendientes();
+  const victima = list.find((d) => d.id === id);
+  escribirLista(PENDIENTES_KEY, list.filter((d) => d.id !== id));
+  if (!victima) return;
+  const papelera = leerPapeleraIngresos().filter((d) => d.id !== id);
+  escribirLista(PAPELERA_KEY, [{ ...victima, deletedAt: new Date().toISOString() }, ...papelera].slice(0, MAX_PAPELERA));
+}
+
+// El borrador que YA se convirtió en un aviso real no va a la papelera: no hay
+// trabajo que recuperar, y si alguien lo recupera lo vuelve a enviar duplicado.
+// Antes se usaba borrarIngresoPendiente acá y la papelera terminaba llena de
+// avisos ya cargados, que es justo lo que no hay que ofrecer restaurar.
+export function olvidarIngresoPendiente(id) {
+  const list = leerIngresosPendientes();
+  escribirLista(PENDIENTES_KEY, list.filter((d) => d.id !== id));
+}
+
+export function leerPapeleraIngresos() {
+  const list = leerLista(PAPELERA_KEY);
+  const limite = Date.now() - DIAS_PAPELERA * 24 * 60 * 60 * 1000;
+  const vigentes = list.filter((d) => {
+    const t = Date.parse(d.deletedAt || "");
+    // Sin fecha no se puede saber la edad: se conserva, el tope igual lo acota.
+    return Number.isNaN(t) || t >= limite;
+  });
+  if (vigentes.length !== list.length) escribirLista(PAPELERA_KEY, vigentes);
+  return vigentes;
+}
+
+// Devuelve el borrador a la lista activa. Retorna el borrador restaurado o null.
+export function restaurarIngresoPendiente(id) {
+  const papelera = leerPapeleraIngresos();
+  const entry = papelera.find((d) => d.id === id);
+  if (!entry) return null;
+  escribirLista(PAPELERA_KEY, papelera.filter((d) => d.id !== id));
+  const list = leerIngresosPendientes().filter((d) => d.id !== id);
+  const { deletedAt, ...restaurado } = entry;
+  void deletedAt;
+  escribirLista(PENDIENTES_KEY, [restaurado, ...list].slice(0, MAX_PENDIENTES));
+  return restaurado;
+}
+
+export function vaciarPapeleraIngresos() {
+  escribirLista(PAPELERA_KEY, []);
+}
+
+// Guarda (o actualiza, si se pasa id) un borrador. Devuelve el id usado.
+export function guardarIngresoPendiente(draft, id = null) {
+  const list = leerIngresosPendientes().filter((d) => d.id !== id);
+  const entry = {
+    id: id || (globalThis.crypto?.randomUUID?.() || `d${Date.now()}`),
+    savedAt: new Date().toISOString(),
+    ...draft,
+  };
+  return escribirLista(PENDIENTES_KEY, [entry, ...list].slice(0, MAX_PENDIENTES)) ? entry.id : null;
+}

@@ -1,0 +1,274 @@
+[
+  {
+    "table": "panol_materiales",
+    "id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "alias": "AISLANTE COMPOSITE CHICA 122x61x3 | AISLANTE COMPOSITE CHICA 122x61x3 PLACA ANTI-RUIDO | Antirruido metalizado sala maquinas"
+    }
+  },
+  {
+    "table": "panol_obra_materiales_snapshot",
+    "id": "0d1b22c6-8b03-4b98-9a4c-eadd6565942b",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_obra_materiales_snapshot",
+    "id": "10a5746f-2a0a-49cf-88bb-4a13e56e02ed",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_obra_materiales_snapshot",
+    "id": "1ae14049-86da-4997-ab63-9c08a8addcb5",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_obra_materiales_snapshot",
+    "id": "1d6e8b9e-3539-4420-92a0-85986a4d24a1",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_obra_materiales_snapshot",
+    "id": "26183f9e-2554-42a4-8efa-d27962f6b302",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_obra_materiales_snapshot",
+    "id": "4b168ee1-4eb7-4012-a9c6-9263c633f564",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_obra_materiales_snapshot",
+    "id": "595a1edf-5a02-4589-94dc-cda16708abd9",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_obra_materiales_snapshot",
+    "id": "6c567c82-026d-45c6-88c6-85e9c6f6652b",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_obra_materiales_snapshot",
+    "id": "704f86ac-67e6-4e6f-b041-642154d79a94",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_obra_materiales_snapshot",
+    "id": "8312954d-c586-4064-94c2-f5e32badb5c8",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_obra_materiales_snapshot",
+    "id": "9a9d026c-42fa-4330-94d9-fb0e984dfede",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "cantidad": 54,
+      "unidad": "unidad",
+      "precio_unitario": 109806.729444,
+      "moneda": "ARS",
+      "notas": "Corrección solicitada por Ezequiel 03/11/2026: PLACAS ANTIRUIDO. Se normaliza el saldo físico a 54 placas según el envío recibido 6d0120fb-3842-452d-b430-3ac9ef6c613b del 29/10/2026. El renglón original de matriz indicaba 40 m2; el pedido original conserva esa cantidad y unidad."
+    }
+  },
+  {
+    "table": "panol_obra_materiales_snapshot",
+    "id": "9c18dbc6-968e-4005-b8aa-067466ce80c2",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_obra_materiales_snapshot",
+    "id": "b0d4cc09-e030-4edd-ad0c-30704a00527b",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_obra_materiales_snapshot",
+    "id": "b76f7bb1-3176-49b3-90f4-f55f05070fcf",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_obra_materiales_snapshot",
+    "id": "bdde15cd-5933-4d00-bcb5-f17acafd6e81",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_obra_materiales_snapshot",
+    "id": "cf4b88d5-c69c-4bee-8a3b-454c2762a317",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_obra_materiales_snapshot",
+    "id": "d74518f8-f49c-4c95-a3d2-e87249fe3b5a",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_obra_materiales_snapshot",
+    "id": "e205789d-8c7a-49db-8792-b769047df0b9",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_obra_materiales_snapshot",
+    "id": "e8b90f0c-0240-45bb-9ed0-cacb5ae7fa1d",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_obra_materiales_snapshot",
+    "id": "f785cddf-096b-4622-992b-279726d88f28",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_obra_materiales_snapshot",
+    "id": "f96fffc7-4a08-434d-8a91-2ee0d5f448ea",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_envio_items",
+    "id": "178f0c31-453c-4312-bacb-7c311b855010",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_envio_items",
+    "id": "4e114961-768d-49a7-82bf-feb4d77043d8",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_envio_items",
+    "id": "6d0120fb-3842-452d-b430-3ac9ef6c613b",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_envio_items",
+    "id": "951f1908-2749-46b8-9361-df2d9254a2ee",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_envio_items",
+    "id": "a3b312ae-d736-4e78-96d6-bd7a276d09a0",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_envio_items",
+    "id": "a4b409c3-6fa7-4d9c-a0e9-7ba46d39b576",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "panol_envio_items",
+    "id": "b1e1e172-fd11-492e-acda-42d1e05b1a10",
+    "patch": {
+      "descripcion": "PLACAS ANTIRUIDO",
+      "material_id": "985db2c6-6d36-472c-a504-63a10ac312a7",
+      "requisito_material_id": "985db2c6-6d36-472c-a504-63a10ac312a7"
+    }
+  },
+  {
+    "table": "purchase_request_items",
+    "id": "8e8fff92-d47e-47e3-8826-6d8422bdec5d",
+    "patch": {
+      "description": "PLACAS ANTIRUIDO"
+    }
+  }
+]

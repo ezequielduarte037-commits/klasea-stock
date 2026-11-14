@@ -1,0 +1,40 @@
+export const lines=[
+['C25309','Caja portabatería 120 A',1,35200,106,269],
+['R05788','Fijación plana de resorte hidráulico',3,4270,1380,null],
+['R05899','Fijación angular de resorte hidráulico',3,4510,1459,null],
+['L06004','Levantapiso redondo Five Oceans',3,9660,2448,46],
+['B21666','Bisagra inox 38 × 74 mm',2,8240,868,264],
+['T23001','Sapito pasacasco inox',2,2480,1993,207],
+['C89099','Rejilla Autoterm D60 obturable negra',3,22400,1182,66],
+['C89931','Adaptador Autoterm para rejilla D60',3,8540,1477,null],
+['A16073','Rejilla Dometic blanca obturable 4¾″',3,9550,1528,43],
+['B10155','Punto fijo inox 6 mm',1,3570,115,158],
+['A06499','Placa antirruido Composite 122 × 61 cm',27,121000,1665,186],
+['O02153','Omega inox 4 mm',4,784,2654,110],
+['G20052','Grillete inox largo 8 mm',1,3680,1669,237],
+['G20039','Grillete inox largo 6 mm',1,2320,2712,63],
+['E06714','Escalera telescópica inox de 3 escalones',1,180000,905,320],
+['B29029','Entrada de agua plástica',1,31000,845,0],
+['A16267','Ducto de aire Dometic 6″',25,6030,2562,329,'pie'],
+['A16149','Ducto de aire Dometic 4″',25,5490,1503,325,'pie'],
+['D01245','Defensa blanca 21 × 62 cm',6,47200,2731,254],
+['C57229','Cabo Dacron negro 8 mm',18,1230,2589,null,'metro'],
+['C05066','Cadena galvanizada calibrada 6 mm',50,5010,249,304,'metro'],
+['C57251','Cabo Dacron negro 14 mm',40,3970,null,384,'metro'],
+['C86512','Cabo retorcido blanco 12 mm',6,2030,2606,null,'metro'],
+['E09054','Eslabón de unión galvanizado 6 mm',1,1680,2557,null],
+['M09068','Maniobra con gaza y puño de mono',1,18300,604,null],
+['A95562','Ancla Delta galvanizada 16 kg',1,143000,1108,121],
+['C89412','Calefactor Autoterm Air 4D 12 V',1,1350000,2106,369],
+['P81364','Plafón tira LED Five Oceans con switch 300 lm',1,37800,1597,33],
+['P81435','Plafón Five Oceans blanco 5 LED IP67',2,37100,783,null],
+['T13176','Tapa de tanque de agua Attwood con venteo',1,92700,851,291],
+['C98074','Pulsador de cubierta Lofrans inox',1,134000,320,359],
+['C98075','Pulsador de cubierta Lofrans inox negro',1,134000,2701,359],
+['C98089','Corte térmico Lofrans 100 A',1,65000,2659,null],
+].map(([code,name,qty,gross,mi,si,unit='unidad'])=>({code,name,qty,gross,mi,si,unit}));
+export const excluded=['B19055','B19410','B19888','I23423'];
+export const factor=.9001/1.21;
+export const money=(n)=>Math.round((n+Number.EPSILON)*100)/100;
+if(process.argv[2]==='check')console.log(lines.length,lines.reduce((a,l)=>a+l.qty*l.gross,0),2110000+359000+373000+38600,lines.reduce((a,l)=>a+l.qty*l.gross,0)+2110000+359000+373000+38600);
+

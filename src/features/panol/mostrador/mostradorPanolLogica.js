@@ -525,15 +525,16 @@ export function ultimosMovimientos(rows = [], { obras = [], sede = "todas", limi
     const kind = rowEgresoKind(row);
     const asignacion = kind === "asignacion" || kind === "reasignacion";
     const liberacion = kind === "liberacion";
-    const tipo = liberacion ? "liberacion" : asignacion ? "asignacion" : "retiro";
+    const instalado = kind === "instalado";
+    const tipo = instalado ? "instalado" : liberacion ? "liberacion" : asignacion ? "asignacion" : "retiro";
     const destino = liberacion
       ? `${codigo(rowObraId(row)) || rowObraLabel(row)} → Stock general ${rowSede(row)}`.trim()
-      : asignacion
+      : asignacion || instalado
       ? codigo(rowObraId(row)) || rowObraLabel(row)
       : row.egreso_destino_obra_id
         ? codigo(row.egreso_destino_obra_id) || row.egreso_destino_obra?.codigo || "obra"
         : rowObraId(row) ? rowObraLabel(row) : limpio(row.sector_destino) || "sin obra";
-    const quien = limpio(row.retirado_por);
+    const quien = instalado ? "" : limpio(row.retirado_por);
     const clave = [minuto(at), tipo, quien, destino].join("|");
     if (!grupos.has(clave)) grupos.set(clave, { clave, at, tipo, quien, destino, items: new Map(), filas: 0, anuladas: 0 });
     const g = grupos.get(clave);

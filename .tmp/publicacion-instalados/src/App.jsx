@@ -1,0 +1,789 @@
+import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
+import { supabase } from "./supabaseClient";
+
+import { ToastProvider } from "@/components/ui/Toast";
+import AppVersionGuard from "@/components/AppVersionGuard";
+import PushNotificationsProvider from "@/components/PushNotificationsProvider";
+import { clearPushForLogout } from "@/lib/pushNotifications";
+import { removeLegacyWorkers } from "@/lib/webPushSupport";
+import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
+import ChangePasswordModal from "@/features/cuenta/ChangePasswordModal";
+import { C } from "@/theme";
+import { canonicalPanolSede } from "@/features/panol/panolApi";
+import {
+  arrancaEnModoColector,
+  esAndroidLegacyAngosto,
+  esDispositivoTactil,
+  esRutaDeColector,
+  marcarComoColector,
+  prefierePanelCompleto,
+  tieneMarcaDeColector,
+} from "@/lib/modoColector";
+import TourProvider from "@/features/ayuda/TourProvider";
+import AdminActivityTracker from "@/features/configuracion/AdminActivityTracker";
+import { endTrackedAdminSession } from "@/features/configuracion/adminActivityApi";
+import BuscadorDiferido from "@/features/search/BuscadorDiferido";
+import { useDiferido } from "@/hooks/useDiferido";
+import PresentationPrivacyShield from "@/components/PresentationPrivacyShield";
+// El colector de pañol trabaja en un navegador viejo y es una pantalla crítica:
+// estas rutas viajan en el bundle inicial para no depender de descargar un
+// chunk adicional justo después del login. El resto de la app sigue siendo lazy.
+import ScanEgresoScreen from "@/features/inventario/ScanEgresoScreen";
+import ScanPedidoScreen from "@/features/inventario/ScanPedidoScreen";
+import ScanPedidoRebollarScreen from "@/features/consumibles/pedidos/ScanPedidoRebollarScreen";
+import ColectorHomeScreen from "@/features/inventario/ColectorHomeScreen";
+// El login también va en el bundle inicial: es lo primero que abre el colector.
+import LoginScreen from "@/features/login/LoginScreen";
+import IntroMarca from "@/features/login/IntroMarca";
+import TelonSalida from "@/features/login/TelonSalida";
+import { leerMovimientoReducido } from "@/components/ui/useReducedMotion";
+import BrandLoader from "@/components/ui/BrandLoader";
+
+// Un deploy le cambia el hash a cada chunk. Una pestaña que quedó abierta desde
+// antes tiene el index viejo en memoria, pide un archivo que ya no existe, y el
+// import falla dejando la pantalla en negro —que es exactamente lo que pasó en
+// el deploy del 18/08—. Recargar una sola vez trae el index nuevo y se resuelve
+// solo, sin que nadie tenga que saber qué es un chunk.
+// El intento pertenece al build que está ejecutando esta pestaña. Nunca se
+// libera por cargar otro módulo: AppShell puede cargar bien mientras Home falla.
+const RECARGA_HECHA = `klasea.chunk-recargado:${import.meta.env.VITE_KLASEA_BUILD_ID || "local"}`;
+const PARAM_RECARGA = "_v";
+
+// reload() a secas puede volver a servir el index.html cacheado —el mismo que
+// acaba de pedir un chunk que ya no existe— y entonces falla igual. Con un
+// parametro nuevo el navegador esta obligado a ir a buscarlo. Pasó el 25/08:
+// la recarga automatica no alcanzo y la pantalla quedo negra igual.
+function recargarSalteandoCache() {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set(PARAM_RECARGA, String(Date.now()));
+    window.location.replace(url.toString());
+  } catch {
+    window.location.reload();
+  }
+}
+
+async function limpiarCachesAntiguas() {
+  try {
+    if ("serviceWorker" in navigator) {
+      await removeLegacyWorkers();
+    }
+    if ("caches" in window) {
+      const claves = await window.caches.keys();
+      await Promise.all(claves.map((clave) => window.caches.delete(clave)));
+    }
+  } catch {
+    // La recarga con URL nueva sigue siendo posible si Chrome no deja limpiar.
+  }
+}
+
+// El parametro cumplio su funcion al pedir el index; no tiene por que quedar
+// colgado en la barra ni en un link que alguien copie.
+function limpiarParametroDeRecarga() {
+  try {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has(PARAM_RECARGA)) return;
+    url.searchParams.delete(PARAM_RECARGA);
+    window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+  } catch { /* no pasa nada si no se puede */ }
+}
+
+// Cuando el import falla por segunda vez, el error sube y React desmonta todo:
+// pantalla negra, sin un solo cartel. Esto la reemplaza por algo que se entiende
+// y por un boton que arregla el caso real.
+class PantallaCaida extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { cayo: false, error: null };
+  }
+
+  // Además de un chunk viejo, cae acá cualquier error de una pantalla. En la PDA
+  // no hay consola para verlo, así que el detalle se muestra abajo del botón.
+  static getDerivedStateFromError(error) {
+    return { cayo: true, error };
+  }
+
+  componentDidCatch(error) {
+    console.error("[App] la pantalla no se pudo cargar:", error);
+  }
+
+  render() {
+    if (!this.state.cayo) return this.props.children;
+    // enContenido: adentro del contenedor general el cartel ocupa sólo el área
+    // de la pantalla y el menú sigue disponible para ir a otra.
+    // Los colores llevan respaldo por si lo que falló fue la hoja de estilos.
+    return (
+      <div style={{
+        position: this.props.enContenido ? "absolute" : "fixed", top: 0, right: 0, bottom: 0, left: 0,
+        display: "grid", placeItems: "center",
+        background: "var(--bg, #08090d)", color: "var(--text, #eef1f6)", fontFamily: "'Outfit', system-ui, sans-serif", padding: 24,
+      }}>
+        <div style={{ maxWidth: 420, textAlign: "center" }}>
+          <div style={{ fontSize: 19, fontWeight: 600, marginBottom: 10 }}>No se pudo cargar la pantalla</div>
+          <p style={{ margin: "0 0 20px", fontSize: 14, lineHeight: 1.55, color: "var(--muted, #c0c6d0)" }}>
+            Suele pasar cuando se publicó una versión nueva con la pestaña abierta.
+            Recargá y debería entrar bien.
+          </p>
+          <button
+            type="button"
+            onClick={async () => {
+              // La reparación manual conserva la marca para que, si vuelve a
+              // fallar un chunk, no entre otra vez en una recarga infinita.
+              try { sessionStorage.setItem(RECARGA_HECHA, "1"); } catch { /* modo privado */ }
+              await limpiarCachesAntiguas();
+              recargarSalteandoCache();
+            }}
+            style={{
+              border: "none", background: "var(--blue, #7eb3ff)", color: "var(--inverse-text, #08090d)", borderRadius: 11,
+              minHeight: 44, padding: "0 24px", fontSize: 14.5, fontWeight: 600, cursor: "pointer",
+            }}
+          >
+            Reparar y recargar
+          </button>
+          {this.state.error ? (
+            <div style={{ marginTop: 18, fontSize: 11.5, lineHeight: 1.45, color: "var(--dim, #8a93a3)", wordBreak: "break-word", fontFamily: "'JetBrains Mono', ui-monospace, monospace" }}>
+              {String(this.state.error?.name || "Error")}: {String(this.state.error?.message || this.state.error).slice(0, 220)}
+              <br />
+              {typeof window !== "undefined" ? window.location.pathname : ""} · {String(navigator.userAgent.match(/Chrome\/\d+/)?.[0] || "")}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+}
+
+function pantalla(importar) {
+  return lazy(() => importar()
+    .then((modulo) => {
+      // No borrar la marca aquí: puede haber cargado AppShell pero fallar el
+      // chunk de la pantalla siguiente en el mismo arranque.
+      limpiarParametroDeRecarga();
+      return modulo;
+    })
+    .catch((error) => {
+      let yaRecargamos = false;
+      try { yaRecargamos = sessionStorage.getItem(RECARGA_HECHA) === "1"; } catch { /* modo privado */ }
+      // Si ya recargamos y sigue fallando, no es una versión vieja: es un error
+      // de verdad y hay que dejarlo explotar en vez de recargar para siempre.
+      if (yaRecargamos) throw error;
+      try { sessionStorage.setItem(RECARGA_HECHA, "1"); } catch { /* modo privado */ }
+      recargarSalteandoCache();
+      // Normalmente la navegación ocurre enseguida. Algunos navegadores viejos
+      // del taller no completan replace() y antes quedaban eternamente en el
+      // fallback "Cargando módulo...". Si en 1,5 s seguimos acá, el rechazo
+      // llega al error boundary y deja un botón de recuperación visible.
+      return new Promise((_, reject) => {
+        window.setTimeout(() => reject(error), 1_500);
+      });
+    }));
+}
+
+// Cada pantalla vive en su propio chunk. Antes App importaba todos los módulos
+// al arrancar y el navegador descargaba/parseaba varios MB aunque el usuario
+// sólo fuera al inicio o al pañol. Con lazy cada ruta paga únicamente su módulo.
+const PedidosScreen = pantalla(() => import("@/features/inventario/PedidosScreen"));
+const MarmoleriaScreen = pantalla(() => import("@/features/marmoleria/MarmoleriaScreen"));
+const MueblesScreen = pantalla(() => import("@/features/muebles/MueblesScreen"));
+const TorneriaScreen = pantalla(() => import("@/features/torneria/TorneriaScreen"));
+const AdminDashboard = pantalla(() => import("@/features/admin/AdminDashboard"));
+const LaminacionScreen = pantalla(() => import("@/features/laminacion/LaminacionScreen"));
+const ObrasLaminacionScreen = pantalla(() => import("@/features/laminacion/ObrasLaminacionScreen"));
+const PlantillasLineaScreen = pantalla(() => import("@/features/laminacion/PlantillasLineaScreen"));
+const ObrasScreen = pantalla(() => import("@/features/obras/ObrasScreen"));
+const ConfiguracionScreen = pantalla(() => import("@/features/configuracion/ConfiguracionScreen"));
+const ProcedimientosScreen = pantalla(() => import("@/features/procedimientos/ProcedimientosScreen"));
+const PostVentaScreen = pantalla(() => import("@/features/postventa/PostVentaScreen"));
+const ClientePanelScreen = pantalla(() => import("@/features/cliente/ClientePanelScreen"));
+const HomeScreen = pantalla(() => import("@/features/home/HomeScreen"));
+const PanolOperativoHome = pantalla(() => import("@/features/panol/PanolOperativoHome"));
+const CalendarioScreen = pantalla(() => import("@/features/calendario/LogisticaCalendarioScreen"));
+const CalendarioProduccionScreen = pantalla(() => import("@/features/calendario/CalendarioScreen"));
+const MaderasScreen = pantalla(() => import("@/features/inventario/MaderasScreen"));
+const PurchaseRequestsScreen = pantalla(() => import("@/features/compras/PurchaseRequestsScreen"));
+const BalanzaDebugScreen = pantalla(() => import("@/features/inventario/BalanzaDebugScreen"));
+const CalibrarPesosScreen = pantalla(() => import("@/features/panol/CalibrarPesosScreen"));
+const EtiquetasScreen = pantalla(() => import("@/features/inventario/EtiquetasScreen"));
+const RrhhScreen = pantalla(() => import("@/features/rrhh/RrhhScreen"));
+const PreciosScreen = pantalla(() => import("@/features/precios/PreciosScreen"));
+const CostoBarcoScreen = pantalla(() => import("@/features/costos/CostoBarcoScreen"));
+const TicketsScreen = pantalla(() => import("@/features/tickets/TicketsScreen"));
+const ComprasEtapasScreen = pantalla(() => import("@/features/produccion/ComprasEtapasScreen"));
+const RecepcionPanolScreen = pantalla(() => import("@/features/panol/RecepcionPanolScreen"));
+const SolicitudesPanolScreen = pantalla(() => import("@/features/panol/SolicitudesPanolScreen"));
+const StockPanolScreen = pantalla(() => import("@/features/panol/StockPanolScreen"));
+const CatalogoMaestroScreen = pantalla(() => import("@/features/catalogo/CatalogoMaestroScreen"));
+const EgresosPanolScreen = pantalla(() => import("@/features/panol/EgresosPanolScreen"));
+const ConsumiblesScreen = pantalla(() => import("@/features/consumibles/ConsumiblesScreen"));
+const ListaManianaScreen = pantalla(() => import("@/features/consumibles/lista/ListaManianaScreen"));
+const PortalProveedorScreen = pantalla(() => import("@/features/proveedores/PortalProveedorScreen"));
+const PiezaScreen = pantalla(() => import("@/features/piezas/PiezaScreen"));
+const MaterialesScreen = pantalla(() => import("@/features/materiales/MaterialesScreen"));
+const MemoriasScreen = pantalla(() => import("@/features/memorias/MemoriasScreen"));
+const MemoriaVivaScreen = pantalla(() => import("@/features/memorias/MemoriaVivaScreen"));
+const RevisionesScreen = pantalla(() => import("@/features/revisiones/RevisionesScreen"));
+const EquiposScreen = pantalla(() => import("@/features/equipos/EquiposScreen"));
+const SemaforoScreen = pantalla(() => import("@/features/semaforo/SemaforoScreen"));
+const AtrasosScreen = pantalla(() => import("@/features/atrasos/AtrasosScreen"));
+const CadeteRutaScreen = pantalla(() => import("@/features/cadete/CadeteRutaScreen"));
+const TarjetasNfcScreen = pantalla(() => import("@/features/panol/TarjetasNfcScreen"));
+const PantallaEgresoScreen = pantalla(() => import("@/features/panol/PantallaEgresoScreen"));
+const SobrantesObraScreen = pantalla(() => import("@/features/panol/SobrantesObraScreen"));
+
+// El contenedor (menú, campanita y sus modales) va en su propio chunk: el PDA
+// del pañol nunca lo usa y no tiene por qué descargarlo al arrancar. Para el
+// resto se pide apenas se conoce el perfil (ver más abajo), así que cuando
+// llega la primera pantalla interna ya está en caché.
+const importarContenedor = () => import("@/components/AppShell");
+const AppShell = pantalla(importarContenedor);
+
+// El widget de Compras sólo lo ve ese rol: no tiene por qué viajar en el bundle
+// inicial de todos. Se baja después de entrar (ver hooks/useDiferido).
+const importarComprasBicho = () => import("@/features/compras/ComprasBicho");
+const ComprasBicho = lazy(importarComprasBicho);
+
+function ComprasBichoDiferido({ profile }) {
+  const listo = useDiferido(importarComprasBicho);
+  if (!listo) return null;
+  return (
+    <Suspense fallback={null}>
+      <ComprasBicho profile={profile} />
+    </Suspense>
+  );
+}
+
+const STARTUP_TIMEOUT_MS = 12_000;
+
+function withStartupTimeout(request, label) {
+  let timer = null;
+  const timeout = new Promise((_, reject) => {
+    timer = window.setTimeout(() => reject(new Error(`${label}: tiempo de espera agotado`)), STARTUP_TIMEOUT_MS);
+  });
+  return Promise.race([Promise.resolve(request), timeout])
+    .finally(() => window.clearTimeout(timer));
+}
+
+function startupErrorMessage(error) {
+  const message = String(error?.message || error || "").toLowerCase();
+  if (message.includes("tiempo de espera") || message.includes("failed to fetch") || message.includes("network")) {
+    return "Supabase está tardando demasiado en responder. Tu sesión sigue guardada; reintentá en unos segundos.";
+  }
+  return "No pudimos validar tu sesión y perfil. Reintentá para volver a conectarte.";
+}
+
+// Rutas del colector: pantalla chica y uso con guantes. La campanita flotante se
+// superpone con los controles y rompe el layout, así que ahí no va. Cuándo se
+// arranca en ese modo, y cómo se sale en una computadora, está en
+// src/lib/modoColector.js.
+const ROLES_COLECTOR = new Set(["admin", "oficina", "tecnica", "panol"]);
+
+// La campanita ya no se monta acá. Vivía flotando abajo a la derecha y tapaba
+// lo que hubiera debajo: en Tornería caía justo sobre el lápiz de editar del
+// último renglón y no se podía tocar. El parche era esconderla en Tornería en
+// el celular, que dejaba el mismo problema intacto en la computadora y encima
+// dejaba sin avisos a quien entra desde el teléfono.
+//
+// Ahora vive en el menú lateral, que es chrome y no tapa contenido. Ver
+// components/Sidebar.jsx y components/NotificacionesBell.jsx.
+
+// A dónde quería entrar el usuario antes de que lo mandáramos al login.
+//
+// Viaja en la URL y no en el state de <Navigate> porque el state se pierde si
+// el navegador recarga, y el caso que importa es justo ese: los mails de avisos
+// linkean a /compras?open=<id>, alguien lo abre en el celular sin sesión, y
+// hasta ahora terminaba en la home sin la solicitud que fue a ver.
+function loginConVuelta(location) {
+  const destino = `${location.pathname}${location.search}${location.hash}`;
+  if (destino === "/" || destino.startsWith("/login")) return "/login";
+  return `/login?next=${encodeURIComponent(destino)}`;
+}
+
+function RequireAuth({ session, children }) {
+  const location = useLocation();
+  if (!session) return <Navigate to={loginConVuelta(location)} replace />;
+  return children;
+}
+function RequireRole({ profile, allow, children }) {
+  const location = useLocation();
+  if (!profile) return <Navigate to={loginConVuelta(location)} replace />;
+  if (profile.is_admin || allow.includes(profile.role)) return children;
+  if (profile.role === "compras") return <Navigate to="/compras" replace />;
+  if (profile.role === "cadete")  return <Navigate to="/cadete" replace />;
+  if (profile.role === "rrhh")    return <Navigate to="/rrhh" replace />;
+  if (profile.role === "cliente") return <Navigate to="/mi-panel" replace />;
+  return <Navigate to="/" replace />;
+}
+
+/**
+ * El galpón al que pertenece el usuario.
+ *
+ * profiles.sede ya existía para pañol y viene poblada -hay gente cargada como
+ * Pampa, como Chubut y como Ambas-, así que se reusa tal cual en vez de
+ * inventar roles nuevos tipo "panol_chubut". Un usuario tiene un solo lugar
+ * donde dice de qué galpón es.
+ *
+ * Admin, "Ambas" y los perfiles sin sede entran a los dos: son los que miran la
+ * operación completa. Al que tiene un galpón asignado y escribe la URL del otro
+ * se lo manda al suyo y no a la home: entró queriendo ver laminación, no
+ * queriendo irse.
+ */
+function RequireSede({ profile, sede, children }) {
+  const location = useLocation();
+  if (!profile) return <Navigate to={loginConVuelta(location)} replace />;
+  const propia = canonicalPanolSede(profile.sede);
+  if (profile.is_admin || !propia || propia === sede) return children;
+  return <Navigate to={propia === "Chubut" ? "/laminacion-chubut" : "/laminacion"} replace />;
+}
+
+// pantallaCompleta: fuera del contenedor general (arranque, rutas sueltas como
+// /etiquetas). Adentro ocupa sólo el área de contenido y el menú sigue a la vista.
+function RouteLoader({ label = "Abriendo la pantalla…", pantallaCompleta = true }) {
+  const [demorado, setDemorado] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDemorado(true), 8_000);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  return (
+    <div style={{ minHeight: pantallaCompleta ? "100vh" : "100%", height: pantallaCompleta ? undefined : "100%", display: "grid", placeItems: "center", background: pantallaCompleta ? C.bg : "transparent", fontFamily: C.sans }}>
+      <BrandLoader label={label}>
+        {demorado && (
+          <div style={{ display: "grid", gap: 9, width: "calc(100vw - 32px)", maxWidth: 320, marginTop: 4 }}>
+            <div style={{ color: C.dim, fontSize: 12.5, lineHeight: 1.45 }}>
+              Esta pantalla está tardando más de lo normal.
+            </div>
+            {(esAndroidLegacyAngosto() || tieneMarcaDeColector()) && (
+              <button
+                type="button"
+                onClick={() => {
+                  marcarComoColector();
+                  window.location.replace("/colector");
+                }}
+                style={{ width: "100%", border: 0, borderRadius: 10, padding: "12px", background: C.blue, color: "var(--inverse-text)", fontSize: 13.5, fontWeight: 600 }}
+              >
+                Abrir modo recolector
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={recargarSalteandoCache}
+              style={{ width: "100%", border: `1px solid ${C.border}`, borderRadius: 10, padding: "11px 12px", background: C.panelSolid, color: C.text, fontSize: 13, fontWeight: 600 }}
+            >
+              Reintentar carga
+            </button>
+          </div>
+        )}
+      </BrandLoader>
+    </div>
+  );
+}
+
+// ─── APP ───────────────────────────────────────────────────────────────────
+export default function App() {
+  const [session,        setSession]        = useState(null);
+  const [profile,        setProfile]        = useState(null);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [startupError,   setStartupError]   = useState("");
+  // La intro "Klase A · Marcando tendencia" que corre al iniciar sesión. Vive
+  // acá y no en el login porque tiene que seguir en pantalla mientras navega.
+  // En desarrollo se puede ver sin volver a loguearse: /login?intro
+  const [bienvenida, setBienvenida] = useState(() => (
+    import.meta.env.DEV && new URLSearchParams(window.location.search).has("intro")
+      ? { destino: null, origen: null }
+      : null
+  ));
+  const profileLoadIdRef = useRef(0);
+  const profileEnCaminoRef = useRef(null);
+
+  // Al iniciar sesión el perfil se pedía dos veces casi a la vez: una desde el
+  // login y otra desde onAuthStateChange(SIGNED_IN). La segunda invalidaba a la
+  // primera por profileLoadIdRef, el login navegaba con el perfil todavía en
+  // null, "/" lo rebotaba a /login con el formulario en blanco y había que
+  // poner la cuenta dos veces. Ahora, si ya hay una carga en camino para el
+  // mismo usuario, se devuelve esa misma promesa en vez de lanzar otra.
+  function loadProfile(s) {
+    const userId = s?.user?.id || null;
+    const enCamino = profileEnCaminoRef.current;
+    if (userId && enCamino?.userId === userId) return enCamino.promise;
+
+    const loadId = ++profileLoadIdRef.current;
+    const promise = fetchProfile().finally(() => {
+      if (profileEnCaminoRef.current?.promise === promise) profileEnCaminoRef.current = null;
+    });
+    profileEnCaminoRef.current = userId ? { userId, promise } : null;
+    return promise;
+
+    // Devuelve el perfil que quedó cargado, o null si no hay uno habilitado.
+    async function fetchProfile() {
+      setStartupError("");
+
+      if (!s?.user?.id) {
+        setProfile(null);
+        setIsInitializing(false);
+        return null;
+      }
+
+      try {
+        // Buscar en profiles (personal interno). El timeout evita que una caída
+        // de Postgres deje toda la aplicación congelada en "Cargando…".
+        let { data: pData, error: pErr } = await withStartupTimeout(
+          supabase
+            .from("profiles")
+            .select("id,username,role,is_admin,is_demo,sede,must_change_password,activo")
+            .eq("id", s.user.id)
+            .maybeSingle(),
+          "Carga del perfil",
+        );
+        if (pErr && ["must_change_password", "is_demo", "activo"].some((field) => String(pErr.message || "").includes(field))) {
+          // Si falta una columna opcional, conservar is_demo siempre que exista.
+          // El fallback anterior la descartaba junto con la columna faltante y
+          // podía abrir la cuenta de presentación sin su protección visual.
+          let retry = await withStartupTimeout(supabase
+            .from("profiles")
+            .select("id,username,role,is_admin,is_demo,sede")
+            .eq("id", s.user.id)
+            .maybeSingle(), "Carga del perfil");
+          if (retry.error && String(retry.error.message || "").includes("is_demo")) {
+            retry = await withStartupTimeout(supabase
+              .from("profiles")
+              .select("id,username,role,is_admin,sede")
+              .eq("id", s.user.id)
+              .maybeSingle(), "Carga del perfil");
+          }
+          pData = retry.data;
+          pErr = retry.error;
+        }
+        if (pErr) throw pErr;
+
+        // Dado de baja: el corte real lo hace el ban en auth (no le dan tokens
+        // nuevos), pero una sesión ya abierta sigue viva hasta que expira. Acá se
+        // la cierra; si vuelve a intentar entrar, el login le explica por qué.
+        if (pData && pData.activo === false) {
+          await clearPushForLogout();
+          await supabase.auth.signOut();
+          if (loadId === profileLoadIdRef.current) setProfile(null);
+          return null;
+        }
+
+        if (pData) {
+          const normalizedProfile = pData.is_demo
+            ? { ...pData, access_role: pData.role, is_admin: false, must_change_password: false }
+            : pData;
+          if (loadId !== profileLoadIdRef.current) return null;
+          setProfile(normalizedProfile);
+          return normalizedProfile;
+        }
+
+        // Buscar en clientes (propietarios de barcos)
+        const { data: cData, error: cErr } = await withStartupTimeout(supabase
+          .from("clientes")
+          .select("id,username,nombre_completo,modelo_barco")
+          .eq("id", s.user.id)
+          .maybeSingle(), "Carga del perfil de cliente");
+        if (cErr) throw cErr;
+
+        if (loadId !== profileLoadIdRef.current) return null;
+        if (cData) {
+          const clientProfile = {
+            id:       cData.id,
+            username: cData.username ?? cData.nombre_completo,
+            role:     "cliente",
+            is_admin: false,
+          };
+          setProfile(clientProfile);
+          return clientProfile;
+        }
+        setProfile(null);
+        return null;
+      } catch (error) {
+        if (loadId !== profileLoadIdRef.current) return null;
+        console.error("No se pudo inicializar el perfil", error);
+        setProfile(null);
+        setStartupError(startupErrorMessage(error));
+        return null;
+      } finally {
+        if (loadId === profileLoadIdRef.current) setIsInitializing(false);
+      }
+    }
+  }
+
+  useEffect(() => {
+    let active = true;
+    let initialEventReceived = false;
+    const pendingTimers = new Set();
+
+    const scheduleSession = (s) => {
+      if (!active) return;
+      setSession(s ?? null);
+      const timer = window.setTimeout(() => {
+        pendingTimers.delete(timer);
+        if (active) void loadProfile(s);
+      }, 0);
+      pendingTimers.add(timer);
+    };
+
+    // La callback de Supabase debe terminar inmediatamente. Consultar tablas
+    // dentro de onAuthStateChange puede retener el lock de autenticación y
+    // dejar getSession (y toda la app) esperando indefinidamente.
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      if (event === "INITIAL_SESSION") initialEventReceived = true;
+      if (event === "SIGNED_OUT") window.setTimeout(() => { void clearPushForLogout(); }, 0);
+      scheduleSession(s);
+    });
+
+    // Respaldo para navegadores donde INITIAL_SESSION no llegue. No duplica la
+    // carga normal y también tiene un límite de espera explícito.
+    const fallbackTimer = window.setTimeout(() => {
+      if (!active || initialEventReceived) return;
+      withStartupTimeout(supabase.auth.getSession(), "Validación de sesión")
+        .then(({ data, error }) => {
+          if (error) throw error;
+          scheduleSession(data.session ?? null);
+        })
+        .catch((error) => {
+          if (!active) return;
+          console.error("No se pudo inicializar la sesión", error);
+          setStartupError(startupErrorMessage(error));
+          setIsInitializing(false);
+        });
+    }, 1_500);
+
+    return () => {
+      active = false;
+      window.clearTimeout(fallbackTimer);
+      pendingTimers.forEach((timer) => window.clearTimeout(timer));
+      sub?.subscription?.unsubscribe?.();
+    };
+  }, []);
+
+  // Al cerrar sesión baja un telón con la K (TelonSalida): la sesión se cierra
+  // detrás y, ya con el login montado, el telón se desvanece.
+  const [despedida, setDespedida] = useState(null);
+  async function signOut() {
+    const conTelon = !leerMovimientoReducido();
+    if (conTelon) {
+      setDespedida({ nombre: profile?.username || "", fase: "entra" });
+      await new Promise((listo) => window.setTimeout(listo, 520));
+    }
+    try {
+      await endTrackedAdminSession(profile, window.location.pathname);
+      await clearPushForLogout();
+      await supabase.auth.signOut();
+    } finally {
+      // Un respiro para que la ruta ya haya pasado al login antes de destapar.
+      if (conTelon) window.setTimeout(() => setDespedida((d) => (d ? { ...d, fase: "sale" } : d)), 160);
+    }
+  }
+
+  // Se calcula antes de los retornos de inicialización para mantener estable el
+  // orden de hooks entre el primer render y los siguientes.
+  const modoColector = arrancaEnModoColector(profile?.role);
+  const puedeUsarColector = !!profile && (profile.is_admin || ROLES_COLECTOR.has(profile.role));
+
+  // La ruta explícita y el Android del aparato dejan una marca sólo en ese
+  // dispositivo. Así, después de un refresh en `/`, no vuelve a intentar abrir
+  // el dashboard completo. No afecta a los celulares modernos del resto.
+  useEffect(() => {
+    // Sólo en un dispositivo táctil: una PC que pasó una vez por /scan no tiene
+    // que quedar marcada como colector.
+    if (puedeUsarColector && (esAndroidLegacyAngosto() || (esRutaDeColector() && esDispositivoTactil()))) marcarComoColector();
+  }, [puedeUsarColector]);
+
+  // Precarga del contenedor en paralelo con la primera pantalla interna.
+  const precargarContenedor = !!profile && !modoColector && profile.role !== "cliente";
+  useEffect(() => {
+    if (precargarContenedor) importarContenedor().catch(() => { /* lo reintenta la ruta */ });
+  }, [precargarContenedor]);
+
+  if (isInitializing) {
+    return (
+      <div style={{ background: C.bg, minHeight: "100vh" }}>
+        <BrandLoader fullScreen label="" />
+      </div>
+    );
+  }
+  if (startupError) {
+    return (
+      <div style={{
+        background:C.bg, color:C.text,
+        minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center",
+        fontFamily:"'Outfit',system-ui", padding:24,
+      }}>
+        <div style={{ width:"min(440px, 100%)", padding:24, borderRadius:16, background:C.panelSolid, border:`1px solid ${C.border}`, boxShadow:`0 22px 70px ${C.shadow}` }}>
+          <div style={{ color:C.red, fontSize:12, fontWeight:700, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:10 }}>Conexión demorada</div>
+          <div style={{ color:C.text, fontSize:18, fontWeight:700, marginBottom:8 }}>No pudimos terminar de cargar Klase A</div>
+          <div style={{ color:C.muted, fontSize:13, lineHeight:1.55, marginBottom:18 }}>{startupError}</div>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            style={{ width:"100%", border:0, borderRadius:10, padding:"11px 14px", background:C.blue, color:"var(--inverse-text)", fontWeight:700, cursor:"pointer" }}
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    );
+  }
+  const A = { profile, signOut };
+  // El colector de pañol (PDA) tiene pantalla chica → ahí mandamos directo al
+  // escáner para que un refresh no los saque del flujo. En PC (pantalla grande)
+  // pañol entra a su panel normal con el sidebar, como siempre.
+  const homeElement = !session || !profile
+    ? <Navigate to="/login" replace />
+    : profile.role === "cliente"
+      ? <Navigate to="/mi-panel" replace />
+      : profile.role === "rrhh"
+        ? <Navigate to="/rrhh" replace />
+        : profile.role === "cadete"
+          ? <Navigate to="/cadete" replace />
+          : (puedeUsarColector && modoColector)
+            // El colector arranca en una pantalla de elección, no directo al egreso
+            // de maderas: desde el aparato también se piden reposiciones a compras.
+            ? <Navigate to="/colector" replace />
+            : profile.role === "panol"
+              ? <PanolOperativoHome profile={profile} signOut={signOut} />
+              : <HomeScreen profile={profile} signOut={signOut} />;
+
+  return (
+    <BrowserRouter>
+      <TourProvider>
+        <ToastProvider>
+          <ConfirmProvider>
+            <PushNotificationsProvider key={session?.user?.id || "guest"} profile={profile}>
+            {/* Avisa cuando hubo un deploy nuevo mientras la pestaña estaba
+                abierta. Existía desde antes pero nunca se había montado, así que
+                nadie veía el aviso. */}
+            {/* También corre en el PDA: limpia restos de service workers viejos
+                y evita que un deploy deje assets incompatibles en caché. */}
+            <AppVersionGuard />
+            {!modoColector && <PresentationPrivacyShield active={!!profile?.is_demo} />}
+            {!modoColector && session && profile && !profile.is_demo && <AdminActivityTracker profile={profile} />}
+            {!modoColector && session && profile && profile.role !== "cliente" && <BuscadorDiferido profile={profile} />}
+      <PantallaCaida>
+      <Suspense fallback={<RouteLoader />}>
+      <Routes>
+        <Route path="/login" element={<LoginScreen onLoggedIn={loadProfile} onBienvenida={setBienvenida} />} />
+        <Route path="/proveedor/:token" element={<PortalProveedorScreen />} />
+        {/* Pieza en 3D por link (un techo para el laminador): sin cuenta, directo a la pieza. */}
+        <Route path="/pieza/:token" element={<PiezaScreen />} />
+        {/* Panel de cliente */}
+        <Route path="/mi-panel" element={
+          <RequireAuth session={session}>
+            {profile?.role === "cliente"
+              ? <ClientePanelScreen session={session} onSignOut={signOut} />
+              : <Navigate to="/" replace />
+            }
+          </RequireAuth>
+        } />
+        {/* Personal */}
+        <Route path="/panol"      element={<Navigate to="/madera?tab=Stock" replace />} />
+        <Route path="/cadete"     element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras","cadete"]}><CadeteRutaScreen {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/pantalla-egreso" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><PantallaEgresoScreen /></RequireRole></RequireAuth>} />
+        <Route path="/movimientos"element={<Navigate to="/madera?tab=Movimientos" replace />} />
+        {/* Escáner de pañol (PDA) + impresión de etiquetas QR */}
+        <Route path="/scan"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><ScanEgresoScreen {...A} /></RequireRole></RequireAuth>} />
+        {/* Arranque del colector: elegir entre egresar maderas o pedir a compras */}
+        <Route path="/colector" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}>{prefierePanelCompleto() ? <Navigate to="/" replace /> : <ColectorHomeScreen {...A} />}</RequireRole></RequireAuth>} />
+        {/* Aviso a compras desde el colector: se escanea lo que hay que reponer */}
+        <Route path="/scan-pedido" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><ScanPedidoScreen {...A} /></RequireRole></RequireAuth>} />
+        {/* Pedido de consumibles a Rebollar desde el colector: mismo carrito que Consumibles → Pedidos */}
+        <Route path="/scan-rebollar" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><ScanPedidoRebollarScreen {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/etiquetas" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><EtiquetasScreen   {...A} /></RequireRole></RequireAuth>} />
+        {/* Diagnóstico del puerto serie de la balanza (para descubrir su protocolo) */}
+        <Route path="/balanza"   element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><BalanzaDebugScreen {...A} /></RequireRole></RequireAuth>} />
+        <Route path="/balanza/calibrar" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><CalibrarPesosScreen {...A} /></RequireRole></RequireAuth>} />
+
+        {/* Pantallas internas: todas adentro del contenedor general, que monta
+            el menú una sola vez. Si una pantalla tarda o falla, el cargador y el
+            cartel de error ocupan sólo el área de contenido. */}
+        <Route element={
+          <AppShell profile={profile} signOut={signOut}>
+            <PantallaCaida enContenido>
+              <Suspense fallback={<RouteLoader pantallaCompleta={false} />}>
+                <Outlet />
+              </Suspense>
+            </PantallaCaida>
+          </AppShell>
+        }>
+          <Route path="/"      element={homeElement} />
+          <Route path="/laminacion" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","laminacion"]}><RequireSede profile={profile} sede="Pampa"><LaminacionScreen key="Pampa" {...A} sede="Pampa" /></RequireSede></RequireRole></RequireAuth>} />
+          <Route path="/laminacion-chubut" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","laminacion"]}><RequireSede profile={profile} sede="Chubut"><LaminacionScreen key="Chubut" {...A} sede="Chubut" /></RequireSede></RequireRole></RequireAuth>} />
+          <Route path="/muebles"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","muebles","compras"]}><MueblesScreen    {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/torneria"   element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","mecanica","compras"]}><TorneriaScreen   {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/pedidos"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><PedidosScreen    {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/compras"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","compras"]}><PurchaseRequestsScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/inicio-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["panol"]}><PanolOperativoHome {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/inicio-panol/tarjetas" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><TarjetasNfcScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/recepcion-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><RecepcionPanolScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/egresos-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><EgresosPanolScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/stock-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><StockPanolScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/motores-y-grupos" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","compras"]}><EquiposScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/sobrantes-obra/:cierreId" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><SobrantesObraScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/sobrantes-obra" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><SobrantesObraScreen {...A} /></RequireRole></RequireAuth>} />
+          {/* La caja vieja quedó adentro de Consumibles, en la pestaña Mostrador. */}
+          <Route path="/consumibles-caja" element={<Navigate to="/consumibles?tab=mostrador" replace />} />
+          <Route path="/consumibles" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","panol","oficina","tecnica","compras"]}><ConsumiblesScreen {...A} /></RequireRole></RequireAuth>} />
+          {/* La lista del día siguiente la arma cada encargado desde el celular: abierta a cualquier usuario con sesión. */}
+          <Route path="/pedido-panol" element={<RequireAuth session={session}><ListaManianaScreen {...A} /></RequireAuth>} />
+          <Route path="/catalogo-maestro" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","tecnica","compras","panol"]}><CatalogoMaestroScreen {...A} /></RequireRole></RequireAuth>} />
+          {/* Digitalización del papel de solicitud: pañol lo carga, lo arma y lo firma con NFC. */}
+          <Route path="/solicitudes-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","compras"]}><SolicitudesPanolScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/materiales" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras"]}><Suspense fallback={<RouteLoader label="Abriendo materiales…" pantallaCompleta={false} />}><MaterialesScreen {...A} /></Suspense></RequireRole></RequireAuth>} />
+          <Route path="/precios"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras","administracion"]}><PreciosScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/tickets" element={<RequireAuth session={session}><Suspense fallback={<RouteLoader label="Abriendo los tickets…" pantallaCompleta={false} />}><TicketsScreen {...A} /></Suspense></RequireAuth>} />
+          <Route path="/costo-barco" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras","administracion"]}><Suspense fallback={<RouteLoader label="Calculando el costo…" pantallaCompleta={false} />}><CostoBarcoScreen {...A} /></Suspense></RequireRole></RequireAuth>} />
+          <Route path="/procedimientos" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","laminacion","muebles","mecanica","electricidad"]}><ProcedimientosScreen {...A} /></RequireRole></RequireAuth>} />
+          {/* Admin / Oficina */}
+          <Route path="/admin"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><AdminDashboard       {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/obras"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><ObrasScreen           {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/compras-etapa" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras"]}><ComprasEtapasScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/atrasos"     element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras"]}><AtrasosScreen          {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/semaforo"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","compras"]}><SemaforoScreen         {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/memorias"   element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><MemoriasScreen        {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/memorias/viva" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><MemoriaVivaScreen {...A} /></RequireRole></RequireAuth>} />
+          {/* Etapa de carga: los dueños de cada línea depuran matrices y etapas; Compras sigue el avance. */}
+          <Route path="/revisiones" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","compras"]}><RevisionesScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/marmoleria" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><MarmoleriaScreen      {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/calendario" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","tecnica","administracion","compras"]}><CalendarioScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/calendario-produccion" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","tecnica"]}><CalendarioProduccionScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/postventa"  element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><PostVentaScreen       {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/obras-laminacion" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica"]}><ObrasLaminacionScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/laminacion/plantillas" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","tecnica"]}><PlantillasLineaScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/configuracion"    element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin"]}><ConfiguracionScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/madera" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><MaderasScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/rrhh"      element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","rrhh","tecnica","oficina","administracion"]}><RrhhScreen {...A} /></RequireRole></RequireAuth>} />
+        </Route>
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      </Suspense>
+      </PantallaCaida>
+      {!modoColector && <ChangePasswordModal
+        open={!!session && !!profile && profile.role !== "cliente" && !profile.is_demo && profile.must_change_password === true}
+        forced
+        profile={profile}
+        onSignOut={signOut}
+        onChanged={() => setProfile((p) => p ? { ...p, must_change_password: false } : p)}
+      />}
+      {!modoColector && session && profile?.role === "compras" && <ComprasBichoDiferido profile={profile} />}
+      {/* Fuera del Suspense: si la pantalla de destino todavía está bajando su
+          chunk, el fallback no tiene que esconder la intro que la tapa. */}
+      {bienvenida && (
+        <IntroMarca
+          destino={bienvenida.destino}
+          origen={bienvenida.origen}
+          onFin={() => setBienvenida(null)}
+        />
+      )}
+      {despedida && (
+        <TelonSalida nombre={despedida.nombre} fase={despedida.fase} onSalio={() => setDespedida(null)} />
+      )}
+            </PushNotificationsProvider>
+          </ConfirmProvider>
+        </ToastProvider>
+      </TourProvider>
+    </BrowserRouter>
+  );
+}

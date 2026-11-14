@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { Boxes, Download, Scale, Search } from "lucide-react";
+import { Boxes, Download, Printer, Scale, Search } from "lucide-react";
 import { descargarCSV, fmtNum, num } from "../obras";
 import { Bloque, Estado, Mini, Vacio } from "../ui";
+import { printConteoSemanal } from "../printConteoSemanal";
 
 const ESTADOS = {
   CRITICO: { label: "Sin stock", tono: "rojo" },
@@ -62,6 +63,15 @@ export default function StockTab({ sede, materiales, stockPorMaterial, enCaminoP
         </div>
         <div className="lam-acciones">
           {isAdmin && <button type="button" className="ui-btn" onClick={onAjuste}><Scale size={15} /> Ajuste de inventario</button>}
+          <button
+            type="button"
+            className="ui-btn ui-btn-suave"
+            onClick={() => printConteoSemanal({ sede, materiales, stockPorMaterial })}
+            disabled={!filas.length}
+            title="Imprime una planilla para el conteo físico semanal"
+          >
+            <Printer size={15} /> Conteo semanal
+          </button>
           <button type="button" className="ui-btn ui-btn-fantasma" onClick={exportar} disabled={!filas.length}><Download size={15} /> CSV</button>
         </div>
       </div>

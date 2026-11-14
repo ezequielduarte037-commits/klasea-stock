@@ -1,0 +1,3972 @@
+import { supabase } from "@/supabaseClient";
+import { adicionalSnapshotKey } from "./obra/adicionalObra";
+import { MODELOS, norm } from "./materialesParser";
+import {
+  fetchAreasMap,
+  fetchCondicionMap,
+  fetchProveedoresMaterialMap,
+  setProveedoresMaterial,
+} from "./materialesConfig";
+import { barcodeKey } from "./materialBarcodes";
+import { esProveedorAlternativo, nombreProveedorVisible, nombresProveedor } from "./proveedorNombre";
+
+const PAGE = 1000;
+const VARIANTE_BASE = "standard";
+const BUCKET_COMPROBANTES = "panol-comprobantes";
+const BUCKET_MATERIALES = "panol-materiales";
+const CATALOGO_CACHE_TTL_MS = 30_000;
+const STOCK_LIBRE_CACHE_TTL_MS = 20_000;
+
+const catalogoCache = new Map();
+const catalogoCacheAt = new Map();
+const catalogoEnVuelo = new Map();
+let catalogoBaseRawCache = null;
+let catalogoBaseRawCacheAt = 0;
+let catalogoBaseRawEnVuelo = null;
+let stockLibreCache = null;
+let stockLibreCacheAt = 0;
+let stockLibreEnVuelo = null;
+
+export function isMissingTable(error) {
+  if (!error) return false;
+  const msg = String(error.message ?? "").toLowerCase();
+  return (
+    error.code === "42P01" ||
+    msg.includes("does not exist") ||
+    msg.includes("schema cache") ||
+    msg.includes("not found")
+  );
+}
+
+function isMissingColumn(error) {
+  if (!error) return false;
+  const msg = String(error.message ?? "").toLowerCase();
+  return (
+    error.code === "42703" ||
+    msg.includes("could not find") ||
+    msg.includes("column")
+  );
+}
+
+async function fetchPaged(table, select, orderColumn = "id") {
+  const out = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from(table)
+      .select(select)
+      .order(orderColumn)
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    out.push(...(data ?? []));
+    if (!data || data.length < PAGE) break;
+  }
+  return out;
+}
+
+// Nombre de la columna que la base no tiene, si el error lo dice: "column
+// panol_materiales.x does not exist" al leer, "Could not find the 'x' column"
+// al escribir.
+function columnaFaltante(error) {
+  const msg = String(error?.message ?? "");
+  return msg.match(/column\s+(?:\w+\.)?(\w+)\s+does not exist/i)?.[1]
+    || msg.match(/could not find the '(\w+)' column/i)?.[1]
+    || null;
+}
+
+// Una escritura que menciona una columna que la base todavía no tiene se
+// reintenta sin esa sola columna: lo demás se guarda igual.
+async function sinColumnasFaltantes(escribir, fila) {
+  let actual = fila;
+  let resultado = await escribir(actual);
+  for (let intento = 0; intento < 8 && resultado.error && isMissingColumn(resultado.error); intento += 1) {
+    const columna = columnaFaltante(resultado.error);
+    if (!columna || !(columna in actual)) break;
+    actual = { ...actual };
+    delete actual[columna];
+    resultado = await escribir(actual);
+  }
+  return resultado;
+}
+
+const MATERIAL_COLUMNAS = [
+  "id", "categoria_id", "proveedor_id", "codigo", "descripcion", "alias", "proveedor", "unidad_medida",
+  "precio_unitario", "moneda", "imagen_url", "links", "revisado", "origen", "notas", "activo",
+  "es_consumible", "es_requisito", "producto_por_obra", "batch_id", "created_at", "codigo_barra",
+  "ubicacion", "ubicacion_obs", "stock_minimo", "variantes", "variantes_precios",
+  "sin_precio_motivo", "sin_precio_at",
+];
+
+// Columnas que llegaron con migraciones y el valor que toman si la base
+// todavía no las tiene. Si falta una, se consulta sin esa sola. Antes una
+// columna nueva sin migrar hacía caer a la consulta mínima y todo el catálogo
+// perdía requisitos, variantes, alias y ubicaciones: así dejó de poder
+// elegirse el producto de un requisito en cada obra cuando llegó
+// producto_por_obra (20260919112000) sin aplicar.
+const MATERIAL_COLUMNAS_OPCIONALES = {
+  alias: null,
+  links: [],
+  es_consumible: false,
+  es_requisito: false,
+  producto_por_obra: false,
+  ubicacion: null,
+  ubicacion_obs: null,
+  stock_minimo: null,
+  variantes: [],
+  variantes_precios: {},
+  sin_precio_motivo: null,
+  sin_precio_at: null,
+};
+
+function valorPorDefecto(columna) {
+  const valor = MATERIAL_COLUMNAS_OPCIONALES[columna];
+  if (Array.isArray(valor)) return [];
+  if (valor && typeof valor === "object") return {};
+  return valor;
+}
+
+async function fetchMaterialesCatalogo() {
+  let columnas = MATERIAL_COLUMNAS;
+  for (;;) {
+    try {
+      const filas = await fetchPaged("panol_materiales", columnas.join(", "), "descripcion");
+      const omitidas = Object.keys(MATERIAL_COLUMNAS_OPCIONALES).filter((columna) => !columnas.includes(columna));
+      return filas.map((row) => {
+        const material = { ...row, variantes_precios: row.variantes_precios ?? {} };
+        for (const columna of omitidas) material[columna] = valorPorDefecto(columna);
+        return material;
+      });
+    } catch (error) {
+      if (!isMissingColumn(error)) throw error;
+      const columna = columnaFaltante(error);
+      if (!columna || !(columna in MATERIAL_COLUMNAS_OPCIONALES) || !columnas.includes(columna)) {
+        return fetchMaterialesCatalogoMinimo();
+      }
+      columnas = columnas.filter((item) => item !== columna);
+    }
+  }
+}
+
+// Último recurso para una base muy vieja cuyo error no dice qué columna falta.
+async function fetchMaterialesCatalogoMinimo() {
+  const fallbackSelect =
+    "id, categoria_id, proveedor_id, codigo, descripcion, proveedor, unidad_medida, precio_unitario, moneda, imagen_url, revisado, origen, notas, activo, es_consumible, batch_id, created_at, codigo_barra";
+  return (
+    await fetchPaged("panol_materiales", fallbackSelect, "descripcion")
+  ).map((row) => ({
+    ...row,
+    alias: null,
+    links: [],
+    variantes: [],
+    variantes_precios: {},
+    ubicacion: null,
+    ubicacion_obs: null,
+    stock_minimo: null,
+    es_consumible: row.es_consumible ?? false,
+    es_requisito: false,
+    producto_por_obra: false,
+    sin_precio_motivo: null,
+    sin_precio_at: null,
+  }));
+}
+
+async function fetchMaterialCodigosBarraRows() {
+  try {
+    return await fetchPaged(
+      "panol_material_codigos_barra",
+      "id, material_id, codigo, etiqueta, variante, activo, created_at, updated_at",
+      "codigo",
+    );
+  } catch (error) {
+    if (isMissingTable(error) || isMissingColumn(error)) {
+      try {
+        return await fetchPaged(
+          "panol_material_codigos_barra",
+          "id, material_id, codigo, etiqueta, activo, created_at, updated_at",
+          "codigo",
+        );
+      } catch {
+        return [];
+      }
+    }
+    throw error;
+  }
+}
+
+function safeFilePart(value) {
+  return String(value || "archivo")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 90);
+}
+
+function toNullableNumber(value) {
+  if (value === "" || value == null) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+export function normalizeUnidadMedida(value, fallback = "unidad") {
+  const raw = String(value ?? "").trim();
+  if (!raw) return fallback;
+  const key = raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\./g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const aliases = {
+    u: "unidad",
+    un: "unidad",
+    uni: "unidad",
+    unid: "unidad",
+    unidad: "unidad",
+    unidades: "unidad",
+    uds: "unidad",
+    ud: "unidad",
+    und: "unidad",
+    pza: "unidad",
+    pieza: "unidad",
+    piezas: "unidad",
+    m: "metro",
+    mt: "metro",
+    mts: "metro",
+    mtr: "metro",
+    mtrs: "metro",
+    metro: "metro",
+    metros: "metro",
+    cm: "cm",
+    centimetro: "cm",
+    centimetros: "cm",
+    mm: "mm",
+    milimetro: "mm",
+    milimetros: "mm",
+    kg: "kg",
+    kgs: "kg",
+    kilo: "kg",
+    kilos: "kg",
+    kilogramo: "kg",
+    kilogramos: "kg",
+    g: "g",
+    gr: "g",
+    grs: "g",
+    gramo: "g",
+    gramos: "g",
+    l: "litro",
+    lt: "litro",
+    lts: "litro",
+    litro: "litro",
+    litros: "litro",
+    pie: "pies",
+    pies: "pies",
+    ft: "pies",
+    caja: "caja",
+    cajas: "caja",
+    rollo: "rollo",
+    rollos: "rollo",
+    par: "par",
+    pares: "par",
+    juego: "juego",
+    juegos: "juego",
+    kit: "juego",
+    kits: "juego",
+    placa: "placa",
+    placas: "placa",
+    plancha: "placa",
+    planchas: "placa",
+    hoja: "hoja",
+    hojas: "hoja",
+    barra: "barra",
+    barras: "barra",
+    bolsa: "bolsa",
+    bolsas: "bolsa",
+    lata: "lata",
+    latas: "lata",
+    tubo: "tubo",
+    tubos: "tubo",
+    m2: "m2",
+    "m²": "m2",
+    metro2: "m2",
+    metros2: "m2",
+    "metro cuadrado": "m2",
+    "metros cuadrados": "m2",
+    m3: "m3",
+    "m³": "m3",
+    metro3: "m3",
+    metros3: "m3",
+    "metro cubico": "m3",
+    "metros cubicos": "m3",
+  };
+  return aliases[key] || raw.toLowerCase();
+}
+
+function normalizeVariantes(value) {
+  const raw = Array.isArray(value)
+    ? value
+    : String(value || "").split(/[\n;]+/);
+  const seen = new Set();
+  return raw
+    .flatMap((item) => String(item || "").split(/\s*\/\s*/))
+    .map((item) => String(item || "").trim())
+    .filter(Boolean)
+    .filter((item) => {
+      const key = norm(item);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+// Info por variante: mapa { "23L": { precio, moneda, codigo } } en la columna variantes_precios.
+// Guarda entradas que tengan precio Y/O código (para nombres de variante conocidos si se pasan).
+export function normalizeVariantesPrecios(value, nombres = null) {
+  const src =
+    value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  const permit = nombres
+    ? new Set((nombres || []).map((n) => String(n).trim().toLowerCase()))
+    : null;
+  const out = {};
+  for (const [k, v] of Object.entries(src)) {
+    const nombre = String(k || "").trim();
+    if (!nombre) continue;
+    if (permit && !permit.has(nombre.toLowerCase())) continue;
+    const precioRaw =
+      v == null || v.precio === "" || v.precio == null
+        ? null
+        : Number(String(v.precio).replace(",", "."));
+    const precio = Number.isFinite(precioRaw) ? precioRaw : null;
+    const codigo = String(v?.codigo || "").trim();
+    const proveedorId = String(v?.proveedor_id || "").trim();
+    const proveedor = String(v?.proveedor || "").trim();
+    const imagenUrl = String(v?.imagen_url || v?.imagenUrl || "").trim();
+    if (imagenUrl && precio == null && !codigo) {
+      out[nombre] = { imagen_url: imagenUrl };
+      continue;
+    }
+    if (precio == null && !codigo) continue; // sin precio ni código → no se guarda
+    const entry = {};
+    if (precio != null) {
+      entry.precio = precio;
+      entry.moneda = v?.moneda === "USD" ? "USD" : "ARS";
+    }
+    if (codigo) entry.codigo = codigo;
+    if (proveedorId) entry.proveedor_id = proveedorId;
+    if (proveedor) entry.proveedor = proveedor;
+    if (imagenUrl) entry.imagen_url = imagenUrl;
+    out[nombre] = entry;
+  }
+  return out;
+}
+
+// Precio de una variante puntual (para autocompletar al elegirla).
+export function variantePrecio(material, nombre) {
+  const mapa = material?.variantes_precios;
+  if (!mapa || !nombre) return null;
+  const hit = mapa[nombre] || mapa[String(nombre).trim()];
+  if (!hit || hit.precio == null) return null;
+  return {
+    amount: Number(hit.precio),
+    moneda: hit.moneda === "USD" ? "USD" : "ARS",
+  };
+}
+
+// Código de una variante puntual (para autocompletar al elegirla).
+export function varianteCodigo(material, nombre) {
+  const mapa = material?.variantes_precios;
+  if (!mapa || !nombre) return "";
+  const hit = mapa[nombre] || mapa[String(nombre).trim()];
+  return hit?.codigo ? String(hit.codigo) : "";
+}
+
+// Precio de la variante más cara (peor caso, para el costo total mientras no se define cuál va).
+export function variantePrecioMax(material) {
+  const mapa = material?.variantes_precios;
+  if (!mapa || typeof mapa !== "object") return null;
+  let best = null;
+  for (const v of Object.values(mapa)) {
+    const amount = v?.precio == null ? null : Number(v.precio);
+    if (amount == null || !Number.isFinite(amount)) continue;
+    if (!best || amount > best.amount)
+      best = { amount, moneda: v?.moneda === "USD" ? "USD" : "ARS" };
+  }
+  return best;
+}
+
+export function normalizeMaterialLinks(value) {
+  const raw = Array.isArray(value) ? value : [];
+  const seen = new Set();
+  return raw
+    .map((item) => ({
+      label: String(item?.label || item?.titulo || "").trim(),
+      url: String(item?.url || item?.link || "").trim(),
+      nota: String(item?.nota || item?.notes || "").trim(),
+      ...(item?.kind === "documento" ? {
+        kind: "documento", name: String(item.name || item.label || "Archivo"),
+        path: String(item.path || ""), type: String(item.type || "application/octet-stream"),
+        size: Number(item.size) || 0, linea: item.linea ? String(item.linea) : null,
+      } : {}),
+    }))
+    .filter((item) => item.url)
+    .filter((item) => {
+      const key = item.url.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+/* ── Quién le vende cada material ────────────────────────────────────────────
+   Hay dos vínculos posibles y no equivalentes: `proveedor_id` (el bueno) y
+   `proveedor`, el campo de texto viejo. 215 materiales activos NO tienen
+   `proveedor_id` pero su texto nombra exacto a un proveedor que existe (los
+   parabrisas de Favicur, por ejemplo): mirando solo el id quedan invisibles.
+
+   El texto SOLO cuenta cuando no hay `proveedor_id`, para que un texto viejo no
+   le robe el material a su proveedor real. Y la comparación es exacta: los
+   nombres combinados tipo "Mercoglass/Favicur" o "Janored/2001" no son ninguno
+   de los dos, y se arreglan asignándole el proveedor al material, no
+   adivinando acá. */
+
+const nombreProveedorLlave = (valor) =>
+  String(valor || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+
+export function indiceProveedoresPorNombre(proveedores) {
+  const indice = new Map();
+  for (const proveedor of proveedores || []) {
+    const llave = nombreProveedorLlave(proveedor?.nombre);
+    // Si dos proveedores se llaman igual gana el primero: no hay forma de
+    // decidir y duplicar el material en los dos sería peor.
+    if (llave && proveedor?.id && !indice.has(llave)) indice.set(llave, proveedor.id);
+  }
+  return indice;
+}
+
+/**
+ * El id del proveedor que quedó guardado en la ficha del material.
+ *
+ * OJO: esto NO es "el proveedor principal". No hay proveedor principal — un
+ * material tiene los proveedores que tiene, y quiénes son se pregunta con
+ * `proveedoresDeMaterial`. `panol_materiales.proveedor_id` sobrevive como un
+ * dato denormalizado: el último proveedor que se le grabó a la ficha. Lo leen
+ * pañol, compras y comprobantes para tener un nombre a mano sin salir a buscar
+ * el historial, y por eso se sigue manteniendo al día.
+ */
+export function proveedorGuardadoId(material, indice) {
+  if (material?.proveedor_id) return material.proveedor_id;
+  const llave = nombreProveedorLlave(material?.proveedor);
+  return (llave && indice?.get(llave)) || null;
+}
+
+// Clave de la fila que junta los precios del historial que no dicen de quién son.
+const SIN_PROVEEDOR_PRECIO = "__sin_proveedor__";
+
+/**
+ * TODOS los proveedores de un material, sin jerarquía, del precio más nuevo al
+ * más viejo. Los que todavía no cotizaron van al final, sin importe.
+ *
+ * Es la única forma de preguntar "quién vende esto". Antes había tres lugares
+ * distintos donde mirar y ninguno era el bueno del todo:
+ *
+ *   panol_precios              el historial: con fecha, con proveedor, ya
+ *                              multiproveedor. ES LA VERDAD.
+ *   panol_material_proveedores una segunda tabla de precios, SIN fecha. Sirve
+ *                              para una cosa que la otra no puede: dejar
+ *                              anotado que un proveedor vende algo cuando
+ *                              todavía no cotizó.
+ *   panol_materiales.proveedor el último proveedor grabado en la ficha. Es una
+ *                              copia, no una cuarta opinión.
+ *
+ * Acá se juntan las tres en una lista sola. Cada proveedor aparece UNA vez, con
+ * su precio más reciente. Se deduplica por id, y por nombre normalizado cuando
+ * la fila vieja no tiene id -que es la mitad de los datos heredados-.
+ *
+ * @returns {{proveedorId: string|null, proveedor: string|null, precio: number|null,
+ *   moneda: "ARS"|"USD", fecha: string|null, fuente: string|null, sinCotizar: boolean}[]}
+ */
+export function proveedoresDeMaterial(material) {
+  const porClave = new Map();   // la fila de cada proveedor
+  // Un mismo proveedor puede llegar con id en una fuente y sólo con el nombre
+  // escrito en otra -hay 215 materiales heredados así-. Con dos índices, la
+  // fila que trae el id encuentra a la que sólo tenía el nombre, y al revés.
+  const porId = new Map();      // proveedor_id -> clave
+  const porNombre = new Map();  // nombre normalizado -> clave
+
+  const sumar = (fila) => {
+    const nombre = nombreProveedorLlave(fila.proveedor);
+    const llave = (fila.proveedorId && porId.get(fila.proveedorId))
+      || (nombre && porNombre.get(nombre))
+      || fila.proveedorId
+      || nombre
+      // Un precio del historial que no dice de quién es (el de lista de una
+      // web, uno estimado) sigue siendo un precio. Entra una sola vez, sin
+      // proveedor: si se descartaba, el costo del barco lo perdía.
+      || (fila.sinProveedor ? SIN_PROVEEDOR_PRECIO : null);
+    if (!llave) return;
+
+    const previo = porClave.get(llave);
+    let final = fila;
+    if (previo) {
+      // Gana el más nuevo. Sin fecha se considera más viejo que cualquier
+      // fecha: una fila de panol_material_proveedores no dice cuándo se cargó,
+      // así que no puede desplazar a un precio que sí sabe su día.
+      if ((fila.fecha || "") <= (previo.fecha || "")) {
+        // Aunque no gane, puede completar lo que al otro le falta.
+        if (previo.precio == null && fila.precio != null) {
+          previo.precio = fila.precio;
+          previo.moneda = fila.moneda;
+          previo.sinCotizar = false;
+        }
+        if (!previo.proveedorId && fila.proveedorId) previo.proveedorId = fila.proveedorId;
+        if (!previo.proveedor && fila.proveedor) previo.proveedor = fila.proveedor;
+        if (!previo.denominacionProveedor && fila.denominacionProveedor) previo.denominacionProveedor = fila.denominacionProveedor;
+        if (!previo.codigoProveedor && fila.codigoProveedor) previo.codigoProveedor = fila.codigoProveedor;
+        if ((!previo.componentesPedido || !previo.componentesPedido.length) && fila.componentesPedido?.length) previo.componentesPedido = fila.componentesPedido;
+        final = previo;
+      } else {
+        fila.proveedorId = fila.proveedorId || previo.proveedorId;
+        fila.proveedor = fila.proveedor || previo.proveedor;
+        fila.denominacionProveedor = fila.denominacionProveedor || previo.denominacionProveedor || null;
+        fila.codigoProveedor = fila.codigoProveedor || previo.codigoProveedor || null;
+        fila.componentesPedido = fila.componentesPedido?.length ? fila.componentesPedido : (previo.componentesPedido || []);
+      }
+    }
+    porClave.set(llave, final);
+    if (final.proveedorId) porId.set(final.proveedorId, llave);
+    const nombreFinal = nombreProveedorLlave(final.proveedor);
+    if (nombreFinal) porNombre.set(nombreFinal, llave);
+  };
+
+  const sumarAlternativas = (nombre) => {
+    for (const alternativa of nombresProveedor(nombre)) {
+      sumar({ proveedorId: null, proveedor: alternativa, precio: null, moneda: "ARS", fecha: null, fuente: null, sinCotizar: true });
+    }
+  };
+
+  // 1. El historial de precios, que es el que tiene fecha.
+  for (const row of material?.precio_historial || []) {
+    const precio = Number(row?.precio_unitario);
+    if (!Number.isFinite(precio) || precio <= 0) continue;
+    const proveedor = String(row.proveedor || "").trim() || null;
+    if (esProveedorAlternativo(proveedor)) {
+      sumarAlternativas(proveedor);
+      // El importe histórico sirve para el costo, pero no sabemos cuál de las
+      // dos casas lo cotizó: no se lo adjudicamos a ninguna por adivinanza.
+      sumar({ proveedorId: null, proveedor: null, precio, moneda: row.moneda === "USD" ? "USD" : "ARS", fecha: row.fecha || null, fuente: row.fuente || null, sinCotizar: true, sinProveedor: true });
+      continue;
+    }
+    sumar({
+      proveedorId: row.proveedor_id || null,
+      proveedor,
+      precio,
+      moneda: row.moneda === "USD" ? "USD" : "ARS",
+      fecha: row.fecha || (row.created_at ? String(row.created_at).slice(0, 10) : null),
+      fuente: row.fuente || null,
+      sinCotizar: false,
+      sinProveedor: !row.proveedor_id && !proveedor,
+    });
+  }
+
+  // 2. Los vínculos sueltos: con precio viejo sin fecha, o sin precio todavía.
+  for (const alterno of material?.proveedores_lista || []) {
+    if (esProveedorAlternativo(alterno?.proveedor?.nombre)) {
+      sumarAlternativas(alterno.proveedor.nombre);
+      continue;
+    }
+    const precio = Number(alterno?.precio);
+    const tiene = Number.isFinite(precio) && precio > 0;
+    sumar({
+      proveedorId: alterno.proveedor_id || null,
+      proveedor: String(alterno.proveedor?.nombre || "").trim() || null,
+      precio: tiene ? precio : null,
+      moneda: alterno.moneda === "USD" ? "USD" : "ARS",
+      fecha: null,
+      fuente: null,
+      sinCotizar: !tiene,
+      denominacionProveedor: String(alterno.denominacion_proveedor || "").trim() || null,
+      codigoProveedor: String(alterno.codigo_proveedor || "").trim() || null,
+      componentesPedido: Array.isArray(alterno.componentes_pedido) ? alterno.componentes_pedido : [],
+    });
+  }
+
+  // 3. Lo que quedó grabado en la ficha, por si su precio nunca llegó al
+  //    historial. Va último justamente porque es una copia.
+  const suelto = Number(material?.precio_unitario);
+  if (material?.proveedor_id || material?.proveedor) {
+    if (esProveedorAlternativo(material.proveedor)) {
+      sumarAlternativas(material.proveedor);
+      if (Number.isFinite(suelto) && suelto > 0) {
+        sumar({ proveedorId: null, proveedor: null, precio: suelto, moneda: material.moneda === "USD" ? "USD" : "ARS", fecha: null, fuente: "catalogo", sinCotizar: false, sinProveedor: true });
+      }
+    } else {
+      sumar({
+        proveedorId: material.proveedor_id || null,
+        proveedor: String(material.proveedor || "").trim() || null,
+        precio: Number.isFinite(suelto) && suelto > 0 ? suelto : null,
+        moneda: material.moneda === "USD" ? "USD" : "ARS",
+        fecha: null,
+        fuente: "catalogo",
+        sinCotizar: !(Number.isFinite(suelto) && suelto > 0),
+      });
+    }
+  }
+
+  return [...porClave.values()].sort((a, b) => {
+    // Con precio antes que sin precio; después, el más reciente arriba.
+    if (a.sinCotizar !== b.sinCotizar) return a.sinCotizar ? 1 : -1;
+    return String(b.fecha || "").localeCompare(String(a.fecha || ""));
+  });
+}
+
+/** Seis meses es el corte. Sin fecha se considera vencido: no se sabe de cuándo es. */
+export function precioVencido(fecha) {
+  if (!fecha) return true;
+  const dia = new Date(fecha);
+  if (Number.isNaN(dia.getTime())) return true;
+  const corte = new Date();
+  corte.setMonth(corte.getMonth() - 6);
+  return dia < corte;
+}
+
+/**
+ * Lo que se sabe del precio de ESE proveedor para ese material, o null si no
+ * lo vende. Una sola pregunta para lo que antes había que contestar en dos
+ * ramas -"¿es el de la ficha o es de los otros?"- y con dos fórmulas distintas.
+ *
+ * `indice` (el de `indiceProveedoresPorNombre`) es para los heredados: hay
+ * materiales que sólo tienen el nombre del proveedor escrito, sin id, y sin
+ * esto no aparecerían en la bandeja de nadie.
+ */
+export function precioDeProveedor(material, proveedorId, indice) {
+  if (!proveedorId) return null;
+  for (const row of proveedoresDeMaterial(material)) {
+    if (row.proveedorId && row.proveedorId === proveedorId) return row;
+    if (!row.proveedorId) {
+      const llave = nombreProveedorLlave(row.proveedor);
+      if (llave && indice?.get(llave) === proveedorId) return row;
+    }
+  }
+  return null;
+}
+
+export function precioVigente(material) {
+  return (
+    material?.ultimo_precio ??
+    (material?.precio_unitario != null
+      ? {
+          precio_unitario: material.precio_unitario,
+          moneda: material.moneda,
+          fecha: null,
+          proveedor: material.proveedor,
+          proveedor_id: material.proveedor_id,
+          fuente: "catalogo",
+        }
+      : null)
+  );
+}
+
+export function precioDesactualizado(material) {
+  const precio = precioVigente(material);
+  if (!precio?.precio_unitario) return true;
+  if (!precio.fecha) return true;
+  const date = new Date(precio.fecha);
+  if (Number.isNaN(date.getTime())) return true;
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+  return date < sixMonthsAgo;
+}
+
+/**
+ * Los precios que el proveedor pasa por conjunto y no por pieza.
+ *
+ * Merniez arma los mazos de cables y las cajas del barco entero y cobra un solo
+ * número; Maxi Herrero hace lo mismo con la herrería; los tanques se cotizan
+ * por modelo. Repartir ese número entre las piezas sería inventar unitarios que
+ * después alguien cita como si fueran reales, así que el precio vive en el
+ * conjunto y los materiales que cubre dejan de contarse como faltantes.
+ *
+ * Un conjunto sin precio no es lo mismo que un material sin precio: es una
+ * cotización que hay que pedir, y se ve como una sola línea en vez de como
+ * veintitrés renglones sueltos.
+ *
+ * Devuelve [] si la tabla todavía no existe, para que la pantalla de costos
+ * siga andando en una base sin la migración aplicada.
+ */
+export async function fetchConjuntos() {
+  const { data, error } = await supabase
+    .from("panol_conjuntos")
+    .select(
+      "id, nombre, proveedor, proveedor_id, modelo, precio, moneda, fecha, fuente, notas, activo, panol_conjunto_items(material_id)",
+    )
+    .eq("activo", true)
+    .order("nombre");
+  if (error) {
+    if (isMissingTable(error)) return [];
+    throw error;
+  }
+  return (data ?? []).map((row) => ({
+    ...row,
+    materiales: (row.panol_conjunto_items ?? [])
+      .map((item) => item.material_id)
+      .filter(Boolean),
+  }));
+}
+
+/** El número que pasó el proveedor, con la fecha y de dónde salió. */
+export async function guardarPrecioConjunto(id, { precio, moneda, fecha, fuente }) {
+  if (!id) throw new Error("Falta el conjunto.");
+  const monto = toNullableNumber(precio);
+  const { data, error } = await supabase
+    .from("panol_conjuntos")
+    .update({
+      precio: monto,
+      moneda: moneda === "USD" ? "USD" : "ARS",
+      // Sin fecha no se sabe si el precio envejeció, así que se pone la de hoy.
+      fecha: monto == null ? null : (fecha || new Date().toISOString().slice(0, 10)),
+      fuente: fuente?.trim() ? fuente.trim() : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select("id, precio, moneda, fecha, fuente")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Los motivos para que un material no lleve precio propio.
+ *
+ * Son los casos que aparecen al costear un barco y que no son "falta pedir el
+ * precio": la pieza se fabrica acá, la trae el cliente, o ya está pagada
+ * adentro de otro ítem. Se ofrecen como botones para no tener que escribirlos;
+ * cualquier otro motivo se escribe a mano.
+ */
+export const MOTIVOS_SIN_PRECIO = [
+  "Se fabrica en el astillero",
+  "Lo provee el cliente",
+  "Viene incluido en otro ítem",
+];
+
+/**
+ * Marca un material como "especificado": no lleva precio propio, por el
+ * motivo que se indica. Con motivo vacío lo vuelve a dejar como faltante.
+ *
+ * Quién y cuándo lo pone la base con un trigger, no esta función.
+ */
+export async function marcarSinPrecio(materialId, motivo) {
+  if (!materialId) throw new Error("Falta el material.");
+  const limpio = String(motivo ?? "").trim() || null;
+  const { error } = await supabase
+    .from("panol_materiales")
+    .update({ sin_precio_motivo: limpio })
+    .eq("id", materialId);
+  if (error) {
+    if (isMissingColumn(error)) {
+      throw new Error("Falta aplicar la migración 20260923100000_materiales_sin_precio_motivo.");
+    }
+    throw error;
+  }
+}
+
+export const RUBRO_CONSUMIBLES = "Consumibles";
+
+/**
+ * El rubro con el que un material aparece en las listas generales.
+ *
+ * Los consumibles se cuentan todos juntos. En la lista de una obra no aporta
+ * nada abrir Mechas, Lijas y abrasivos y Fijaciones como tres rubros: la
+ * división sigue existiendo y se ve entrando a Consumibles.
+ *
+ * El resto conserva su nombre propio aunque cuelgue de otro rubro. Broncería y
+ * Griferías se leen solas, no como parte de Mecánica y Sanitarios.
+ *
+ * Acepta el array de fetchCategorias, un Map por id, o el índice { porId }.
+ */
+export function rubroDeLista(categorias, categoriaId, fallback = "Sin rubro") {
+  const buscar = categorias instanceof Map
+    ? (id) => categorias.get(id)
+    : categorias?.porId instanceof Map
+      ? (id) => categorias.porId.get(id)
+      : (id) => (Array.isArray(categorias) ? categorias : []).find((c) => c.id === id);
+
+  const propia = buscar(categoriaId);
+  if (!propia) return fallback;
+  let actual = propia;
+  // El tope evita quedarse colgado si alguna categoría se apunta a sí misma.
+  for (let saltos = 0; actual && saltos < 8; saltos += 1) {
+    if (actual.nombre === RUBRO_CONSUMIBLES) return RUBRO_CONSUMIBLES;
+    if (!actual.parent_id) break;
+    actual = buscar(actual.parent_id);
+  }
+  return propia.nombre || fallback;
+}
+
+export async function fetchCategorias() {
+  // parent_id permite subdivisiones (sector padre → subsectores). Puede no existir
+  // todavía la columna: si falla, reintentamos sin ella para no romper la pantalla.
+  let { data, error } = await supabase
+    .from("panol_categorias")
+    .select("id, nombre, orden, parent_id")
+    .order("orden", { ascending: true, nullsFirst: false })
+    .order("nombre");
+  if (error && String(error.message || "").includes("parent_id")) {
+    const retry = await supabase
+      .from("panol_categorias")
+      .select("id, nombre, orden")
+      .order("orden", { ascending: true, nullsFirst: false })
+      .order("nombre");
+    data = retry.data;
+    error = retry.error;
+  }
+  if (error) throw error;
+  return (data ?? []).map((c) => ({ ...c, parent_id: c.parent_id ?? null }));
+}
+
+// Crea un sector (parentId null) o subsector (parentId = id del padre).
+export async function crearCategoria(
+  nombre,
+  { parentId = null, orden = 0 } = {},
+) {
+  const { data, error } = await supabase
+    .from("panol_categorias")
+    .insert({ nombre: nombre.trim(), parent_id: parentId, orden })
+    .select("id, nombre, orden, parent_id")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function renombrarCategoria(id, nombre) {
+  const { error } = await supabase
+    .from("panol_categorias")
+    .update({ nombre: nombre.trim() })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+// Borra un subsector y reasigna sus materiales al sector padre (no se pierden).
+export async function borrarSubsector(id, parentId) {
+  if (parentId) {
+    await supabase
+      .from("panol_materiales")
+      .update({ categoria_id: parentId })
+      .eq("categoria_id", id);
+    await supabase
+      .from("panol_material_categorias")
+      .update({ categoria_id: parentId })
+      .eq("categoria_id", id);
+  }
+  const { error } = await supabase
+    .from("panol_categorias")
+    .delete()
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function fetchBatches() {
+  const { data, error } = await supabase
+    .from("panol_import_batches")
+    .select("id, filename, stats, created_at")
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function fetchProveedores() {
+  const { data, error } = await supabase
+    .from("panol_proveedores")
+    .select(
+      "id, nombre, cuit, email, telefono, notas, activo, tipo, rubros, sede, perfil, compite_con",
+    )
+    .order("nombre");
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function fetchMaterialAudit(materialId, limit = 80) {
+  if (!materialId) return [];
+  const cleanLimit = Math.min(Math.max(Number(limit) || 80, 1), 200);
+  const { data, error } = await supabase
+    .from("panol_materiales_audit")
+    .select(
+      "id, material_id, material_descripcion, campo, valor_anterior, valor_nuevo, actor_id, origen, contexto, created_at",
+    )
+    .eq("material_id", materialId)
+    .order("created_at", { ascending: false })
+    .limit(cleanLimit);
+  if (error) {
+    if (isMissingTable(error)) return [];
+    throw error;
+  }
+  return data ?? [];
+}
+
+const MATERIAL_AUDIT_RESTORE_FIELDS = new Set([
+  "descripcion",
+  "proveedor",
+  "proveedor_id",
+  "categoria_id",
+  "codigo",
+  "codigo_barra",
+  "unidad_medida",
+  "precio_unitario",
+  "moneda",
+  "variantes",
+  "notas",
+  "imagen_url",
+  "revisado",
+  "activo",
+]);
+
+export async function restaurarMaterialAuditChange(auditRow) {
+  const materialId = auditRow?.material_id;
+  const campo = auditRow?.campo;
+  if (!materialId)
+    throw new Error("No se puede restaurar: el material ya no existe.");
+  if (!MATERIAL_AUDIT_RESTORE_FIELDS.has(campo))
+    throw new Error("Ese campo no se puede restaurar desde el historial.");
+
+  let value = auditRow.valor_anterior;
+  if (campo === "descripcion") {
+    value = String(value || "").trim();
+    if (!value) throw new Error("No se puede restaurar una descripcion vacia.");
+  } else if (campo === "precio_unitario") {
+    value = toNullableNumber(value);
+  } else if (campo === "variantes") {
+    value = normalizeVariantes(value);
+  } else if (campo === "activo" || campo === "revisado") {
+    value = Boolean(value);
+  } else if (value === "") {
+    value = null;
+  }
+
+  const { error } = await supabase
+    .from("panol_materiales")
+    .update({ [campo]: value })
+    .eq("id", materialId);
+  if (error) throw error;
+}
+
+export async function fetchComprobantes() {
+  const comprobantes = await fetchPaged(
+    "panol_comprobantes",
+    "id, proveedor_id, proveedor, numero, fecha, moneda, archivo_url, estado, total, created_at",
+    "created_at",
+  );
+  const items = await fetchPaged(
+    "panol_comprobante_items",
+    "id, comprobante_id, material_id, descripcion, descripcion_original, cantidad, precio_unitario, total, aplicado",
+    "id",
+  );
+  const itemsByComprobante = new Map();
+  for (const item of items) {
+    const list = itemsByComprobante.get(item.comprobante_id) ?? [];
+    list.push(item);
+    itemsByComprobante.set(item.comprobante_id, list);
+  }
+  return comprobantes
+    .map((c) => ({ ...c, items: itemsByComprobante.get(c.id) ?? [] }))
+    .sort((a, b) =>
+      String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")),
+    );
+}
+
+async function fetchMaterialModelosCatalogo() {
+  try {
+    return await fetchPaged(
+      "panol_material_modelo",
+      "id, material_id, modelo, cantidad, variante, producto_predeterminado_id, especificaciones_defecto",
+      "id",
+    );
+  } catch (error) {
+    if (!isMissingColumn(error)) throw error;
+    const rows = await fetchPaged(
+      "panol_material_modelo",
+      "id, material_id, modelo, cantidad, variante",
+      "id",
+    );
+    return rows.map((row) => ({
+      ...row,
+      producto_predeterminado_id: null,
+      especificaciones_defecto: {},
+    }));
+  }
+}
+
+async function fetchCatalogoBaseRaw({ force = false } = {}) {
+  const now = Date.now();
+  if (
+    !force &&
+    catalogoBaseRawCache &&
+    now - catalogoBaseRawCacheAt < CATALOGO_CACHE_TTL_MS
+  ) {
+    return catalogoBaseRawCache;
+  }
+  if (!force && catalogoBaseRawEnVuelo) return catalogoBaseRawEnVuelo;
+
+  const request = Promise.all([
+    fetchCategorias(),
+    fetchMaterialesCatalogo(),
+    fetchMaterialModelosCatalogo(),
+    fetchProveedores(),
+  ])
+    .then(([categorias, materiales, modelos, proveedores]) => {
+      const data = { categorias, materiales, modelos, proveedores };
+      catalogoBaseRawCache = data;
+      catalogoBaseRawCacheAt = Date.now();
+      return data;
+    })
+    .finally(() => {
+      if (catalogoBaseRawEnVuelo === request) catalogoBaseRawEnVuelo = null;
+    });
+
+  catalogoBaseRawEnVuelo = request;
+  return request;
+}
+
+async function fetchCatalogoFresh({
+  includeExtras = true,
+  includeDetails = true,
+  force = false,
+} = {}) {
+  const [
+    base,
+    codigosBarra,
+    batches,
+    precios,
+    imagenes,
+    comprobantes,
+    areasRes,
+    condRes,
+    provMatRes,
+  ] = await Promise.all([
+    fetchCatalogoBaseRaw({ force }),
+    includeExtras ? fetchMaterialCodigosBarraRows() : Promise.resolve([]),
+    includeExtras ? fetchBatches() : Promise.resolve([]),
+    includeDetails
+      ? fetchPaged(
+        "panol_precios",
+        "id, material_id, proveedor_id, proveedor, precio_unitario, moneda, fuente, comprobante_id, fecha, created_at",
+        "created_at",
+      )
+      : Promise.resolve([]),
+    fetchPaged(
+      "panol_material_imagenes",
+      "id, material_id, url, nombre, created_at",
+      "created_at",
+    ),
+    includeExtras ? fetchComprobantes() : Promise.resolve([]),
+    includeDetails ? fetchAreasMap() : Promise.resolve({ map: new Map() }),
+    includeDetails ? fetchCondicionMap() : Promise.resolve({ map: new Map() }),
+    includeDetails
+      ? fetchProveedoresMaterialMap()
+      : Promise.resolve({ map: new Map() }),
+  ]);
+  const { categorias, materiales, modelos, proveedores } = base;
+
+  const modelosByMaterial = new Map();
+  for (const row of modelos) {
+    if (!MODELOS.includes(String(row.modelo))) continue;
+    const list = modelosByMaterial.get(row.material_id) ?? [];
+    list.push(row);
+    modelosByMaterial.set(row.material_id, list);
+  }
+  const proveedorPorId = new Map(proveedores.map((row) => [row.id, row.nombre]));
+  const preciosVista = precios.map((row) => ({
+    ...row,
+    proveedor_original: row.proveedor,
+    proveedor: nombreProveedorVisible(row.proveedor || proveedorPorId.get(row.proveedor_id)),
+  }));
+  const preciosByMaterial = new Map();
+  for (const row of preciosVista) {
+    const list = preciosByMaterial.get(row.material_id) ?? [];
+    list.push(row);
+    preciosByMaterial.set(row.material_id, list);
+  }
+  for (const list of preciosByMaterial.values()) {
+    list.sort((a, b) =>
+      String(b.fecha ?? b.created_at ?? "").localeCompare(
+        String(a.fecha ?? a.created_at ?? ""),
+      ),
+    );
+  }
+  const imagenesByMaterial = new Map();
+  for (const row of imagenes) {
+    const list = imagenesByMaterial.get(row.material_id) ?? [];
+    list.push(row);
+    imagenesByMaterial.set(row.material_id, list);
+  }
+  for (const list of imagenesByMaterial.values()) {
+    list.sort((a, b) =>
+      String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")),
+    );
+  }
+  const codigosByMaterial = new Map();
+  for (const row of codigosBarra) {
+    if (!row.material_id || row.activo === false) continue;
+    const list = codigosByMaterial.get(row.material_id) ?? [];
+    list.push(row);
+    codigosByMaterial.set(row.material_id, list);
+  }
+
+  return {
+    categorias,
+    precios: preciosVista,
+    materiales: materiales.map((m) => {
+      const historial = preciosByMaterial.get(m.id) ?? [];
+      const imgs = imagenesByMaterial.get(m.id) ?? [];
+      // Áreas = categoría principal + las extra de la M2M (un mismo ítem en varias áreas).
+      const extra = areasRes.map.get(m.id);
+      const areas = [
+        ...new Set(
+          [m.categoria_id, ...(extra ? [...extra] : [])].filter(Boolean),
+        ),
+      ];
+      return {
+        ...m,
+        proveedor_original: m.proveedor,
+        proveedor: nombreProveedorVisible(m.proveedor || proveedorPorId.get(m.proveedor_id)),
+        modelos: modelosByMaterial.get(m.id) ?? [],
+        precio_historial: historial,
+        ultimo_precio: historial[0] ?? null,
+        imagenes: imgs,
+        imagen_url: m.imagen_url || imgs[0]?.url || null,
+        links: normalizeMaterialLinks(m.links),
+        variantes: normalizeVariantes(m.variantes),
+        codigos_barra: codigosByMaterial.get(m.id) ?? [],
+        areas,
+        proveedores_lista: provMatRes.map.get(m.id) ?? [],
+        condicion_valor_id: condRes.map.get(m.id) ?? null,
+      };
+    }),
+    batches,
+    proveedores,
+    comprobantes,
+  };
+}
+
+export async function fetchCatalogo({
+  force = false,
+  includeExtras = true,
+  includeDetails = true,
+} = {}) {
+  const now = Date.now();
+  const key = includeExtras ? "full" : includeDetails ? "core" : "base";
+  const fullCached = catalogoCache.get("full");
+  const fullCachedAt = catalogoCacheAt.get("full") || 0;
+  if (!force && !includeExtras && fullCached && now - fullCachedAt < CATALOGO_CACHE_TTL_MS) {
+    return fullCached;
+  }
+  const coreCached = catalogoCache.get("core");
+  const coreCachedAt = catalogoCacheAt.get("core") || 0;
+  if (
+    !force &&
+    key === "base" &&
+    coreCached &&
+    now - coreCachedAt < CATALOGO_CACHE_TTL_MS
+  ) {
+    return coreCached;
+  }
+  const cached = catalogoCache.get(key);
+  const cachedAt = catalogoCacheAt.get(key) || 0;
+  if (!force && cached && now - cachedAt < CATALOGO_CACHE_TTL_MS) return cached;
+  if (!force && catalogoEnVuelo.has(key)) return catalogoEnVuelo.get(key);
+
+  const request = fetchCatalogoFresh({ includeExtras, includeDetails, force })
+    .then((data) => {
+      catalogoCache.set(key, data);
+      catalogoCacheAt.set(key, Date.now());
+      return data;
+    })
+    .finally(() => {
+      if (catalogoEnVuelo.get(key) === request) catalogoEnVuelo.delete(key);
+    });
+  catalogoEnVuelo.set(key, request);
+  return request;
+}
+
+export async function agregarCodigoBarraMaterial(
+  materialId,
+  codigo,
+  { etiqueta = "", variante = null } = {},
+) {
+  const clean = String(codigo || "").trim();
+  if (!materialId) throw new Error("Falta el material.");
+  if (!clean) throw new Error("Cargá un código de barras.");
+
+  try {
+    const { data, error } = await supabase
+      .from("panol_material_codigos_barra")
+      .insert({
+        material_id: materialId,
+        codigo: clean,
+        etiqueta: String(etiqueta || "").trim() || null,
+        variante: variante || null,
+        activo: true,
+      })
+      .select(
+        "id, material_id, codigo, etiqueta, variante, activo, created_at, updated_at",
+      )
+      .single();
+    if (error) throw error;
+
+    try {
+      const { data: material } = await supabase
+        .from("panol_materiales")
+        .select("codigo_barra")
+        .eq("id", materialId)
+        .maybeSingle();
+      if (!String(material?.codigo_barra || "").trim()) {
+        await supabase
+          .from("panol_materiales")
+          .update({ codigo_barra: clean })
+          .eq("id", materialId);
+      }
+    } catch {
+      // El campo legacy es solo compatibilidad: si falla, el código nuevo ya quedó guardado.
+    }
+    return data;
+  } catch (error) {
+    if (!(isMissingTable(error) || isMissingColumn(error))) throw error;
+    const { error: legacyError } = await supabase
+      .from("panol_materiales")
+      .update({ codigo_barra: clean })
+      .eq("id", materialId);
+    if (legacyError) throw legacyError;
+    return {
+      id: null,
+      material_id: materialId,
+      codigo: clean,
+      etiqueta: etiqueta || "Principal",
+      activo: true,
+      legacy: true,
+    };
+  }
+}
+
+export async function eliminarCodigoBarraMaterial({
+  id = null,
+  materialId = null,
+  codigo = "",
+} = {}) {
+  const clean = String(codigo || "").trim();
+  if (id) {
+    try {
+      const { error } = await supabase
+        .from("panol_material_codigos_barra")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    } catch (error) {
+      if (!(isMissingTable(error) || isMissingColumn(error))) throw error;
+    }
+  } else if (materialId && clean) {
+    try {
+      const { error } = await supabase
+        .from("panol_material_codigos_barra")
+        .delete()
+        .eq("material_id", materialId)
+        .eq("codigo", clean);
+      if (error) throw error;
+    } catch (error) {
+      if (!(isMissingTable(error) || isMissingColumn(error))) throw error;
+    }
+  }
+
+  if (materialId && clean) {
+    const { data } = await supabase
+      .from("panol_materiales")
+      .select("codigo_barra")
+      .eq("id", materialId)
+      .maybeSingle();
+    if (barcodeKey(data?.codigo_barra) === barcodeKey(clean)) {
+      const { error } = await supabase
+        .from("panol_materiales")
+        .update({ codigo_barra: null })
+        .eq("id", materialId);
+      if (error) throw error;
+    }
+  }
+}
+
+function modeloFromObraCodigo(codigo) {
+  const prefix = String(codigo ?? "")
+    .trim()
+    .split("-")[0]
+    ?.replace(/^K/i, "");
+  return MODELOS.includes(prefix) ? prefix : null;
+}
+
+function normalizeObraAvance(row) {
+  const modelo = MODELOS.includes(String(row?.modelo ?? ""))
+    ? String(row.modelo)
+    : modeloFromObraCodigo(row?.codigo);
+  return { ...row, modelo };
+}
+
+async function fetchProduccionObras(select, onlyActive = true) {
+  let query = supabase
+    .from("produccion_obras")
+    .select(select)
+    .order("codigo", { ascending: true });
+  if (onlyActive) query = query.eq("estado", "activa");
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
+}
+
+// Addons por obra (opcionales/adicionales). Tolerante: [] si la tabla aún no existe.
+export async function fetchAddonsObra(obraId) {
+  if (!obraId) return [];
+  try {
+    const { data, error } = await supabase
+      .from("panol_obra_addons")
+      .select("*")
+      .eq("obra_id", obraId)
+      .order("created_at");
+    if (error) return [];
+    return data ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchAddonsMaterial(materialId) {
+  if (!materialId) return [];
+  try {
+    const { data, error } = await supabase
+      .from("panol_obra_addons")
+      .select("*")
+      .eq("material_id", materialId)
+      .order("created_at");
+    if (error) return [];
+    return data ?? [];
+  } catch {
+    return [];
+  }
+}
+
+const ADDON_FIELDS = new Set([
+  "obra_id",
+  "material_id",
+  "descripcion",
+  "cantidad",
+  "proveedor",
+  "tipo",
+  "observaciones",
+  "codigo",
+  "unidad",
+  "categoria_id",
+  "proveedor_id",
+  "precio_unitario",
+  "moneda",
+  "imagen_url",
+  "links",
+  "codigo_barra",
+  "variantes",
+  "estado",
+]);
+
+function addonPayload(fields = {}, includeObraId = true) {
+  const payload = Object.fromEntries(
+    Object.entries(fields).filter(
+      ([key]) => ADDON_FIELDS.has(key) && (includeObraId || key !== "obra_id"),
+    ),
+  );
+  for (const key of [
+    "obra_id",
+    "material_id",
+    "categoria_id",
+    "proveedor_id",
+  ]) {
+    if (payload[key] === "") payload[key] = null;
+  }
+  if ("cantidad" in payload)
+    payload.cantidad = toNullableNumber(payload.cantidad) ?? 1;
+  if ("precio_unitario" in payload)
+    payload.precio_unitario = toNullableNumber(payload.precio_unitario);
+  if (payload.moneda === "") payload.moneda = null;
+  return payload;
+}
+
+function legacyAddonPayload(payload = {}, includeObraId = true) {
+  return addonPayload(
+    {
+      obra_id: payload.obra_id,
+      descripcion: payload.descripcion,
+      cantidad: payload.cantidad,
+      proveedor: payload.proveedor,
+      tipo: payload.tipo,
+      observaciones: payload.observaciones,
+    },
+    includeObraId,
+  );
+}
+
+export async function crearAddon(obraId, fields) {
+  const payload = addonPayload({ obra_id: obraId, ...fields });
+  const { data, error } = await supabase.rpc("materiales_crear_adicional_obra", { p_obra_id:obraId, p_datos:payload });
+  if (error) throw error;
+  return data;
+}
+
+export async function actualizarAddon(id, fields) {
+  if (!id) throw new Error("Falta el adicional.");
+  const payload = addonPayload(fields, false);
+  let { error } = await supabase
+    .from("panol_obra_addons")
+    .update(payload)
+    .eq("id", id);
+  if (error && isMissingColumn(error)) {
+    const retry = await supabase
+      .from("panol_obra_addons")
+      .update(legacyAddonPayload(payload, false))
+      .eq("id", id);
+    error = retry.error;
+  }
+  if (error) throw error;
+}
+
+function addonSnapshotMovible(row = {}) {
+  const recepcionEstado = String(row.recepcion_estado || "").toLowerCase();
+  if (
+    ["recibido", "parcial", "sin_info", "falta_stock", "rechazado"].includes(
+      recepcionEstado,
+    )
+  )
+    return false;
+  const estado = String(row.estado || "").toLowerCase();
+  return !["en_panol", "recibido", "egresado"].includes(estado);
+}
+
+export async function reasignarAddon(id, obraId, meta = {}) {
+  if (!id) throw new Error("Falta el adicional.");
+  if (!obraId) throw new Error("Elegí una obra destino.");
+  const { data:actual, error:leerError } = await supabase.from("panol_obra_addons").select("obra_snapshot_id").eq("id",id).single();
+  if (leerError) throw leerError;
+  if (actual?.obra_snapshot_id) {
+    const { error:moverError } = await supabase.rpc("materiales_reasignar_adicional_obra",{ p_addon_id:id,p_obra_id:obraId });
+    if (moverError) throw moverError;
+    return;
+  }
+  const { error } = await supabase
+    .from("panol_obra_addons")
+    .update({ obra_id: obraId })
+    .eq("id", id);
+  if (error) throw error;
+
+  const materialId = meta?.materialId || null;
+  const fromObraId = meta?.fromObraId || null;
+  if (!materialId || !fromObraId || fromObraId === obraId) return;
+  try {
+    let query = supabase
+      .from("panol_obra_materiales_snapshot")
+      .select("id, estado, recepcion_estado, descripcion, codigo, unidad")
+      .eq("obra_id", fromObraId)
+      .eq("material_id", materialId)
+      .neq("source", "adicional_obra")
+      .or("tipo.eq.addon,source.eq.addon");
+    if (meta.descripcion) query = query.eq("descripcion", meta.descripcion);
+    const { data, error: snapError } = await query;
+    if (snapError) return;
+    const ids = (data ?? [])
+      .filter(addonSnapshotMovible)
+      .map((row) => row.id)
+      .filter(Boolean);
+    if (!ids.length) return;
+    const { error: updateError } = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .update({ obra_id: obraId })
+      .in("id", ids);
+    if (updateError && !isMissingTable(updateError)) throw updateError;
+  } catch (snapError) {
+    if (!isMissingTable(snapError) && !isMissingColumn(snapError))
+      throw snapError;
+  }
+}
+
+export async function borrarAddon(id, { snapshotId = null } = {}) {
+  const { error } = await supabase
+    .from("panol_obra_addons")
+    .delete()
+    .eq("id", id);
+  if (error) throw error;
+  if (snapshotId) await borrarObraSnapshotRows([snapshotId]);
+}
+
+export async function borrarObraSnapshotRows(ids = []) {
+  const cleanIds = ids.filter(Boolean);
+  if (!cleanIds.length) return;
+  try {
+    const { error } = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .delete()
+      .in("id", cleanIds);
+    if (error && !isMissingTable(error)) throw error;
+  } catch (error) {
+    if (!isMissingTable(error)) throw error;
+  }
+}
+
+export async function fetchObraMaterialSnapshot(obraId) {
+  if (!obraId) return [];
+  try {
+    const { data, error } = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .select("*")
+      .eq("obra_id", obraId)
+      .order("orden", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: true });
+    if (error) return [];
+    return await withRecepcionDetalle(data ?? []);
+  } catch {
+    return [];
+  }
+}
+
+// Lectura liviana para los controles de consistencia de una línea completa.
+// No agrega el detalle de recepción: sólo necesita saber qué material quedó
+// fijado en cada obra para compararlo contra la matriz viva.
+export async function fetchObrasMaterialSnapshots(obraIds = []) {
+  const ids = [...new Set((obraIds ?? []).filter(Boolean))];
+  if (!ids.length) return [];
+
+  const allRows = [];
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    let { data, error } = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .select("id, obra_id, material_id, requisito_material_id, descripcion, codigo, cantidad, unidad, rubro, tipo, source, estado, created_at, updated_at")
+      .in("obra_id", ids)
+      .order("obra_id", { ascending: true })
+      .order("created_at", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error && isMissingColumn(error)) {
+      const fallback = await supabase
+        .from("panol_obra_materiales_snapshot")
+        .select("id, obra_id, material_id, descripcion, codigo, cantidad, unidad, rubro, tipo, source, estado, created_at, updated_at")
+        .in("obra_id", ids)
+        .order("obra_id", { ascending: true })
+        .order("created_at", { ascending: true })
+        .range(from, from + pageSize - 1);
+      data = (fallback.data || []).map((row) => ({ ...row, requisito_material_id: row.material_id || null }));
+      error = fallback.error;
+    }
+    if (error) throw error;
+    const page = data ?? [];
+    allRows.push(...page);
+    if (page.length < pageSize) break;
+  }
+  return allRows;
+}
+
+const STOCK_LIBRE_ESTADOS = new Set(["en_panol", "recibido", "parcial"]);
+
+function stockLibreSnapshotKey(row) {
+  const materialId = row?.material_id ?? row?.materialId ?? null;
+  if (materialId) return `material:${materialId}`;
+  const textKey = norm(
+    `${row?.descripcion || ""}|${row?.codigo || ""}|${row?.unidad || row?.unidad_medida || ""}`,
+  );
+  return textKey ? `text:${textKey}` : "";
+}
+
+async function fetchStockLibrePanolMaterialesFresh() {
+  try {
+    const { data, error } = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .select(
+        "id, material_id, descripcion, codigo, cantidad, cantidad_egresada, unidad, estado, source, stock_sede",
+      )
+      .is("obra_id", null);
+    if (error) return [];
+
+    const map = new Map();
+    for (const row of data ?? []) {
+      const key = stockLibreSnapshotKey(row);
+      if (!key) continue;
+      const estado = String(row.estado || "").toLowerCase();
+      const source = String(row.source || "").toLowerCase();
+      const isSalida =
+        estado === "egresado" ||
+        source.startsWith("egreso") ||
+        source === "transferencia_egreso";
+      const cantidad = Math.abs(
+        toNullableNumber(row.cantidad_egresada) ??
+          toNullableNumber(row.cantidad) ??
+          0,
+      );
+      const delta = isSalida
+        ? -cantidad
+        : STOCK_LIBRE_ESTADOS.has(estado)
+          ? (toNullableNumber(row.cantidad) ?? 0) -
+            (toNullableNumber(row.cantidad_egresada) ?? 0)
+          : 0;
+      if (!delta) continue;
+      const current = map.get(key) || {
+        key,
+        material_id: row.material_id || null,
+        descripcion: row.descripcion || "",
+        codigo: row.codigo || "",
+        unidad: row.unidad || "unidad",
+        cantidad: 0,
+        sedes: {},
+      };
+      current.cantidad += delta;
+      const sede = row.stock_sede || "Sin sede";
+      current.sedes[sede] = (current.sedes[sede] || 0) + delta;
+      map.set(key, current);
+    }
+
+    return [...map.values()]
+      .map((item) => ({
+        ...item,
+        cantidad: Math.max(0, item.cantidad),
+        sedes: Object.fromEntries(
+          Object.entries(item.sedes)
+            .map(([sede, qty]) => [sede, Math.max(0, qty)])
+            .filter(([, qty]) => qty > 0),
+        ),
+      }))
+      .filter((item) => item.cantidad > 0);
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchStockLibrePanolMateriales({ force = false } = {}) {
+  const now = Date.now();
+  if (!force && stockLibreCache && now - stockLibreCacheAt < STOCK_LIBRE_CACHE_TTL_MS) {
+    return stockLibreCache;
+  }
+  if (!force && stockLibreEnVuelo) return stockLibreEnVuelo;
+
+  const request = fetchStockLibrePanolMaterialesFresh()
+    .then((rows) => {
+      stockLibreCache = rows;
+      stockLibreCacheAt = Date.now();
+      return rows;
+    })
+    .finally(() => {
+      if (stockLibreEnVuelo === request) stockLibreEnVuelo = null;
+    });
+  stockLibreEnVuelo = request;
+  return request;
+}
+
+function snapshotEstadoFromRecepcion(estado) {
+  // Crear el aviso genera un item de recepción en estado "pendiente". Eso
+  // significa que Pañol todavía espera el material, no que ya lo tenga.
+  // Los estados de problema tampoco acreditan una recepción física.
+  if (["recibido", "parcial"].includes(String(estado || "").toLowerCase()))
+    return "en_panol";
+  return null;
+}
+
+function estadoListadoObra(row) {
+  const estado =
+    snapshotEstadoFromRecepcion(row?.recepcion_estado) ||
+    row?.estado ||
+    "pendiente";
+  if (estado === "egresado") return "egresado";
+  // "pedido" (enviado a compras) y "comprado" son estados distintos: juntarlos
+  // hacía que un item recien mandado a comprar figurara como ya comprado.
+  if (estado === "pedido") return "pedido";
+  if (estado === "comprado") return "comprado";
+  if (
+    [
+      "en_panol",
+      "recibido",
+      "parcial",
+      "problema",
+      "sin_info",
+      "falta_stock",
+      "rechazado",
+    ].includes(estado)
+  )
+    return "en_panol";
+  return "pendiente";
+}
+
+function latestRecepcionItem(items = []) {
+  return (
+    [...items].sort((a, b) => {
+      const ad = new Date(
+        a.marcado_at || a.updated_at || a.created_at || 0,
+      ).getTime();
+      const bd = new Date(
+        b.marcado_at || b.updated_at || b.created_at || 0,
+      ).getTime();
+      return bd - ad;
+    })[0] || null
+  );
+}
+
+async function fetchRecepcionItemsForSnapshots(rows = []) {
+  const snapshotIds = rows.map((row) => row.id).filter(Boolean);
+  const requestItemIds = rows
+    .map((row) => row.purchase_request_item_id)
+    .filter(Boolean);
+  if (!snapshotIds.length && !requestItemIds.length) return [];
+
+  const select =
+    "id, envio_id, purchase_request_item_id, obra_snapshot_item_id, estado, cantidad_recibida, nota, marcado_at, updated_at, created_at, envio:panol_envios(id,titulo,estado,sede,created_at)";
+  try {
+    let q = supabase.from("panol_envio_items").select(select);
+    const filters = [];
+    if (snapshotIds.length)
+      filters.push(`obra_snapshot_item_id.in.(${snapshotIds.join(",")})`);
+    if (requestItemIds.length)
+      filters.push(`purchase_request_item_id.in.(${requestItemIds.join(",")})`);
+    q = q.or(filters.join(",")).order("created_at", { ascending: false });
+    const { data, error } = await q;
+    if (error) throw error;
+    return data ?? [];
+  } catch (error) {
+    if (!isMissingColumn(error) || !requestItemIds.length) return [];
+    const { data, error: fallbackError } = await supabase
+      .from("panol_envio_items")
+      .select(
+        "id, envio_id, purchase_request_item_id, estado, cantidad_recibida, nota, marcado_at, updated_at, created_at, envio:panol_envios(id,titulo,estado,sede,created_at)",
+      )
+      .in("purchase_request_item_id", requestItemIds)
+      .order("created_at", { ascending: false });
+    if (fallbackError) return [];
+    return data ?? [];
+  }
+}
+
+async function withRecepcionDetalle(rows = []) {
+  if (!rows.length) return rows;
+  const recepcionItems = await fetchRecepcionItemsForSnapshots(rows);
+  if (!recepcionItems.length) return rows;
+
+  const bySnapshot = new Map();
+  const byPurchaseItem = new Map();
+  for (const item of recepcionItems) {
+    if (item.obra_snapshot_item_id) {
+      const list = bySnapshot.get(item.obra_snapshot_item_id) ?? [];
+      list.push(item);
+      bySnapshot.set(item.obra_snapshot_item_id, list);
+    }
+    if (item.purchase_request_item_id) {
+      const list = byPurchaseItem.get(item.purchase_request_item_id) ?? [];
+      list.push(item);
+      byPurchaseItem.set(item.purchase_request_item_id, list);
+    }
+  }
+
+  return rows.map((row) => {
+    const linked = [
+      ...(bySnapshot.get(row.id) ?? []),
+      ...(byPurchaseItem.get(row.purchase_request_item_id) ?? []),
+    ];
+    const unique = [...new Map(linked.map((item) => [item.id, item])).values()];
+    const latest = latestRecepcionItem(unique);
+    if (!latest) return row;
+    return {
+      ...row,
+      estado:
+        row.estado === "egresado"
+          ? row.estado
+          : snapshotEstadoFromRecepcion(latest.estado) || row.estado,
+      panol_envio_id: latest.envio_id || row.panol_envio_id || null,
+      panol_envio_item_id: latest.id || row.panol_envio_item_id || null,
+      recepcion_estado: latest.estado || row.recepcion_estado || null,
+      recepcion_cantidad_recibida:
+        latest.cantidad_recibida ?? row.recepcion_cantidad_recibida ?? null,
+      recepcion_nota: latest.nota ?? row.recepcion_nota ?? null,
+      recepcion_updated_at:
+        latest.marcado_at ||
+        latest.updated_at ||
+        row.recepcion_updated_at ||
+        null,
+      recepcion_envio: latest.envio || null,
+      recepcion_items: unique,
+    };
+  });
+}
+
+function snapshotPayloadFromRows(obraId, rows = []) {
+  return rows
+    .filter((row) => String(row?.descripcion || "").trim())
+    .map((row, index) => {
+      // En filas de matriz, el snapshot conserva la cantidad BASE de la obra.
+      // Los condicionantes se aplican al leer la lista; guardar el total acá
+      // haría que un +8 se vuelva a sumar en cada carga.
+      const hasConditionalAdjustment = row?.source !== "condicionante"
+        && Array.isArray(row?.condicionantes)
+        && row.condicionantes.length > 0
+        && row.baseCantidad != null;
+      return ({
+      ...(row.source === "adicional_obra" && row.snapshotId ? { id:row.snapshotId } : {}),
+      obra_id: obraId,
+      requisito_material_id:
+        row.requisitoMaterialId ?? row.requisito_material_id ?? row.materialId ?? row.material_id ?? row.material?.id ?? null,
+      material_id:
+        row.productoMaterialId ?? row.producto_material_id ?? row.materialId ?? row.material_id ?? row.material?.id ?? null,
+      descripcion: String(row.descripcion || "").trim(),
+      codigo: row.codigo || null,
+      cantidad: toNullableNumber(hasConditionalAdjustment ? row.baseCantidad : row.cantidad),
+      unidad: row.unidad || row.unidad_medida || "unidad",
+      proveedor:
+        row.proveedor && row.proveedor !== "Sin proveedor"
+          ? row.proveedor
+          : null,
+      rubro: row.rubro || null,
+      tipo: row.bucket?.key || row.tipo_key || row.tipo || "base",
+      tipo_label: row.bucket?.label || row.tipo_label || row.tipo || "Base",
+      precio_unitario:
+        row.precio?.amount ?? toNullableNumber(row.precio_unitario),
+      moneda: row.precio?.moneda || row.moneda || null,
+      notas: row.obs || row.notas || null,
+      source: row.source || "matriz",
+      es_adicional:
+        row.es_adicional === true ||
+        row.source === "addon" ||
+        row.bucket?.key === "addon" ||
+        row.tipo === "addon",
+      orden: index,
+      estado: row.estadoObra || row.estado || "pendiente",
+      variante: row.variante || row.variante_obra || null,
+      especificaciones:
+        row.especificaciones && typeof row.especificaciones === "object" && !Array.isArray(row.especificaciones)
+          ? row.especificaciones
+          : {},
+      especificaciones_origen: row.especificacionesOrigen || row.especificaciones_origen || null,
+      producto_asignacion_origen:
+        row.productoConfiguracionOrigen
+        || row.producto_asignacion_origen
+        || (row.productoEstandar ? "matriz_linea" : null),
+      });
+    });
+}
+
+function snapshotPayloadWithoutVariant(rows = []) {
+  return rows.map((row) => {
+    const clean = { ...row };
+    delete clean.variante;
+    delete clean.requisito_material_id;
+    delete clean.especificaciones;
+    delete clean.especificaciones_origen;
+    delete clean.producto_asignacion_origen;
+    return clean;
+  });
+}
+
+function snapshotPayloadKey(row) {
+  const adicionalKey = adicionalSnapshotKey(row);
+  if (adicionalKey) return adicionalKey;
+  // La identidad estable de una fila es el requisito de matriz. El producto
+  // concreto puede cambiar por obra y no debe crear un segundo snapshot.
+  const materialId =
+    row?.requisito_material_id ??
+    row?.requisitoMaterialId ??
+    row?.material_id ??
+    row?.materialId ??
+    null;
+  const kind =
+    row?.tipo || row?.tipo_key || row?.bucket?.key || row?.source || "";
+  if (kind === "addon" || row?.source === "addon") {
+    const textKey = norm(
+      `${row?.descripcion || ""}|${row?.codigo || ""}|${row?.unidad || row?.unidad_medida || ""}`,
+    );
+    return textKey ? `addon:${textKey}` : "";
+  }
+  if (materialId) return `material:${materialId}`;
+  const textKey = norm(
+    `${row?.descripcion || ""}|${row?.codigo || ""}|${row?.unidad || row?.unidad_medida || ""}`,
+  );
+  return textKey ? `text:${textKey}` : "";
+}
+
+export async function ensureObraMaterialSnapshot(obraId, rows = []) {
+  if (!obraId) return [];
+  try {
+    const existing = await fetchObraMaterialSnapshot(obraId);
+    const payload = snapshotPayloadFromRows(obraId, rows);
+    if (!payload.length) return existing;
+
+    if (existing.length) {
+      const existingKeys = new Set(
+        existing.map(snapshotPayloadKey).filter(Boolean),
+      );
+      const missing = payload.filter((row) => {
+        const key = snapshotPayloadKey(row);
+        return key && !existingKeys.has(key);
+      });
+      if (!missing.length) return existing;
+      let { error } = await supabase
+        .from("panol_obra_materiales_snapshot")
+        .insert(missing);
+      if (error && isMissingColumn(error)) {
+        const retry = await supabase
+          .from("panol_obra_materiales_snapshot")
+          .insert(snapshotPayloadWithoutVariant(missing));
+        error = retry.error;
+      }
+      if (error) return existing;
+      return await fetchObraMaterialSnapshot(obraId);
+    }
+
+    let { error } = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .insert(payload);
+    if (error && isMissingColumn(error)) {
+      const retry = await supabase
+        .from("panol_obra_materiales_snapshot")
+        .insert(snapshotPayloadWithoutVariant(payload));
+      error = retry.error;
+    }
+    if (error) return [];
+    return await fetchObraMaterialSnapshot(obraId);
+  } catch {
+    return [];
+  }
+}
+
+export async function ensureObraMaterialSnapshotRow(obraId, row) {
+  if (!obraId) throw new Error("Falta la obra.");
+  const payload = snapshotPayloadFromRows(obraId, [row])[0];
+  if (!payload) throw new Error("Falta el item de obra.");
+
+  let query = await supabase
+    .from("panol_obra_materiales_snapshot")
+    .insert(payload)
+    .select("*")
+    .single();
+
+  if (query.error && isMissingColumn(query.error)) {
+    query = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .insert(snapshotPayloadWithoutVariant([payload])[0])
+      .select("*")
+      .single();
+  }
+
+  if (query.error) throw query.error;
+  return query.data;
+}
+
+export async function reemplazarObraMaterialSnapshotSeguro(obraId, rows = []) {
+  if (!obraId) return [];
+  const existing = await fetchObraMaterialSnapshot(obraId);
+  const locked = existing.some(
+    (row) =>
+      row.purchase_request_id ||
+      row.panol_envio_id ||
+      row.panol_envio_item_id ||
+      row.recepcion_items?.length ||
+      !["pendiente", null, undefined, ""].includes(row.estado),
+  );
+  if (locked)
+    throw new Error(
+      "La lista ya tiene compras/recepcion/movimientos vinculados. No se puede regenerar sin perder trazabilidad.",
+    );
+
+  // Los adicionales conservan su identidad y su vínculo con la ficha propia.
+  // Regenerar la matriz no debe borrarlos y volver a crearlos.
+  const conservarIds = existing.filter(row=>row.source === "adicional_obra").map(row=>row.id);
+  const conservar = new Set(conservarIds);
+  const payload = snapshotPayloadFromRows(obraId, rows).filter(row=>!conservar.has(row.id));
+  if (!payload.length && !conservarIds.length) return [];
+
+  let borrarQuery = supabase
+    .from("panol_obra_materiales_snapshot")
+    .delete()
+    .eq("obra_id", obraId);
+  if (conservarIds.length) borrarQuery = borrarQuery.not("id","in",`(${conservarIds.join(",")})`);
+  const { error: delError } = await borrarQuery;
+  if (delError) throw delError;
+  if (!payload.length) return await fetchObraMaterialSnapshot(obraId);
+
+  let { error } = await supabase
+    .from("panol_obra_materiales_snapshot")
+    .insert(payload);
+  if (error && isMissingColumn(error)) {
+    const retry = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .insert(snapshotPayloadWithoutVariant(payload));
+    error = retry.error;
+  }
+  if (error) throw error;
+  return await fetchObraMaterialSnapshot(obraId);
+}
+
+export async function updateObraSnapshotRows(ids = [], patch = {}) {
+  const cleanIds = ids.filter(Boolean);
+  if (!cleanIds.length) return;
+  try {
+    const { error } = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .update(patch)
+      .in("id", cleanIds);
+    if (error && !isMissingTable(error)) throw error;
+  } catch (error) {
+    if (!isMissingTable(error)) throw error;
+  }
+}
+
+function isMissingFunction(error) {
+  if (!error) return false;
+  const msg = String(error.message ?? "").toLowerCase();
+  return (
+    error.code === "42883" ||
+    msg.includes("function") ||
+    msg.includes("schema cache")
+  );
+}
+
+export async function asignarVarianteObraSnapshot(snapshotId, variante = "") {
+  if (!snapshotId) throw new Error("Falta el item de obra.");
+  const value = String(variante || "").trim() || null;
+  const { data, error } = await supabase.rpc(
+    "panol_asignar_variante_snapshot",
+    {
+      p_snapshot_id: snapshotId,
+      p_variante: value,
+    },
+  );
+  if (!error) return data;
+  if (!(isMissingFunction(error) || isMissingColumn(error))) throw error;
+  await updateObraSnapshotRows([snapshotId], { variante: value });
+  return null;
+}
+
+export async function cambiarEstadoObraSnapshot(snapshotId, estado, nota = "", retiradoPor = "") {
+  if (!snapshotId) throw new Error("Falta el item de obra.");
+  const { data, error } = await supabase.rpc("panol_cambiar_estado_snapshot", {
+    p_snapshot_id: snapshotId,
+    p_estado: estado,
+    p_nota: String(nota || "").trim() || null,
+    p_retirado_por: String(retiradoPor || "").trim() || null,
+  });
+  if (error) {
+    if (
+      !(
+        isMissingTable(error) ||
+        isMissingColumn(error) ||
+        String(error.message || "").includes("function")
+      )
+    )
+      throw error;
+    await updateObraSnapshotRows([snapshotId], { estado });
+    return null;
+  }
+  return data;
+}
+
+export async function fetchObraSnapshotAudit(snapshotId, limit = 50) {
+  if (!snapshotId) return [];
+  try {
+    const { data, error } = await supabase
+      .from("panol_obra_materiales_snapshot_audit")
+      .select(
+        "id, snapshot_id, obra_id, material_id, descripcion, campo, valor_anterior, valor_nuevo, nota, origen, created_at, actor:profiles(id, username, role, is_admin)",
+      )
+      .eq("snapshot_id", snapshotId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error) {
+      if (isMissingTable(error) || isMissingColumn(error)) return [];
+      throw error;
+    }
+    return data ?? [];
+  } catch (error) {
+    if (isMissingTable(error) || isMissingColumn(error)) return [];
+    throw error;
+  }
+}
+
+export async function fetchObrasAvance() {
+  try {
+    // `modelo` no existe en todas las bases ya migradas. Se deriva del código
+    // de obra (K55-1 → K55), evitando una petición 400 cada vez que se abre Materiales.
+    let rows = await fetchProduccionObras(
+      "id, codigo, estado, linea_nombre",
+      true,
+    );
+
+    if (!rows.length) {
+      rows = await fetchProduccionObras(
+        "id, codigo, estado, linea_nombre",
+        false,
+      );
+    }
+
+    return await withObrasRecepcion(rows.map(normalizeObraAvance));
+  } catch (error) {
+    if (isMissingTable(error)) return [];
+    return [];
+  }
+}
+
+function resumenRecepcionSnapshot(rows = []) {
+  const out = {
+    total: rows.length,
+    pendiente: 0,
+    comprado: 0,
+    en_panol: 0,
+    egresado: 0,
+  };
+  for (const row of rows) {
+    const estado = estadoListadoObra(row);
+    out[estado] = (out[estado] ?? 0) + 1;
+  }
+  out.abiertos = out.total - out.egresado;
+  out.conMovimiento = out.total - out.pendiente;
+  return out;
+}
+
+async function withObrasRecepcion(rows = []) {
+  if (!rows.length) return rows;
+  const obraIds = rows.map((row) => row.id).filter(Boolean);
+  try {
+    const { data, error } = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .select("obra_id, estado, recepcion_estado")
+      .in("obra_id", obraIds);
+    if (error) return rows;
+    const byObra = new Map();
+    for (const item of data ?? []) {
+      const list = byObra.get(item.obra_id) ?? [];
+      list.push(item);
+      byObra.set(item.obra_id, list);
+    }
+    return rows.map((row) => ({
+      ...row,
+      materiales_recepcion: resumenRecepcionSnapshot(byObra.get(row.id) ?? []),
+    }));
+  } catch {
+    return rows;
+  }
+}
+
+export async function cosecharCandidatos() {
+  const { data, error } = await supabase.rpc("panol_cosechar_candidatos");
+  if (error) throw error;
+  return data ?? 0;
+}
+
+export async function fetchCandidatos({ estado = "pendiente" } = {}) {
+  try {
+    let query = supabase
+      .from("panol_material_candidatos")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (estado) query = query.eq("estado", estado);
+    const { data, error } = await query;
+    if (error) throw error;
+    return data ?? [];
+  } catch (error) {
+    if (isMissingTable(error)) return [];
+    throw error;
+  }
+}
+
+export async function promoverCandidato(
+  id,
+  accion,
+  { materialId = null, categoriaId = null } = {},
+) {
+  const { data, error } = await supabase.rpc("panol_promover_candidato", {
+    p_id: id,
+    p_accion: accion,
+    p_material_id: materialId,
+    p_categoria_id: categoriaId,
+  });
+  if (error) throw error;
+  return data ?? null;
+}
+
+async function ensureCategorias(parsed) {
+  let categorias = await fetchCategorias();
+  const byName = new Map(categorias.map((c) => [norm(c.nombre), c]));
+  const missing = [];
+
+  for (const sector of parsed.sectores) {
+    if (!byName.has(norm(sector.sector.nombre))) {
+      missing.push({
+        nombre: sector.sector.nombre,
+        orden: sector.sector.orden,
+      });
+    }
+  }
+
+  if (missing.length) {
+    const { error } = await supabase.from("panol_categorias").insert(missing);
+    if (error) throw error;
+    categorias = await fetchCategorias();
+  }
+
+  return new Map(categorias.map((c) => [norm(c.nombre), c]));
+}
+
+function materialPatchFromParsed(item, categoriaId, batchId, existing = null) {
+  return {
+    categoria_id: categoriaId,
+    codigo: existing?.codigo || item.codigo || null,
+    descripcion: existing?.descripcion || item.descripcion,
+    proveedor_id: existing?.proveedor_id ?? null,
+    proveedor: existing?.proveedor || item.proveedor || null,
+    unidad_medida: normalizeUnidadMedida(
+      existing?.unidad_medida || item.unidad_medida,
+      null,
+    ),
+    precio_unitario: existing?.precio_unitario ?? item.precio_unitario ?? null,
+    moneda: existing?.moneda ?? null,
+    revisado: existing?.revisado ?? false,
+    origen: existing?.origen || "import",
+    notas: existing?.notas ?? null,
+    activo: existing?.activo ?? true,
+    batch_id: batchId,
+  };
+}
+
+async function upsertModelos(materialId, cantidades) {
+  const rows = [];
+  for (const modelo of MODELOS) {
+    const cantidad = cantidades?.[modelo];
+    if (
+      typeof cantidad === "number" &&
+      Number.isFinite(cantidad) &&
+      cantidad > 0
+    ) {
+      rows.push({
+        material_id: materialId,
+        modelo,
+        variante: VARIANTE_BASE,
+        cantidad,
+      });
+    }
+  }
+  if (!rows.length) return 0;
+  const { error } = await supabase
+    .from("panol_material_modelo")
+    .upsert(rows, { onConflict: "material_id,modelo,variante" });
+  if (error) throw error;
+  return rows.length;
+}
+
+export async function importarCatalogo(parsed, filename) {
+  const categoriaByName = await ensureCategorias(parsed);
+
+  const { data: batch, error: batchError } = await supabase
+    .from("panol_import_batches")
+    .insert({ filename, stats: parsed.stats })
+    .select("id")
+    .single();
+  if (batchError) throw batchError;
+
+  const categorias = [...categoriaByName.values()];
+  const categoriaIds = new Set(categorias.map((c) => c.id));
+  const existentes = await fetchPaged(
+    "panol_materiales",
+    "id, categoria_id, codigo, descripcion, proveedor, unidad_medida, precio_unitario, moneda, revisado, origen, notas, activo",
+    "descripcion",
+  );
+  const existingBySectorAndDesc = new Map();
+  for (const material of existentes) {
+    if (!categoriaIds.has(material.categoria_id)) continue;
+    existingBySectorAndDesc.set(
+      `${material.categoria_id}::${norm(material.descripcion)}`,
+      material,
+    );
+  }
+
+  const stats = {
+    ...parsed.stats,
+    creados: 0,
+    actualizados: 0,
+    cantidades_upsert: 0,
+  };
+
+  for (const sector of parsed.sectores) {
+    const categoria = categoriaByName.get(norm(sector.sector.nombre));
+    if (!categoria) continue;
+
+    for (const item of sector.materiales) {
+      const key = `${categoria.id}::${norm(item.descripcion)}`;
+      const existing = existingBySectorAndDesc.get(key);
+      let materialId = existing?.id;
+
+      if (existing) {
+        const { error } = await supabase
+          .from("panol_materiales")
+          .update(
+            materialPatchFromParsed(item, categoria.id, batch.id, existing),
+          )
+          .eq("id", existing.id);
+        if (error) throw error;
+        stats.actualizados += 1;
+      } else {
+        const { data, error } = await supabase
+          .from("panol_materiales")
+          .insert(materialPatchFromParsed(item, categoria.id, batch.id))
+          .select(
+            "id, categoria_id, codigo, descripcion, proveedor, unidad_medida, precio_unitario, moneda, revisado, origen, notas, activo",
+          )
+          .single();
+        if (error) throw error;
+        materialId = data.id;
+        existingBySectorAndDesc.set(key, data);
+        stats.creados += 1;
+      }
+
+      stats.cantidades_upsert += await upsertModelos(
+        materialId,
+        item.cantidades,
+      );
+    }
+  }
+
+  await supabase
+    .from("panol_import_batches")
+    .update({ stats })
+    .eq("id", batch.id);
+  return stats;
+}
+
+export async function guardarMaterial(material, cantidades, { revisado } = {}) {
+  const patch = {
+    categoria_id: material.categoria_id,
+    proveedor_id: material.proveedor_id || null,
+    codigo: material.codigo || null,
+    descripcion: material.descripcion?.trim(),
+    proveedor: material.proveedor || null,
+    unidad_medida: normalizeUnidadMedida(material.unidad_medida, null),
+    precio_unitario: toNullableNumber(material.precio_unitario),
+    moneda: material.moneda || null,
+    imagen_url: material.imagen_url || null,
+    links: normalizeMaterialLinks(material.links),
+    notas: material.notas || null,
+    variantes: normalizeVariantes(material.variantes),
+    variantes_precios:
+      material.variantes_precios === undefined
+        ? undefined
+        : normalizeVariantesPrecios(
+            material.variantes_precios,
+            material.variantes,
+          ),
+    alias: material.alias || null,
+    activo: material.activo ?? true,
+    codigo_barra: material.codigo_barra || null,
+    ...(material.es_requisito !== undefined
+      ? { es_requisito: !!material.es_requisito }
+      : {}),
+    ...(material.producto_por_obra !== undefined
+      ? { producto_por_obra: !!material.producto_por_obra }
+      : {}),
+    // Solo se incluye si viene definido, para no pisar el flag al editar otros campos.
+    ...(material.es_consumible !== undefined
+      ? { es_consumible: !!material.es_consumible }
+      : {}),
+  };
+  if (revisado != null) patch.revisado = revisado;
+
+  let { error } = await sinColumnasFaltantes(
+    (fila) => supabase.from("panol_materiales").update(fila).eq("id", material.id),
+    patch,
+  );
+  if (error && isMissingColumn(error)) {
+    const fallbackPatch = { ...patch };
+    delete fallbackPatch.variantes;
+    delete fallbackPatch.variantes_precios;
+    delete fallbackPatch.links;
+    delete fallbackPatch.alias;
+    delete fallbackPatch.es_requisito;
+    delete fallbackPatch.producto_por_obra;
+    const retry = await supabase
+      .from("panol_materiales")
+      .update(fallbackPatch)
+      .eq("id", material.id);
+    error = retry.error;
+  }
+  if (error) throw error;
+  await guardarCantidades(material.id, cantidades);
+}
+
+export async function actualizarMaterialDatos(material, { revisado } = {}) {
+  if (!material?.id) throw new Error("Falta el material.");
+  const patch = {
+    categoria_id: material.categoria_id,
+    proveedor_id: material.proveedor_id || null,
+    codigo: material.codigo || null,
+    descripcion: material.descripcion?.trim(),
+    proveedor: material.proveedor || null,
+    unidad_medida: normalizeUnidadMedida(material.unidad_medida, null),
+    precio_unitario: toNullableNumber(material.precio_unitario),
+    moneda: material.moneda || null,
+    imagen_url: material.imagen_url || null,
+    links: normalizeMaterialLinks(material.links),
+    notas: material.notas || null,
+    variantes: normalizeVariantes(material.variantes),
+    variantes_precios:
+      material.variantes_precios === undefined
+        ? undefined
+        : normalizeVariantesPrecios(
+            material.variantes_precios,
+            material.variantes,
+          ),
+    alias: material.alias || null,
+    activo: material.activo ?? true,
+    codigo_barra: material.codigo_barra || null,
+    ...(material.es_requisito !== undefined
+      ? { es_requisito: !!material.es_requisito }
+      : {}),
+    ...(material.producto_por_obra !== undefined
+      ? { producto_por_obra: !!material.producto_por_obra }
+      : {}),
+    // Solo se incluye si viene definido, para no pisar el flag al editar otros campos.
+    ...(material.es_consumible !== undefined
+      ? { es_consumible: !!material.es_consumible }
+      : {}),
+  };
+  if (revisado != null) patch.revisado = revisado;
+
+  let { error } = await sinColumnasFaltantes(
+    (fila) => supabase.from("panol_materiales").update(fila).eq("id", material.id),
+    patch,
+  );
+  if (error && isMissingColumn(error)) {
+    const fallbackPatch = { ...patch };
+    delete fallbackPatch.variantes;
+    delete fallbackPatch.variantes_precios;
+    delete fallbackPatch.links;
+    delete fallbackPatch.alias;
+    delete fallbackPatch.es_requisito;
+    delete fallbackPatch.producto_por_obra;
+    const retry = await supabase
+      .from("panol_materiales")
+      .update(fallbackPatch)
+      .eq("id", material.id);
+    error = retry.error;
+  }
+  if (error) throw error;
+}
+
+/**
+ * Guarda SOLO las variantes de un material (la lista y su info por variante).
+ *
+ * Update puntual a propósito: el autoguardado del catálogo no debe reescribir el
+ * resto de las columnas, así no pisa cambios que otro usuario haya hecho en el
+ * mismo material mientras esta fila estaba abierta.
+ */
+export async function guardarVariantesMaterial(
+  materialId,
+  variantes,
+  variantesPrecios,
+) {
+  if (!materialId) throw new Error("Falta el material.");
+  const lista = normalizeVariantes(variantes);
+  const patch = { variantes: lista };
+  if (variantesPrecios !== undefined) {
+    patch.variantes_precios = normalizeVariantesPrecios(
+      variantesPrecios,
+      lista,
+    );
+  }
+
+  let { error } = await supabase
+    .from("panol_materiales")
+    .update(patch)
+    .eq("id", materialId);
+  if (error && isMissingColumn(error)) {
+    // Base sin la columna de precios por variante: guardamos al menos la lista.
+    const retry = await supabase
+      .from("panol_materiales")
+      .update({ variantes: lista })
+      .eq("id", materialId);
+    error = retry.error;
+  }
+  if (error) throw error;
+}
+
+export async function crearMaterial(material, cantidades = {}) {
+  let { data, error } = await sinColumnasFaltantes(
+    (fila) => supabase.from("panol_materiales").insert(fila).select("id").single(),
+    {
+      categoria_id: material.categoria_id,
+      proveedor_id: material.proveedor_id || null,
+      codigo: material.codigo || null,
+      descripcion: material.descripcion?.trim(),
+      proveedor: material.proveedor || null,
+      unidad_medida: normalizeUnidadMedida(material.unidad_medida, null),
+      precio_unitario: toNullableNumber(material.precio_unitario),
+      moneda: material.moneda || null,
+      imagen_url: material.imagen_url || null,
+      links: normalizeMaterialLinks(material.links),
+      variantes: normalizeVariantes(material.variantes),
+      variantes_precios:
+        material.variantes_precios === undefined
+          ? undefined
+          : normalizeVariantesPrecios(
+              material.variantes_precios,
+              material.variantes,
+            ),
+      alias: material.alias || null,
+      notas: material.notas || null,
+      origen: material.origen || "manual",
+      codigo_barra: material.codigo_barra || null,
+      revisado: material.revisado ?? true,
+      activo: true,
+      es_consumible: !!material.es_consumible,
+      es_requisito: !!material.es_requisito,
+      producto_por_obra: !!material.producto_por_obra,
+    },
+  );
+  if (error && isMissingColumn(error)) {
+    const retry = await supabase
+      .from("panol_materiales")
+      .insert({
+        categoria_id: material.categoria_id,
+        proveedor_id: material.proveedor_id || null,
+        codigo: material.codigo || null,
+        descripcion: material.descripcion?.trim(),
+        proveedor: material.proveedor || null,
+        unidad_medida: normalizeUnidadMedida(material.unidad_medida, null),
+        precio_unitario: toNullableNumber(material.precio_unitario),
+        moneda: material.moneda || null,
+        imagen_url: material.imagen_url || null,
+        origen: material.origen || "manual",
+        revisado: material.revisado ?? true,
+        activo: true,
+      })
+      .select("id")
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
+  if (error) throw error;
+  await guardarCantidades(data.id, cantidades);
+  return data.id;
+}
+
+/**
+ * Alta rápida de material desde el flujo de conteo. Acepta los mismos campos
+ * "chicos" que el editor completo del catálogo (proveedor, código, precio,
+ * alias, observaciones) para no tener que volver después a completarlos.
+ * Devuelve el objeto material completo (no solo el ID).
+ */
+export async function crearMaterialRapido({
+  descripcion,
+  categoriaId = null,
+  unidadMedida = "unidad",
+  proveedor = "",
+  codigo = "",
+  precioUnitario = null,
+  moneda = "ARS",
+  alias = "",
+  notas = "",
+  variantes = [],
+  variantesPrecios = {},
+  imagenUrl = null,
+  links = [],
+  esConsumible = false,
+} = {}) {
+  if (!String(descripcion || "").trim())
+    throw new Error("Cargá una descripción.");
+  if (!categoriaId)
+    throw new Error("Elegí un rubro para el material (es obligatorio).");
+  const id = await crearMaterial({
+    descripcion: String(descripcion).trim(),
+    categoria_id: categoriaId,
+    unidad_medida: normalizeUnidadMedida(unidadMedida, "unidad"),
+    proveedor: String(proveedor || "").trim() || null,
+    codigo: String(codigo || "").trim() || null,
+    precio_unitario: precioUnitario,
+    moneda: moneda || "ARS",
+    alias: String(alias || "").trim() || null,
+    notas: String(notas || "").trim() || null,
+    variantes,
+    variantes_precios: variantesPrecios,
+    imagen_url: imagenUrl || null,
+    links,
+    revisado: false,
+    origen: "conteo",
+    es_consumible: !!esConsumible,
+  });
+  const { data, error } = await supabase
+    .from("panol_materiales")
+    .select("*")
+    .eq("id", id)
+    .single();
+  if (error) throw error;
+  return {
+    ...data,
+    variantes: normalizeVariantes(data.variantes),
+    codigos_barra: [],
+    modelos: [],
+    areas: [data.categoria_id].filter(Boolean),
+  };
+}
+
+/** Guarda solo el campo de observaciones (notas) de un material, sin tocar nada más. */
+export async function actualizarNotasMaterial(materialId, notas) {
+  if (!materialId) return;
+  const { error } = await supabase
+    .from("panol_materiales")
+    .update({ notas: String(notas || "").trim() || null })
+    .eq("id", materialId);
+  if (error) throw error;
+}
+
+export async function guardarCantidades(materialId, cantidades = {}) {
+  const rows = [];
+  const toDelete = [];
+  for (const modelo of MODELOS) {
+    const raw = cantidades[modelo];
+    const n = raw === "" || raw == null ? null : Number(raw);
+    if (n != null && Number.isFinite(n) && n > 0) {
+      rows.push({
+        material_id: materialId,
+        modelo,
+        variante: VARIANTE_BASE,
+        cantidad: n,
+      });
+    } else {
+      toDelete.push(modelo);
+    }
+  }
+
+  if (rows.length) {
+    const { error } = await supabase
+      .from("panol_material_modelo")
+      .upsert(rows, { onConflict: "material_id,modelo,variante" });
+    if (error) throw error;
+  }
+
+  for (const modelo of toDelete) {
+    const { error } = await supabase
+      .from("panol_material_modelo")
+      .delete()
+      .eq("material_id", materialId)
+      .eq("modelo", modelo)
+      .eq("variante", VARIANTE_BASE);
+    if (error) throw error;
+  }
+}
+
+// Sincroniza los sectores de un material: el primero es el principal (panol_materiales.categoria_id);
+// los demás van como "extra" en la M2M panol_material_categorias (de ahí sale m.areas → multi-sector).
+export async function setSectoresMaterial(materialId, ids) {
+  if (!materialId) return;
+  const limpios = [...new Set((ids || []).filter(Boolean))];
+  const principal = limpios[0] ?? null;
+  await supabase
+    .from("panol_materiales")
+    .update({ categoria_id: principal })
+    .eq("id", materialId);
+  await supabase
+    .from("panol_material_categorias")
+    .delete()
+    .eq("material_id", materialId);
+  const extra = limpios
+    .slice(1)
+    .map((categoria_id) => ({ material_id: materialId, categoria_id }));
+  if (extra.length)
+    await supabase.from("panol_material_categorias").insert(extra);
+}
+
+/**
+ * Borra un material del catálogo.
+ *
+ * Un material se toca desde muchas tablas -el ledger del pañol, los remitos,
+ * las solicitudes, los envíos, las condicionantes-. Si alguna de esas lo tiene
+ * agarrado, Postgres devuelve 23503 y el borrado no pasa; eso está bien, es
+ * historia que no se puede perder. Lo que estaba mal era el mensaje: llegaba el
+ * error crudo de Postgres, en inglés y hablando de constraints.
+ *
+ * En ese caso lo que corresponde es archivarlo -`archivarMateriales`, que lo
+ * marca `activo = false`-: sale de las listas y el historial queda.
+ */
+export async function borrarMaterial(materialId) {
+  if (!materialId) throw new Error("Falta el material.");
+  const { data, error } = await supabase.rpc("panol_borrar_material_seguro", { p_material_id: materialId });
+  if (!error) {
+    if (data !== true) throw new Error("El material ya no existe o no tenés permiso para borrarlo.");
+    return;
+  }
+  if (["23503", "23001"].includes(error.code)) {
+    const e = new Error("No se puede borrar: el producto tiene movimientos, remitos o pedidos asociados. Archivalo en vez de borrarlo — sale de las listas y el historial queda.");
+    e.code = error.code;
+    e.cause = error;
+    throw e;
+  }
+  if (error.code === "PGRST202") {
+    throw new Error("Todavía no está disponible el borrado seguro. No se modificó el material ni su matriz.");
+  }
+  throw error;
+}
+
+export async function archivarMateriales(materialIds = []) {
+  const ids = [...new Set((materialIds || []).filter(Boolean))];
+  if (!ids.length) return 0;
+  const { error } = await supabase
+    .from("panol_materiales")
+    .update({ activo: false })
+    .in("id", ids);
+  if (error) throw error;
+  return ids.length;
+}
+
+function sortedMaterialPair(a, b) {
+  const pair = [a, b].filter(Boolean).map(String).sort();
+  return pair.length === 2 && pair[0] !== pair[1] ? pair : null;
+}
+
+function materialPairs(materialIds = []) {
+  const ids = [
+    ...new Set((materialIds || []).filter(Boolean).map(String)),
+  ].sort();
+  const rows = [];
+  for (let i = 0; i < ids.length; i += 1) {
+    for (let j = i + 1; j < ids.length; j += 1) {
+      rows.push({ material_a_id: ids[i], material_b_id: ids[j] });
+    }
+  }
+  return rows;
+}
+
+export async function fetchMaterialDuplicateDecisions() {
+  try {
+    const rows = await fetchPaged(
+      "panol_material_duplicate_decisions",
+      "material_a_id, material_b_id, decision",
+      "created_at",
+    );
+    return rows
+      .filter((row) => row.decision === "not_duplicate")
+      .map((row) => {
+        const pair = sortedMaterialPair(row.material_a_id, row.material_b_id);
+        return pair ? `${pair[0]}:${pair[1]}` : "";
+      })
+      .filter(Boolean);
+  } catch (error) {
+    if (isMissingTable(error) || isMissingColumn(error)) return [];
+    throw error;
+  }
+}
+
+export async function marcarMaterialesNoDuplicados(
+  materialIds = [],
+  { groupKey = "", reason = "" } = {},
+) {
+  const rows = materialPairs(materialIds).map((row) => ({
+    ...row,
+    decision: "not_duplicate",
+    group_key: groupKey || null,
+    reason: reason || null,
+  }));
+  if (!rows.length) return 0;
+  const { error } = await supabase
+    .from("panol_material_duplicate_decisions")
+    .upsert(rows, { onConflict: "material_a_id,material_b_id" });
+  if (error) {
+    if (isMissingTable(error) || isMissingColumn(error)) return 0;
+    throw error;
+  }
+  return rows.length;
+}
+
+export async function guardarProveedor(proveedor) {
+  const patch = {
+    nombre: proveedor.nombre?.trim(),
+    cuit: proveedor.cuit || null,
+    email: proveedor.email || null,
+    telefono: proveedor.telefono || null,
+    notas: proveedor.notas || null,
+    tipo: proveedor.tipo || null,
+    rubros: proveedor.rubros || null,
+    sede: proveedor.sede || null,
+    perfil: proveedor.perfil || null,
+    compite_con: proveedor.compite_con || null,
+    activo: proveedor.activo ?? true,
+  };
+  if (!patch.nombre) throw new Error("El nombre del proveedor es obligatorio.");
+  if (proveedor.id) {
+    const { error } = await supabase
+      .from("panol_proveedores")
+      .update(patch)
+      .eq("id", proveedor.id);
+    if (error) throw error;
+    return proveedor.id;
+  }
+  const { data, error } = await supabase
+    .from("panol_proveedores")
+    .insert(patch)
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data.id;
+}
+
+export async function bajaProveedor(id) {
+  const { error } = await supabase
+    .from("panol_proveedores")
+    .update({ activo: false })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function uploadMaterialImage(materialId, file) {
+  if (!materialId || !file) throw new Error("Falta material o archivo.");
+  const ext = file.name?.split(".").pop() || "jpg";
+  const path = `${materialId}/${Date.now()}-${safeFilePart(file.name || `imagen.${ext}`)}`;
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET_MATERIALES)
+    .upload(path, file, { upsert: false });
+  if (uploadError) throw uploadError;
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from(BUCKET_MATERIALES).getPublicUrl(path);
+  const { data: row, error: imgError } = await supabase
+    .from("panol_material_imagenes")
+    .insert({
+      material_id: materialId,
+      url: publicUrl,
+      nombre: file.name || path,
+    })
+    .select("id, material_id, url, nombre, created_at")
+    .single();
+  if (imgError) throw imgError;
+  const { error: matError } = await supabase
+    .from("panol_materiales")
+    .update({ imagen_url: publicUrl })
+    .eq("id", materialId);
+  if (matError) throw matError;
+  return row;
+}
+
+export async function setMainMaterialImage(materialId, url) {
+  if (!materialId || !url) throw new Error("Falta material o URL.");
+  const { error } = await supabase
+    .from("panol_materiales")
+    .update({ imagen_url: url })
+    .eq("id", materialId);
+  if (error) throw error;
+}
+
+export async function deleteMaterialImage(imageId, url) {
+  if (!imageId || !url) throw new Error("Falta imagen o URL.");
+  // Intentar borrar de storage si es una URL del bucket
+  try {
+    const urlParts = url.split(`/${BUCKET_MATERIALES}/`);
+    if (urlParts.length > 1) {
+      const path = urlParts[1];
+      await supabase.storage.from(BUCKET_MATERIALES).remove([path]);
+    }
+  } catch {
+    // Ignorar si falla storage
+  }
+  const { error } = await supabase
+    .from("panol_material_imagenes")
+    .delete()
+    .eq("id", imageId);
+  if (error) throw error;
+}
+
+export async function uploadMaterialVariantImage(
+  materialId,
+  variantName,
+  file,
+) {
+  if (!materialId || !variantName || !file)
+    throw new Error("Falta material, variante o archivo.");
+  const ext = file.name?.split(".").pop() || "jpg";
+  const variant = safeFilePart(variantName);
+  const path = `${materialId}/variantes/${variant}/${Date.now()}-${safeFilePart(file.name || `imagen.${ext}`)}`;
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET_MATERIALES)
+    .upload(path, file, { upsert: false });
+  if (uploadError) throw uploadError;
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from(BUCKET_MATERIALES).getPublicUrl(path);
+  return { url: publicUrl, path };
+}
+
+export async function uploadComprobanteFile(file) {
+  if (!file) return null;
+  const path = `comprobantes/${Date.now()}-${safeFilePart(file.name || "comprobante")}`;
+  const { error } = await supabase.storage
+    .from(BUCKET_COMPROBANTES)
+    .upload(path, file, { upsert: false });
+  if (error) throw error;
+  return path;
+}
+
+export async function guardarComprobante(comprobante, file = null) {
+  const archivoPath = file
+    ? await uploadComprobanteFile(file)
+    : comprobante.archivo_url || null;
+  const patch = {
+    proveedor_id: comprobante.proveedor_id || null,
+    proveedor: comprobante.proveedor || null,
+    numero: comprobante.numero || null,
+    fecha: comprobante.fecha || null,
+    moneda: comprobante.moneda || "ARS",
+    archivo_url: archivoPath,
+    estado: comprobante.estado || "borrador",
+    total: toNullableNumber(comprobante.total),
+  };
+
+  if (comprobante.id) {
+    const { data, error } = await supabase
+      .from("panol_comprobantes")
+      .update(patch)
+      .eq("id", comprobante.id)
+      .select(
+        "id, proveedor_id, proveedor, numero, fecha, moneda, archivo_url, estado, total, created_at",
+      )
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  const { data, error } = await supabase
+    .from("panol_comprobantes")
+    .insert(patch)
+    .select(
+      "id, proveedor_id, proveedor, numero, fecha, moneda, archivo_url, estado, total, created_at",
+    )
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function guardarComprobanteItem(item) {
+  const patch = {
+    comprobante_id: item.comprobante_id,
+    material_id: item.material_id || null,
+    descripcion: item.descripcion?.trim(),
+    // Conservamos el texto leído del comprobante aunque luego se edite o se
+    // vincule a otro material del catálogo.
+    descripcion_original: (
+      item.descripcion_original ||
+      item.descripcion ||
+      ""
+    ).trim(),
+    cantidad: toNullableNumber(item.cantidad),
+    precio_unitario: toNullableNumber(item.precio_unitario),
+    total: toNullableNumber(item.total),
+    aplicado: item.aplicado ?? false,
+  };
+  if (!patch.comprobante_id) throw new Error("Primero guardá el comprobante.");
+  if (!patch.descripcion)
+    throw new Error("La descripción del ítem es obligatoria.");
+
+  if (item.id) {
+    const { data, error } = await supabase
+      .from("panol_comprobante_items")
+      .update(patch)
+      .eq("id", item.id)
+      .select(
+        "id, comprobante_id, material_id, descripcion, descripcion_original, cantidad, precio_unitario, total, aplicado",
+      )
+      .single();
+    if (error) throw error;
+    return data;
+  }
+  const { data, error } = await supabase
+    .from("panol_comprobante_items")
+    .insert(patch)
+    .select(
+      "id, comprobante_id, material_id, descripcion, descripcion_original, cantidad, precio_unitario, total, aplicado",
+    )
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function guardarComprobanteItems(comprobanteId, items = []) {
+  const saved = [];
+  for (const item of items) {
+    saved.push(
+      await guardarComprobanteItem({ ...item, comprobante_id: comprobanteId }),
+    );
+  }
+  return saved;
+}
+
+export async function borrarComprobanteItem(id) {
+  const { error } = await supabase
+    .from("panol_comprobante_items")
+    .delete()
+    .eq("id", id);
+  if (error) throw error;
+}
+
+async function materialTieneUsoFueraDeComprobantes(materialId, comprobanteIds) {
+  const targetIds = [...comprobanteIds];
+  let receiptQuery = supabase
+    .from("panol_comprobante_items")
+    .select("id")
+    .eq("material_id", materialId)
+    .limit(1);
+  if (targetIds.length) {
+    receiptQuery = receiptQuery.not(
+      "comprobante_id",
+      "in",
+      `(${targetIds.join(",")})`,
+    );
+  }
+  const receiptResult = await receiptQuery;
+  if (receiptResult.error) throw receiptResult.error;
+  if (receiptResult.data?.length) return true;
+
+  const references = [
+    "panol_material_modelo",
+    "panol_material_condicion",
+    "panol_obra_addons",
+    "panol_obra_materiales_snapshot",
+    "panol_precios",
+    "purchase_request_items",
+  ];
+  for (const table of references) {
+    const { data, error } = await supabase
+      .from(table)
+      .select("id")
+      .eq("material_id", materialId)
+      .limit(1);
+    if (error) {
+      if (isMissingTable(error) || isMissingColumn(error)) continue;
+      throw error;
+    }
+    if (data?.length) return true;
+  }
+  return false;
+}
+
+// Revierte solamente materiales que el importador dio de alta al leer
+// comprobantes. Conserva el comprobante y deja sus lineas listas para volver a
+// vincular con el catalogo real. Cualquier uso operativo impide el borrado.
+export async function revertirAltasAutomaticasComprobantes(
+  comprobantes = [],
+) {
+  const receipts = (comprobantes || []).filter((row) => row?.id);
+  const receiptIds = new Set(receipts.map((row) => row.id));
+  if (!receiptIds.size) {
+    return { eliminados: 0, omitidos: 0, materialIds: [], itemIds: [] };
+  }
+
+  const receiptById = new Map(receipts.map((row) => [row.id, row]));
+  const { data: lines, error: linesError } = await supabase
+    .from("panol_comprobante_items")
+    .select(
+      "id, comprobante_id, material_id, descripcion, descripcion_original, aplicado",
+    )
+    .in("comprobante_id", [...receiptIds]);
+  if (linesError) throw linesError;
+
+  const linkedIds = [
+    ...new Set((lines || []).map((row) => row.material_id).filter(Boolean)),
+  ];
+  if (!linkedIds.length) {
+    return { eliminados: 0, omitidos: 0, materialIds: [], itemIds: [] };
+  }
+
+  const { data: materials, error: materialsError } = await supabase
+    .from("panol_materiales")
+    .select(
+      "id, descripcion, proveedor, origen, revisado, notas, created_at",
+    )
+    .in("id", linkedIds);
+  if (materialsError) throw materialsError;
+
+  const linesByMaterial = new Map();
+  for (const line of lines || []) {
+    if (!line.material_id) continue;
+    const bucket = linesByMaterial.get(line.material_id) || [];
+    bucket.push(line);
+    linesByMaterial.set(line.material_id, bucket);
+  }
+
+  const removedMaterialIds = [];
+  const unlinkedItemIds = [];
+  let omitted = 0;
+  for (const material of materials || []) {
+    const linkedLines = linesByMaterial.get(material.id) || [];
+    if (!linkedLines.length || linkedLines.some((line) => line.aplicado)) {
+      omitted += 1;
+      continue;
+    }
+
+    const hasMarker = [...receiptIds].some((receiptId) =>
+      String(material.notas || "").includes(`[comprobante:${receiptId}]`),
+    );
+    const exactDescription = linkedLines.every(
+      (line) =>
+        norm(line.descripcion_original || line.descripcion) ===
+        norm(material.descripcion),
+    );
+    const closeToImport = linkedLines.some((line) => {
+      const receipt = receiptById.get(line.comprobante_id);
+      const receiptAt = new Date(receipt?.created_at || 0).getTime();
+      const materialAt = new Date(material.created_at || 0).getTime();
+      const delta = materialAt - receiptAt;
+      return (
+        receiptAt > 0 &&
+        materialAt > 0 &&
+        delta >= -60_000 &&
+        delta <= 3_600_000
+      );
+    });
+    const providerMatches = linkedLines.every((line) => {
+      const receiptProvider = receiptById.get(line.comprobante_id)?.proveedor;
+      return (
+        !receiptProvider ||
+        !material.proveedor ||
+        norm(receiptProvider) === norm(material.proveedor)
+      );
+    });
+    const looksAutomatic =
+      material.origen === "remito" &&
+      material.revisado !== true &&
+      exactDescription &&
+      providerMatches &&
+      (hasMarker || closeToImport);
+    if (!looksAutomatic) {
+      omitted += 1;
+      continue;
+    }
+    if (
+      await materialTieneUsoFueraDeComprobantes(material.id, receiptIds)
+    ) {
+      omitted += 1;
+      continue;
+    }
+
+    const itemIds = linkedLines.map((line) => line.id);
+    const { error: unlinkError } = await supabase
+      .from("panol_comprobante_items")
+      .update({ material_id: null })
+      .in("id", itemIds);
+    if (unlinkError) throw unlinkError;
+
+    const { error: deleteError } = await supabase
+      .from("panol_materiales")
+      .delete()
+      .eq("id", material.id);
+    if (deleteError) {
+      await supabase
+        .from("panol_comprobante_items")
+        .update({ material_id: material.id })
+        .in("id", itemIds);
+      omitted += 1;
+      continue;
+    }
+    removedMaterialIds.push(material.id);
+    unlinkedItemIds.push(...itemIds);
+  }
+
+  return {
+    eliminados: removedMaterialIds.length,
+    omitidos: omitted,
+    materialIds: removedMaterialIds,
+    itemIds: unlinkedItemIds,
+  };
+}
+
+// Solo se eliminan comprobantes de trabajo que todavia no impactaron precios.
+// Asi se pueden limpiar pruebas sin borrar el historial aplicado.
+export async function borrarComprobante(comprobante) {
+  const id = typeof comprobante === "string" ? comprobante : comprobante?.id;
+  if (!id) throw new Error("Falta el comprobante a eliminar.");
+  if ((comprobante?.items || []).some((item) => item.aplicado)) {
+    throw new Error("No se puede eliminar un comprobante que ya aplico precios.");
+  }
+
+  const { data: current, error: currentError } = await supabase
+    .from("panol_comprobantes")
+    .select("id,archivo_url")
+    .eq("id", id)
+    .maybeSingle();
+  if (currentError) throw currentError;
+
+  const { error: linesError } = await supabase
+    .from("panol_comprobante_items")
+    .delete()
+    .eq("comprobante_id", id);
+  if (linesError) throw linesError;
+
+  const { error } = await supabase
+    .from("panol_comprobantes")
+    .delete()
+    .eq("id", id);
+  if (error) throw error;
+
+  if (current?.archivo_url) {
+    await supabase.storage.from(BUCKET_COMPROBANTES).remove([current.archivo_url]);
+  }
+}
+
+export async function aplicarPreciosComprobante(comprobante, items) {
+  if (!comprobante?.id) throw new Error("Falta comprobante.");
+  const fecha = comprobante.fecha || new Date().toISOString().slice(0, 10);
+  const usable = (items ?? []).filter(
+    (item) => item.material_id && !item.aplicado,
+  );
+  let actualizados = 0;
+  const appliedIds = new Set();
+
+  for (const item of usable) {
+    const precio = toNullableNumber(item.precio_unitario);
+    if (precio == null) continue;
+
+    const proveedorTexto = comprobante.proveedor || null;
+    const moneda = comprobante.moneda || "ARS";
+    const materialPatch = {
+      precio_unitario: precio,
+      moneda,
+      proveedor: proveedorTexto,
+      proveedor_id: comprobante.proveedor_id || null,
+    };
+
+    const { error: matError } = await supabase
+      .from("panol_materiales")
+      .update(materialPatch)
+      .eq("id", item.material_id);
+    if (matError) throw matError;
+
+    const { error: priceError } = await supabase.from("panol_precios").insert({
+      material_id: item.material_id,
+      proveedor_id: comprobante.proveedor_id || null,
+      proveedor: proveedorTexto,
+      precio_unitario: precio,
+      moneda,
+      fuente: "comprobante",
+      comprobante_id: comprobante.id,
+      fecha,
+    });
+    if (priceError) throw priceError;
+
+    const { error: itemError } = await supabase
+      .from("panol_comprobante_items")
+      .update({ aplicado: true })
+      .eq("id", item.id);
+    if (itemError) throw itemError;
+
+    actualizados += 1;
+    appliedIds.add(item.id);
+  }
+
+  const total = (items ?? []).reduce(
+    (sum, item) => sum + (toNullableNumber(item.total) ?? 0),
+    0,
+  );
+  const hasPendingLines = (items ?? []).some(
+    (item) => !item.aplicado && !appliedIds.has(item.id),
+  );
+  const { error: compError } = await supabase
+    .from("panol_comprobantes")
+    .update({ estado: hasPendingLines ? "borrador" : "procesado", total })
+    .eq("id", comprobante.id);
+  if (compError) throw compError;
+
+  return {
+    actualizados,
+    omitidos: usable.length - actualizados,
+    pendientes: hasPendingLines,
+    total,
+  };
+}
+
+export async function leerComprobanteConIA(file) {
+  if (!file) throw new Error("Subí una foto del comprobante primero.");
+  if (!file.type.startsWith("image/"))
+    throw new Error("La lectura con IA sólo funciona con imágenes.");
+  const buffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 1)
+    binary += String.fromCharCode(bytes[i]);
+  const base64 = btoa(binary);
+  const { data, error } = await supabase.functions.invoke(
+    "extraer-comprobante",
+    {
+      body: { image_base64: base64, mime_type: file.type },
+    },
+  );
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
+// Lee un presupuesto desde TEXTO pegado o archivo (imagen/PDF) → { proveedor, items[] }.
+export async function leerPresupuestoConIA({
+  text = "",
+  file = null,
+  sectores = [],
+  proveedor = "",
+  moneda = "",
+  tipoEsperado = "",
+} = {}) {
+  let body;
+  if (text && text.trim()) {
+    body = { text: text.trim() };
+  } else if (file) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 1)
+      binary += String.fromCharCode(bytes[i]);
+    const base64 = btoa(binary);
+    const isPDF =
+      file.type === "application/pdf" ||
+      (file.name || "").toLowerCase().endsWith(".pdf");
+    body = isPDF
+      ? {
+          base64,
+          mime_type: "application/pdf",
+          filename: file.name || "presupuesto.pdf",
+        }
+      : { image_base64: base64, mime_type: file.type || "image/jpeg" };
+  } else {
+    throw new Error("Pegá el texto del presupuesto o subí un archivo.");
+  }
+  if (Array.isArray(sectores) && sectores.length) body.sectores = sectores;
+  if (String(proveedor || "").trim()) body.proveedor = String(proveedor).trim();
+  if (["ARS", "USD"].includes(String(moneda || "").toUpperCase())) {
+    body.moneda = String(moneda).toUpperCase();
+  }
+  if (["remito", "factura", "presupuesto"].includes(String(tipoEsperado || "").toLowerCase())) {
+    body.tipo_esperado = String(tipoEsperado).toLowerCase();
+  }
+  const { data, error } = await supabase.functions.invoke(
+    "extraer-comprobante",
+    { body },
+  );
+  if (error) {
+    // El mensaje real de la función viene en el body de la respuesta (no en error.message).
+    let detalle = "";
+    try {
+      const r = await error.context?.json?.();
+      detalle = r?.error || "";
+    } catch {
+      /* ignore */
+    }
+    if (!detalle) {
+      try {
+        detalle = await error.context?.text?.();
+      } catch {
+        /* ignore */
+      }
+    }
+    throw new Error(
+      detalle || error.message || "No se pudo leer el presupuesto.",
+    );
+  }
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
+// Vincula líneas de un remito con el catálogo usando IA semántica.
+// El frontend manda cada ítem con una lista corta de candidatos (pre-filtrados por
+// similitud lexical). Devuelve [{ index, material_id, confianza, motivo }].
+export async function vincularComprobanteConIA({
+  items = [],
+  candidatos = {},
+  proveedor = "",
+} = {}) {
+  const limpios = (items || []).filter(
+    (it) => Number.isInteger(it?.index) && String(it?.descripcion || "").trim(),
+  );
+  if (!limpios.length) return [];
+  const { data, error } = await supabase.functions.invoke("vincular-comprobante", {
+    body: { items: limpios, candidatos, proveedor: String(proveedor || "").trim() },
+  });
+  if (error) {
+    let detalle = "";
+    try {
+      const r = await error.context?.json?.();
+      detalle = r?.error || "";
+    } catch {
+      /* ignore */
+    }
+    throw new Error(detalle || error.message || "No se pudieron vincular los ítems.");
+  }
+  if (data?.error) throw new Error(data.error);
+  return Array.isArray(data?.matches) ? data.matches : [];
+}
+
+// Memoria de vínculos: filas de comprobantes anteriores donde ya se asignó un
+// material. Es lo que permite que un remito repetido de un proveedor se resuelva
+// solo (sin IA): "este proveedor + este texto ya lo vinculé antes → ese material".
+// Devuelve [{ proveedor, material_id, texto, created_at }] (excluye el comprobante actual).
+export async function fetchMemoriaVinculos({ excludeComprobanteId = null } = {}) {
+  const items = await fetchPaged(
+    "panol_comprobante_items",
+    "id, comprobante_id, material_id, descripcion_original, descripcion, created_at",
+    "created_at",
+  );
+  const conMaterial = items.filter(
+    (it) =>
+      it.material_id &&
+      (!excludeComprobanteId || it.comprobante_id !== excludeComprobanteId),
+  );
+  if (!conMaterial.length) return [];
+
+  const compIds = [
+    ...new Set(conMaterial.map((it) => it.comprobante_id).filter(Boolean)),
+  ];
+  const provByComp = new Map();
+  // Traemos el proveedor de cada comprobante en tandas (evita URLs enormes).
+  for (let i = 0; i < compIds.length; i += 200) {
+    const chunk = compIds.slice(i, i + 200);
+    const { data, error } = await supabase
+      .from("panol_comprobantes")
+      .select("id, proveedor")
+      .in("id", chunk);
+    if (error) throw error;
+    for (const c of data ?? []) provByComp.set(c.id, c.proveedor || "");
+  }
+
+  return conMaterial.map((it) => ({
+    proveedor: provByComp.get(it.comprobante_id) || "",
+    material_id: it.material_id,
+    texto: it.descripcion_original || it.descripcion || "",
+    created_at: it.created_at,
+  }));
+}
+
+// Actualiza el precio vigente de un material (historial tolerante) y, opcionalmente,
+// corrige su sector (categoria_id) si venía mal clasificado.
+export async function aplicarPrecioMaterial(
+  materialId,
+  {
+    precio,
+    moneda = "ARS",
+    proveedor = null,
+    proveedor_id = null,
+    categoria_id = null,
+    // De donde salio el precio. Queda en el historial para poder distinguir
+    // despues un precio cotizado de uno que se leyo de un remito real.
+    fuente = "presupuesto",
+  } = {},
+) {
+  if (!materialId) return false;
+  const pu = toNullableNumber(precio);
+  const mon = moneda || "ARS";
+  const patch = {};
+  if (pu != null) {
+    patch.precio_unitario = pu;
+    patch.moneda = mon;
+    patch.proveedor = proveedor || null;
+    patch.proveedor_id = proveedor_id || null;
+  }
+  if (categoria_id) patch.categoria_id = categoria_id;
+  if (!Object.keys(patch).length) return false;
+  const { error: matErr } = await supabase
+    .from("panol_materiales")
+    .update(patch)
+    .eq("id", materialId);
+  if (matErr) throw matErr;
+  if (pu != null) {
+    try {
+      await supabase.from("panol_precios").insert({
+        material_id: materialId,
+        proveedor_id: proveedor_id || null,
+        proveedor: proveedor || null,
+        precio_unitario: pu,
+        moneda: mon,
+        fuente,
+        fecha: new Date().toISOString().slice(0, 10),
+      });
+    } catch {
+      /* historial opcional */
+    }
+  }
+  return true;
+}
+
+// Promotes the chosen supplier to the current quote while retaining prior suppliers
+// as alternatives for comparison on the material.
+export async function registrarOfertaMaterial(
+  material,
+  proveedor,
+  { precio, moneda = "ARS" } = {},
+) {
+  if (!material?.id) throw new Error("Falta el material.");
+  if (!proveedor?.id) throw new Error("Elegí un proveedor.");
+  const pu = toNullableNumber(precio);
+  if (pu == null || pu < 0) throw new Error("Cargá un precio válido.");
+
+  const alternatives = new Map();
+  for (const item of material.proveedores_lista || []) {
+    if (item?.proveedor_id && item.proveedor_id !== proveedor.id)
+      alternatives.set(item.proveedor_id, {
+        proveedor_id: item.proveedor_id,
+        precio: item.precio,
+        moneda: item.moneda,
+        denominacion_proveedor: item.denominacion_proveedor,
+        codigo_proveedor: item.codigo_proveedor,
+        componentes_pedido: item.componentes_pedido,
+      });
+  }
+  if (material.proveedor_id && material.proveedor_id !== proveedor.id) {
+    alternatives.set(material.proveedor_id, {
+      proveedor_id: material.proveedor_id,
+      precio: material.precio_unitario,
+      moneda: material.moneda || "ARS",
+    });
+  }
+
+  await aplicarPrecioMaterial(material.id, {
+    precio: pu,
+    moneda,
+    proveedor: proveedor.nombre,
+    proveedor_id: proveedor.id,
+  });
+  await setProveedoresMaterial(material.id, [...alternatives.values()]);
+}
+
+/**
+ * Le suma un proveedor MÁS a varios materiales, sin sacarle el que ya tienen.
+ *
+ * Es lo que hace falta para pedir el mismo artículo a dos o tres y después
+ * comparar: mientras un proveedor no figure en la lista del material, ese
+ * material no entra en su pedido de precios. Y no hace falta tener el precio
+ * para eso -justamente se lo está por pedir-, así que la fila entra sin
+ * importe y se completa cuando el proveedor contesta.
+ *
+ * Si ya estaba, la fila NO se toca: `ignoreDuplicates` es lo que garantiza que
+ * agregar un proveedor nunca borre un precio ya cargado. Es la diferencia con
+ * `setProveedoresMaterial`, que reemplaza la lista entera.
+ *
+ * Devuelve cuántos materiales se mandaron a la base.
+ */
+export async function agregarProveedorAMateriales(materialIds, proveedor) {
+  const ids = [...new Set((materialIds || []).filter(Boolean))];
+  if (!ids.length) return 0;
+  if (!proveedor?.id) throw new Error("Elegí un proveedor.");
+
+  const LOTE = 200;
+  let total = 0;
+  for (let i = 0; i < ids.length; i += LOTE) {
+    const lote = ids.slice(i, i + LOTE);
+    const { error } = await supabase
+      .from("panol_material_proveedores")
+      .upsert(
+        lote.map((materialId) => ({ material_id: materialId, proveedor_id: proveedor.id })),
+        { onConflict: "material_id,proveedor_id", ignoreDuplicates: true },
+      );
+    if (error) throw error;
+    total += lote.length;
+  }
+  return total;
+}
+
+/**
+ * Le saca un proveedor a varios materiales. Es el deshacer de las dos de
+ * arriba: sin esto, un clic en el desplegable equivocado deja cuarenta
+ * materiales colgados del proveedor que no es y hay que arreglarlos de a uno.
+ *
+ * Saca las dos formas en que un material puede estar atado a un proveedor: la
+ * fila de alternativo y, si además era EL proveedor de la ficha, también eso.
+ * Lo que no toca es el precio de la ficha: el número sigue ahí, sólo deja de
+ * tener a quién atribuírselo.
+ *
+ * Devuelve cuántos materiales quedaron efectivamente sin ese proveedor.
+ */
+export async function quitarProveedorMasivo(materialIds, proveedor) {
+  const ids = [...new Set((materialIds || []).filter(Boolean))];
+  if (!ids.length) return 0;
+  if (!proveedor?.id) throw new Error("Elegí un proveedor.");
+
+  const LOTE = 200;
+  const tocados = new Set();
+  for (let i = 0; i < ids.length; i += LOTE) {
+    const lote = ids.slice(i, i + LOTE);
+
+    const { data: alternativos, error: errAlt } = await supabase
+      .from("panol_material_proveedores")
+      .delete()
+      .eq("proveedor_id", proveedor.id)
+      .in("material_id", lote)
+      .select("material_id");
+    if (errAlt) throw errAlt;
+    for (const fila of alternativos || []) tocados.add(fila.material_id);
+
+    const { data: principales, error: errPrin } = await supabase
+      .from("panol_materiales")
+      .update({ proveedor_id: null, proveedor: null })
+      .eq("proveedor_id", proveedor.id)
+      .in("id", lote)
+      .select("id");
+    if (errPrin) throw errPrin;
+    for (const fila of principales || []) tocados.add(fila.id);
+  }
+  return tocados.size;
+}
+
+export async function asociarProveedorMaterial(
+  material,
+  proveedor,
+  { precio = null, moneda = null } = {},
+) {
+  if (!material?.id) throw new Error("Falta el material.");
+  if (!proveedor?.id) throw new Error("Elegí un proveedor.");
+  if (material.proveedor_id === proveedor.id) return;
+  const alternatives = new Map();
+  for (const item of material.proveedores_lista || []) {
+    if (item?.proveedor_id)
+      alternatives.set(item.proveedor_id, {
+        proveedor_id: item.proveedor_id,
+        precio: item.precio,
+        moneda: item.moneda,
+        denominacion_proveedor: item.denominacion_proveedor,
+        codigo_proveedor: item.codigo_proveedor,
+        componentes_pedido: item.componentes_pedido,
+      });
+  }
+  alternatives.set(proveedor.id, {
+    proveedor_id: proveedor.id,
+    precio: toNullableNumber(precio),
+    moneda: moneda || null,
+  });
+  await setProveedoresMaterial(material.id, [...alternatives.values()]);
+}
+
+// A variant quote belongs to the selected variant and must not overwrite the base price.
+export async function guardarPrecioVarianteMaterial(
+  material,
+  variante,
+  { precio, moneda = "ARS", proveedor = null } = {},
+) {
+  if (!material?.id || !variante)
+    throw new Error("Falta el material o la variante.");
+  const pu = toNullableNumber(precio);
+  if (pu == null || pu < 0) throw new Error("Cargá un precio válido.");
+  const current =
+    material.variantes_precios && typeof material.variantes_precios === "object"
+      ? material.variantes_precios
+      : {};
+  const previous = current[variante] || {};
+  await guardarVariantesMaterial(
+    material.id,
+    material.variantes || [variante],
+    {
+      ...current,
+      [variante]: {
+        ...previous,
+        precio: pu,
+        moneda,
+        proveedor_id: proveedor?.id || previous.proveedor_id || null,
+        proveedor: proveedor?.nombre || previous.proveedor || null,
+      },
+    },
+  );
+}
+
+// Setea la cantidad del BOM de un material para una línea/modelo, sin tocar las demás.
+/**
+ * Pone la cantidad de un material en una línea.
+ *
+ * RESPETA LA VARIANTE CON LA QUE EL MATERIAL YA ESTÁ EN ESA LÍNEA. Antes esto
+ * escribía siempre `standard`, sin mirar nada, y ahí estaba la fábrica de
+ * duplicados: editarle la cantidad a un ítem del paquete de línea de eje le
+ * creaba una fila estándar AL LADO de la condicional. El material pasaba a
+ * figurar como que el barco lo lleva siempre y además si lleva eje, y en el
+ * catálogo aparecía con el cartel "Base" aunque fuera condicional.
+ *
+ * Así se generaron los 7 duplicados que hubo que limpiar en el K37 en
+ * septiembre de 2026, y así apareció uno nuevo horas después de esa limpieza.
+ *
+ * Un material que todavía no está en la línea entra como `standard`, que es lo
+ * correcto: lo condicional se marca a propósito, no por accidente.
+ */
+export async function setCantidadModelo(materialId, modelo, cantidad, variante = null) {
+  const n = toNullableNumber(cantidad);
+  if (!materialId || !modelo) return;
+  if (n == null || n <= 0) {
+    await quitarCantidadModelo(materialId, modelo);
+    return;
+  }
+
+  let destino = variante;
+  if (!destino) {
+    const { data } = await supabase
+      .from("panol_material_modelo")
+      .select("variante")
+      .eq("material_id", materialId)
+      .eq("modelo", String(modelo));
+    const filas = data || [];
+    // Si tuviera las dos -que no debería-, gana la estándar: un material que va
+    // siempre no deja de ir porque además esté en un paquete opcional.
+    destino = !filas.length || filas.some((row) => (row.variante || VARIANTE_BASE) === VARIANTE_BASE)
+      ? VARIANTE_BASE
+      : (filas[0].variante || VARIANTE_BASE);
+  }
+
+  const { error } = await supabase.from("panol_material_modelo").upsert(
+    {
+      material_id: materialId,
+      modelo: String(modelo),
+      variante: destino,
+      cantidad: n,
+    },
+    { onConflict: "material_id,modelo,variante" },
+  );
+  if (error) throw error;
+}
+
+/**
+ * Saca un material de la matriz de una línea.
+ *
+ * Borra TODAS sus filas de esa línea, sea cual sea la `variante`.
+ *
+ * Antes filtraba por `variante = "standard"` y ahí estaba el bug: hay 28 filas
+ * cargadas con `variante = "linea_eje"` -los componentes de la línea de eje del
+ * K37: ánodos, bocina, hélices, sello PSS, caños inox- que ese filtro no
+ * tocaba. Como la lectura de la matriz sí las muestra (`toBomMap` ignora la
+ * variante), pasaba esto:
+ *
+ *   - el material aparece en la matriz del K37 y en TODAS sus obras,
+ *   - se le da al tacho, la consulta borra cero filas y devuelve 204,
+ *   - la pantalla recarga y el material sigue ahí.
+ *
+ * Y en los 7 materiales que tienen las dos filas -la `standard` y la
+ * `linea_eje` con la misma cantidad- era peor: borraba una, quedaba la otra y
+ * el renglón reaparecía con la misma cantidad, como si el botón no hiciera nada.
+ *
+ * Devuelve cuántas filas sacó, para que quien llama pueda avisar si no sacó
+ * ninguna en vez de dar por hecho que salió bien.
+ */
+export async function quitarCantidadModelo(materialId, modelo) {
+  if (!materialId || !modelo) return 0;
+  const { data, error } = await supabase
+    .from("panol_material_modelo")
+    .delete()
+    .eq("material_id", materialId)
+    .eq("modelo", String(modelo))
+    .select("id");
+  if (error) throw error;
+  return (data || []).length;
+}
+
+/* ── Calibración de peso por pieza (balanza) ──────────────────────────────── */
+
+/**
+ * Consumibles del catálogo con su estado de calibración de peso.
+ * Se usa en la pantalla de calibración y para avisar cuáles faltan.
+ */
+export async function fetchConsumiblesPeso() {
+  const cols =
+    "id, descripcion, codigo, unidad_medida, es_consumible, peso_unitario_g, peso_muestra_piezas, peso_calibrado_at";
+  const { data, error } = await supabase
+    .from("panol_materiales")
+    .select(cols)
+    .eq("es_consumible", true)
+    .neq("activo", false)
+    .order("descripcion");
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function fetchConsumiblesPanol() {
+  const cols =
+    "id, categoria_id, proveedor_id, codigo, codigo_barra, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, notas, activo, es_consumible, peso_unitario_g, peso_muestra_piezas, peso_calibrado_at";
+  let { data, error } = await supabase
+    .from("panol_materiales")
+    .select(cols)
+    .eq("es_consumible", true)
+    .neq("activo", false)
+    .order("descripcion");
+  if (error && isMissingColumn(error)) {
+    const retry = await supabase
+      .from("panol_materiales")
+      .select(
+        "id, categoria_id, proveedor_id, codigo, codigo_barra, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, notas, activo, es_consumible",
+      )
+      .eq("es_consumible", true)
+      .neq("activo", false)
+      .order("descripcion");
+    data = retry.data;
+    error = retry.error;
+    if (!error)
+      data = (data ?? []).map((row) => ({
+        ...row,
+        es_consumible: true,
+        peso_unitario_g: null,
+        peso_muestra_piezas: null,
+        peso_calibrado_at: null,
+      }));
+  }
+  if (error && isMissingColumn(error)) {
+    throw new Error("Falta correr el SQL de consumibles y peso unitario.");
+  }
+  if (error) throw error;
+
+  const rows = data ?? [];
+  const codigos = await fetchMaterialCodigosBarraRows();
+  const ids = new Set(rows.map((row) => row.id).filter(Boolean));
+  const codigosByMaterial = new Map();
+  for (const codigo of codigos) {
+    if (!ids.has(codigo.material_id) || codigo.activo === false) continue;
+    const list = codigosByMaterial.get(codigo.material_id) ?? [];
+    list.push(codigo);
+    codigosByMaterial.set(codigo.material_id, list);
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    unidad_medida: normalizeUnidadMedida(row.unidad_medida, "unidad"),
+    codigos_barra: codigosByMaterial.get(row.id) ?? [],
+  }));
+}
+
+export async function crearConsumiblePanol({
+  descripcion = "",
+  categoriaId = null,
+  unidadMedida = "unidad",
+  proveedor = "",
+  codigo = "",
+  codigoBarra = "",
+  notas = "",
+} = {}) {
+  const material = await crearMaterialRapido({
+    descripcion,
+    categoriaId,
+    unidadMedida,
+    proveedor,
+    codigo,
+    notas,
+    esConsumible: true,
+  });
+  const cleanBarcode = String(codigoBarra || "").trim();
+  const codigos = [];
+  if (cleanBarcode)
+    codigos.push(
+      await agregarCodigoBarraMaterial(material.id, cleanBarcode, {
+        etiqueta: "Principal",
+      }),
+    );
+  return { ...material, es_consumible: true, codigos_barra: codigos };
+}
+
+export async function actualizarConsumiblePanol(materialId, fields = {}) {
+  if (!materialId) throw new Error("Falta el consumible.");
+  const patch = {
+    descripcion: String(fields.descripcion || "").trim(),
+    categoria_id: fields.categoria_id || null,
+    proveedor: String(fields.proveedor || "").trim() || null,
+    codigo: String(fields.codigo || "").trim() || null,
+    unidad_medida: normalizeUnidadMedida(fields.unidad_medida, "unidad"),
+    notas: String(fields.notas || "").trim() || null,
+    es_consumible: true,
+    activo: fields.activo ?? true,
+  };
+  if (!patch.descripcion)
+    throw new Error("Cargá la descripción del consumible.");
+
+  let { data, error } = await supabase
+    .from("panol_materiales")
+    .update(patch)
+    .eq("id", materialId)
+    .select(
+      "id, categoria_id, proveedor_id, codigo, codigo_barra, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, notas, activo, es_consumible, peso_unitario_g, peso_muestra_piezas, peso_calibrado_at",
+    )
+    .single();
+  if (error && isMissingColumn(error)) {
+    const fallback = { ...patch };
+    delete fallback.es_consumible;
+    const retry = await supabase
+      .from("panol_materiales")
+      .update(fallback)
+      .eq("id", materialId)
+      .select(
+        "id, categoria_id, proveedor_id, codigo, codigo_barra, descripcion, alias, proveedor, unidad_medida, precio_unitario, moneda, notas, activo",
+      )
+      .single();
+    data = retry.data
+      ? {
+          ...retry.data,
+          es_consumible: true,
+          peso_unitario_g: null,
+          peso_muestra_piezas: null,
+          peso_calibrado_at: null,
+        }
+      : retry.data;
+    error = retry.error;
+  }
+  if (error) throw error;
+  return {
+    ...data,
+    unidad_medida: normalizeUnidadMedida(data.unidad_medida, "unidad"),
+  };
+}
+
+export async function sacarConsumiblePanol(materialId) {
+  if (!materialId) throw new Error("Falta el consumible.");
+  const { error } = await supabase
+    .from("panol_materiales")
+    .update({ es_consumible: false })
+    .eq("id", materialId);
+  if (error) throw error;
+}
+
+export async function guardarPesoUnitarioDirecto(materialId, pesoUnitarioG) {
+  const g = toNullableNumber(String(pesoUnitarioG ?? "").replace(",", "."));
+  if (!materialId) throw new Error("Falta el consumible.");
+  if (g == null || g <= 0) throw new Error("Cargá un peso unitario válido.");
+  const { data, error } = await supabase
+    .from("panol_materiales")
+    .update({
+      peso_unitario_g: g,
+      peso_muestra_piezas: null,
+      peso_calibrado_at: new Date().toISOString(),
+    })
+    .eq("id", materialId)
+    .select("id, peso_unitario_g, peso_muestra_piezas, peso_calibrado_at")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Guarda el peso unitario calculado a partir de una muestra pesada.
+ * `gramosMuestra` es el peso NETO de `piezas` unidades.
+ */
+export async function guardarPesoUnitario(
+  materialId,
+  { gramosMuestra, piezas },
+) {
+  const g = Number(gramosMuestra);
+  const n = Number(piezas);
+  if (!Number.isFinite(g) || g <= 0)
+    throw new Error("El peso de la muestra no es válido.");
+  if (!Number.isFinite(n) || n <= 0)
+    throw new Error("La cantidad de piezas no es válida.");
+  const { data, error } = await supabase
+    .from("panol_materiales")
+    .update({
+      peso_unitario_g: g / n,
+      peso_muestra_piezas: Math.round(n),
+      peso_calibrado_at: new Date().toISOString(),
+    })
+    .eq("id", materialId)
+    .select("id, peso_unitario_g, peso_muestra_piezas, peso_calibrado_at")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+/** Borra la calibración de un producto (por si quedó mal cargada). */
+export async function borrarPesoUnitario(materialId) {
+  const { error } = await supabase
+    .from("panol_materiales")
+    .update({
+      peso_unitario_g: null,
+      peso_muestra_piezas: null,
+      peso_calibrado_at: null,
+    })
+    .eq("id", materialId);
+  if (error) throw error;
+}

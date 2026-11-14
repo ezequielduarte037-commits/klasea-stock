@@ -1,0 +1,285 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { AlertTriangle, Minus, Plus, X } from "lucide-react";
+import { supabase } from "@/supabaseClient";
+import { C } from "@/theme";
+
+/**
+ * ScanEgresoScreen — Egreso de madera por escáner (PDA de pañol). Ruta: /scan
+ *
+ * Diseñado EXCLUSIVAMENTE para el colector (pantalla chica, Chrome viejo ~73):
+ *   - Sin `inset` (no soportado < Chrome 87): se usan top/left/right/bottom.
+ *   - Sin `gap` en flex (llegó en Chrome 84): la separación va con márgenes.
+ *   - Layout compacto, scroll propio confiable, barra de confirmar fija abajo.
+ *   - Carrito multi-ítem: escanean varios productos, ponen obra/persona UNA vez,
+ *     y "Confirmar" egresa todo junto (un movimiento por ítem, misma obra/persona).
+ *   - El lector físico (HID) tipea el código + Enter en el campo enfocado.
+ */
+
+const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+const norm = (s) => String(s ?? "").trim().toLowerCase();
+
+export default function ScanEgresoScreen({ profile }) {
+  const nav = useNavigate();
+  const [materiales, setMateriales] = useState([]);
+  const [obras, setObras] = useState([]);
+  const [recientes, setRecientes] = useState([]);
+  const [code, setCode] = useState("");
+  const [cart, setCart] = useState([]);     // [{id, nombre, codigo, unidad, stock, qty}]
+  const [obra, setObra] = useState("");
+  const [retira, setRetira] = useState("");
+  const [msg, setMsg] = useState(null);     // {ok, text}
+  const [busy, setBusy] = useState(false);
+  const [hechos, setHechos] = useState(0);  // egresos confirmados en la sesión
+  const codeRef = useRef(null);
+
+  async function cargarMateriales() {
+    const { data } = await supabase.from("materiales")
+      .select("id,nombre,codigo,unidad_medida,stock_actual").order("nombre");
+    setMateriales(data ?? []);
+    return data ?? [];
+  }
+  async function cargar() {
+    const [{ data: obs }, { data: movs }] = await Promise.all([
+      supabase.from("produccion_obras").select("codigo,estado").neq("estado", "archivada"),
+      supabase.from("movimientos").select("usuario,created_at").not("usuario", "is", null)
+        .order("created_at", { ascending: false }).limit(250),
+    ]);
+    setObras([...new Set((obs ?? []).filter(o => o.estado !== "terminada").map(o => o.codigo).filter(Boolean))].sort());
+    const rec = [];
+    for (const m of (movs ?? [])) { const u = (m.usuario || "").trim(); if (u && !rec.includes(u)) rec.push(u); if (rec.length >= 10) break; }
+    setRecientes(rec);
+    await cargarMateriales();
+  }
+  useEffect(() => { cargar(); focusCode(); }, []);
+  function focusCode() { setTimeout(() => codeRef.current?.focus(), 50); }
+
+  const porCodigo = useMemo(() => {
+    const m = {}; materiales.forEach(x => { if (x.codigo) m[norm(x.codigo)] = x; }); return m;
+  }, [materiales]);
+
+  function resolver(raw) {
+    const q = norm(raw); if (!q) return null;
+    if (porCodigo[q]) return porCodigo[q];
+    const exact = materiales.find(x => norm(x.nombre) === q);
+    if (exact) return exact;
+    const hits = materiales.filter(x => norm(x.nombre).includes(q));
+    return hits.length === 1 ? hits[0] : null;
+  }
+
+  function addMaterial(m) {
+    setCart(prev => {
+      const i = prev.findIndex(x => x.id === m.id);
+      if (i >= 0) { const c = [...prev]; c[i] = { ...c[i], qty: c[i].qty + 1 }; return c; }
+      return [...prev, { id: m.id, nombre: m.nombre, codigo: m.codigo, unidad: m.unidad_medida, stock: num(m.stock_actual), qty: 1 }];
+    });
+    setMsg({ ok: true, text: `+ ${m.nombre}` });
+    setCode(""); if (codeRef.current) codeRef.current.value = ""; focusCode();
+  }
+
+  function onScan(e) {
+    e?.preventDefault?.();
+    // Leemos del DOM (no del estado): el lector tipea muy rápido y el estado
+    // controlado pierde caracteres → por eso llegaba vacío ("No encontré '').
+    const raw = (codeRef.current?.value ?? code ?? "").trim();
+    if (!raw) { focusCode(); return; }   // Enter vacío del lector → ignorar
+    const m = resolver(raw);
+    if (!m) { setMsg({ ok: false, text: `No encontré "${raw}"` }); setCode(""); if (codeRef.current) codeRef.current.value = ""; focusCode(); return; }
+    addMaterial(m);
+  }
+
+  function setQty(id, q) { setCart(prev => prev.map(x => x.id === id ? { ...x, qty: Math.max(1, q) } : x)); }
+  function quitar(id) { setCart(prev => prev.filter(x => x.id !== id)); }
+
+  const sugerencias = useMemo(() => {
+    const q = norm(code);
+    if (q.length < 2 || porCodigo[q]) return [];
+    return materiales.filter(x => norm(x.nombre).includes(q) || norm(x.codigo).includes(q)).slice(0, 5);
+  }, [code, materiales, porCodigo]);
+
+  const totalItems = cart.reduce((a, x) => a + x.qty, 0);
+
+  async function confirmar() {
+    if (busy || cart.length === 0) return;
+    if (!obra.trim()) { setMsg({ ok: false, text: "Indicá para qué obra." }); return; }
+    // Sin esto el egreso quedaba sin persona y en el historial aparecía la
+    // cuenta del pañol como si hubiera retirado ella el material. El punto del
+    // registro es saber quién se lo llevó, así que no se puede confirmar sin eso.
+    if (!retira.trim()) { setMsg({ ok: false, text: "Indicá quién retira." }); return; }
+    setBusy(true); setMsg(null);
+    let okN = 0;
+    try {
+      for (const it of cart) {
+        const qty = Math.abs(num(it.qty)); if (qty <= 0) continue;
+        const args = { p_material_id: it.id, p_delta: -qty, p_obra: obra.trim(),
+          p_usuario: retira.trim() || null, p_entregado_por: profile?.username || null,
+          p_proveedor: null, p_recibe: null, p_obs: null };
+        const rpc = await supabase.rpc("registrar_movimiento", args);
+        if (rpc.error) {
+          const nuevo = num(it.stock) - qty;
+          await supabase.from("materiales").update({ stock_actual: nuevo }).eq("id", it.id);
+          const ins = await supabase.from("movimientos").insert({
+            material_id: it.id, delta: -qty, obra: obra.trim(),
+            usuario: retira.trim() || null, entregado_por: profile?.username || null });
+          if (ins.error) throw ins.error;
+        }
+        okN++;
+      }
+      setHechos(h => h + okN);
+      setMsg({ ok: true, text: `Egresados ${okN} ítem${okN !== 1 ? "s" : ""} para ${obra.trim()}` });
+      setCart([]); setCode("");
+      cargarMateriales();
+      focusCode();
+    } catch (err) {
+      setMsg({ ok: false, text: "Error: " + (err?.message || err) + ` (ok: ${okN}/${cart.length})` });
+    } finally { setBusy(false); }
+  }
+
+  // ── Estilos compactos para el colector ───────────────────────────────────────
+  const scroll = { position: "fixed", top: 0, left: 0, right: 0, bottom: 60, overflowY: "auto",
+    WebkitOverflowScrolling: "touch", background: C.bg, color: C.text,
+    fontFamily: "'Outfit', system-ui, sans-serif", padding: 10 };
+  const field = { width: "100%", boxSizing: "border-box", background: C.panel, color: C.text,
+    border: `1px solid ${C.border}`, borderRadius: 10, padding: "11px 12px", fontSize: 16, outline: "none" };
+  const lbl = { fontSize: 11, letterSpacing: "0.07em", textTransform: "uppercase", color: C.dim, fontWeight: 600, margin: "0 0 5px" };
+  const qbtn = { width: 44, minWidth: 44, height: 40, border: `1px solid ${C.border}`, background: C.panel,
+    color: C.text, borderRadius: 8, cursor: "pointer", lineHeight: 1, padding: 0 };
+  const chico = { background: "transparent", border: `1px solid ${C.border}`, borderRadius: 8,
+    minHeight: 32, padding: "0 10px", fontFamily: C.sans, fontSize: 12, fontWeight: 600 };
+
+  return (
+    <>
+      <div style={scroll}>
+        {/* Header compacto */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 9 }}>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            <span style={{ width: 8, height: 8, marginRight: 7, borderRadius: "50%", background: C.green }} />
+            <b style={{ fontSize: 14, fontWeight: 600 }}>Egreso · Pañol</b>
+          </div>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            {hechos > 0 && <span style={{ marginRight: 8, fontSize: 11.5, color: C.green, fontWeight: 600 }}>{hechos} listos</span>}
+            {/* Salto directo al otro flujo del colector: pedir reposición a compras. */}
+            <button onClick={() => nav("/scan-pedido")} style={{ ...chico, marginRight: 6, color: C.blue }}>Pedir</button>
+            <button onClick={() => nav("/colector")} style={{ ...chico, color: C.dim }}>Menú</button>
+          </div>
+        </div>
+
+        {/* Banner */}
+        {msg && (
+          <div style={{ padding: "9px 11px", borderRadius: 9, fontSize: 13.5, fontWeight: 600, marginBottom: 9,
+            background: msg.ok ? C.greenL : C.redL,
+            border: `1px solid ${msg.ok ? C.greenB : C.redB}`, color: msg.ok ? C.green : C.red }}>{msg.text}</div>
+        )}
+
+        {/* Escaneo */}
+        <form onSubmit={onScan} style={{ marginBottom: 10 }}>
+          <p style={lbl}>Escaneá el material (o escribí el código y OK)</p>
+          <div style={{ display: "flex" }}>
+            <input ref={codeRef} defaultValue="" onChange={e => setCode(e.target.value)}
+              autoComplete="off" autoCapitalize="characters" autoCorrect="off" spellCheck={false} enterKeyHint="enter"
+              placeholder="Dispará el lector…" style={{ ...field, flex: 1, marginRight: 6, fontSize: 18 }} />
+            <button type="submit" style={{ ...qbtn, width: 64, fontSize: 14, fontWeight: 600, background: C.blue, color: "var(--inverse-text)", border: "none" }}>OK</button>
+          </div>
+          {sugerencias.length > 0 && (
+            <div style={{ marginTop: 6 }}>
+              {sugerencias.map(s => (
+                <button key={s.id} type="button" onClick={() => addMaterial(s)}
+                  style={{ display: "block", width: "100%", boxSizing: "border-box", marginBottom: 4, textAlign: "left", background: C.panel, border: `1px solid ${C.border}`, borderRadius: 8, padding: "9px 11px", color: C.text, fontFamily: C.sans }}>
+                  <b style={{ fontSize: 14, fontWeight: 600 }}>{s.nombre}</b>
+                  <span style={{ float: "right", color: C.dim, fontSize: 11 }}>{s.codigo} · {num(s.stock_actual)}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </form>
+
+        {/* Carrito */}
+        <p style={lbl}>Ítems a egresar {cart.length > 0 ? `· ${cart.length}` : ""}</p>
+        {cart.length === 0 ? (
+          <div style={{ border: `1px dashed ${C.border}`, borderRadius: 10, padding: "16px 12px", textAlign: "center", color: C.dim, fontSize: 13, marginBottom: 10 }}>
+            Escaneá uno o varios materiales…
+          </div>
+        ) : (
+          <div style={{ marginBottom: 10 }}>
+            {cart.map(it => (
+              <div key={it.id} style={{ marginBottom: 6, background: C.panel, border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 9px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ minWidth: 0, flex: 1, marginRight: 6 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{it.nombre}</div>
+                    <div style={{ color: it.qty > it.stock ? C.cyan : C.dim, fontSize: 11 }}>
+                      {it.codigo ? it.codigo + " · " : ""}stock {it.stock}
+                      {it.qty > it.stock && (
+                        <>
+                          {" · "}
+                          <AlertTriangle size={11} style={{ verticalAlign: -1, marginRight: 3 }} />
+                          supera el stock
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <button onClick={() => quitar(it.id)} aria-label={`Quitar ${it.nombre}`}
+                    style={{ width: 34, height: 34, flexShrink: 0, display: "grid", placeItems: "center", background: "none", border: "none", color: C.dim, padding: 0 }}>
+                    <X size={18} />
+                  </button>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", marginTop: 7 }}>
+                  <button onClick={() => setQty(it.id, it.qty - 1)} aria-label="Uno menos" style={{ ...qbtn, marginRight: 6, display: "grid", placeItems: "center" }}><Minus size={18} /></button>
+                  <input type="number" inputMode="numeric" value={it.qty}
+                    onChange={e => setQty(it.id, num(e.target.value))}
+                    style={{ ...field, textAlign: "center", fontSize: 20, fontWeight: 600, padding: "7px 4px", flex: 1, marginRight: 6 }} />
+                  <button onClick={() => setQty(it.id, it.qty + 1)} aria-label="Uno más" style={{ ...qbtn, marginRight: 6, display: "grid", placeItems: "center" }}><Plus size={18} /></button>
+                  <span style={{ fontSize: 11, color: C.dim, width: 44, textAlign: "right" }}>{it.unidad || ""}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Obra + Persona (compartidos) */}
+        <div style={{ marginBottom: 9 }}>
+          <p style={lbl}>¿Para qué obra?</p>
+          <input value={obra} onChange={e => setObra(e.target.value)} list="scan-obras" placeholder="Ej: 55-1" style={field} autoComplete="off" />
+          <datalist id="scan-obras">{obras.map(o => <option key={o} value={o} />)}</datalist>
+        </div>
+        <div style={{ marginBottom: 6 }}>
+          <p style={lbl}>¿Quién retira?</p>
+          <input value={retira} onChange={e => setRetira(e.target.value)} list="scan-personas" placeholder="Nombre y apellido" autoComplete="off"
+            style={{ ...field, borderColor: cart.length > 0 && !retira.trim() ? C.red : undefined }} />
+          <datalist id="scan-personas">{recientes.map(r => <option key={r} value={r} />)}</datalist>
+          {recientes.length > 0 && (
+            <div style={{ marginTop: 6 }}>
+              {recientes.slice(0, 6).map(r => (
+                <button key={r} type="button" onClick={() => setRetira(r)}
+                  style={{ display: "inline-block", marginRight: 5, marginBottom: 5, minHeight: 34,
+                    background: retira === r ? C.blue : C.panel, color: retira === r ? "var(--inverse-text)" : C.dim,
+                    border: `1px solid ${retira === r ? "transparent" : C.border}`, borderRadius: 999,
+                    padding: "0 12px", fontFamily: C.sans, fontSize: 12.5, fontWeight: 600 }}>{r}</button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Barra fija de confirmar (siempre visible, sin depender del scroll) */}
+      <div style={{ position: "fixed", left: 0, right: 0, bottom: 0, height: 60, padding: 8,
+        background: C.panelSolid, borderTop: `1px solid ${C.border}`, display: "flex" }}>
+        {cart.length > 0 && (
+          <button onClick={() => setCart([])} style={{ width: 90, marginRight: 8, borderRadius: 12, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, fontFamily: C.sans, fontSize: 13, fontWeight: 600 }}>Vaciar</button>
+        )}
+        {/* El botón dice qué falta en vez de rebotar recién al apretarlo: en el
+            colector se trabaja parado y con guantes, y un error después del
+            toque obliga a volver a buscar el campo. */}
+        <button onClick={confirmar} disabled={busy || cart.length === 0 || !obra.trim() || !retira.trim()}
+          style={{ flex: 1, borderRadius: 12, border: "none", fontFamily: C.sans, fontSize: 17, fontWeight: 600,
+            color: cart.length === 0 || !obra.trim() || !retira.trim() ? C.dim : "var(--inverse-text)",
+            background: cart.length === 0 || !obra.trim() || !retira.trim() ? C.panel2 : C.green, opacity: busy ? 0.6 : 1 }}>
+          {busy ? "Registrando…"
+            : cart.length === 0 ? "Escaneá para empezar"
+            : !obra.trim() ? "Falta la obra"
+            : !retira.trim() ? "Falta quién retira"
+            : `Confirmar egreso · ${totalItems}`}
+        </button>
+      </div>
+    </>
+  );
+}

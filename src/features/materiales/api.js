@@ -1515,7 +1515,7 @@ export async function borrarObraSnapshotRows(ids = []) {
   }
 }
 
-export async function fetchObraMaterialSnapshot(obraId) {
+export async function fetchObraMaterialSnapshot(obraId, { throwOnError = false } = {}) {
   if (!obraId) return [];
   try {
     const { data, error } = await supabase
@@ -1524,9 +1524,10 @@ export async function fetchObraMaterialSnapshot(obraId) {
       .eq("obra_id", obraId)
       .order("orden", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: true });
-    if (error) return [];
+    if (error) throw error;
     return await withRecepcionDetalle(data ?? []);
-  } catch {
+  } catch (error) {
+    if (throwOnError) throw error;
     return [];
   }
 }
@@ -2042,11 +2043,12 @@ export async function asignarVarianteObraSnapshot(snapshotId, variante = "") {
 
 export async function cambiarEstadoObraSnapshot(snapshotId, estado, nota = "", retiradoPor = "") {
   if (!snapshotId) throw new Error("Falta el item de obra.");
+  const retirado = String(retiradoPor || "").trim() || null;
   const { data, error } = await supabase.rpc("panol_cambiar_estado_snapshot", {
     p_snapshot_id: snapshotId,
     p_estado: estado,
     p_nota: String(nota || "").trim() || null,
-    p_retirado_por: String(retiradoPor || "").trim() || null,
+    p_retirado_por: retirado,
   });
   if (error) {
     if (
@@ -2057,10 +2059,18 @@ export async function cambiarEstadoObraSnapshot(snapshotId, estado, nota = "", r
       )
     )
       throw error;
-    await updateObraSnapshotRows([snapshotId], { estado });
-    return null;
+    const { data: saved, error: updateError } = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .update({ estado, ...(retirado ? { retirado_por: retirado } : {}) })
+      .eq("id", snapshotId)
+      .select()
+      .single();
+    if (updateError) throw updateError;
+    return saved;
   }
-  return data;
+  const saved = Array.isArray(data) ? data[0] : data;
+  if (!saved?.id) throw new Error("No se pudo confirmar el cambio de estado del material.");
+  return saved;
 }
 
 export async function fetchObraSnapshotAudit(snapshotId, limit = 50) {

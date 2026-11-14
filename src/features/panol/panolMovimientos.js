@@ -1,3 +1,5 @@
+import { esInstalado } from "../materiales/obra/cambioEstadoLote.js";
+
 export function fmtDate(ts) {
   if (!ts) return "-";
   return new Date(ts).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
@@ -53,7 +55,12 @@ export function rowIsEgreso(row = {}) {
  */
 export function rowHasRecordedEgreso(row = {}) {
   if (rowIsEgreso(row)) return true;
-  return String(row.estado || "").trim().toLowerCase() === "egresado";
+  return !rowIsInstalled(row) && String(row.estado || "").trim().toLowerCase() === "egresado";
+}
+
+export function rowIsInstalled(row = {}) {
+  return String(row.estado || "").trim().toLowerCase() === "egresado"
+    && esInstalado(row) && !rowIsEgreso(row);
 }
 
 export function rowIsLocationChange(row = {}) {

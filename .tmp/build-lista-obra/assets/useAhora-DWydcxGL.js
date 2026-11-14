@@ -1,0 +1,1 @@
+import{a as t}from"./three-BfqajQ8s.js";function s(e=600*1e3){const[r,a]=t.useState(()=>new Date);return t.useEffect(()=>{const n=window.setInterval(()=>a(new Date),e);return()=>window.clearInterval(n)},[e]),r}export{s as u};

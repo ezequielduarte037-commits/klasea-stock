@@ -216,6 +216,22 @@ test("los últimos movimientos juntan un mismo carrito", () => {
   assert.equal(ultimosMovimientos(ledger(), { obras: OBRAS, sede: "Chubut" }).length, 0);
 });
 
+test("los instalados ya guardados aparecen por obra y sin persona de retiro", () => {
+  const instalado = fila({
+    id: "instalado", material_id: "m2", descripcion: "Bomba de prueba", obra_id: "o1",
+    obra: OBRAS.find((obra) => obra.id === "o1"),
+    source: "transferencia_ingreso", estado: "egresado", cantidad: 3, cantidad_egresada: 0,
+    retirado_por: " instalado en el barco ", egreso_por_nombre: "gaston.tec",
+    egreso_at: "2026-11-14T13:50:00Z",
+  });
+  const retiro = { ...instalado, id: "retiro", cantidad: 1, cantidad_egresada: 1, retirado_por: "Operario" };
+  const grupos = ultimosMovimientos([instalado, retiro], { obras: OBRAS, sede: "Pampa" });
+  assert.deepEqual(grupos.map(({ tipo, quien, destino, items }) => [tipo, quien, destino, items[0].cantidad]), [
+    ["instalado", "", "52-27", 3],
+    ["retiro", "Operario", "52-27", 1],
+  ]);
+});
+
 test("la pantalla del operario dice si es retiro o asignación", () => {
   const bomba = grupo(gruposEgresables(ledger()), "m2");
   const cart = sumarAlCarrito([], bomba, bomba.conSaldo[0]).cart;

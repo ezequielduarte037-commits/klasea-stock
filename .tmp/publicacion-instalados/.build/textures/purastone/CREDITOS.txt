@@ -1,0 +1,4 @@
+Mesadas del configurador: cuarzo Purastone, línea PURA (https://purastone.com/collections/pura).
+Fuente: la foto de cada placa en el sitio de Purastone (archivos *_PR de purastone.com/cdn/shop/files/), © Purastone.
+Hechas texturas repetibles en su tamaño real con scripts/purastone-mesadas.mjs.
+blanco-nube, blanco-paloma, statuarietto, estatuario-venato, calacatta-dor, crema-pisa, concrete-dark, nero-marquina (<id>.jpg la textura, <id>-m.jpg la muestra del botón).

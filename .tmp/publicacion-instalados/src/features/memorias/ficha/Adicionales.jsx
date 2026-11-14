@@ -1,0 +1,345 @@
+// Adicionales del cliente. Lo que se suma acá va a la lista de la obra (la
+// misma de Materiales): Compras lo ve como adicional pendiente de compra y el
+// pañol lo recibe vinculado. Se puede elegir del catálogo del pañol o escribir.
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Link2, Package, PackagePlus, Plus } from "lucide-react";
+import Cargando from "@/components/ui/Cargando";
+import { useToast } from "@/components/ui/Toast";
+import { fetchPanolCatalogMini } from "@/features/panol/panolApi";
+import { topMaterialMatches } from "@/features/panol/materialMatch";
+import { agregarAdicional, traerAdicionalesObra } from "../memoriasApi";
+import { sinTildes } from "../acabados";
+import { Estado } from "../ui";
+
+// Lo escrito en las notas que todavía no está en la lista. Si las notas vienen
+// renglón por renglón, cada renglón es un pedido (puede tener comas o una "y"
+// adentro: "1 PLOTTER en Fly y 1 en Salón"); si es una sola línea ("Jacuzzi,
+// Sin baúl, Tenderlift") se separa por comas. Lo que empieza con "sin" o "no"
+// es una aclaración, no algo para comprar.
+function piezasSueltas(notas, lista) {
+  const texto = String(notas || "");
+  const renglones = texto.split(/\n+/).map((r) => r.trim()).filter(Boolean);
+  const piezas = renglones.length > 1
+    ? renglones.flatMap((r) => r.split(/\s*[;•]\s*/))
+    : texto.split(/[,;•·]+|\s+y\s+/i);
+  const enLista = (lista || []).map((a) => sinTildes(a.descripcion));
+  const vistas = new Set();
+  return piezas
+    .map((p) => p.trim().replace(/^[-–*]\s*/, "").replace(/\.$/, ""))
+    .filter((p) => p.length >= 3 && p.length <= 90 && !/^(sin|no)\b/i.test(p))
+    .filter((p) => {
+      const n = sinTildes(p);
+      if (vistas.has(n)) return false;
+      vistas.add(n);
+      return !enLista.some((d) => d.includes(n) || (d.length >= 4 && n.includes(d)));
+    });
+}
+
+// Orden del circuito: primero lo que todavía hay que mover.
+const ORDEN_ESTADO = ["Falta comprar", "Pedido a Compras", "Comprado", "Llegó una parte", "En pañol", "A bordo"];
+const ordenEstado = (label) => {
+  const i = ORDEN_ESTADO.indexOf(label);
+  return i < 0 ? ORDEN_ESTADO.length : i;
+};
+
+function FilaAdicional({ adicional }) {
+  const nota = adicional.observaciones && adicional.observaciones !== "Cargado desde la memoria descriptiva" ? adicional.observaciones : "";
+  return (
+    <div className="mem-adic-fila">
+      <span className="img" style={adicional.imagen_url ? { backgroundImage: `url(${adicional.imagen_url})` } : undefined}>
+        {!adicional.imagen_url && <Package size={16} />}
+      </span>
+      <div className="txt">
+        <b title={adicional.descripcion}>{adicional.descripcion}</b>
+        <small>
+          <span className="tipo" data-tono={adicional.tipo === "opcional" ? "azul" : "violeta"}>{adicional.tipo === "opcional" ? "Opcional" : "Adicional"}</span>
+          {adicional.material_id ? <span>Del catálogo</span> : <span>Escrito a mano</span>}
+          {nota && <span className="nota">{nota}</span>}
+        </small>
+      </div>
+      <span className="cant"><b>{Number(adicional.cantidad || 1).toLocaleString("es-AR")}</b> {adicional.unidad && adicional.unidad !== "unidad" ? adicional.unidad : "u."}</span>
+      <span className="est"><Estado tono={adicional.estado.tono}>{adicional.estado.label}</Estado></span>
+    </div>
+  );
+}
+
+export default function Adicionales({ obra, notas }) {
+  const toast = useToast();
+  const [lista, setLista] = useState(null);
+  const [error, setError] = useState("");
+  const [texto, setTexto] = useState("");
+  const [cantidad, setCantidad] = useState("1");
+  const [tipo, setTipo] = useState("adicional");
+  const [material, setMaterial] = useState(null);
+  const [catalogo, setCatalogo] = useState(null);
+  const [verCatalogo, setVerCatalogo] = useState(false);
+  const [marcado, setMarcado] = useState(0);
+  const [guardando, setGuardando] = useState(false);
+  const inputRef = useRef(null);
+  const trayendo = useRef(false);
+  // La lista del catálogo flota en una capa propia (fija en la pantalla): dentro
+  // de la sección la recortaba el borde y la tapaba la sección de abajo.
+  const [pos, setPos] = useState(null);
+
+  const ubicar = useCallback(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const abajo = window.innerHeight - r.bottom;
+    const sube = abajo < 300 && r.top > abajo;
+    setPos({
+      left: r.left,
+      width: Math.max(r.width, 320),
+      top: sube ? null : r.bottom + 6,
+      bottom: sube ? window.innerHeight - r.top + 6 : null,
+      alto: Math.max(160, (sube ? r.top : abajo) - 24),
+      destino: el.closest(".mem") || document.body,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!verCatalogo) return undefined;
+    const cerrar = () => setVerCatalogo(false);
+    window.addEventListener("resize", cerrar);
+    const vista = inputRef.current?.closest(".mem-vista");
+    vista?.addEventListener("scroll", cerrar, { passive: true });
+    return () => {
+      window.removeEventListener("resize", cerrar);
+      vista?.removeEventListener("scroll", cerrar);
+    };
+  }, [verCatalogo]);
+
+  const cargar = useCallback(async () => {
+    try {
+      setLista(await traerAdicionalesObra(obra.id));
+      setError("");
+    } catch (e) {
+      setError(e?.message || "No se pudo leer la lista de la obra.");
+      setLista([]);
+    }
+  }, [obra.id]);
+
+  useEffect(() => {
+    const t = setTimeout(() => void cargar(), 0);
+    return () => clearTimeout(t);
+  }, [cargar]);
+
+  async function traerCatalogo() {
+    if (catalogo || trayendo.current) return;
+    trayendo.current = true;
+    try {
+      setCatalogo(await fetchPanolCatalogMini({ q: "", limit: 20000, includeAdditionalBarcodes: false }));
+    } catch {
+      setCatalogo([]);
+    } finally {
+      trayendo.current = false;
+    }
+  }
+
+  const busqueda = useDeferredValue(texto.trim());
+  const coincidencias = useMemo(() => {
+    if (!catalogo?.length || busqueda.length < 3 || material) return [];
+    return topMaterialMatches(catalogo, { descripcion: busqueda }, 6, 55);
+  }, [catalogo, busqueda, material]);
+  const sueltos = useMemo(() => (lista ? piezasSueltas(notas, lista) : []), [notas, lista]);
+  const [verTodos, setVerTodos] = useState(false);
+  const [verSueltos, setVerSueltos] = useState(false);
+  const [filtro, setFiltro] = useState(null);
+  const ordenada = useMemo(
+    () => (lista || []).map((a, i) => ({ a, i })).sort((x, y) => ordenEstado(x.a.estado.label) - ordenEstado(y.a.estado.label) || x.i - y.i).map((x) => x.a),
+    [lista],
+  );
+  const resumen = useMemo(() => {
+    const porEstado = new Map();
+    for (const a of ordenada) {
+      const actual = porEstado.get(a.estado.label) || { ...a.estado, n: 0 };
+      actual.n += 1;
+      porEstado.set(a.estado.label, actual);
+    }
+    return [...porEstado.values()];
+  }, [ordenada]);
+  const filtroVigente = resumen.some((e) => e.label === filtro) ? filtro : null;
+  const filtrada = filtroVigente ? ordenada.filter((a) => a.estado.label === filtroVigente) : ordenada;
+  const VISIBLES = 12;
+  const SUELTOS_VISIBLES = 8;
+  // Filtrando por estado se ve todo; sin filtro, las primeras y "Ver los N".
+  const hayMas = !filtroVigente && filtrada.length > VISIBLES + 2;
+  const visibles = hayMas && !verTodos ? filtrada.slice(0, VISIBLES) : filtrada;
+
+  function escribir(valor) {
+    setTexto(valor);
+    setMaterial(null);
+    setMarcado(0);
+    ubicar();
+    setVerCatalogo(true);
+    if (valor.trim().length >= 3) void traerCatalogo();
+  }
+
+  function elegir(m) {
+    setMaterial(m);
+    setTexto(m.descripcion || "");
+    setVerCatalogo(false);
+  }
+
+  function desdeNotas(pieza) {
+    escribir(pieza);
+    inputRef.current?.focus();
+  }
+
+  async function agregar() {
+    if (!texto.trim() || guardando) return;
+    setGuardando(true);
+    try {
+      await agregarAdicional(obra, { material, descripcion: texto, cantidad, tipo });
+      toast.success(`“${(material?.descripcion || texto).trim()}” quedó en la lista de ${obra.codigo}. Compras lo ve pendiente de compra.`);
+      setTexto("");
+      setCantidad("1");
+      setMaterial(null);
+      await cargar();
+    } catch (e) {
+      toast.error(e?.message || "No se pudo sumar a la lista de la obra.");
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  function tecla(e) {
+    if (verCatalogo && coincidencias.length) {
+      if (e.key === "ArrowDown") { e.preventDefault(); setMarcado((i) => (i + 1) % coincidencias.length); return; }
+      if (e.key === "ArrowUp") { e.preventDefault(); setMarcado((i) => (i - 1 + coincidencias.length) % coincidencias.length); return; }
+      if (e.key === "Enter" && coincidencias[marcado]) { e.preventDefault(); elegir(coincidencias[marcado]); return; }
+      if (e.key === "Escape") { setVerCatalogo(false); return; }
+    }
+    if (e.key === "Enter") { e.preventDefault(); void agregar(); }
+  }
+
+  return (
+    <div className="mem-adic">
+      {lista === null ? (
+        <Cargando compacto texto="Trayendo la lista de la obra…" />
+      ) : error ? (
+        <div className="mem-aviso" data-tono="rojo"><span className="txt">{error}</span></div>
+      ) : lista.length ? (
+        <div className="mem-adic-bloque">
+          <div className="mem-adic-filtros" role="radiogroup" aria-label="Filtrar por estado">
+            <button type="button" role="radio" aria-checked={!filtroVigente} className={`mem-adic-filtro${!filtroVigente ? " on" : ""}`} onClick={() => setFiltro(null)}>
+              Todos <span className="n">{lista.length}</span>
+            </button>
+            {resumen.map((e) => (
+              <button
+                key={e.label}
+                type="button"
+                role="radio"
+                aria-checked={filtroVigente === e.label}
+                className={`mem-adic-filtro${filtroVigente === e.label ? " on" : ""}`}
+                data-tono={e.tono}
+                onClick={() => setFiltro(filtroVigente === e.label ? null : e.label)}
+              >
+                <i /> {e.label} <span className="n">{e.n}</span>
+              </button>
+            ))}
+          </div>
+          <div className="mem-adic-lista">
+            <div className="mem-adic-cab" aria-hidden="true"><span /><span>En la lista de {obra.codigo}</span><span>Cant.</span><span>Estado</span></div>
+            {visibles.map((a) => <FilaAdicional key={a.id} adicional={a} />)}
+          </div>
+          {hayMas && (
+            <button type="button" className="mem-link" style={{ justifySelf: "start" }} onClick={() => setVerTodos((v) => !v)}>
+              {verTodos ? "Ver menos" : `Ver los ${filtrada.length}`}
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="mem-sub">Todavía no hay adicionales en la lista de {obra.codigo}.</div>
+      )}
+
+      <div className="mem-adic-alta">
+        <div className="mem-adic-buscar">
+          <input
+            ref={inputRef}
+            className="ui-input"
+            value={texto}
+            onChange={(e) => escribir(e.target.value)}
+            onFocus={() => { ubicar(); setVerCatalogo(true); void traerCatalogo(); }}
+            onBlur={() => setVerCatalogo(false)}
+            onKeyDown={tecla}
+            placeholder="Agregar producto"
+            aria-label="Nuevo adicional"
+            autoComplete="off"
+          />
+          {verCatalogo && pos && coincidencias.length > 0 && createPortal(
+            <div
+              className="mem-cat"
+              role="listbox"
+              style={{ position: "fixed", left: pos.left, width: pos.width, right: "auto", top: pos.top ?? "auto", bottom: pos.bottom ?? "auto", maxHeight: pos.alto, overflowY: "auto", zIndex: 60 }}
+            >
+              <div className="mem-cat-tit">En el catálogo del pañol</div>
+              {coincidencias.map((m, i) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  role="option"
+                  aria-selected={i === marcado}
+                  className={`mem-cat-op${i === marcado ? " on" : ""}`}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => elegir(m)}
+                >
+                  <span className="img" style={m.imagen_url ? { backgroundImage: `url(${m.imagen_url})` } : undefined} />
+                  <span style={{ minWidth: 0 }}>
+                    <b>{m.descripcion}</b>
+                    <small>{[m.codigo, m.proveedor, m.unidad_medida].filter(Boolean).join(" · ") || "Sin código"}</small>
+                  </span>
+                </button>
+              ))}
+            </div>,
+            pos.destino,
+          )}
+        </div>
+        <input
+          className="ui-input mono"
+          type="number"
+          min="1"
+          step="1"
+          value={cantidad}
+          onChange={(e) => setCantidad(e.target.value)}
+          aria-label="Cantidad"
+          title="Cantidad"
+        />
+        <div className="mem-seg seg-tipo" role="radiogroup" aria-label="Tipo">
+          <button type="button" role="radio" aria-checked={tipo === "adicional"} className={tipo === "adicional" ? "on" : ""} data-tono="violeta" onClick={() => setTipo("adicional")}>Adicional</button>
+          <button type="button" role="radio" aria-checked={tipo === "opcional"} className={tipo === "opcional" ? "on" : ""} data-tono="azul" onClick={() => setTipo("opcional")}>Opcional</button>
+        </div>
+        <button type="button" className="ui-btn ui-btn-primario chico" disabled={!texto.trim() || guardando} onClick={() => void agregar()}>
+          <PackagePlus size={15} /> {guardando ? "Sumando…" : "Agregar a la obra"}
+        </button>
+        {material && (
+          <div className="mem-adic-vinculo">
+            <Link2 size={14} /> Del catálogo del pañol: el ingreso al pañol va a salir vinculado.
+            <button type="button" className="mem-link" onClick={() => setMaterial(null)}>Desvincular</button>
+          </div>
+        )}
+      </div>
+
+      {sueltos.length > 0 && (
+        <div className="mem-adic-sueltos">
+          <div className="tit">
+            Pedido en las notas y todavía no está en la lista <span className="n">{sueltos.length}</span>
+          </div>
+          <div className="mem-chips-elegir">
+            {(verSueltos ? sueltos : sueltos.slice(0, SUELTOS_VISIBLES)).map((p) => (
+              <button key={p} type="button" className="mem-sug-op" onClick={() => desdeNotas(p)} title="Pasarlo al campo para agregarlo a la obra">
+                <Plus size={12} /> {p}
+              </button>
+            ))}
+            {sueltos.length > SUELTOS_VISIBLES && (
+              <button type="button" className="mem-link" onClick={() => setVerSueltos((v) => !v)}>
+                {verSueltos ? "Ver menos" : `y ${sueltos.length - SUELTOS_VISIBLES} más`}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

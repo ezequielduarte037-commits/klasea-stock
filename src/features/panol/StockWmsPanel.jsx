@@ -34,7 +34,7 @@ import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
 import { materialBarcodeList, materialBarcodeText } from "@/features/materiales/materialBarcodes";
 import { materialMatchIsStrong, materialMatchScore, topMaterialMatches } from "@/features/panol/materialMatch";
 import { buscarEmpleadoPorNfc, evaluarRetiro, normalizeNfcUid } from "@/features/rrhh/api";
-import { fmtDate, rowCountsAsStock, rowDelta, rowHasRecordedEgreso, rowIsAnulado, rowIsLocationChange, rowIsTransit, rowMovementAt } from "@/features/panol/panolMovimientos";
+import { fmtDate, rowCountsAsStock, rowDelta, rowHasRecordedEgreso, rowIsAnulado, rowIsInstalled, rowIsLocationChange, rowIsTransit, rowMovementAt } from "@/features/panol/panolMovimientos";
 import { openEgresoDisplayWindow, publishEgresoDisplay, resetEgresoDisplay } from "@/features/panol/egresoDisplay";
 import {
   crearEnvio,
@@ -104,6 +104,7 @@ import {
   rowIsReasignacionRetirada,
   rowInHistory,
   rowEgresoKind,
+  rowRecepcionOriginal,
   rowEgresoQuantity,
   necesitaReponer,
   nombreDeMovimiento,
@@ -361,6 +362,7 @@ function rowMatchesObraFilter(row, filterValue) {
 
 function rowEgresoMeta(row) {
   const kind = rowEgresoKind(row);
+  if (kind === "instalado") return { label: "Instalado", color: C.teal };
   if (kind === "asignacion") return { label: "Asignación", color: C.blue };
   if (kind === "reasignacion") return { label: "Reasignación", color: C.violet };
   if (kind === "liberacion") return { label: "A stock", color: C.violet };
@@ -389,7 +391,7 @@ function rowDestinoMovimientoLabel(row, obraById = null) {
   }
   if (rowIsReasignacionSinObra(row)) return row.sector_destino || "otro destino";
   if (rowIsReasignacionRetirada(row)) return obraCodigoFromMap(row.obra_id, obraById) || row.obra?.codigo || "obra";
-  if (!row.egreso_destino_obra_id) return "";
+  if (!row.egreso_destino_obra_id || row.egreso_destino_obra_id === rowObraId(row)) return "";
   const destino = obraById?.get?.(row.egreso_destino_obra_id) || row.egreso_destino_obra || null;
   return destino?.codigo || "obra";
 }
@@ -406,14 +408,16 @@ function cleanHumanField(value) {
 }
 
 function rowMovimientoRetira(row) {
-  return cleanHumanField(row.retirado_por || "");
+  return rowIsInstalled(row) ? "" : cleanHumanField(row.retirado_por || "");
 }
 
 function rowMovimientoUsuario(row) {
-  return cleanHumanField(row.egreso_por_nombre || row.egreso_actor?.username || row.created_by_nombre || row.created_by_actor?.username || row.egreso_por || row.created_by || "");
+  if (rowIsInstalled(row)) return "";
+  return cleanHumanField(row.egreso_por_nombre || row.egreso_actor?.username || row.created_by_nombre || row.created_by_actor?.username || row.egreso_por || row.created_by || "") || "sin registrar";
 }
 
 function rowSearchText(row) {
+  const instalado = rowIsInstalled(row);
   return norm([
     row.descripcion,
     row.requisito_descripcion,
@@ -427,10 +431,8 @@ function rowSearchText(row) {
     row.categoria_nombre,
     rowObraLabel(row),
     rowSede(row),
-    row.estado,
-    row.retirado_por,
-    row.egreso_por_nombre,
-    row.created_by_nombre,
+    instalado ? "instalado" : row.estado,
+    ...(instalado ? [] : [row.retirado_por, row.egreso_por_nombre, row.created_by_nombre]),
     row.egreso_nota,
     row.stock_nota,
     row.sector_destino,
@@ -1397,19 +1399,21 @@ function LocationButton({ location, active, onClick, cierre }) {
 function KardexRow({ row, onRevert, busy, obraById, onDevolucion }) {
   const delta = rowDelta(row);
   const isLocation = rowIsLocationChange(row);
-  const isOut = row.estado === "egresado";
+  const instalado = rowIsInstalled(row);
+  const isOut = row.estado === "egresado" && !instalado;
   const isAssignment = rowIsAsignacionStock(row);
   const isLiberacion = rowEgresoKind(row) === "liberacion";
   const isTransit = rowIsTransit(row);
   const egresoMeta = rowEgresoMeta(row);
   const displayedDelta = isOut && rowHasRecordedEgreso(row) ? -rowEgresoQuantity(row) : delta;
-  const label = isLocation ? "Ubicación" : isAssignment ? egresoMeta.label : isTransit ? "Tránsito" : isOut ? egresoMeta.label : row.estado === "problema" ? "Problema" : "Ingreso";
-  const labelColor = isLocation ? C.blue : isAssignment ? egresoMeta.color : isTransit ? C.violet : isOut ? egresoMeta.color : C.green;
+  const label = isLocation ? "Ubicación" : isAssignment || instalado || isOut ? egresoMeta.label : isTransit ? "Tránsito" : row.estado === "problema" ? "Problema" : "Ingreso";
+  const labelColor = isLocation ? C.blue : isAssignment || instalado || isOut ? egresoMeta.color : isTransit ? C.violet : C.green;
   const { nombre: descripcion, historico: descripcionHistorica } = nombreDeMovimiento(row);
   const variante = String(row.variante || "").trim();
   const ruta = (isOut || isAssignment) ? rowMovimientoRuta(row, obraById) : `${rowObraLabel(row)} · ${rowSede(row) || "Sin sede"}`;
   const retira = rowMovimientoRetira(row);
-  const usuario = rowMovimientoUsuario(row) || "sin registrar";
+  const recepcion = rowRecepcionOriginal(row);
+  const usuario = rowMovimientoUsuario(row);
   const nota = String(row.egreso_nota || row.notas || "").replace(/\[anulado\]/gi, "").trim();
   // Guard B: deshabilitar Revertir si ya contiene "[anulado]" en notas
   const yaAnulado = rowIsAnulado(row);
@@ -1426,8 +1430,8 @@ function KardexRow({ row, onRevert, busy, obraById, onDevolucion }) {
           </span>
           {row.codigo && <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 10 }}>{row.codigo}</span>}
         </div>
-        <span style={{ flexShrink: 0, color: isLiberacion ? C.violet : displayedDelta < 0 ? C.red : displayedDelta > 0 ? C.green : C.dim, fontFamily: C.mono, fontSize: 14, fontWeight: 750 }}>
-          {isLiberacion ? `←${fmtQty(rowEgresoQuantity(row))}` : `${displayedDelta > 0 ? "+" : ""}${fmtQty(displayedDelta)}`} {row.unidad || ""}
+        <span style={{ flexShrink: 0, color: instalado ? C.teal : isLiberacion ? C.violet : displayedDelta < 0 ? C.red : displayedDelta > 0 ? C.green : C.dim, fontFamily: C.mono, fontSize: 14, fontWeight: 750 }}>
+          {instalado ? fmtQty(rowEgresoQuantity(row)) : isLiberacion ? `←${fmtQty(rowEgresoQuantity(row))}` : `${displayedDelta > 0 ? "+" : ""}${fmtQty(displayedDelta)}`} {row.unidad || ""}
         </span>
       </div>
       <div style={{ color: C.text, fontSize: 11, lineHeight: 1.4, overflowWrap: "anywhere" }}>{ruta}</div>
@@ -1435,7 +1439,8 @@ function KardexRow({ row, onRevert, busy, obraById, onDevolucion }) {
         <span>{fmtDate(rowMovementAt(row))}</span>
         {variante && <span>Variante: {variante}</span>}
         {retira && <span>Retira: {retira}</span>}
-        <span>Usuario: {usuario}</span>
+        {recepcion && <span>Ingreso original · +{fmtQty(recepcion.cantidad)} {row.unidad || "u"} · {fmtDate(recepcion.fecha)}</span>}
+        {usuario && <span>Usuario: {usuario}</span>}
       </div>
       {nota && <div style={{ color: C.muted, fontSize: 10.5, lineHeight: 1.4, paddingLeft: 8, borderLeft: `2px solid ${C.border2}` }}>{nota}</div>}
       {/* Revertir y devolver son cosas distintas y conviven:
@@ -1473,13 +1478,14 @@ function KardexRow({ row, onRevert, busy, obraById, onDevolucion }) {
 function EgresosHistoryView({ rows, loading, obras, isMobile, onOpenProduct }) {
   const obraById = useMemo(() => new Map((obras || []).map((obra) => [obra.id, obra])), [obras]);
   const totals = useMemo(() => {
-    const unidades = rows.reduce((sum, row) => sum + rowEgresoQuantity(row), 0);
+    const unidades = rows.reduce((sum, row) => sum + (rowIsInstalled(row) ? 0 : rowEgresoQuantity(row)), 0);
     const hoy = rows.filter((row) => isToday(rowMovementAt(row))).length;
     const materiales = new Set(rows.map((row) => row.material_id || norm([row.codigo, row.descripcion].filter(Boolean).join(" ")) || row.id));
     return { unidades, hoy, materiales: materiales.size };
   }, [rows]);
 
   function destinoLabel(row) {
+    if (rowIsInstalled(row)) return rowObraLabel(row);
     const destinoObra = rowDestinoMovimientoLabel(row, obraById);
     if (destinoObra) return destinoObra;
     if (row.sector_destino) return row.sector_destino;
@@ -1488,10 +1494,11 @@ function EgresosHistoryView({ rows, loading, obras, isMobile, onOpenProduct }) {
 
   function detalleLabel(row) {
     const variante = String(row.variante || "").trim();
+    const usuario = rowMovimientoUsuario(row);
     return [
       variante ? `Variante: ${variante}` : "",
       rowMovimientoRetira(row) ? `Retira: ${rowMovimientoRetira(row)}` : "",
-      `Usuario: ${rowMovimientoUsuario(row) || "sin registrar"}`,
+      usuario ? `Usuario: ${usuario}` : "",
       row.egreso_nota || row.notas || "",
     ]
       .filter(Boolean)
@@ -1503,7 +1510,7 @@ function EgresosHistoryView({ rows, loading, obras, isMobile, onOpenProduct }) {
       <div style={{ padding: "13px 14px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
           <div style={{ color: C.text, fontSize: 15, fontWeight: 750 }}>Historial de movimientos</div>
-          <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Egresos, asignaciones y reasignaciones ya registradas.</div>
+          <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Egresos, asignaciones, reasignaciones e instalaciones.</div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <span style={{ border: `1px solid ${C.border}`, background: C.bg, color: C.text, borderRadius: 999, padding: "6px 9px", fontSize: 11, fontWeight: 700 }}>{rows.length} movimientos</span>
@@ -1521,7 +1528,7 @@ function EgresosHistoryView({ rows, loading, obras, isMobile, onOpenProduct }) {
           const qtyOut = rowEgresoQuantity(row);
           const tipoMeta = rowEgresoMeta(row);
           const isAssignment = rowIsAsignacionStock(row);
-          const qtyPrefix = rowEgresoKind(row) === "liberacion" ? "←" : isAssignment ? "→" : "-";
+          const qtyPrefix = rowIsInstalled(row) ? "" : rowEgresoKind(row) === "liberacion" ? "←" : isAssignment ? "→" : "−";
           return (
             <div
               key={row.id}

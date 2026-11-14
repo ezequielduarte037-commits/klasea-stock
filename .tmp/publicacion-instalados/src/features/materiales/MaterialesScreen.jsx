@@ -1,0 +1,9994 @@
+import { Fragment, memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
+import { useSearchParams } from "react-router-dom";
+import { AlertTriangle, Barcode, ChevronLeft, ChevronRight, Copy, Download, ExternalLink, FileSpreadsheet, FileText, ImagePlus, Link as LinkIcon, MoreHorizontal, PackagePlus, Pencil, Plus, RefreshCw, Save, Search, Settings2, ShoppingCart, SkipForward, SlidersHorizontal, StickyNote, Trash2, Upload, Warehouse, X } from "lucide-react";
+import { useResponsive } from "@/hooks/useResponsive";
+import { C } from "@/theme";
+import {
+  aplicarPrecioMaterial,
+  archivarMateriales,
+  borrarMaterial,
+  borrarSubsector,
+  crearCategoria,
+  crearMaterial,
+  actualizarNotasMaterial,
+  agregarCodigoBarraMaterial,
+  fetchCatalogo,
+  fetchBatches,
+  fetchComprobantes,
+  fetchConjuntos,
+  fetchMaterialDuplicateDecisions,
+  fetchMaterialAudit,
+  fetchObrasAvance,
+  guardarMaterial,
+  guardarVariantesMaterial,
+  eliminarCodigoBarraMaterial,
+  isMissingTable,
+  leerPresupuestoConIA,
+  precioVigente,
+  restaurarMaterialAuditChange,
+  marcarMaterialesNoDuplicados,
+  normalizeMaterialLinks,
+  normalizeUnidadMedida,
+  setCantidadModelo,
+  setSectoresMaterial,
+  quitarCantidadModelo,
+  uploadMaterialImage,
+  uploadMaterialVariantImage,
+  fetchAddonsObra,
+  fetchAddonsMaterial,
+  crearAddon,
+  actualizarAddon,
+  borrarAddon,
+  borrarObraSnapshotRows,
+  reasignarAddon,
+  cambiarEstadoObraSnapshot,
+  fetchObraSnapshotAudit,
+  fetchObraMaterialSnapshot,
+  fetchObrasMaterialSnapshots,
+  fetchStockLibrePanolMateriales,
+  ensureObraMaterialSnapshot,
+  ensureObraMaterialSnapshotRow,
+  reemplazarObraMaterialSnapshotSeguro,
+  updateObraSnapshotRows,
+  actualizarMaterialDatos,
+  rubroDeLista,
+} from "./api";
+import ProductoAsignadoControl from "./ProductoAsignadoControl";
+import MaterialDocuments from "./MaterialDocuments";
+import { fetchProductDocuments } from "./materialDocumentsApi";
+import { findConditionProductReplacements } from "./conditionProductReplacement";
+import {
+  fetchRequisitoProductos,
+  guardarConfiguracionProductoLinea,
+  guardarConfiguracionProductoObra,
+} from "./productosAsignadosApi";
+import {
+  normalizeProductSpecs,
+  productSpecEntries,
+  productSpecsNote,
+} from "./especificacionesProducto";
+import AvanceTab from "./AvanceTab";
+import ComprobantesTab from "./ComprobantesTab";
+import BandejaTab from "./BandejaTab";
+import { ObraColumnFilter, ObraItemDrawer, ObraListaTable, ObraWorkspaceStyles } from "./obra/ObraListaWorkspace";
+import { compararEtiquetaGrupo, obraThemeScope, ordenarFilas, rubroDeFila } from "./obra/obraListaPresentation";
+import { aporteDeFilaLedger, cantidadesDeFila, estadoObraForRow } from "./obra/estadoDeFila";
+import { esFilaDeConsumible } from "./obra/consumiblesDeObra";
+import PanelConsumiblesDeObra from "./obra/PanelConsumiblesDeObra";
+import { separarRecepcionesDeMatriz } from "./obra/recepcionesDeMatriz";
+import PedidoObraModal from "./obra/PedidoObraModal";
+import CambioEstadoLoteModal from "./obra/CambioEstadoLoteModal";
+import { enParalelo, esInstalado, estadoParaGuardar } from "./obra/cambioEstadoLote";
+import { adicionalSnapshotKey, cantidadPedidoValida } from "./obra/adicionalObra";
+import { exportarListaObraXlsx, exportarMatrizLineaXlsx } from "./listaExcel";
+import { MaterialImageUploader, MaterialThumb, PriceBadge, PriceHistory } from "./MaterialExtras";
+import { fmtMoney, textoTooltip } from "./format";
+import ProveedoresTab from "./ProveedoresTab";
+import { csvCell, MODELOS, norm, toBomMap, VARIANTE_BASE, VARIANTE_LINEA_EJE } from "./materialesParser";
+import {
+  fetchMatrizCondicionantes,
+  excluirMaterialDeObra,
+  fetchObraMaterialExclusiones,
+  fetchObraMatrizCondicionantes,
+  fetchOpciones,
+  restaurarMaterialDeObra,
+  setMaterialAreas,
+  setObraMatrizCondicionante,
+  setProveedoresMaterial,
+} from "./materialesConfig";
+import { AreasEditor } from "./MaterialVariantes";
+import MatrizCondicionantesTab from "./MatrizCondicionantes";
+import VariantesMarcasTab from "./VariantesMarcasTab";
+import LectorTab from "./LectorTab";
+import ProveedorTipoBadge from "./ProveedorTipoBadge";
+import { proveedorMeta, PROVEEDOR_TIPOS, proveedorTipoUi } from "./proveedorMeta";
+import { coincideProveedor, esProveedorAlternativo, nombreProveedorVisible, nombresProveedor } from "./proveedorNombre";
+import { asignarMaterialAEtapa, fetchEtapasDeObraConMateriales, moverMaterialEntreEtapas } from "./etapasDeObraApi";
+import { barcodeKey, materialBarcodeList } from "./materialBarcodes";
+import { ordenLineasDesdeMatriz, supplierSnapshotForMaterial, supplierTermsForMaterial } from "./proveedorPedido";
+import CopiarOcProveedor from "@/components/CopiarOcProveedor";
+import { addRequestItem, createPurchaseRequest, crearPedidoAdicionalObra } from "@/features/compras/purchaseRequestsApi";
+import CostoObraPanel from "./CostoObraPanel";
+import PlanillaObrasPanel from "@/features/compras/PlanillaObrasPanel";
+import { fetchMaterialesSecundariosPlanilla } from "@/features/compras/materialesSecundariosApi";
+import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
+import { BTN, BTN_GREEN, BTN_PRIMARY, Cargando, ErrorBox, INP, KpiCard, LBL, Td, Th } from "@/features/rrhh/ui";
+import { AnimatedNumber, FadeIn } from "@/components/ui/motion";
+import { dolarGuardado, fetchDolarOficial } from "@/lib/dolarOficial";
+
+import {
+  TABS_MAIN,
+  TABS_MORE,
+  TAB_KEYS,
+  MONEDAS,
+  materialEnArea,
+  esRaiz,
+  hijosDe,
+  idsScope,
+  materialEnScope,
+  matchesFlexibleSearch,
+  materialSearchFields,
+  topMateriales,
+  bestMatchId,
+  toNum,
+  qtyText,
+  stockLibreKeyForRow,
+  materialQty,
+  priceInfo,
+  materialBucket,
+  reviewReasonForText,
+  reviewInfoForMaterial,
+  ReviewBadge,
+  normalizeVariantList,
+  buildUnidadOptions,
+  extractBrandsFromTitle,
+  cleanTitleBrands,
+  materialVariants,
+  materialVariantImageUrl,
+  prepareMaterialDraftForSave,
+  findCleanupCandidates,
+  findDuplicateGroups,
+  mergedDuplicatePayload,
+  buildAiReviewText,
+  copyTextToClipboard,
+  buildOrdenTexto,
+  buildPedidoTitulo,
+  catIdPorNombre,
+  canonicalDuplicateToken,
+  codeCandidatesFromText,
+  DUPLICATE_STOPWORDS,
+  intersects,
+  materialActivo,
+  categoriaNombre,
+  inputNumberValue,
+} from "./materialesHelpers";
+
+import {
+  ProveedorAlternativasHint,
+  ProveedorSelect,
+  ProveedorTipoFilter,
+  ImportarTab,
+  SectorSelector,
+  SubsectorSelect,
+  SetupPendienteMateriales,
+} from "./materialesSharedComponents";
+
+const CATALOG_RENDER_BATCH = 30;
+const LINEA_RENDER_BATCH = 36;
+const CATALOG_INITIAL_RENDER = 18;
+const LINEA_INITIAL_RENDER = 24;
+
+function productoSeDefinePorObra(material) {
+  if (material?.producto_por_obra === true) return true;
+  // Respaldo para que Caja de piso siga pendiente por barco aun antes de que
+  // se despliegue la columna nueva en una base ya existente.
+  return material?.es_requisito === true && norm(material?.descripcion) === "caja de piso";
+}
+
+function limitGroupedRows(groups = [], limit = LINEA_RENDER_BATCH) {
+  let remaining = Math.max(0, limit);
+  const visible = [];
+  for (const group of groups) {
+    if (remaining <= 0) break;
+    const groupRows = group.rows ?? [];
+    const rows = groupRows.slice(0, remaining);
+    if (!rows.length) continue;
+    visible.push({ ...group, totalRows: groupRows.length, rows });
+    remaining -= rows.length;
+  }
+  return visible;
+}
+
+// Buscador aislado. El input guarda su propio texto y sólo avisa al padre
+// cuando dejaste de escribir. Antes cada tecla re-renderizaba la obra entera
+// —hasta 400 filas con todos sus hijos, ~10.000 nodos— y se sentía el retraso
+// entre la letra y la pantalla. Ahora tipear sólo redibuja este input.
+const BuscadorDiferido = memo(function BuscadorDiferido({ value, onChange, placeholder, style, delay = 220 }) {
+  const [texto, setTexto] = useState(value || "");
+  const [valorExterno, setValorExterno] = useState(value || "");
+  const [emitido, setEmitido] = useState(value || "");
+
+  // Si el valor cambia desde afuera (limpiar filtros, cambiar de obra) el input
+  // acompaña. Pero si el cambio es el eco de lo que acabamos de emitir, no se
+  // toca: si no, lo que tipeaste en esos milisegundos se pierde.
+  if (value !== valorExterno) {
+    setValorExterno(value || "");
+    if (value !== emitido) setTexto(value || "");
+  }
+
+  useEffect(() => {
+    if (texto === value) return undefined;
+    const id = setTimeout(() => {
+      setEmitido(texto);
+      onChange(texto);
+    }, delay);
+    return () => clearTimeout(id);
+  }, [texto, value, delay, onChange]);
+
+  return (
+    <input
+      value={texto}
+      onChange={(event) => setTexto(event.target.value)}
+      placeholder={placeholder}
+      style={style}
+    />
+  );
+});
+
+function MaterialLoadMore({ hiddenCount, batchSize, onMore }) {
+  if (!hiddenCount) return null;
+  return (
+    <div style={{ display: "flex", justifyContent: "center", padding: "14px 0 4px" }}>
+      <button
+        type="button"
+        onClick={onMore}
+        style={{ ...BTN, minHeight: 40, padding: "8px 16px", color: C.blue, borderColor: C.blueB, background: C.blueL, fontWeight: 700 }}
+      >
+        Mostrar {Math.min(batchSize, hiddenCount)} más · quedan {hiddenCount}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Nombre de variante editable. Usa borrador local y commitea en blur/Enter: si
+ * escribiéramos directo en la lista, la normalización (que descarta vacíos y
+ * duplicados) borraría la variante apenas limpiás el campo para reescribirlo.
+ */
+function VariantNameInput({ value, onCommit, style }) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => { setDraft(value); }, [value]);
+
+  const commit = () => {
+    const next = draft.trim();
+    if (!next || next === value) { setDraft(value); return; }
+    onCommit(next);
+  };
+
+  return (
+    <input
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); }
+        if (e.key === "Escape") { setDraft(value); e.currentTarget.blur(); }
+        if (e.key === "," || e.code === "Comma") e.stopPropagation();
+      }}
+      title="Editar el nombre de la variante"
+      style={style}
+    />
+  );
+}
+
+function VariantsEditor({ value = [], onChange, precios = {}, onPreciosChange, description = "", proveedores = [], onCleanTitle, materialId = null, readOnly = true }) {
+  const [draft, setDraft] = useState("");
+  const [uploadingVariant, setUploadingVariant] = useState("");
+  const variants = normalizeVariantList(value);
+  const detected = extractBrandsFromTitle(description, proveedores).filter((name) => !variants.some((v) => norm(v) === norm(name)));
+  const withPrices = !!onPreciosChange;
+
+  if (readOnly) {
+    return (
+      <div style={{ display: "grid", gap: 7, border: `1px solid ${C.blueB}`, background: C.blueL, borderRadius: 10, padding: "9px 11px" }}>
+        <div style={{ color: C.blue, fontSize: 11.5, fontWeight: 700 }}>
+          Las variantes ahora son productos independientes del catálogo.
+        </div>
+        {variants.length > 0 ? (
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+            {variants.map((variant) => (
+              <span key={variant} style={{ color: C.t1, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "3px 8px", fontSize: 10.5, fontWeight: 700 }}>
+                {variant}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <span style={{ color: C.t2, fontSize: 10.5 }}>Creá cada marca o modelo como producto y asignalo desde la lista de la obra.</span>
+        )}
+      </div>
+    );
+  }
+
+  const setPrecio = (nombre, patch) => {
+    const cur = precios?.[nombre] || { precio: "", moneda: "ARS" };
+    onPreciosChange?.({ ...(precios || {}), [nombre]: { ...cur, ...patch } });
+  };
+  const add = (raw = draft) => {
+    const next = normalizeVariantList([...variants, ...normalizeVariantList(raw)]);
+    onChange?.(next);
+    setDraft("");
+  };
+  const remove = (name) => {
+    onChange?.(variants.filter((v) => norm(v) !== norm(name)));
+    if (onPreciosChange && precios?.[name]) { const cp = { ...precios }; delete cp[name]; onPreciosChange(cp); }
+  };
+  /**
+   * Renombra una variante. Ojo: precio, código y foto se guardan en un mapa
+   * indexado por NOMBRE, así que hay que mudar esa entrada o se pierde.
+   */
+  const rename = (oldName, nextName) => {
+    const next = String(nextName || "").trim();
+    if (!next || norm(next) === norm(oldName)) return;
+    if (variants.some((v) => norm(v) !== norm(oldName) && norm(v) === norm(next))) return; // ya existe
+    onChange?.(variants.map((v) => (norm(v) === norm(oldName) ? next : v)));
+    if (onPreciosChange && precios && Object.prototype.hasOwnProperty.call(precios, oldName)) {
+      const cp = { ...precios };
+      cp[next] = cp[oldName];
+      delete cp[oldName];
+      onPreciosChange(cp);
+    }
+  };
+  const extract = () => {
+    const next = normalizeVariantList([...variants, ...detected]);
+    onChange?.(next);
+    onCleanTitle?.(cleanTitleBrands(description, next, proveedores));
+  };
+  const handleDraftKeyDown = (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      add();
+      return;
+    }
+    if (event.key === "," || event.code === "Comma") event.stopPropagation();
+  };
+  const uploadVariantImage = async (variant, file) => {
+    if (!file || !materialId) return;
+    setUploadingVariant(variant);
+    try {
+      const uploaded = await uploadMaterialVariantImage(materialId, variant, file);
+      setPrecio(variant, { imagen_url: uploaded?.url || "" });
+    } finally {
+      setUploadingVariant("");
+    }
+  };
+
+  const chip = { display: "inline-flex", alignItems: "center", gap: 5, color: C.violet, background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 999, padding: "3px 7px", fontSize: 11, fontWeight: 700 };
+  // Mismo look que el chip pero editable.
+  const chipInput = { ...chip, outline: "none", fontFamily: C.sans, minWidth: 0, cursor: "text" };
+
+  return (
+    <div style={{ display: "grid", gap: 6 }}>
+      {withPrices ? (
+        <div style={{ display: "grid", gap: 5 }}>
+          {variants.map((variant) => {
+            const p = precios?.[variant] || {};
+            return (
+              <div key={variant} style={{ display: "grid", gridTemplateColumns: "minmax(86px,0.9fr) 66px minmax(90px,1fr) 96px 64px minmax(130px,1.05fr) auto", gap: 6, alignItems: "center" }}>
+                <VariantNameInput
+                  value={variant}
+                  onCommit={(next) => rename(variant, next)}
+                  style={{ ...chipInput, justifySelf: "stretch", width: "100%" }}
+                />
+                <div style={{ width: 66, minHeight: 36, display: "flex", alignItems: "center", gap: 4, opacity: uploadingVariant === variant ? 0.65 : 1 }}>
+                  {p.imagen_url ? (
+                    <>
+                      <MaterialThumb material={{ imagen_url: p.imagen_url, descripcion: `${description || "Material"} · ${variant}` }} size={36} />
+                      {materialId && (
+                        <label title="Reemplazar foto/plano de esta variante" style={{ width: 24, height: 28, border: `1px solid ${C.b0}`, background: "transparent", color: C.t2, borderRadius: 7, display: "grid", placeItems: "center", cursor: "pointer" }}>
+                          <ImagePlus size={12} />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            style={{ display: "none" }}
+                            onChange={(event) => {
+                              const file = event.target.files?.[0] || null;
+                              event.target.value = "";
+                              uploadVariantImage(variant, file);
+                            }}
+                          />
+                        </label>
+                      )}
+                    </>
+                  ) : (
+                    <label title={materialId ? "Subir foto/plano de esta variante" : "Guardá el material para subir archivo; podés pegar una URL ahora"} style={{ width: 36, height: 34, border: `1px solid ${C.b0}`, background: C.s0, color: C.t2, borderRadius: 9, display: "grid", placeItems: "center", cursor: materialId ? "pointer" : "default" }}>
+                      <ImagePlus size={14} />
+                      {materialId && (
+                        <input
+                          type="file"
+                          accept="image/*"
+                          style={{ display: "none" }}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0] || null;
+                            event.target.value = "";
+                            uploadVariantImage(variant, file);
+                          }}
+                        />
+                      )}
+                    </label>
+                  )}
+                </div>
+                <input value={p.codigo ?? ""} onChange={(e) => setPrecio(variant, { codigo: e.target.value })} placeholder="Código" style={{ ...INP, padding: "6px 9px", fontFamily: C.mono }} />
+                <input value={p.precio ?? ""} onChange={(e) => setPrecio(variant, { precio: e.target.value })} inputMode="decimal" placeholder="Precio" style={{ ...INP, padding: "6px 9px" }} />
+                <select value={p.moneda || "ARS"} onChange={(e) => setPrecio(variant, { moneda: e.target.value })} style={{ ...INP, padding: "6px 6px" }}>
+                  <option value="ARS">ARS</option>
+                  <option value="USD">USD</option>
+                </select>
+                <input value={p.imagen_url ?? ""} onChange={(e) => setPrecio(variant, { imagen_url: e.target.value })} placeholder="URL foto/plano" style={{ ...INP, padding: "6px 9px" }} />
+                <button type="button" onClick={() => remove(variant)} title="Quitar variante" style={{ ...BTN, color: C.red, padding: "6px 8px" }}>×</button>
+              </div>
+            );
+          })}
+          {!variants.length && <span style={{ color: C.t2, fontSize: 11 }}>Sin variantes.</span>}
+        </div>
+      ) : (
+        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+          {variants.map((variant) => (
+            <span key={variant} style={{ ...chip, paddingRight: 5 }}>
+              <VariantNameInput
+                value={variant}
+                onCommit={(next) => rename(variant, next)}
+                style={{ ...chipInput, border: "none", background: "transparent", padding: 0, width: `${Math.max(4, variant.length)}ch` }}
+              />
+              <button type="button" onClick={() => remove(variant)} style={{ border: "none", background: "transparent", color: C.violet, cursor: "pointer", padding: 0, lineHeight: 1 }}>x</button>
+            </span>
+          ))}
+          {!variants.length && <span style={{ color: C.t2, fontSize: 11 }}>Sin variantes.</span>}
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={handleDraftKeyDown} placeholder="Ej: LG / Samsung / 23L. Enter agrega." style={{ ...INP, flex: "1 1 180px", minWidth: 150 }} />
+        <button type="button" onClick={() => add()} disabled={!draft.trim()} style={{ ...BTN, padding: "6px 10px", color: C.violet }}>
+          + Variante
+        </button>
+        {detected.length > 0 && (
+          <button type="button" onClick={extract} style={{ ...BTN, padding: "6px 10px", color: C.blue, border: `1px solid ${C.blueB}`, background: C.blueL }}>
+            Pasar marcas a variantes
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MaterialLinksEditor({ value = [], onChange, compact = false }) {
+  const links = normalizeMaterialLinks(value);
+  const [draft, setDraft] = useState({ label: "", url: "", nota: "" });
+  const canAdd = draft.url.trim();
+
+  function commitDraft() {
+    if (!canAdd) return;
+    onChange?.(normalizeMaterialLinks([...links, draft]));
+    setDraft({ label: "", url: "", nota: "" });
+  }
+
+  function updateLink(index, patch) {
+    onChange?.(links.map((link, i) => (i === index ? { ...link, ...patch } : link)));
+  }
+
+  function removeLink(index) {
+    onChange?.(links.filter((_, i) => i !== index));
+  }
+
+  return (
+    <div style={{ border: `1px solid ${C.b0}`, borderRadius: 10, background: C.bg, padding: compact ? 8 : 10, display: "grid", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: C.t0 }}>Links utiles</span>
+        <span style={{ fontSize: 10.5, color: C.t3 }}>ficha tecnica, proveedor, compra, manual</span>
+      </div>
+      {links.length > 0 && (
+        <div style={{ display: "grid", gap: 6 }}>
+          {links.map((link, index) => (
+            <div key={`${link.url}-${index}`} className="material-links-row" style={{ display: "grid", gridTemplateColumns: compact ? "minmax(120px, 1fr) minmax(180px, 1.4fr) 34px" : "minmax(120px, .7fr) minmax(220px, 1.3fr) minmax(160px, .9fr) 34px", gap: 6, alignItems: "center" }}>
+              <input value={link.label || ""} onChange={(e) => updateLink(index, { label: e.target.value })} placeholder="Etiqueta" style={INP} />
+              <input value={link.url || ""} onChange={(e) => updateLink(index, { url: e.target.value })} placeholder="https://..." style={{ ...INP, fontFamily: C.mono }} />
+              {!compact && <input value={link.nota || ""} onChange={(e) => updateLink(index, { nota: e.target.value })} placeholder="Nota breve" style={INP} />}
+              <button type="button" onClick={() => removeLink(index)} style={{ ...BTN, color: C.red, padding: "7px 8px" }} title="Quitar link">
+                <X size={13} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="material-links-row" style={{ display: "grid", gridTemplateColumns: compact ? "minmax(120px, .7fr) minmax(180px, 1.3fr) auto" : "minmax(120px, .7fr) minmax(220px, 1.4fr) minmax(160px, .9fr) auto", gap: 6, alignItems: "center" }}>
+        <input value={draft.label} onChange={(e) => setDraft((d) => ({ ...d, label: e.target.value }))} placeholder="Ficha / ML / proveedor" style={INP} />
+        <input value={draft.url} onChange={(e) => setDraft((d) => ({ ...d, url: e.target.value }))} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitDraft(); } }} placeholder="Pegar link" style={{ ...INP, fontFamily: C.mono }} />
+        {!compact && <input value={draft.nota} onChange={(e) => setDraft((d) => ({ ...d, nota: e.target.value }))} placeholder="Nota opcional" style={INP} />}
+        <button type="button" onClick={commitDraft} disabled={!canAdd} style={{ ...BTN, padding: "7px 10px", color: C.blue, opacity: canAdd ? 1 : 0.5 }}>
+          <Plus size={13} /> Link
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MaterialLinksSummary({ links = [] }) {
+  const clean = normalizeMaterialLinks(links);
+  if (!clean.length) return null;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.blue, fontSize: 10.5, fontWeight: 650, flexShrink: 0 }}>
+      <ExternalLink size={12} /> {clean.length} link{clean.length === 1 ? "" : "s"}
+    </span>
+  );
+}
+
+function PendingImagePicker({ file, onChange, imageUrl, onImageUrlChange }) {
+  const inputRef = useRef(null);
+  const preview = useMemo(() => (file ? URL.createObjectURL(file) : ""), [file]);
+
+  useEffect(() => {
+    if (!preview) return undefined;
+    return () => URL.revokeObjectURL(preview);
+  }, [preview]);
+
+  return (
+    <div style={{ border: `1px solid ${C.b0}`, borderRadius: 10, background: C.bg, padding: 10, display: "grid", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
+        <div style={{ width: 64, height: 64, borderRadius: 10, border: `1px solid ${C.b0}`, background: C.s0, overflow: "hidden", display: "grid", placeItems: "center", flexShrink: 0 }}>
+          {preview || imageUrl ? (
+            <img src={preview || imageUrl} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : (
+            <ImagePlus size={20} color={C.t2} />
+          )}
+        </div>
+        <div style={{ flex: 1, minWidth: 220, display: "grid", gap: 6 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.t0 }}>Imagen del item</div>
+          <input value={imageUrl || ""} onChange={(e) => onImageUrlChange?.(e.target.value)} placeholder="URL de imagen o ficha visual" style={{ ...INP, width: "100%" }} />
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <button type="button" onClick={() => inputRef.current?.click()} style={{ ...BTN, padding: "6px 10px", color: C.blue }}>
+              <ImagePlus size={13} /> Elegir archivo
+            </button>
+            {file && (
+              <button type="button" onClick={() => onChange?.(null)} style={{ ...BTN, padding: "6px 10px", color: C.red }}>
+                Quitar archivo
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={(e) => { onChange?.(e.target.files?.[0] || null); e.target.value = ""; }}
+      />
+    </div>
+  );
+}
+
+function DraftBarcodeEditor({ value = [], onChange, variantes = [] }) {
+  const [draft, setDraft] = useState({ codigo: "", etiqueta: "", variante: "" });
+  const rows = (value || []).filter((row) => row?.codigo?.trim());
+
+  function addCode() {
+    const codigo = draft.codigo.trim();
+    if (!codigo) return;
+    const key = barcodeKey(codigo);
+    if (rows.some((row) => barcodeKey(row.codigo) === key)) {
+      setDraft({ codigo: "", etiqueta: "", variante: "" });
+      return;
+    }
+    onChange?.([...rows, { codigo, etiqueta: draft.etiqueta.trim(), variante: draft.variante || null }]);
+    setDraft({ codigo: "", etiqueta: "", variante: "" });
+  }
+
+  return (
+    <div style={{ border: `1px solid ${C.b0}`, borderRadius: 10, background: C.bg, padding: 10, display: "grid", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <Barcode size={14} color={C.blue} />
+        <span style={{ fontSize: 11, fontWeight: 700, color: C.t0 }}>Codigos de barra adicionales</span>
+        <span style={{ fontSize: 10.5, color: C.t3 }}>para marcas, cajas o codigos alternativos</span>
+      </div>
+      {rows.length > 0 && (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {rows.map((row, index) => (
+            <span key={`${row.codigo}-${index}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 999, padding: "4px 8px", fontSize: 11, fontWeight: 700, fontFamily: C.mono }}>
+              {row.codigo}
+              {row.variante && <span style={{ fontFamily: C.sans, color: C.t1, fontWeight: 650 }}>{row.variante}</span>}
+              {row.etiqueta && <span style={{ fontFamily: C.sans, color: C.t2 }}>{row.etiqueta}</span>}
+              <button type="button" onClick={() => onChange?.(rows.filter((_, i) => i !== index))} style={{ border: "none", background: "transparent", color: C.blue, cursor: "pointer", padding: 0 }}>
+                <X size={11} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: variantes.length ? "minmax(150px,1fr) minmax(120px,.7fr) minmax(120px,.7fr) auto" : "minmax(150px,1fr) minmax(120px,.7fr) auto", gap: 6 }}>
+        <input value={draft.codigo} onChange={(e) => setDraft((d) => ({ ...d, codigo: e.target.value }))} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCode(); } }} placeholder="Escanear o escribir codigo" style={{ ...INP, fontFamily: C.mono }} />
+        {variantes.length > 0 && (
+          <select value={draft.variante} onChange={(e) => setDraft((d) => ({ ...d, variante: e.target.value }))} style={INP}>
+            <option value="">Variante</option>
+            {variantes.map((v) => <option key={v} value={v}>{v}</option>)}
+          </select>
+        )}
+        <input value={draft.etiqueta} onChange={(e) => setDraft((d) => ({ ...d, etiqueta: e.target.value }))} placeholder="Etiqueta" style={INP} />
+        <button type="button" onClick={addCode} disabled={!draft.codigo.trim()} style={{ ...BTN, padding: "7px 10px", color: C.blue, opacity: draft.codigo.trim() ? 1 : 0.5 }}>
+          <Plus size={13} /> Codigo
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function MaterialQueueCard({ material, categorias, ums, proveedores, onSave, onSkip, onDelete, onChanged }) {
+  const [draft, setDraft] = useState(() => ({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) }));
+  const [cantidades, setCantidades] = useState(() => toBomMap(material));
+  const [variantes, setVariantes] = useState(() => materialVariants(material));
+  const [variantesPrecios, setVariantesPrecios] = useState(() => material?.variantes_precios || {});
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState(null);
+
+  async function submit(e) {
+    e.preventDefault();
+    if (!draft.descripcion?.trim() || saving) return;
+    setSaving(true);
+    setErr(null);
+    try {
+      await onSave(prepareMaterialDraftForSave(draft, proveedores, variantes, variantesPrecios), cantidades);
+    } catch (error) {
+      setErr(error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submit} style={{ background: C.s0, border: `1px solid ${C.b1}`, borderRadius: 14, padding: 18, marginBottom: 18 }}>
+      <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 16 }}>
+        <MaterialThumb material={material} size={72} />
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 11, letterSpacing: 1.3, textTransform: "uppercase", color: "#60a5fa", fontWeight: 600, marginBottom: 5 }}>
+            Material sin revisar
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 600, color: C.t0, lineHeight: 1.25 }}>{material.descripcion}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+            <SubsectorSelect categorias={categorias} value={draft.categoria_id} onChange={(id) => setDraft((d) => ({ ...d, categoria_id: id }))} />
+            <span style={{ fontSize: 11, color: C.t2 }}>origen {material.origen || "manual"}</span>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 9 }}>
+            <PriceBadge material={material} />
+            <PriceHistory material={material} />
+          </div>
+        </div>
+        <div style={{ display: "grid", gap: 7, justifyItems: "end" }}>
+          <MaterialImageUploader material={material} onUploaded={onChanged} />
+          <button type="button" onClick={onSkip} style={BTN} title="Saltar">
+            <SkipForward size={14} />
+          </button>
+        </div>
+      </div>
+
+      {err && <div style={{ color: C.red, fontSize: 13, marginBottom: 12 }}>{String(err.message ?? err)}</div>}
+
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 2fr) minmax(160px, 1fr)", gap: 12, marginBottom: 12 }}>
+        <div>
+          <label style={LBL}>Descripción</label>
+          <input value={draft.descripcion || ""} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} style={{ ...INP, width: "100%" }} />
+        </div>
+        <div>
+          <label style={LBL}>Proveedor</label>
+          <ProveedorSelect
+            value={draft.proveedor_id || ""}
+            textValue={draft.proveedor || ""}
+            proveedores={proveedores}
+            onCreated={onChanged}
+            onChange={(id, nombre) => setDraft((d) => ({ ...d, proveedor_id: id, proveedor: nombre }))}
+          />
+          <input value={draft.proveedor || ""} onChange={(e) => setDraft((d) => ({ ...d, proveedor: e.target.value }))} placeholder="Texto proveedor" style={{ ...INP, width: "100%", marginTop: 6 }} />
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 12 }}>
+        <label style={LBL}>Variantes del item (marcas/modelos aceptables)</label>
+        <VariantsEditor
+          value={variantes}
+          onChange={setVariantes}
+          precios={variantesPrecios}
+          onPreciosChange={setVariantesPrecios}
+          description={draft.descripcion}
+          proveedores={proveedores}
+          onCleanTitle={(descripcion) => setDraft((d) => ({ ...d, descripcion }))}
+          materialId={material.id}
+        />
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 12, marginBottom: 12 }}>
+        <div>
+          <label style={LBL}>UM</label>
+          <input list="materiales-ums" value={draft.unidad_medida || ""} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} onBlur={(e) => setDraft((d) => ({ ...d, unidad_medida: normalizeUnidadMedida(e.target.value, "") }))} style={{ ...INP, width: "100%" }} />
+        </div>
+        <div>
+          <label style={LBL}>Precio</label>
+          <input type="number" step="any" value={draft.precio_unitario ?? ""} onChange={(e) => setDraft((d) => ({ ...d, precio_unitario: e.target.value }))} style={{ ...INP, width: "100%" }} />
+        </div>
+        <div>
+          <label style={LBL}>Moneda</label>
+          <select value={draft.moneda || ""} onChange={(e) => setDraft((d) => ({ ...d, moneda: e.target.value || null }))} style={{ ...INP, width: "100%" }}>
+            {MONEDAS.map((m) => <option key={m || "null"} value={m}>{m || "Sin moneda"}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={LBL}>Código</label>
+          <input value={draft.codigo || ""} onChange={(e) => setDraft((d) => ({ ...d, codigo: e.target.value }))} style={{ ...INP, width: "100%" }} />
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(80px, 1fr))", gap: 12, marginBottom: 16 }}>
+        {MODELOS.map((modelo) => (
+          <div key={modelo}>
+            <label style={LBL}>Cantidad K{modelo}</label>
+            <input type="number" step="any" value={cantidades[modelo] ?? ""} onChange={(e) => setCantidades((c) => ({ ...c, [modelo]: e.target.value }))} style={{ ...INP, width: "100%", fontFamily: C.mono }} />
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "grid", gap: 14, marginBottom: 16, paddingTop: 14, borderTop: `1px solid ${C.b0}` }}>
+        <AreasEditor material={material} categorias={categorias} />
+      </div>
+
+      <datalist id="materiales-ums">
+        {ums.map((u) => <option key={u} value={u} />)}
+      </datalist>
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button type="submit" disabled={saving || !draft.descripcion?.trim()} style={{ ...BTN_GREEN, opacity: saving ? 0.6 : 1 }}>
+          <Save size={14} /> {saving ? "Guardando…" : "Guardar y siguiente"}
+        </button>
+        <button type="button" onClick={onSkip} style={BTN}>
+          <SkipForward size={14} /> Saltar
+        </button>
+        <button type="button" onClick={onDelete} style={{ ...BTN, color: C.red, borderColor: "rgba(239,68,68,0.25)" }}>
+          <Trash2 size={14} /> Borrar
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function AltaManual({ categorias, selectedId, ums, proveedores, onCreated, open: controlledOpen, onOpenChange, hideTrigger = false }) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpenState = useCallback((next) => {
+    if (controlledOpen === undefined) setInternalOpen(next);
+    onOpenChange?.(next);
+  }, [controlledOpen, onOpenChange]);
+  const emptyDraft = useCallback(() => ({
+    descripcion: "",
+    alias: "",
+    proveedor_id: "",
+    proveedor: "",
+    unidad_medida: "",
+    precio_unitario: "",
+    moneda: "",
+    codigo: "",
+    codigo_barra: "",
+    categoria_id: selectedId,
+    imagen_url: "",
+    links: [],
+    notas: "",
+    revisado: true,
+    es_requisito: false,
+    producto_por_obra: false,
+  }), [selectedId]);
+  const [draft, setDraft] = useState(() => emptyDraft());
+  const [cantidades, setCantidades] = useState({ 37: "", 52: "", 55: "" });
+  const [variantes, setVariantes] = useState([]);
+  const [variantesPrecios, setVariantesPrecios] = useState({});
+  const [codigosExtra, setCodigosExtra] = useState([]);
+  const [imageFile, setImageFile] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState(null);
+
+  useEffect(() => {
+    setDraft((d) => ({ ...d, categoria_id: d.categoria_id || selectedId || categorias[0]?.id || "" }));
+  }, [selectedId, categorias]);
+
+  async function submit(e) {
+    e.preventDefault();
+    if (!draft.descripcion.trim() || saving) return;
+    setSaving(true);
+    setErr(null);
+    try {
+      const materialId = await crearMaterial(prepareMaterialDraftForSave(draft, proveedores, variantes, variantesPrecios), cantidades);
+      if (imageFile) await uploadMaterialImage(materialId, imageFile);
+      for (const row of codigosExtra) {
+        if (row.codigo?.trim()) await agregarCodigoBarraMaterial(materialId, row.codigo, { etiqueta: row.etiqueta, variante: row.variante || null });
+      }
+      setDraft(emptyDraft());
+      setCantidades({ 37: "", 52: "", 55: "" });
+      setVariantes([]);
+      setVariantesPrecios({});
+      setCodigosExtra([]);
+      setImageFile(null);
+      setOpenState(false);
+      onCreated?.();
+    } catch (error) {
+      setErr(error);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!open) {
+    if (hideTrigger) return null;
+    return (
+      <button type="button" onClick={() => setOpenState(true)} style={{ ...BTN_PRIMARY, marginBottom: 12 }}>
+        <PackagePlus size={14} /> Crear item en catalogo
+      </button>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} style={{ background: C.s0, border: `1px solid ${C.b1}`, borderRadius: 14, padding: 16, marginBottom: 16, display: "grid", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 750, color: C.t0 }}>Alta manual de material</div>
+          <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>Crea el item completo: proveedor, precio, matriz, codigos, links e imagen.</div>
+        </div>
+        <button type="button" onClick={() => setOpenState(false)} style={{ ...BTN, padding: "6px 10px" }}>Cerrar</button>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 2fr) repeat(3, minmax(110px, 1fr))", gap: 8, marginBottom: 8 }}>
+        <input autoFocus placeholder="Descripción" value={draft.descripcion} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} style={INP} />
+        <ProveedorSelect
+          value={draft.proveedor_id || ""}
+          textValue={draft.proveedor || ""}
+          proveedores={proveedores}
+          onCreated={onCreated}
+          onChange={(id, nombre) => setDraft((d) => ({ ...d, proveedor_id: id, proveedor: nombre }))}
+        />
+        <input list="materiales-ums" placeholder="UM" value={draft.unidad_medida} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} onBlur={(e) => setDraft((d) => ({ ...d, unidad_medida: normalizeUnidadMedida(e.target.value, "") }))} style={INP} />
+        <select value={draft.categoria_id || ""} onChange={(e) => setDraft((d) => ({ ...d, categoria_id: e.target.value }))} style={INP}>
+          {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+        </select>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(180px, .9fr) minmax(180px, .9fr) minmax(220px, 1.2fr)", gap: 8 }}>
+        <input placeholder="Alias / nombre corto" value={draft.alias || ""} onChange={(e) => setDraft((d) => ({ ...d, alias: e.target.value }))} style={INP} />
+        <input placeholder="Codigo de barra principal" value={draft.codigo_barra || ""} onChange={(e) => setDraft((d) => ({ ...d, codigo_barra: e.target.value }))} style={{ ...INP, fontFamily: C.mono }} />
+        <input placeholder="Proveedor texto libre" value={draft.proveedor || ""} onChange={(e) => setDraft((d) => ({ ...d, proveedor: e.target.value }))} style={INP} />
+      </div>
+      <label style={{ display: "flex", alignItems: "flex-start", gap: 9, border: `1px solid ${draft.es_requisito ? C.blueB : C.b0}`, background: draft.es_requisito ? C.blueL : C.bg, borderRadius: 10, padding: "10px 12px", cursor: "pointer" }}>
+        <input type="checkbox" checked={!!draft.es_requisito} onChange={(e) => setDraft((current) => ({ ...current, es_requisito: e.target.checked }))} style={{ marginTop: 2 }} />
+        <span>
+          <span style={{ display: "block", color: draft.es_requisito ? C.blue : C.t0, fontSize: 12.5, fontWeight: 700 }}>Es un requisito genérico de matriz</span>
+          <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 2 }}>Ej.: “TV 32 pulgadas”. Los modelos Samsung, LG o Noblex se crean como productos separados y se asignan en cada obra.</span>
+        </span>
+      </label>
+      {draft.es_requisito && <label style={{ display: "flex", alignItems: "flex-start", gap: 9, border: `1px solid ${draft.producto_por_obra ? C.violetB : C.b0}`, background: draft.producto_por_obra ? C.violetL : C.bg, borderRadius: 10, padding: "10px 12px", cursor: "pointer" }}>
+        <input type="checkbox" checked={!!draft.producto_por_obra} onChange={(e) => setDraft((current) => ({ ...current, producto_por_obra: e.target.checked }))} style={{ marginTop: 2 }} />
+        <span>
+          <span style={{ display: "block", color: draft.producto_por_obra ? C.violet : C.t0, fontSize: 12.5, fontWeight: 700 }}>El producto se define por cada obra</span>
+          <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 2 }}>No se propone un estándar de línea. Usalo para pisos, terminaciones o elecciones que cambian según el barco.</span>
+        </span>
+      </label>}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: 8, marginBottom: 10 }}>
+        <input placeholder="Precio" type="number" step="any" value={draft.precio_unitario} onChange={(e) => setDraft((d) => ({ ...d, precio_unitario: e.target.value }))} style={INP} />
+        <select value={draft.moneda} onChange={(e) => setDraft((d) => ({ ...d, moneda: e.target.value }))} style={INP}>
+          {MONEDAS.map((m) => <option key={m || "null"} value={m}>{m || "Sin moneda"}</option>)}
+        </select>
+        <input placeholder="Código" value={draft.codigo} onChange={(e) => setDraft((d) => ({ ...d, codigo: e.target.value }))} style={INP} />
+        {MODELOS.map((modelo) => (
+          <input key={modelo} placeholder={`K${modelo}`} type="number" step="any" value={cantidades[modelo]} onChange={(e) => setCantidades((c) => ({ ...c, [modelo]: e.target.value }))} style={{ ...INP, fontFamily: C.mono }} />
+        ))}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, .95fr) minmax(320px, 1.05fr)", gap: 12 }}>
+        <PendingImagePicker
+          file={imageFile}
+          onChange={setImageFile}
+          imageUrl={draft.imagen_url}
+          onImageUrlChange={(imagen_url) => setDraft((d) => ({ ...d, imagen_url }))}
+        />
+        <DraftBarcodeEditor value={codigosExtra} onChange={setCodigosExtra} variantes={variantes} />
+      </div>
+      <MaterialLinksEditor value={draft.links} onChange={(links) => setDraft((d) => ({ ...d, links }))} />
+      <textarea value={draft.notas || ""} onChange={(e) => setDraft((d) => ({ ...d, notas: e.target.value }))} rows={2} placeholder="Observaciones reales del item (solo aclaraciones utiles)" style={{ ...INP, width: "100%", resize: "vertical" }} />
+      <datalist id="materiales-ums">
+        {ums.map((u) => <option key={u} value={u} />)}
+      </datalist>
+      {err && <div style={{ fontSize: 12, color: C.red }}>{err.message || "No se pudo crear el material."}</div>}
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+        <button type="submit" disabled={saving || !draft.descripcion.trim()} style={BTN_GREEN}>{saving ? "Guardando..." : "Crear material completo"}</button>
+        <button type="button" onClick={() => setOpenState(false)} style={BTN}>Cancelar</button>
+      </div>
+    </form>
+  );
+}
+
+function MaterialRow({ material, categorias, ums, proveedores, onChanged, modelos = MODELOS, compact = false }) {
+  const [draft, setDraft] = useState(() => ({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) }));
+  const [cantidades, setCantidades] = useState(() => toBomMap(material));
+  const [variantes, setVariantes] = useState(() => materialVariants(material));
+  const [variantesPrecios, setVariantesPrecios] = useState(() => material?.variantes_precios || {});
+  const [saving, setSaving] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const review = reviewInfoForMaterial(material);
+  // Autoguardado de variantes: "" | "saving" | "ok" | "err"
+  const [varSave, setVarSave] = useState("");
+  const varTimer = useRef(null);
+  const varsRef = useRef({ list: materialVariants(material), precios: material?.variantes_precios || {} });
+
+  useEffect(() => {
+    setDraft({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) });
+    setCantidades(toBomMap(material));
+    setVariantes(materialVariants(material));
+    setVariantesPrecios(material?.variantes_precios || {});
+    varsRef.current = { list: materialVariants(material), precios: material?.variantes_precios || {} };
+  }, [material]);
+
+  useEffect(() => () => clearTimeout(varTimer.current), []);
+
+  /**
+   * Las variantes se guardan solas: el botón Guardar de la fila queda lejísimos
+   * a la derecha (tabla ancha con scroll horizontal) y se perdían los cambios.
+   * No llamamos a onChanged() para no recargar la lista y pisar lo que el
+   * usuario esté editando en otras columnas de la misma fila.
+   */
+  function aplicarVariantes({ list, precios }) {
+    if (!material?.id) return;
+    varsRef.current = {
+      list: list !== undefined ? list : varsRef.current.list,
+      precios: precios !== undefined ? precios : varsRef.current.precios,
+    };
+    if (list !== undefined) setVariantes(list);
+    if (precios !== undefined) setVariantesPrecios(precios);
+
+    clearTimeout(varTimer.current);
+    setVarSave("saving");
+    varTimer.current = setTimeout(async () => {
+      try {
+        await guardarVariantesMaterial(material.id, varsRef.current.list, varsRef.current.precios);
+        setVarSave("ok");
+        varTimer.current = setTimeout(() => setVarSave(""), 1800);
+      } catch {
+        setVarSave("err");
+      }
+    }, 700);
+  }
+
+  async function save() {
+    if (!draft.descripcion?.trim() || saving) return;
+    setSaving(true);
+    try {
+      await guardarMaterial(prepareMaterialDraftForSave(draft, proveedores, variantes, variantesPrecios), cantidades, { revisado: draft.revisado });
+      onChanged?.();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Si el borrado falla hay que decirlo. Antes la promesa se rompía sin catch:
+  // no pasaba nada, la fila seguía ahí y no aparecía ningún mensaje, así que
+  // desde afuera se ve igual que un botón que no anda.
+  async function remove() {
+    if (!window.confirm(`¿Borrar "${material.descripcion}"?`)) return;
+    try {
+      await borrarMaterial(material.id);
+      onChanged?.();
+    } catch (error) {
+      window.alert(error?.message || "No se pudo borrar el producto.");
+    }
+  }
+
+  return (
+    <tr
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: review.flag ? C.cyanL : hovered ? C.s0 : undefined,
+        boxShadow: hovered ? `inset 3px 0 0 ${C.blue}` : undefined,
+        transition: "background .14s ease, box-shadow .14s ease",
+      }}
+    >
+      {!compact && (
+        <Td style={{ minWidth: 78 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <MaterialThumb material={material} size={38} />
+            <MaterialImageUploader material={material} onUploaded={onChanged} compact />
+          </div>
+        </Td>
+      )}
+      <Td style={{ minWidth: compact ? 230 : 260 }}>
+        {review.flag && <div style={{ marginBottom: 5 }}><ReviewBadge reason={review.reason} /></div>}
+        <input value={draft.descripcion || ""} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} style={{ ...INP, width: "100%" }} />
+        <div style={{ marginTop: 6 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4, minHeight: 14 }}>
+            <span style={{ fontSize: 9.5, color: C.t3, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: 600 }}>Variantes</span>
+            {varSave === "saving" && <span style={{ fontSize: 10, color: C.t2 }}>guardando…</span>}
+            {varSave === "ok" && <span style={{ fontSize: 10, color: C.green, fontWeight: 600 }}>guardado ✓</span>}
+            {varSave === "err" && <span style={{ fontSize: 10, color: C.red, fontWeight: 600 }}>no se pudo guardar</span>}
+          </div>
+          <VariantsEditor
+            value={variantes}
+            onChange={(next) => aplicarVariantes({ list: next })}
+            precios={variantesPrecios}
+            onPreciosChange={(next) => aplicarVariantes({ precios: next })}
+            description={draft.descripcion}
+            proveedores={proveedores}
+            onCleanTitle={(descripcion) => setDraft((d) => ({ ...d, descripcion }))}
+            materialId={material.id}
+          />
+        </div>
+      </Td>
+      <Td style={{ minWidth: 150 }}>
+        <ProveedorSelect
+          value={draft.proveedor_id || ""}
+          textValue={draft.proveedor || ""}
+          proveedores={proveedores}
+          onCreated={onChanged}
+          onChange={(id, nombre) => setDraft((d) => ({ ...d, proveedor_id: id, proveedor: nombre }))}
+        />
+        <input value={draft.proveedor || ""} onChange={(e) => setDraft((d) => ({ ...d, proveedor: e.target.value }))} placeholder="Texto" style={{ ...INP, width: "100%", marginTop: 5 }} />
+      </Td>
+      {!compact && (
+        <Td style={{ minWidth: 190 }}>
+          <div style={{ display: "grid", gap: 6 }}>
+            <PriceBadge material={material} />
+            <PriceHistory material={material} />
+          </div>
+        </Td>
+      )}
+      <Td style={{ minWidth: compact ? 72 : 90 }}>
+        <input list="materiales-ums" value={draft.unidad_medida || ""} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} onBlur={(e) => setDraft((d) => ({ ...d, unidad_medida: normalizeUnidadMedida(e.target.value, "") }))} style={{ ...INP, width: "100%" }} />
+        <datalist id="materiales-ums">
+          {ums.map((u) => <option key={u} value={u} />)}
+        </datalist>
+      </Td>
+      <Td style={{ minWidth: 90 }}>
+        <input type="number" step="any" value={draft.precio_unitario ?? ""} onChange={(e) => setDraft((d) => ({ ...d, precio_unitario: e.target.value }))} style={{ ...INP, width: "100%", fontFamily: C.mono }} />
+      </Td>
+      <Td style={{ minWidth: 86 }}>
+        <select value={draft.moneda || ""} onChange={(e) => setDraft((d) => ({ ...d, moneda: e.target.value || null }))} style={{ ...INP, width: "100%" }}>
+          {MONEDAS.map((m) => <option key={m || "null"} value={m}>{m || "—"}</option>)}
+        </select>
+      </Td>
+      <Td style={{ minWidth: 110 }}>
+        <input value={draft.codigo || ""} onChange={(e) => setDraft((d) => ({ ...d, codigo: e.target.value }))} style={{ ...INP, width: "100%" }} />
+      </Td>
+      {modelos.map((modelo) => (
+        <Td key={modelo} style={{ minWidth: 76 }}>
+          <input type="number" step="any" value={cantidades[modelo] ?? ""} onChange={(e) => setCantidades((c) => ({ ...c, [modelo]: e.target.value }))} style={{ ...INP, width: "100%", fontFamily: C.mono }} />
+        </Td>
+      ))}
+      <Td style={{ minWidth: 150 }}>
+        <select value={draft.categoria_id || ""} onChange={(e) => setDraft((d) => ({ ...d, categoria_id: e.target.value }))} style={{ ...INP, width: "100%" }}>
+          {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+        </select>
+      </Td>
+      {!compact && (
+        <Td style={{ minWidth: 94 }}>
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: draft.revisado ? C.green : C.t2 }}>
+            <input type="checkbox" checked={!!draft.revisado} onChange={(e) => setDraft((d) => ({ ...d, revisado: e.target.checked }))} />
+            Revisado
+          </label>
+        </Td>
+      )}
+      <Td style={{ minWidth: compact ? 90 : 118 }}>
+        <div style={{ display: "flex", gap: 5 }}>
+          <button type="button" onClick={save} disabled={saving} style={{ ...BTN_GREEN, padding: "6px 8px" }} title="Guardar">
+            <Save size={13} />
+          </button>
+          <button type="button" onClick={remove} style={{ ...BTN, color: C.red, padding: "6px 8px" }} title="Borrar">
+            <Trash2 size={13} />
+          </button>
+        </div>
+      </Td>
+    </tr>
+  );
+}
+
+// Fila simple para la "Lista matriz": muestra Item + Proveedor y, al tocar el lápiz,
+// despliega el editor completo. Mucho más angosto que la tabla.
+const AUDIT_FIELD_LABELS = {
+  descripcion: "Descripcion",
+  proveedor: "Proveedor",
+  proveedor_id: "Proveedor vinculado",
+  categoria_id: "Rubro",
+  codigo: "Codigo",
+  codigo_barra: "Codigo de barra",
+  unidad_medida: "unidad",
+  precio_unitario: "Precio",
+  moneda: "Moneda",
+  variantes: "Variantes",
+  notas: "Notas",
+  imagen_url: "Imagen",
+  revisado: "Revisado",
+  activo: "Activo",
+};
+
+function auditDateLabel(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+function auditValueLabel(value) {
+  if (value == null || value === "") return "-";
+  if (Array.isArray(value)) return value.length ? value.join(" / ") : "-";
+  if (typeof value === "boolean") return value ? "si" : "no";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+function MaterialAuditTrail({ materialId, onRestored }) {
+  const [open, setOpen] = useState(false);
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [loaded, setLoaded] = useState(false);
+  const [restoring, setRestoring] = useState("");
+
+  async function loadHistory(force = false) {
+    if (!materialId || (!force && loaded)) return;
+    setLoading(true);
+    setError("");
+    try {
+      const data = await fetchMaterialAudit(materialId);
+      setRows(data);
+      setLoaded(true);
+    } catch (e) {
+      setError(e?.message || "No se pudo cargar el historial.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function toggleOpen() {
+    const next = !open;
+    setOpen(next);
+    if (next) loadHistory();
+  }
+
+  async function restoreChange(row) {
+    const fieldLabel = AUDIT_FIELD_LABELS[row.campo] || row.campo;
+    const previous = auditValueLabel(row.valor_anterior);
+    if (!window.confirm(`Restaurar ${fieldLabel} al valor anterior?\n\n${previous}`)) return;
+    setRestoring(row.id);
+    setError("");
+    try {
+      await restaurarMaterialAuditChange(row);
+      await loadHistory(true);
+      await onRestored?.();
+    } catch (e) {
+      setError(e?.message || "No se pudo restaurar el cambio.");
+    } finally {
+      setRestoring("");
+    }
+  }
+
+  return (
+    <div style={{ border: `1px solid ${open ? C.b1 : C.b0}`, borderRadius: 10, background: C.bg, overflow: "hidden" }}>
+      <button
+        type="button"
+        onClick={toggleOpen}
+        style={{ ...BTN, width: "100%", justifyContent: "space-between", border: 0, borderRadius: 0, padding: "8px 10px", color: open ? C.blue : C.t1, background: "transparent" }}
+        title="Ver cambios guardados de este material"
+      >
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+          <FileText size={13} /> Historial de cambios
+        </span>
+        <span style={{ fontSize: 11, color: C.t3 }}>{open ? "Ocultar" : "Ver"}</span>
+      </button>
+
+      {open && (
+        <div style={{ borderTop: `1px solid ${C.b0}`, padding: 10, display: "grid", gap: 7 }}>
+          {loading && <Cargando compacto texto="Cargando historial…" />}
+          {error && <div style={{ fontSize: 12, color: C.red }}>{error}</div>}
+          {!loading && !error && rows.length === 0 && (
+            <div style={{ fontSize: 12, color: C.t2 }}>Sin cambios registrados todavia.</div>
+          )}
+          {!loading && !error && rows.map((row) => (
+            <div key={row.id} style={{ display: "grid", gap: 4, border: `1px solid ${C.b0}`, borderRadius: 9, padding: 8, background: C.s0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: C.t0 }}>{AUDIT_FIELD_LABELS[row.campo] || row.campo}</span>
+                <span style={{ fontSize: 10.5, color: C.t3, fontFamily: C.mono }}>{auditDateLabel(row.created_at)}</span>
+                {row.origen && <span style={{ fontSize: 10, color: C.t3, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "1px 6px" }}>{row.origen}</span>}
+                <button
+                  type="button"
+                  onClick={() => restoreChange(row)}
+                  disabled={!!restoring || loading || !row.material_id}
+                  style={{ ...BTN, marginLeft: "auto", padding: "3px 7px", fontSize: 10.5, color: C.blue, opacity: restoring && restoring !== row.id ? 0.45 : 1 }}
+                  title="Volver este campo al valor anterior"
+                >
+                  {restoring === row.id ? "Restaurando..." : "Restaurar anterior"}
+                </button>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: 7 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 9.5, color: C.t3, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.5 }}>Antes</div>
+                  <div title={auditValueLabel(row.valor_anterior)} style={{ fontSize: 11.5, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{auditValueLabel(row.valor_anterior)}</div>
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 9.5, color: C.green, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.5 }}>Despues</div>
+                  <div title={auditValueLabel(row.valor_nuevo)} style={{ fontSize: 11.5, color: C.t0, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{auditValueLabel(row.valor_nuevo)}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MaterialBarcodeEditor({ material, onChanged }) {
+  const [newCode, setNewCode] = useState("");
+  const [newLabel, setNewLabel] = useState("");
+  const [newVariante, setNewVariante] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  const barcodes = materialBarcodeList(material);
+
+  async function addCode() {
+    const codigo = newCode.trim();
+    if (!codigo || saving) return;
+    setSaving(true);
+    setErr("");
+    try {
+      await agregarCodigoBarraMaterial(material.id, codigo, { etiqueta: newLabel, variante: newVariante || null });
+      setNewCode("");
+      setNewLabel("");
+      setNewVariante("");
+      await onChanged?.();
+    } catch (e) {
+      setErr(e?.message || "No se pudo guardar el codigo.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeCode(row) {
+    if (saving) return;
+    setSaving(true);
+    setErr("");
+    try {
+      await eliminarCodigoBarraMaterial({ id: row.id, materialId: material.id, codigo: row.codigo });
+      await onChanged?.();
+    } catch (e) {
+      setErr(e?.message || "No se pudo quitar el codigo.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div style={{ border: `1px solid ${C.b0}`, borderRadius: 10, background: C.bg, padding: 10, display: "grid", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: C.t0 }}>Codigos de barra</span>
+        <span style={{ fontSize: 10.5, color: C.t3 }}>uno o varios por marca/proveedor</span>
+      </div>
+      {barcodes.length ? (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {barcodes.map((row) => (
+            <span
+              key={`${row.id || "legacy"}-${row.codigo}`}
+              title={row.etiqueta || (row.legacy ? "Principal legacy" : "Codigo alternativo")}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.blue, borderRadius: 999, padding: "4px 8px", fontSize: 11, fontWeight: 700, fontFamily: C.mono }}
+            >
+              {row.codigo}
+              {row.variante && <span style={{ fontFamily: C.sans, color: C.bg, background: C.blue, padding: "1px 4px", borderRadius: 4 }}>{row.variante}</span>}
+              {row.etiqueta && <span style={{ fontFamily: C.sans, color: C.t2, fontWeight: 600 }}>{row.etiqueta}</span>}
+              <button type="button" onClick={() => removeCode(row)} disabled={saving} title="Quitar codigo" style={{ border: "none", background: "transparent", color: C.blue, cursor: saving ? "default" : "pointer", padding: 0, display: "grid", placeItems: "center" }}>
+                <Trash2 size={11} />
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div style={{ color: C.t2, fontSize: 11.5 }}>Sin codigos cargados.</div>
+      )}
+      <div className="material-barcode-row" style={{ display: "grid", gridTemplateColumns: material.variantes?.length > 0 ? "minmax(130px, 1fr) minmax(100px, 0.7fr) minmax(100px, 0.7fr) auto" : "minmax(160px, 1fr) minmax(120px, 0.7fr) auto", gap: 6 }}>
+        <input
+          value={newCode}
+          onChange={(e) => setNewCode(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCode(); } }}
+          placeholder="Escanear o escribir codigo"
+          style={{ ...INP, fontFamily: C.mono }}
+        />
+        {material.variantes?.length > 0 && (
+          <select
+            value={newVariante}
+            onChange={(e) => setNewVariante(e.target.value)}
+            style={INP}
+          >
+            <option value="">Variante (opc)</option>
+            {material.variantes.map(v => <option key={v} value={v}>{v}</option>)}
+          </select>
+        )}
+        <input
+          value={newLabel}
+          onChange={(e) => setNewLabel(e.target.value)}
+          placeholder="Etiqueta opcional"
+          style={INP}
+        />
+        <button type="button" onClick={addCode} disabled={saving || !newCode.trim()} style={{ ...BTN_GREEN, padding: "7px 12px", whiteSpace: "nowrap", opacity: saving || !newCode.trim() ? 0.55 : 1 }}>
+          + Codigo
+        </button>
+      </div>
+      {err && <div style={{ color: C.red, fontSize: 11.5 }}>{err}</div>}
+    </div>
+  );
+}
+
+// Botón chico para ver/editar la observación de un material sin abrir el editor
+// completo — pensado para uso rápido durante un conteo o una revisión al vuelo.
+// La nota se edita en un panel que se dibuja FUERA de la fila, con portal.
+//
+// La fila del catálogo tiene `overflow: hidden` (lo necesita para el borde
+// redondeado y la barrita de color de la izquierda), así que un desplegable
+// posicionado en absoluto adentro quedaba cortado por la mitad. Y `position:
+// fixed` tampoco alcanza: la fila aplica un `transform` al pasar el mouse por
+// encima —justo cuando vas a hacer clic— y eso crea un bloque contenedor que
+// también atrapa a los elementos fijos. El portal es la única salida limpia.
+const NOTA_ANCHO = 300;
+
+function NotasQuickButton({ material, onChanged }) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState(material.notas || "");
+  const [saving, setSaving] = useState(false);
+  const [pos, setPos] = useState(null);
+  const btnRef = useRef(null);
+
+  useEffect(() => { setValue(material.notas || ""); }, [material.notas]);
+
+  // Se ancla al botón. Si no entra abajo, se abre hacia arriba; y nunca se sale
+  // por el costado derecho de la ventana.
+  const ubicar = useCallback(() => {
+    const el = btnRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const alto = 190;
+    const abajo = window.innerHeight - r.bottom > alto + 12;
+    setPos({
+      top: abajo ? r.bottom + 6 : Math.max(8, r.top - alto - 6),
+      left: Math.min(Math.max(8, r.right - NOTA_ANCHO), window.innerWidth - NOTA_ANCHO - 8),
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    ubicar();
+    const cerrar = () => setOpen(false);
+    // Al scrollear o redimensionar el panel quedaría flotando lejos del botón:
+    // se cierra, que es menos molesto que perseguirlo.
+    window.addEventListener("scroll", cerrar, true);
+    window.addEventListener("resize", cerrar);
+    return () => {
+      window.removeEventListener("scroll", cerrar, true);
+      window.removeEventListener("resize", cerrar);
+    };
+  }, [open, ubicar]);
+
+  async function save() {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await actualizarNotasMaterial(material.id, value);
+      onChanged?.();
+      setOpen(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div style={{ flexShrink: 0 }}>
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        title={material.notas ? `Observación: ${textoTooltip(material.notas)}` : "Agregar observación"}
+        style={{ ...BTN, padding: "5px 9px", color: material.notas ? C.cyan : C.t2 }}
+      >
+        <StickyNote size={13} />
+      </button>
+      {open && pos && createPortal(
+        <>
+          {/* Capa para cerrar al hacer clic afuera. Antes sólo se cerraba con el
+              botón "Cerrar", y quedaban paneles abiertos por toda la lista. */}
+          <div
+            onClick={() => setOpen(false)}
+            style={{ position: "fixed", inset: 0, zIndex: 3000 }}
+          />
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "fixed", top: pos.top, left: pos.left, zIndex: 3001,
+              width: NOTA_ANCHO, background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 10,
+              padding: 10, boxShadow: "0 18px 40px rgba(0,0,0,0.45)", display: "grid", gap: 8,
+            }}
+          >
+            <span style={{ fontSize: 10, letterSpacing: 0.6, color: C.t2, textTransform: "uppercase", fontWeight: 600 }}>
+              Observaciones
+            </span>
+            <textarea
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Escape") setOpen(false); }}
+              rows={3}
+              autoFocus
+              placeholder="Notas sobre este material…"
+              // overflowWrap: una URL pegada no tiene espacios y el textarea la
+              // manda a scroll horizontal; así se corta y se lee entera.
+              style={{ ...INP, width: "100%", resize: "vertical", overflowWrap: "anywhere" }}
+            />
+            <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+              <button type="button" onClick={() => setOpen(false)} style={{ ...BTN, padding: "5px 10px" }}>Cerrar</button>
+              <button type="button" onClick={save} disabled={saving} style={{ ...BTN_GREEN, padding: "5px 10px" }}>{saving ? "Guardando…" : "Guardar"}</button>
+            </div>
+          </div>
+        </>,
+        document.body,
+      )}
+    </div>
+  );
+}
+
+function addonEstaMovible(addon = {}) {
+  return !["en_panol", "recibido", "egresado"].includes(String(addon.estado || "").toLowerCase());
+}
+
+function MaterialAddonAssociations({ material, obras = [], onChanged }) {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState("");
+  const [err, setErr] = useState("");
+  const isAddonMaterial = material?.origen === "addon_obra";
+  const obrasOrdenadas = useMemo(
+    () => (obras ?? []).slice().sort((a, b) => String(a.codigo || "").localeCompare(String(b.codigo || ""), "es", { numeric: true })),
+    [obras],
+  );
+  const obraById = useMemo(() => new Map(obrasOrdenadas.map((obra) => [obra.id, obra])), [obrasOrdenadas]);
+
+  const load = useCallback(async () => {
+    if (!isAddonMaterial || !material?.id) return;
+    setLoading(true);
+    setErr("");
+    try {
+      setRows(await fetchAddonsMaterial(material.id));
+    } catch (error) {
+      setErr(error?.message || "No se pudieron cargar las obras asociadas.");
+    } finally {
+      setLoading(false);
+    }
+  }, [isAddonMaterial, material?.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function move(addon, nextObraId) {
+    if (!addon?.id || !nextObraId || nextObraId === addon.obra_id || busy) return;
+    setBusy(addon.id);
+    setErr("");
+    try {
+      await reasignarAddon(addon.id, nextObraId, {
+        materialId: material.id,
+        fromObraId: addon.obra_id,
+        descripcion: addon.descripcion || material.descripcion || "",
+      });
+      await load();
+      await onChanged?.();
+    } catch (error) {
+      setErr(error?.message || "No se pudo reasignar el adicional.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  if (!isAddonMaterial) return null;
+
+  return (
+    <div style={{ border: `1px solid ${C.violet}33`, background: "rgba(139,92,246,0.08)", borderRadius: 12, padding: 10, display: "grid", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 750, color: C.t0 }}>Asociaciones de obra</div>
+          <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>Este material nació como adicional/opcional. Podés moverlo a otra obra si todavía no entró a pañol.</div>
+        </div>
+        <button type="button" onClick={load} disabled={loading} style={{ ...BTN, padding: "6px 9px" }}>
+          <RefreshCw size={13} /> {loading ? "Cargando..." : "Actualizar"}
+        </button>
+      </div>
+      {err && <div style={{ fontSize: 11.5, color: C.red }}>{err}</div>}
+      {loading ? (
+        <Cargando compacto texto="Cargando asociaciones…" />
+      ) : rows.length ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          {rows.map((addon) => {
+            const meta = addonTipoMeta(addon.tipo);
+            const current = obraById.get(addon.obra_id);
+            const movible = addonEstaMovible(addon);
+            return (
+              <div key={addon.id} style={{ display: "grid", gridTemplateColumns: "minmax(180px, 1fr) minmax(180px, .8fr)", gap: 8, alignItems: "center", border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 10, padding: 8 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: meta.color, background: `${meta.color}16`, border: `1px solid ${meta.color}44`, borderRadius: 999, padding: "2px 7px" }}>{meta.label}</span>
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: C.t0 }}>{current?.codigo || "Sin obra"}</span>
+                    <span style={{ fontFamily: C.mono, fontSize: 11, color: C.t2 }}>{qtyText(addon.cantidad || 1, addon.unidad || material.unidad_medida || "unidad")}</span>
+                  </div>
+                  {addon.observaciones && <div style={{ fontSize: 11, color: C.t2, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{addon.observaciones}</div>}
+                </div>
+                <select
+                  value={addon.obra_id || ""}
+                  disabled={!movible || busy === addon.id}
+                  onChange={(e) => move(addon, e.target.value)}
+                  style={{ ...INP, height: 34, opacity: movible ? 1 : 0.62 }}
+                  title={movible ? "Reasignar a otra obra" : "Ya tiene movimiento de pañol; mover desde stock para conservar kardex"}
+                >
+                  <option value="" style={OPT_ST}>Sin obra</option>
+                  {obrasOrdenadas.map((obra) => <option key={obra.id} value={obra.id} style={OPT_ST}>{obra.codigo || "Sin codigo"}</option>)}
+                </select>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={{ fontSize: 12, color: C.t2, border: `1px dashed ${C.b0}`, borderRadius: 10, padding: 10, textAlign: "center" }}>
+          No hay obras asociadas a este adicional.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function supplierEntryForMaterial(material, proveedorId) {
+  return (material?.proveedores_lista || []).find((entry) => entry?.proveedor_id === proveedorId) || {};
+}
+
+function supplierComponentsText(components) {
+  return (Array.isArray(components) ? components : []).map((row) =>
+    [row?.cantidad || 1, row?.codigo || "", row?.descripcion || ""].join(" | ")
+  ).join("\n");
+}
+
+function parseSupplierComponents(text) {
+  return String(text || "").split(/\r?\n/).map((line) => {
+    const [qty, code, ...description] = line.split("|").map((part) => part.trim());
+    return {
+      cantidad: Number(String(qty).replace(",", ".")) || 1,
+      codigo: code || "",
+      descripcion: description.join(" | ").trim(),
+      unidad: "unidad",
+    };
+  }).filter((row) => row.codigo || row.descripcion);
+}
+
+function SupplierOrderFields({ entry, onChange }) {
+  const hasBreakdown = Array.isArray(entry?.componentes_pedido) && entry.componentes_pedido.length > 0;
+  const showBreakdown = Boolean(entry?._showBreakdown || hasBreakdown);
+  return (
+    <div style={{ gridColumn: "1 / -1", display: "grid", gap: 6, padding: "7px 8px", borderRadius: 8, border: `1px solid ${C.b0}`, background: C.bg }}>
+      <div className="material-editor-pair" style={{ display: "grid", gridTemplateColumns: "minmax(180px, 1fr) minmax(130px, .38fr) auto", gap: 6, alignItems: "center" }}>
+        <input
+          value={entry?.denominacion_proveedor || ""}
+          onChange={(e) => onChange({ denominacion_proveedor: e.target.value })}
+          placeholder="Nombre para pedir a este proveedor"
+          title="Es el nombre que verá el proveedor; el nombre interno del catálogo no cambia."
+          style={{ ...INP, width: "100%" }}
+        />
+        <input
+          value={entry?.codigo_proveedor || ""}
+          onChange={(e) => onChange({ codigo_proveedor: e.target.value })}
+          placeholder="Código proveedor"
+          style={{ ...INP, width: "100%", fontFamily: C.mono }}
+        />
+        <button type="button" onClick={() => onChange({ _showBreakdown: !showBreakdown })} style={{ ...BTN, padding: "6px 9px", color: showBreakdown ? C.blue : C.t2, whiteSpace: "nowrap" }}>
+          {showBreakdown ? "Ocultar desglose" : "+ Desglose"}
+        </button>
+      </div>
+      {showBreakdown && (
+        <div>
+          <textarea
+            value={supplierComponentsText(entry?.componentes_pedido)}
+            onChange={(e) => onChange({ componentes_pedido: parseSupplierComponents(e.target.value), _showBreakdown: true })}
+            rows={Math.max(2, Math.min(5, (entry?.componentes_pedido?.length || 1) + 1))}
+            placeholder={'1 | C 68 1/4 X 1/2 | UNION 1/4 VIROLA X 1/2 GAS MACHO\n1 | C 60 1/4 | VIROLA 1/4'}
+            style={{ ...INP, width: "100%", resize: "vertical", fontFamily: C.mono, fontSize: 11 }}
+          />
+          <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 4 }}>
+            Una línea por componente: cantidad | código | descripción. Al copiar la orden se pedirán separados.
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MaterialFila({ material, categorias, ums, proveedores, obras = [], onChanged, linea = "", initialOpen = false, stockInfo = null, inDrawer = false }) {
+  const [editing, setEditing] = useState(initialOpen);
+  const [hovered, setHovered] = useState(false);
+  const [draft, setDraft] = useState(() => ({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) }));
+  const [cantidades, setCantidades] = useState(() => toBomMap(material));
+  const [sectores, setSectores] = useState(() => (material.areas?.length ? material.areas : [material.categoria_id].filter(Boolean)));
+  const [provExtra, setProvExtra] = useState(() => (material.proveedores_lista || []).filter((p) => !p.proveedor_id || p.proveedor_id !== material.proveedor_id).map((p) => ({ ...p })));
+  const [primarySupplier, setPrimarySupplier] = useState(() => ({ ...supplierEntryForMaterial(material, material.proveedor_id) }));
+  const variantes = materialVariants(material);
+  const variantesPrecios = material?.variantes_precios || {};
+  const [saving, setSaving] = useState(false);
+  // El primero de la lista de proveedores es el que vive en la ficha del
+  // material, que es de donde lo leen pañol y compras.
+  const hayProveedorFicha = Boolean(draft.proveedor_id || String(draft.proveedor || "").trim());
+
+  useEffect(() => {
+    setDraft({ ...material, precio_unitario: inputNumberValue(material.precio_unitario) });
+    setCantidades(toBomMap(material));
+    setSectores(material.areas?.length ? material.areas : [material.categoria_id].filter(Boolean));
+    setProvExtra((material.proveedores_lista || []).filter((p) => !p.proveedor_id || p.proveedor_id !== material.proveedor_id).map((p) => ({ ...p })));
+    setPrimarySupplier({ ...supplierEntryForMaterial(material, material.proveedor_id) });
+  }, [material]);
+
+  async function save() {
+    if (!draft.descripcion?.trim() || saving) return;
+    setSaving(true);
+    try {
+      const primary = sectores[0] ?? draft.categoria_id ?? null;
+      const prepared = prepareMaterialDraftForSave({ ...draft, categoria_id: primary }, proveedores, variantes, variantesPrecios);
+      await guardarMaterial(prepared, cantidades, { revisado: draft.revisado });
+      await setSectoresMaterial(material.id, sectores);
+      const supplierRows = draft.proveedor_id
+        ? [{ ...primarySupplier, proveedor_id: draft.proveedor_id, precio: draft.precio_unitario, moneda: draft.moneda }, ...provExtra]
+        : provExtra;
+      await setProveedoresMaterial(material.id, supplierRows);
+      onChanged?.(); setEditing(false);
+    } finally { setSaving(false); }
+  }
+  async function remove() {
+    if (!window.confirm(`¿Borrar "${material.descripcion}"?`)) return;
+    // Igual que en la fila de la tabla: sin catch, un borrado que falla no
+    // muestra nada y parece que el botón está roto.
+    try {
+      await borrarMaterial(material.id);
+      onChanged?.();
+    } catch (error) {
+      window.alert(error?.message || "No se pudo borrar el producto.");
+    }
+  }
+
+  const sector = categorias.find((c) => c.id === material.categoria_id)?.nombre;
+  // Las dos matrices, separadas. Antes se mostraba una sola cifra por línea y un
+  // material del paquete de línea de eje aparecía como "K37 1", que se lee como
+  // "todo K37 lleva uno". No lo lleva: un K37 con pata o dentro-fuera no lleva
+  // ninguno. La cifra existe, pero es condicional, y el chip tiene que decirlo.
+  const bom = toBomMap(material, VARIANTE_BASE);
+  const bomEje = toBomMap(material, VARIANTE_LINEA_EJE);
+  const lineasConQty = MODELOS.filter((m) => toNum(bom[m]) > 0);
+  const lineasEje = MODELOS.filter((m) => toNum(bomEje[m]) > 0);
+  const review = reviewInfoForMaterial(material);
+  const savedVariants = materialVariants(material);
+  const precio = priceInfo(material);
+  const lbl = { fontSize: 10, letterSpacing: 0.6, color: C.t2, textTransform: "uppercase", fontWeight: 600, display: "block", marginBottom: 4 };
+  const active = editing || hovered;
+
+  return (
+    <div
+      className={inDrawer ? "obra-material-editor" : undefined}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        position: "relative",
+        border: `1px solid ${editing ? C.blueB : hovered ? C.blueB : review.flag ? C.cyanB : C.b0}`,
+        borderRadius: 10,
+        marginBottom: 6,
+        background: editing ? "var(--panel)" : hovered ? "color-mix(in srgb, var(--panel) 92%, #2563eb 8%)" : C.s0,
+        overflow: "hidden",
+        boxShadow: hovered ? "0 14px 28px -26px rgba(37,99,235,0.9)" : "none",
+        transform: hovered && !editing ? "translateY(-1px)" : "none",
+        transition: "background .14s ease, border-color .14s ease, box-shadow .14s ease, transform .14s ease",
+      }}
+    >
+      <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: active ? C.blue : "transparent", transition: "background .14s ease" }} />
+      <div onClick={() => setEditing((v) => !v)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px 8px 14px", cursor: "pointer", flexWrap: "wrap" }}>
+        <MaterialThumb material={material} size={36} />
+        <div style={{ flex: "1 1 260px", minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 13.5, color: C.t0, fontWeight: 700, lineHeight: 1.25, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion || "(sin descripción)"}</span>
+            {savedVariants.length > 0 && (
+              <span title={`Variantes: ${savedVariants.join(" / ")}`} style={{ fontSize: 9.5, fontWeight: 650, color: C.violet, background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.28)", borderRadius: 999, padding: "1px 6px", flexShrink: 0, maxWidth: 170, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {savedVariants.join(" / ")}
+              </span>
+            )}
+            {material.es_consumible && <span style={{ fontSize: 9.5, fontWeight: 650, color: C.cyan, background: C.cyanL, border: `1px solid ${C.cyanB}`, borderRadius: 999, padding: "1px 6px", flexShrink: 0 }}>Consumible</span>}
+            <StockLibreChip info={stockInfo} />
+            {review.flag && <ReviewBadge reason={review.reason} />}
+          </div>
+          <div style={{ display: "flex", gap: 6, marginTop: 3, fontSize: 10.8, color: C.t3, alignItems: "center", flexWrap: "wrap", minWidth: 0 }}>
+            {material.codigo && <span style={{ fontFamily: C.mono, flexShrink: 0 }}>{material.codigo}</span>}
+            {material.codigo && <span style={{ opacity: 0.6 }}>·</span>}
+            <span style={{ color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}>{material.proveedor || "Sin proveedor"}</span>
+            {sector && <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 170 }}>· {sector}</span>}
+            {material.areas?.length > 1 && (
+              <span title={`Multi-sector: ${material.areas.map((a) => categorias.find((c) => c.id === a)?.nombre).filter(Boolean).join(", ")}`}
+                style={{ fontSize: 9.5, fontWeight: 650, color: C.violet || "#a78bfa", flexShrink: 0 }}>
+                ⊞ {material.areas.length}
+              </span>
+            )}
+            <MaterialLinksSummary links={material.links} />
+          </div>
+        </div>
+        {(lineasConQty.length > 0 || lineasEje.length > 0) && (
+          <div style={{ display: "flex", gap: 4, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end", maxWidth: 220 }}>
+            {lineasConQty.map((m) => {
+              const on = linea === m;
+              return (
+                <span key={m} title={`Lleva ${toNum(bom[m])} en la línea K${m}`}
+                  style={{ fontFamily: C.mono, fontSize: 11, fontWeight: 600, color: on ? "#fff" : C.blue,
+                    background: on ? C.blue : "rgba(59,130,246,0.1)", border: `1px solid ${on ? C.blue : "rgba(59,130,246,0.25)"}`,
+                    borderRadius: 6, padding: "2px 7px" }}>
+                  K{m} {toNum(bom[m])}
+                </span>
+              );
+            })}
+            {/* En violeta y con la palabra "eje": es el color con el que la
+                línea de eje ya se muestra en el resto de la pantalla, y así no
+                se confunde con la cantidad que el barco lleva siempre. */}
+            {lineasEje.map((m) => {
+              const on = linea === m;
+              return (
+                <span key={`${m}-eje`}
+                  title={`No lo lleva todo K${m}. Son ${toNum(bomEje[m])} sólo si el barco es de línea de eje.`}
+                  style={{ fontFamily: C.mono, fontSize: 11, fontWeight: 600, color: on ? "#fff" : C.violet,
+                    background: on ? C.violet : "rgba(139,92,246,0.1)", border: `1px solid ${on ? C.violet : "rgba(139,92,246,0.28)"}`,
+                    borderRadius: 6, padding: "2px 7px" }}>
+                  K{m} eje {toNum(bomEje[m])}
+                </span>
+              );
+            })}
+          </div>
+        )}
+        <div style={{ minWidth: 86, textAlign: "right", flexShrink: 0 }} title={precio.amount ? `Precio vigente${precio.proveedor ? ` · ${precio.proveedor}` : ""}` : "Sin precio cargado"}>
+          <div style={{ fontFamily: C.mono, fontSize: 11.5, fontWeight: 650, color: precio.amount ? C.t2 : C.cyan, whiteSpace: "nowrap" }}>{precio.text}</div>
+          {material.unidad_medida && <div style={{ fontSize: 10, color: C.t3, whiteSpace: "nowrap" }}>{material.unidad_medida}</div>}
+        </div>
+        {material.revisado && <span title="Revisado" style={{ color: C.green, fontSize: 13, flexShrink: 0 }}>✓</span>}
+        <NotasQuickButton material={material} onChanged={onChanged} />
+        <button type="button" onClick={(e) => { e.stopPropagation(); setEditing((v) => !v); }} title={editing ? "Cerrar" : "Editar"}
+          style={{ ...BTN, padding: "5px 9px", color: editing ? C.blue : C.t2, flexShrink: 0 }}>
+          <Pencil size={13} />
+        </button>
+      </div>
+
+      {!editing && (material.links || []).some(link => link.kind === "documento") && <div style={{ padding: "0 12px 12px" }}><MaterialDocuments links={material.links} linea={linea} /></div>}
+      {editing && (
+        <div style={{ padding: "0 12px 12px", display: "grid", gap: 9 }}>
+          <div>
+            <span style={lbl}>Descripción</span>
+            <input value={draft.descripcion || ""} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} style={{ ...INP, width: "100%" }} />
+          </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12.5, fontWeight: 600, color: draft.es_consumible ? C.cyan : C.t1 }}>
+            <input type="checkbox" checked={!!draft.es_consumible} onChange={(e) => setDraft((d) => ({ ...d, es_consumible: e.target.checked }))} style={{ width: 16, height: 16, cursor: "pointer" }} />
+            Es consumible <span style={{ fontWeight: 400, color: C.t2, fontSize: 11 }}>(va al fondo del catálogo, fuera de la matriz del barco)</span>
+          </label>
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 9, cursor: "pointer", border: `1px solid ${draft.es_requisito ? C.blueB : C.b0}`, background: draft.es_requisito ? C.blueL : C.bg, borderRadius: 10, padding: "9px 11px" }}>
+            <input type="checkbox" checked={!!draft.es_requisito} onChange={(e) => setDraft((d) => ({ ...d, es_requisito: e.target.checked }))} style={{ marginTop: 2 }} />
+            <span>
+              <span style={{ display: "block", color: draft.es_requisito ? C.blue : C.t0, fontSize: 12, fontWeight: 700 }}>Requisito genérico de matriz</span>
+              <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 2 }}>No suma stock por marca/modelo. En cada obra se le asigna un producto concreto del catálogo.</span>
+            </span>
+          </label>
+          {draft.es_requisito && <label style={{ display: "flex", alignItems: "flex-start", gap: 9, cursor: "pointer", border: `1px solid ${draft.producto_por_obra ? C.violetB : C.b0}`, background: draft.producto_por_obra ? C.violetL : C.bg, borderRadius: 10, padding: "9px 11px" }}>
+            <input type="checkbox" checked={!!draft.producto_por_obra} onChange={(e) => setDraft((d) => ({ ...d, producto_por_obra: e.target.checked }))} style={{ marginTop: 2 }} />
+            <span>
+              <span style={{ display: "block", color: draft.producto_por_obra ? C.violet : C.t0, fontSize: 12, fontWeight: 700 }}>Producto específico por obra</span>
+              <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 2 }}>No permite establecer un producto estándar para toda la línea.</span>
+            </span>
+          </label>}
+          <div className="material-editor-pair" style={{ display: "grid", gridTemplateColumns: "minmax(180px, .7fr) minmax(260px, 1fr)", gap: 8, alignItems: "end" }}>
+            <div>
+              <span style={lbl}>Alias / nombre corto</span>
+              <input value={draft.alias || ""} onChange={(e) => setDraft((d) => ({ ...d, alias: e.target.value }))} placeholder="Opcional" style={{ ...INP, width: "100%" }} />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <MaterialThumb material={{ ...material, imagen_url: draft.imagen_url }} size={46} />
+              <input value={draft.imagen_url || ""} onChange={(e) => setDraft((d) => ({ ...d, imagen_url: e.target.value }))} placeholder="URL de imagen" style={{ ...INP, flex: "1 1 220px" }} />
+              <MaterialImageUploader material={material} onUploaded={onChanged} compact />
+            </div>
+          </div>
+          {savedVariants.length > 0 && (
+            <div style={{ border: `1px solid ${C.cyanB}`, background: C.cyanL, borderRadius: 10, padding: "9px 11px" }}>
+              <span style={{ display: "block", color: C.cyan, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: .6 }}>Variantes legacy migradas</span>
+              <span style={{ display: "block", color: C.t1, fontSize: 11.5, marginTop: 4 }}>{savedVariants.join(" · ")}</span>
+              <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 3 }}>Se conservan sólo como historial. Los productos nuevos se gestionan como filas independientes.</span>
+            </div>
+          )}
+          {/* ── PROVEEDORES ──────────────────────────────────────────────
+              Una sola lista. Antes eran dos bloques -"Proveedor principal" y
+              "Otros proveedores"- y esa división no existe: un material tiene
+              los proveedores que tiene. El primero es además el que queda
+              grabado en la ficha, que es de donde lo leen pañol y compras. */}
+          <div>
+            <span style={lbl}>Proveedores · cada uno con su precio</span>
+            <div style={{ display: "grid", gap: 6 }}>
+              {hayProveedorFicha ? (
+                <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 92px 78px 34px", gap: 6, alignItems: "center" }}>
+                  <span style={{ fontSize: 12, color: C.t1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {draft.proveedor || proveedores.find((pr) => pr.id === draft.proveedor_id)?.nombre || "—"}
+                  </span>
+                  <input type="number" step="any" placeholder="Precio" value={draft.precio_unitario ?? ""} onChange={(e) => setDraft((d) => ({ ...d, precio_unitario: e.target.value }))} style={{ ...INP, fontFamily: C.mono }} />
+                  <select value={draft.moneda || ""} onChange={(e) => setDraft((d) => ({ ...d, moneda: e.target.value || null }))} style={{ ...INP }}>{MONEDAS.map((m) => <option key={m || "n"} value={m}>{m || "—"}</option>)}</select>
+                  {/* Sacar el primero asciende al siguiente: la ficha nunca
+                      queda sin proveedor mientras la lista tenga alguno. */}
+                  <button type="button" onClick={() => { const [siguiente, ...resto] = provExtra; setDraft((d) => ({ ...d, proveedor_id: siguiente?.proveedor_id || null, proveedor: siguiente ? (proveedores.find((pr) => pr.id === siguiente.proveedor_id)?.nombre || null) : null, precio_unitario: siguiente ? (siguiente.precio ?? "") : d.precio_unitario, moneda: siguiente ? (siguiente.moneda || d.moneda) : d.moneda })); setPrimarySupplier(siguiente ? { ...siguiente } : {}); setProvExtra(resto); }} style={{ ...BTN, color: C.red, padding: "5px 7px" }} title="Quitar"><Trash2 size={12} /></button>
+                  <SupplierOrderFields entry={primarySupplier} onChange={(patch) => setPrimarySupplier((prev) => ({ ...prev, ...patch }))} />
+                </div>
+              ) : null}
+              {provExtra.map((p, i) => (
+                <div key={p.proveedor_id || i} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 92px 78px 34px", gap: 6, alignItems: "center" }}>
+                  <span style={{ fontSize: 12, color: C.t1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proveedores.find((pr) => pr.id === p.proveedor_id)?.nombre || "—"}</span>
+                  <input type="number" step="any" placeholder="Precio" value={p.precio ?? ""} onChange={(e) => setProvExtra((prev) => prev.map((x, j) => (j === i ? { ...x, precio: e.target.value } : x)))} style={{ ...INP, fontFamily: C.mono }} />
+                  <select value={p.moneda || ""} onChange={(e) => setProvExtra((prev) => prev.map((x, j) => (j === i ? { ...x, moneda: e.target.value || null } : x)))} style={{ ...INP }}>{MONEDAS.map((m) => <option key={m || "n"} value={m}>{m || "—"}</option>)}</select>
+                  <button type="button" onClick={() => setProvExtra((prev) => prev.filter((_, j) => j !== i))} style={{ ...BTN, color: C.red, padding: "5px 7px" }} title="Quitar"><Trash2 size={12} /></button>
+                  <SupplierOrderFields entry={p} onChange={(patch) => setProvExtra((prev) => prev.map((x, j) => (j === i ? { ...x, ...patch } : x)))} />
+                </div>
+              ))}
+              {/* Si la ficha todavía no tiene ninguno, el que se elija va ahí;
+                  si ya tiene, se suma abajo. Para quien carga es el mismo gesto. */}
+              {hayProveedorFicha ? (
+                <select value="" onChange={(e) => { const id = e.target.value; if (!id) return; if (provExtra.some((x) => x.proveedor_id === id) || draft.proveedor_id === id) return; setProvExtra((prev) => [...prev, { proveedor_id: id, precio: "", moneda: draft.moneda || "" }]); }} style={{ ...INP, width: "100%" }}>
+                  <option value="">+ Agregar otro proveedor…</option>
+                  {proveedores.filter((pr) => pr.activo !== false).map((pr) => <option key={pr.id} value={pr.id} style={OPT_ST}>{pr.nombre}</option>)}
+                </select>
+              ) : (
+                <>
+                  <ProveedorSelect value={draft.proveedor_id || ""} textValue={draft.proveedor || ""} proveedores={proveedores} onCreated={onChanged} onChange={(id, nombre) => { setDraft((d) => ({ ...d, proveedor_id: id, proveedor: nombre })); setPrimarySupplier({ proveedor_id: id, precio: "", moneda: draft.moneda || "", denominacion_proveedor: "", codigo_proveedor: "", componentes_pedido: [] }); }} />
+                  <input value={draft.proveedor || ""} onChange={(e) => setDraft((d) => ({ ...d, proveedor: e.target.value }))} placeholder="O escribir libre…" style={{ ...INP, width: "100%" }} />
+                </>
+              )}
+            </div>
+            <span style={{ display: "block", color: C.t2, fontSize: 10.5, marginTop: 5, lineHeight: 1.45 }}>
+              “Nombre para pedir” y “Código proveedor” son opcionales. Se usan al copiar o imprimir el pedido; el nombre interno del catálogo no cambia.
+            </span>
+          </div>
+          <div className="material-editor-fields" style={{ display: "grid", gridTemplateColumns: "80px 1fr 88px 1fr", gap: 8 }}>
+            <div><span style={lbl}>UM</span><input list="materiales-ums" value={draft.unidad_medida || ""} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} onBlur={(e) => setDraft((d) => ({ ...d, unidad_medida: normalizeUnidadMedida(e.target.value, "") }))} style={{ ...INP, width: "100%" }} /><datalist id="materiales-ums">{ums.map((u) => <option key={u} value={u} />)}</datalist></div>
+            {/* Con proveedor, el precio se edita en su renglón de arriba:
+                repetirlo acá eran dos campos para un mismo dato. Sin proveedor
+                se sigue pudiendo saber cuánto sale. */}
+            {!hayProveedorFicha ? <div><span style={lbl}>Precio</span><input type="number" step="any" value={draft.precio_unitario ?? ""} onChange={(e) => setDraft((d) => ({ ...d, precio_unitario: e.target.value }))} style={{ ...INP, width: "100%", fontFamily: C.mono }} /></div> : <div />}
+            {!hayProveedorFicha ? <div><span style={lbl}>Moneda</span><select value={draft.moneda || ""} onChange={(e) => setDraft((d) => ({ ...d, moneda: e.target.value || null }))} style={{ ...INP, width: "100%" }}>{MONEDAS.map((m) => <option key={m || "null"} value={m}>{m || "—"}</option>)}</select></div> : <div />}
+            <div><span style={lbl}>Código</span><input value={draft.codigo || ""} onChange={(e) => setDraft((d) => ({ ...d, codigo: e.target.value }))} style={{ ...INP, width: "100%" }} /></div>
+          </div>
+          <MaterialBarcodeEditor material={material} onChanged={onChanged} />
+          <MaterialDocuments materialId={material.id} links={draft.links} editable onChanged={async (links) => { setDraft(d => ({ ...d, links })); await onChanged?.(); }} />
+          <MaterialLinksEditor value={(draft.links || []).filter(link => link.kind !== "documento")} onChange={(links) => setDraft((d) => ({ ...d, links: [...links, ...(d.links || []).filter(link => link.kind === "documento")] }))} />
+          <div>
+            <span style={lbl}>Cantidad por línea</span>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {MODELOS.map((modelo) => (
+                <div key={modelo} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <span style={{ fontSize: 11, color: linea === modelo ? C.blue : C.t2, fontWeight: 600, fontFamily: C.mono }}>K{modelo}</span>
+                  <input type="number" step="any" value={cantidades[modelo] ?? ""} onChange={(e) => setCantidades((c) => ({ ...c, [modelo]: e.target.value }))} style={{ ...INP, width: 82, fontFamily: C.mono }} />
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <span style={lbl}>Sectores · el ★ es el principal (tocá para sumar/quitar)</span>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+              {categorias.map((c) => {
+                const idx = sectores.indexOf(c.id);
+                const on = idx >= 0;
+                return (
+                  <button type="button" key={c.id} onClick={() => setSectores((prev) => on ? prev.filter((x) => x !== c.id) : [...prev, c.id])}
+                    style={{ fontSize: 10.5, fontWeight: 600, cursor: "pointer", borderRadius: 999, padding: "3px 9px", border: `1px solid ${on ? (C.violet || "#a78bfa") : C.b0}`, background: on ? "rgba(167,139,250,0.14)" : "transparent", color: on ? (C.violet || "#a78bfa") : C.t2 }}>
+                    {idx === 0 ? "★ " : on ? "✓ " : ""}{c.nombre}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            <span style={lbl}>Observaciones</span>
+            <textarea value={draft.notas || ""} onChange={(e) => setDraft((d) => ({ ...d, notas: e.target.value }))} rows={2} placeholder="Notas sobre este material…" style={{ ...INP, width: "100%", resize: "vertical" }} />
+          </div>
+          <MaterialAddonAssociations material={material} obras={obras} onChanged={onChanged} />
+          <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: draft.revisado ? C.green : C.t2 }}>
+            <input type="checkbox" checked={!!draft.revisado} onChange={(e) => setDraft((d) => ({ ...d, revisado: e.target.checked }))} /> Revisado
+          </label>
+          <MaterialAuditTrail materialId={material.id} onRestored={onChanged} />
+          <div style={{ display: "flex", gap: 6 }}>
+            <button type="button" onClick={save} disabled={saving} style={{ ...BTN_GREEN, padding: "7px 16px", display: "inline-flex", alignItems: "center", gap: 5 }}><Save size={13} /> Guardar</button>
+            <button type="button" onClick={() => setEditing(false)} style={{ ...BTN, padding: "7px 14px" }}>Cancelar</button>
+            <button type="button" onClick={remove} style={{ ...BTN, color: C.red, padding: "7px 10px", marginLeft: "auto" }} title="Borrar"><Trash2 size={13} /></button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PrepararCompra({ items, linea, categorias = [], obra = null, addons = [] }) {
+  const [open, setOpen] = useState(false);
+  const [groupBy, setGroupBy] = useState("proveedor");
+  const [copied, setCopied] = useState(false);
+  const [creando, setCreando] = useState(null);
+  const [hechos, setHechos] = useState([]);
+  const [genErr, setGenErr] = useState(null);
+  const [pedidoTipo, setPedidoTipo] = useState(null);
+
+  const orderRows = useMemo(() => {
+    const matRows = (items ?? []).map((m) => {
+      const precio = priceInfo(m);
+      const proveedor = nombreProveedorVisible(precio.proveedor || m.proveedor) || "Sin proveedor";
+      const supplierTerms = supplierTermsForMaterial(m, { proveedor });
+      return {
+        materialId: m.id,
+        material: m,
+        descripcion: m.descripcion,
+        codigo: m.codigo,
+        cantidad: materialQty(m, linea) || 1,
+        unidad: m.unidad_medida || "unidad",
+        proveedor,
+        proveedorId: supplierTerms?.supplierId || m.proveedor_id || null,
+        supplierDescription: supplierTerms?.description || "",
+        supplierCode: supplierTerms?.code || "",
+        supplierComponents: supplierTerms?.components || [],
+        rubro: rubroDeLista(categorias, m.categoria_id),
+        tipo: materialBucket(m, [], linea).label,
+        obs: m.notas || "",
+        precio,
+      };
+    });
+    const addRows = (addons ?? []).map((a) => ({
+      descripcion: a.descripcion,
+      codigo: "",
+      cantidad: a.cantidad || 1,
+      unidad: "unidad",
+      proveedor: nombreProveedorVisible(a.proveedor) || "Sin proveedor",
+      rubro: a.tipo === "opcional" ? "Opcionales" : "Adicionales",
+      tipo: "Addon",
+      obs: a.observaciones || "",
+      precio: { amount: 0, moneda: null, proveedor: a.proveedor || "" },
+    }));
+    return [...matRows, ...addRows];
+  }, [items, linea, categorias, addons]);
+
+  async function pedirGrupo(g) {
+    if (!pedidoTipo) {
+      setGenErr("Elegí el tipo de pedido.");
+      return;
+    }
+    setCreando(g.label); setGenErr(null);
+    try {
+      const documents = await fetchProductDocuments(g.items.map(row => row.materialId), linea);
+      const req = await createPurchaseRequest({ form: {
+        title: `Pedido ${obra?.codigo || `K${linea}`} · ${g.label}`,
+        description: `${g.items.length} ítems${obra ? ` del barco ${obra.codigo}` : ` de la línea K${linea}`} (${groupBy}: ${g.label}).`,
+        priority: "media", source: "materiales", project_id: obra?.id || null, es_adicional: pedidoTipo === "adicional", tipo_pedido: pedidoTipo,
+        proveedor: groupBy === "proveedor" && g.label !== "Sin proveedor" && !esProveedorAlternativo(g.label) ? g.label : null,
+      }, existingAttachments: [...documents.values()].flat() });
+      for (const row of g.items) {
+        const supplierSnapshot = row.material
+          ? supplierSnapshotForMaterial(row.material, { proveedorId: row.proveedorId, proveedor: row.proveedor })
+          : {};
+        await addRequestItem(req.id, {
+          description: row.descripcion,
+          quantity: toNum(row.cantidad) || 1,
+          unit: row.unidad || null,
+          material_id: row.materialId || null,
+          catalog_source: row.materialId ? "panol" : null,
+          notes: esProveedorAlternativo(row.proveedor) ? `Proveedores posibles: ${row.proveedor}. Compras debe elegir uno.` : null,
+          ...supplierSnapshot,
+        });
+      }
+      setHechos((h) => [...h, g.label]);
+    } catch (e) {
+      setGenErr(e?.message || "No se pudo crear el pedido.");
+    } finally {
+      setCreando(null);
+    }
+  }
+
+  const grupos = useMemo(() => {
+    const map = {};
+    orderRows.forEach((row) => {
+      const key = (groupBy === "rubro" ? row.rubro : groupBy === "tipo" ? row.tipo : row.proveedor).trim() || "Sin clasificar";
+      if (!map[key]) map[key] = { label: key, items: [], usd: 0, ars: 0 };
+      map[key].items.push(row);
+      if (row.precio.amount) {
+        if (row.precio.moneda === "USD") map[key].usd += row.precio.amount * (toNum(row.cantidad) || 1);
+        else map[key].ars += row.precio.amount * (toNum(row.cantidad) || 1);
+      }
+    });
+    return Object.values(map).sort((a, b) => b.items.length - a.items.length || a.label.localeCompare(b.label, "es"));
+  }, [orderRows, groupBy]);
+
+  async function copiarTodo() {
+    const text = buildOrdenTexto({ obra: { codigo: `K${linea}` }, lineaNombre: `K${linea}`, rows: orderRows, groupBy });
+    await navigator.clipboard?.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+  }
+
+  if (!items?.length) return null;
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <button type="button" onClick={() => setOpen((v) => !v)} style={{ ...BTN, padding: "8px 14px", display: "inline-flex", alignItems: "center", gap: 7, fontWeight: 600 }}>
+        <ShoppingCart size={14} /> Preparar orden de compra {open ? "▴" : "▾"}
+      </button>
+      {open && (
+        <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <div style={{ fontSize: 11.5, color: C.t2, flex: "1 1 240px" }}>
+              {obra ? `Pedido estándar de ${obra.codigo} (base matriz + addons).` : "Para compras, agrupado por proveedor, rubro o tipo."} Generá el pedido directo o copialo en texto.
+            </div>
+            <div style={{ display: "inline-flex", gap: 6, border: `1px solid ${C.b0}`, borderRadius: 10, padding: 4, background: C.s0 }}>
+              {[
+                { value: "stock", label: "Stock pañol", color: C.green },
+                { value: "estandar", label: "Estándar", color: C.blue },
+                { value: "adicional", label: "Adicional", color: C.violet },
+              ].map(({ value, label, color }) => (
+                <button key={label} type="button" onClick={() => setPedidoTipo(value)} style={{ ...BTN, padding: "6px 10px", color: pedidoTipo === value ? color : C.t2, background: pedidoTipo === value ? `${color}18` : "transparent", borderColor: pedidoTipo === value ? color : "transparent", fontWeight: 700 }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)} style={{ ...INP, width: 150 }}>
+              <option value="proveedor" style={OPT_ST}>Proveedor</option>
+              <option value="rubro" style={OPT_ST}>Rubro</option>
+              <option value="tipo" style={OPT_ST}>Tipo</option>
+            </select>
+            <CopiarOcProveedor
+              lineas={ordenLineasDesdeMatriz(orderRows)}
+              label="Copiar OC proveedor"
+              style={{ padding: "8px 13px", fontSize: 12, color: C.blue, borderColor: C.blueB, background: C.blueL }}
+            />
+            <button type="button" onClick={copiarTodo} style={{ ...BTN_GREEN, padding: "8px 13px" }}>
+              <Copy size={13} /> {copied ? "Copiado" : "Copiar orden"}
+            </button>
+          </div>
+          {genErr && <div style={{ fontSize: 12, color: C.red }}>{genErr}</div>}
+          {grupos.map((g) => (
+            <div key={g.label} style={{ border: `1px solid ${C.b0}`, borderRadius: 10, background: C.s0, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.label}</div>
+                <div style={{ fontSize: 11.5, color: C.t2 }}>
+                  {g.items.length} items{g.usd ? ` · ${fmtMoney(g.usd, "USD")}` : ""}{g.ars ? ` · ${fmtMoney(g.ars, "ARS")}` : ""}
+                </div>
+              </div>
+              {hechos.includes(g.label)
+                ? <span style={{ fontSize: 12, color: C.green, fontWeight: 650, flexShrink: 0 }}>✓ Pedido creado</span>
+                : <button type="button" onClick={() => pedirGrupo(g)} disabled={creando === g.label} style={{ ...BTN_GREEN, padding: "6px 12px", flexShrink: 0 }}>{creando === g.label ? "Creando…" : "Pedir a compras"}</button>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AgregarItemLinea({ linea, title, materiales = [], categorias = [], proveedores = [], ums = [], onChanged }) {
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState("existente");
+  const [q, setQ] = useState("");
+  const [selectedId, setSelectedId] = useState("");
+  const [cantidad, setCantidad] = useState("1");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState(null);
+  const [draft, setDraft] = useState({
+    descripcion: "",
+    alias: "",
+    codigo: "",
+    codigo_barra: "",
+    categoria_id: "",
+    proveedor_id: "",
+    proveedor: "",
+    unidad_medida: "unidad",
+    precio_unitario: "",
+    moneda: "",
+    imagen_url: "",
+    links: [],
+    notas: "",
+  });
+  const [variantesNuevo, setVariantesNuevo] = useState([]);
+  const [variantesPreciosNuevo, setVariantesPreciosNuevo] = useState({});
+  const [codigosExtraNuevo, setCodigosExtraNuevo] = useState([]);
+  const [imageFileNuevo, setImageFileNuevo] = useState(null);
+  const [okMsg, setOkMsg] = useState("");
+
+  useEffect(() => {
+    if (!draft.categoria_id && categorias[0]?.id) setDraft((d) => ({ ...d, categoria_id: categorias[0].id }));
+  }, [categorias, draft.categoria_id]);
+
+  const existentesFuera = useMemo(
+    () => (materiales ?? []).filter(materialActivo).filter((m) => materialQty(m, linea) <= 0),
+    [materiales, linea],
+  );
+
+  const candidatos = useMemo(() => {
+    const query = q.trim();
+    if (query.length >= 2) return topMateriales(existentesFuera, query).slice(0, 8);
+    return existentesFuera
+      .slice()
+      .sort((a, b) => (a.descripcion || "").localeCompare(b.descripcion || "", "es"))
+      .slice(0, 8);
+  }, [existentesFuera, q]);
+
+  const selected = existentesFuera.find((m) => m.id === selectedId);
+  const qty = toNum(cantidad);
+  const canSaveExisting = selected && qty != null && qty > 0;
+  const canCreateCatalogOnly = draft.descripcion.trim() && draft.categoria_id;
+  const canSaveNew = canCreateCatalogOnly && qty != null && qty > 0;
+
+  function resetSoft() {
+    setQ("");
+    setSelectedId("");
+    setCantidad("1");
+    setDraft((d) => ({
+      ...d,
+      descripcion: "",
+      alias: "",
+      codigo: "",
+      codigo_barra: "",
+      proveedor_id: "",
+      proveedor: "",
+      precio_unitario: "",
+      moneda: "",
+      imagen_url: "",
+      links: [],
+      notas: "",
+      unidad_medida: d.unidad_medida || "unidad",
+    }));
+    setVariantesNuevo([]);
+    setVariantesPreciosNuevo({});
+    setCodigosExtraNuevo([]);
+    setImageFileNuevo(null);
+    setOkMsg("");
+  }
+
+  async function addExisting() {
+    if (!canSaveExisting || saving) return;
+    setSaving(true); setErr(null);
+    try {
+      await setCantidadModelo(selected.id, linea, cantidad);
+      resetSoft();
+      await onChanged?.();
+    } catch (e) {
+      setErr(e);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function createAndAdd() {
+    if (!canSaveNew || saving) return;
+    setSaving(true); setErr(null);
+    try {
+      const id = await crearMaterial(prepareMaterialDraftForSave({ ...draft, revisado: false }, proveedores, variantesNuevo, variantesPreciosNuevo), {});
+      if (imageFileNuevo) await uploadMaterialImage(id, imageFileNuevo);
+      for (const row of codigosExtraNuevo) {
+        if (row.codigo?.trim()) await agregarCodigoBarraMaterial(id, row.codigo, { etiqueta: row.etiqueta, variante: row.variante || null });
+      }
+      await setCantidadModelo(id, linea, cantidad);
+      resetSoft();
+      setMode("existente");
+      await onChanged?.();
+    } catch (e) {
+      setErr(e);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function createCatalogOnly() {
+    if (!canCreateCatalogOnly || saving) return;
+    setSaving(true); setErr(null); setOkMsg("");
+    try {
+      const id = await crearMaterial(prepareMaterialDraftForSave({ ...draft, revisado: false }, proveedores, variantesNuevo, variantesPreciosNuevo), {});
+      if (imageFileNuevo) await uploadMaterialImage(id, imageFileNuevo);
+      for (const row of codigosExtraNuevo) {
+        if (row.codigo?.trim()) await agregarCodigoBarraMaterial(id, row.codigo, { etiqueta: row.etiqueta, variante: row.variante || null });
+      }
+      resetSoft();
+      setMode("existente");
+      setOkMsg("Item creado en catalogo sin cantidad de matriz. Ahora lo podes usar en condicionantes.");
+      await onChanged?.();
+    } catch (e) {
+      setErr(e);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} style={{ ...BTN_GREEN, padding: "9px 14px", marginBottom: 14, display: "inline-flex", alignItems: "center", gap: 7 }}>
+        <PackagePlus size={14} /> Agregar ítem a {title || `K${linea}`}
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ border: `1px solid ${C.greenB || C.b1}`, borderRadius: 14, background: C.greenL || C.s0, padding: 13, marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 11, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 750, color: C.t0 }}>Agregar ítem a {title || `K${linea}`}</div>
+          <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>Sumá un material existente o creá uno nuevo ya vinculado a esta matriz.</div>
+        </div>
+        <button type="button" onClick={() => setOpen(false)} style={{ ...BTN, padding: "6px 10px" }}>Cerrar</button>
+      </div>
+
+      <div style={{ display: "inline-flex", gap: 3, background: C.bg, border: `1px solid ${C.b0}`, borderRadius: 10, padding: 3, marginBottom: 10 }}>
+        {[
+          ["existente", "Existente"],
+          ["nuevo", "Nuevo"],
+        ].map(([key, label]) => {
+          const on = mode === key;
+          return (
+            <button key={key} type="button" onClick={() => { setMode(key); setErr(null); }} style={{ border: "none", borderRadius: 7, padding: "7px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: on ? "#fff" : C.t2, background: on ? C.blue : "transparent" }}>
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+      {mode === "existente" ? (
+        <div style={{ display: "grid", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) 92px auto", gap: 8, alignItems: "center" }}>
+            <input value={q} onChange={(e) => { setQ(e.target.value); setSelectedId(""); }} placeholder="Buscar material fuera de esta línea..." style={{ ...INP, height: 38 }} />
+            <input type="number" step="any" min="0" value={cantidad} onChange={(e) => setCantidad(e.target.value)} placeholder="Cant." style={{ ...INP, height: 38, fontFamily: C.mono }} />
+            <button type="button" onClick={addExisting} disabled={!canSaveExisting || saving} style={{ ...BTN_GREEN, height: 38, padding: "0 13px" }}>
+              {saving ? "Agregando..." : "Agregar"}
+            </button>
+          </div>
+          <div style={{ display: "grid", gap: 6 }}>
+            {candidatos.map((m) => {
+              const on = selectedId === m.id;
+              return (
+                <button
+                  type="button"
+                  key={m.id}
+                  onClick={() => setSelectedId(m.id)}
+                  style={{ textAlign: "left", border: `1px solid ${on ? C.blueB : C.b0}`, background: on ? C.blueL : C.bg, color: C.t0, borderRadius: 10, padding: "9px 11px", cursor: "pointer", display: "flex", gap: 10, justifyContent: "space-between", alignItems: "center" }}
+                >
+                  <span style={{ minWidth: 0 }}>
+                    <span style={{ display: "block", fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.descripcion}</span>
+                    <span style={{ display: "block", fontSize: 11, color: C.t2, marginTop: 2 }}>{categoriaNombre(categorias, m.categoria_id)}{m.proveedor ? ` · ${m.proveedor}` : ""}</span>
+                  </span>
+                  <span style={{ fontFamily: C.mono, fontSize: 11, color: C.t2, whiteSpace: "nowrap" }}>{m.unidad_medida || "unidad"}</span>
+                </button>
+              );
+            })}
+            {!candidatos.length && (
+              <div style={{ padding: 14, color: C.t2, fontSize: 12, border: `1px dashed ${C.b0}`, borderRadius: 10, textAlign: "center" }}>
+                No encontré materiales para agregar. Podés crearlo desde la pestaña Nuevo.
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 1.4fr) minmax(130px, .6fr) 92px", gap: 8 }}>
+            <input value={draft.descripcion} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} placeholder="Descripción del material" style={{ ...INP, height: 38, fontWeight: 650 }} />
+            <input value={draft.unidad_medida} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} onBlur={(e) => setDraft((d) => ({ ...d, unidad_medida: normalizeUnidadMedida(e.target.value, "unidad") }))} list="linea-add-ums" placeholder="Unidad" style={{ ...INP, height: 38 }} />
+            <input type="number" step="any" min="0" value={cantidad} onChange={(e) => setCantidad(e.target.value)} placeholder="Cant." style={{ ...INP, height: 38, fontFamily: C.mono }} />
+          </div>
+          <datalist id="linea-add-ums">
+            {ums.map((u) => <option key={u} value={u} />)}
+          </datalist>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(170px, .8fr) minmax(210px, 1fr) minmax(130px, .6fr) minmax(130px, .6fr)", gap: 8, alignItems: "center" }}>
+            <select value={draft.categoria_id || ""} onChange={(e) => setDraft((d) => ({ ...d, categoria_id: e.target.value }))} style={{ ...INP, height: 38 }}>
+              <option value="" style={OPT_ST}>Elegir rubro</option>
+              {categorias.map((c) => <option key={c.id} value={c.id} style={OPT_ST}>{categoriaNombre(categorias, c.id)}</option>)}
+            </select>
+            <ProveedorSelect
+              value={draft.proveedor_id}
+              textValue={draft.proveedor}
+              proveedores={proveedores}
+              onCreated={onChanged}
+              onChange={(id, nombre) => setDraft((d) => ({ ...d, proveedor_id: id, proveedor: nombre }))}
+            />
+            <input value={draft.codigo} onChange={(e) => setDraft((d) => ({ ...d, codigo: e.target.value }))} placeholder="Código interno" style={{ ...INP, height: 38 }} />
+            <input value={draft.codigo_barra} onChange={(e) => setDraft((d) => ({ ...d, codigo_barra: e.target.value }))} placeholder="Código de barra" style={{ ...INP, height: 38, fontFamily: C.mono }} />
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(180px, .8fr) minmax(160px, .65fr) 110px 94px", gap: 8, alignItems: "center" }}>
+            <input value={draft.alias || ""} onChange={(e) => setDraft((d) => ({ ...d, alias: e.target.value }))} placeholder="Alias / nombre corto" style={{ ...INP, height: 38 }} />
+            <input value={draft.proveedor || ""} onChange={(e) => setDraft((d) => ({ ...d, proveedor: e.target.value }))} placeholder="Proveedor texto libre" style={{ ...INP, height: 38 }} />
+            <input type="number" step="any" value={draft.precio_unitario || ""} onChange={(e) => setDraft((d) => ({ ...d, precio_unitario: e.target.value }))} placeholder="Precio" style={{ ...INP, height: 38, fontFamily: C.mono }} />
+            <select value={draft.moneda || ""} onChange={(e) => setDraft((d) => ({ ...d, moneda: e.target.value }))} style={{ ...INP, height: 38 }}>
+              {MONEDAS.map((m) => <option key={m || "null"} value={m} style={OPT_ST}>{m || "Moneda"}</option>)}
+            </select>
+          </div>
+          <VariantsEditor
+            value={variantesNuevo}
+            onChange={setVariantesNuevo}
+            precios={variantesPreciosNuevo}
+            onPreciosChange={setVariantesPreciosNuevo}
+            description={draft.descripcion}
+            proveedores={proveedores}
+            onCleanTitle={(descripcion) => setDraft((d) => ({ ...d, descripcion }))}
+          />
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, .95fr) minmax(320px, 1.05fr)", gap: 10 }}>
+            <PendingImagePicker
+              file={imageFileNuevo}
+              onChange={setImageFileNuevo}
+              imageUrl={draft.imagen_url}
+              onImageUrlChange={(imagen_url) => setDraft((d) => ({ ...d, imagen_url }))}
+            />
+            <DraftBarcodeEditor value={codigosExtraNuevo} onChange={setCodigosExtraNuevo} variantes={variantesNuevo} />
+          </div>
+          <MaterialLinksEditor value={draft.links} onChange={(links) => setDraft((d) => ({ ...d, links }))} compact />
+          <textarea value={draft.notas || ""} onChange={(e) => setDraft((d) => ({ ...d, notas: e.target.value }))} rows={2} placeholder="Observaciones reales del item" style={{ ...INP, width: "100%", resize: "vertical" }} />
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+            <button type="button" onClick={createCatalogOnly} disabled={!canCreateCatalogOnly || saving} style={{ ...BTN, height: 38, padding: "0 14px", color: C.blue, opacity: !canCreateCatalogOnly || saving ? 0.6 : 1 }} title="Crea el material sin sumarlo a ninguna matriz">
+              {saving ? "Creando..." : "Crear solo en catalogo"}
+            </button>
+            <button type="button" onClick={createAndAdd} disabled={!canSaveNew || saving} style={{ ...BTN_GREEN, height: 38, padding: "0 14px", opacity: !canSaveNew || saving ? 0.6 : 1 }}>
+              {saving ? "Creando..." : `Crear y agregar a K${linea}`}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {err && <div style={{ marginTop: 9, fontSize: 12, color: C.red }}>{err.message || "No se pudo guardar el ítem."}</div>}
+      {okMsg && <div style={{ marginTop: 9, fontSize: 12, color: C.green }}>{okMsg}</div>}
+    </div>
+  );
+}
+
+function addonTipoMeta(tipo) {
+  const opcional = tipo === "opcional";
+  const color = opcional ? C.blue : C.violet;
+  return {
+    key: opcional ? "opcional" : "adicional",
+    label: opcional ? "Opcional" : "Adicional",
+    color,
+    bg: opcional ? C.blueL : `${color}16`,
+    border: opcional ? C.blueB : `${color}44`,
+  };
+}
+
+function addonPayloadFromMaterial(material, { cantidad, tipo = "adicional", observaciones = "", imagenUrl = "" } = {}) {
+  return {
+    material_id: material?.id || null,
+    descripcion: String(material?.descripcion || "").trim(),
+    cantidad: toNum(cantidad) || 1,
+    proveedor: material?.proveedor || null,
+    tipo,
+    observaciones: String(observaciones || "").trim() || null,
+    codigo: material?.codigo || null,
+    unidad: material?.unidad_medida || null,
+    categoria_id: material?.categoria_id || null,
+    proveedor_id: material?.proveedor_id || null,
+    precio_unitario: material?.precio_unitario ?? material?.ultimo_precio?.precio_unitario ?? null,
+    moneda: material?.moneda || material?.ultimo_precio?.moneda || null,
+    imagen_url: imagenUrl || material?.imagen_url || null,
+    links: normalizeMaterialLinks(material?.links),
+    codigo_barra: material?.codigo_barra || null,
+    variantes: normalizeVariantList(material?.variantes),
+  };
+}
+
+function addonCatalogOriginNote(tipo, obraCodigo) {
+  const code = String(obraCodigo || "").trim();
+  if (!code) return "";
+  return `Fue ${tipo === "opcional" ? "opcional" : "adicional"} de ${code}.`;
+}
+
+function appendNoteOnce(value, note) {
+  const base = String(value || "").trim();
+  const clean = String(note || "").trim();
+  if (!clean) return base;
+  if (norm(base).includes(norm(clean))) return base;
+  return [base, clean].filter(Boolean).join("\n");
+}
+
+function addonPriceInfo(addon, material) {
+  if (material?.id) return priceInfo(material);
+  const amount = addon?.precio_unitario != null && addon.precio_unitario !== "" ? Number(addon.precio_unitario) : null;
+  const moneda = addon?.moneda === "USD" ? "USD" : "ARS";
+  return {
+    amount: Number.isFinite(amount) && amount > 0 ? amount : null,
+    moneda,
+    text: Number.isFinite(amount) && amount > 0 ? fmtMoney(amount, moneda) : "Sin precio",
+    proveedor: addon?.proveedor || "",
+  };
+}
+
+function addonRowToView(addon, materialById, categorias = []) {
+  const material = materialById.get(addon.material_id) || null;
+  const tipoMeta = addonTipoMeta(addon.tipo);
+  const precio = addonPriceInfo(addon, material);
+  const descripcion = material?.descripcion || addon.descripcion || "Item adicional";
+  const codigo = material?.codigo || addon.codigo || "";
+  const unidad = addon.unidad || material?.unidad_medida || "unidad";
+  const rubro = material ? categoriaNombre(categorias, material.categoria_id) : categoriaNombre(categorias, addon.categoria_id) || (addon.tipo === "opcional" ? "Opcionales" : "Adicionales");
+  const reason = reviewReasonForText(`${descripcion} ${codigo} ${addon.observaciones || ""}`);
+  return {
+    id: `addon:${addon.id}`,
+    addonId: addon.id,
+    snapshotId: addon.obra_snapshot_id || null,
+    materialId: addon.material_id || null,
+    material,
+    source: addon.obra_snapshot_id ? "adicional_obra" : "addon",
+    descripcion,
+    codigo,
+    cantidad: addon.cantidad || 1,
+    unidad,
+    proveedor: nombreProveedorVisible(precio.proveedor || material?.proveedor || addon.proveedor) || "Sin proveedor",
+    rubro,
+    precio,
+    bucket: { key: "addon", label: tipoMeta.label, color: tipoMeta.color },
+    obs: addon.observaciones || material?.notas || "",
+    imagen_url: material?.imagen_url || addon.imagen_url || "",
+    links: normalizeMaterialLinks(material?.links?.length ? material.links : addon.links),
+    variante: addon.variante || "",
+    revisado: material?.revisado ?? true,
+    review: { flag: !!reason || !!material?.review?.flag, reason: reason || material?.review?.reason || "" },
+    estadoObra: addon.estado || "pendiente",
+  };
+}
+
+function emptyAddonDraft(categorias = []) {
+  return {
+    descripcion: "",
+    alias: "",
+    codigo: "",
+    codigo_barra: "",
+    categoria_id: categorias[0]?.id || "",
+    proveedor_id: "",
+    proveedor: "",
+    unidad_medida: "unidad",
+    precio_unitario: "",
+    moneda: "",
+    imagen_url: "",
+    links: [],
+    notas: "",
+  };
+}
+
+function addonDraftFromRow(addon, categorias = []) {
+  return {
+    ...emptyAddonDraft(categorias),
+    descripcion: addon?.descripcion || "",
+    alias: addon?.alias || "",
+    codigo: addon?.codigo || "",
+    codigo_barra: addon?.codigo_barra || "",
+    categoria_id: addon?.categoria_id || categorias[0]?.id || "",
+    proveedor_id: addon?.proveedor_id || "",
+    proveedor: addon?.proveedor || "",
+    unidad_medida: addon?.unidad || addon?.unidad_medida || "unidad",
+    precio_unitario: addon?.precio_unitario ?? "",
+    moneda: addon?.moneda || "",
+    imagen_url: addon?.imagen_url || "",
+    links: normalizeMaterialLinks(addon?.links),
+    notas: addon?.notas || "",
+  };
+}
+
+function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [], categorias = [], proveedores = [], ums = [], onClose, onSaved, onChanged }) {
+  const [mode, setMode] = useState("existente");
+  const [q, setQ] = useState("");
+  const [selectedId, setSelectedId] = useState("");
+  const [cantidad, setCantidad] = useState("1");
+  const [tipo, setTipo] = useState("adicional");
+  const [targetObraId, setTargetObraId] = useState("");
+  const [observaciones, setObservaciones] = useState("");
+  const [draft, setDraft] = useState(() => emptyAddonDraft(categorias));
+  const [variantesNuevo, setVariantesNuevo] = useState([]);
+  const [codigosExtraNuevo, setCodigosExtraNuevo] = useState([]);
+  const [imageFileNuevo, setImageFileNuevo] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState(null);
+  const editing = !!addon?.id;
+
+  useEffect(() => {
+    if (!open) return;
+    setMode(!addon || addon.material_id ? "existente" : "nuevo");
+    setQ(addon?.descripcion || "");
+    setSelectedId(addon?.material_id || "");
+    setCantidad(String(addon?.cantidad ?? "1"));
+    setTipo(addon?.tipo || "adicional");
+    setTargetObraId(addon?.obra_id || obra?.id || "");
+    setObservaciones(addon?.observaciones || "");
+    setDraft(addon ? addonDraftFromRow(addon, categorias) : emptyAddonDraft(categorias));
+    setVariantesNuevo(normalizeVariantList(addon?.variantes));
+    setCodigosExtraNuevo([]);
+    setImageFileNuevo(null);
+    setErr(null);
+  }, [open, addon, categorias, obra?.id]);
+
+  const obrasDestino = useMemo(() => {
+    const map = new Map();
+    [...(obras ?? []), obra].filter(Boolean).forEach((item) => {
+      if (item?.id) map.set(item.id, item);
+    });
+    return [...map.values()].sort((a, b) => String(a.codigo || "").localeCompare(String(b.codigo || ""), "es", { numeric: true }));
+  }, [obras, obra]);
+
+  const targetObraFinalId = targetObraId || obra?.id || "";
+  const targetObra = obrasDestino.find((item) => item.id === targetObraFinalId) || obra;
+  const estadoAddon = String(addon?.estado || "").toLowerCase();
+  const moveLocked = editing && ["en_panol", "recibido", "egresado"].includes(estadoAddon);
+  const snapshotLocked = !!addon?.__snapshotLocked;
+  const originNote = addonCatalogOriginNote(tipo, targetObra?.codigo || obra?.codigo);
+
+  function addonSnapshotPatch(payload = {}) {
+    return {
+      material_id: payload.material_id || null,
+      descripcion: payload.descripcion || null,
+      codigo: payload.codigo || null,
+      cantidad: payload.cantidad || 1,
+      unidad: payload.unidad || "unidad",
+      proveedor: payload.proveedor || null,
+      rubro: rubroDeLista(categorias, payload.categoria_id) || null,
+      tipo: "addon",
+      tipo_label: addonTipoMeta(payload.tipo || tipo).label,
+      precio_unitario: payload.precio_unitario ?? null,
+      moneda: payload.moneda || null,
+      notas: payload.observaciones || null,
+      source: addon?.obra_snapshot_id ? "adicional_obra" : "addon",
+    };
+  }
+
+  async function syncAddonSnapshot(payload = {}) {
+    if (!editing || !addon?.__snapshotId || snapshotLocked) return;
+    await updateObraSnapshotRows([addon.__snapshotId], addonSnapshotPatch(payload));
+  }
+
+  async function moveAddonIfNeeded() {
+    if (!editing || !targetObraFinalId || targetObraFinalId === (addon?.obra_id || obra?.id)) return;
+    if (moveLocked || snapshotLocked) throw new Error("Este adicional ya tiene movimiento de pañol. Para moverlo hay que hacerlo desde stock/pañol y conservar el kardex.");
+    await reasignarAddon(addon.id, targetObraFinalId, {
+      materialId: addon.material_id || null,
+      fromObraId: addon.obra_id || obra?.id || null,
+      descripcion: addon.descripcion || "",
+    });
+    if (addon?.__snapshotId) {
+      await updateObraSnapshotRows([addon.__snapshotId], { obra_id: targetObraFinalId });
+    }
+  }
+
+  async function ensureMaterialOriginNote(material) {
+    if (!material?.id || !originNote) return material;
+    const nextNotas = appendNoteOnce(material.notas, originNote);
+    if (nextNotas !== String(material.notas || "").trim()) {
+      try {
+        await actualizarNotasMaterial(material.id, nextNotas);
+      } catch {
+        return material;
+      }
+    }
+    return { ...material, notas: nextNotas };
+  }
+
+  const candidatos = useMemo(() => {
+    const base = (materiales ?? []).filter(materialActivo);
+    const query = q.trim();
+    if (query.length >= 2) return topMateriales(base, query).slice(0, 10);
+    return base
+      .slice()
+      .sort((a, b) => String(a.descripcion || "").localeCompare(String(b.descripcion || ""), "es", { numeric: true }))
+      .slice(0, 10);
+  }, [materiales, q]);
+
+  const selected = candidatos.find((m) => m.id === selectedId) || materiales.find((m) => m.id === selectedId);
+  const qty = toNum(cantidad);
+  const canSaveExisting = !!selected && qty != null && qty > 0;
+  const canSaveNew = draft.descripcion.trim() && qty != null && qty > 0;
+
+  async function saveExisting() {
+    if (!canSaveExisting || saving) return;
+    setSaving(true); setErr(null);
+    try {
+      const materialConNota = await ensureMaterialOriginNote(selected);
+      const payload = addonPayloadFromMaterial(materialConNota, { cantidad, tipo, observaciones });
+      if (editing) {
+        await actualizarAddon(addon.id, payload);
+        await syncAddonSnapshot(payload);
+        await moveAddonIfNeeded();
+      } else {
+        await crearAddon(targetObraFinalId || obra.id, payload);
+      }
+      await onSaved?.();
+    } catch (e) {
+      setErr(e);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveNew() {
+    if (!canSaveNew || saving) return;
+    setSaving(true); setErr(null);
+    try {
+      const prepared = prepareMaterialDraftForSave({
+        ...draft,
+        notas: appendNoteOnce(draft.notas, originNote),
+        revisado: false,
+        origen: "addon_obra",
+      }, proveedores, variantesNuevo);
+      let materialId = addon?.material_id || null;
+      let imageUrl = draft.imagen_url || "";
+      if (materialId) {
+        await actualizarMaterialDatos({ ...prepared, id: materialId, imagen_url: imageUrl });
+      } else {
+        materialId = await crearMaterial(prepared, {});
+      }
+      if (imageFileNuevo) {
+        const uploaded = await uploadMaterialImage(materialId, imageFileNuevo);
+        imageUrl = uploaded?.url || imageUrl;
+      }
+      for (const row of codigosExtraNuevo) {
+        if (row.codigo?.trim()) await agregarCodigoBarraMaterial(materialId, row.codigo, { etiqueta: row.etiqueta, variante: row.variante || null });
+      }
+      const payload = addonPayloadFromMaterial({ ...prepared, id: materialId, imagen_url: imageUrl }, { cantidad, tipo, observaciones, imagenUrl: imageUrl });
+      if (editing) {
+        await actualizarAddon(addon.id, payload);
+        await syncAddonSnapshot(payload);
+        await moveAddonIfNeeded();
+      } else {
+        await crearAddon(targetObraFinalId || obra.id, payload);
+      }
+      await onSaved?.();
+    } catch (e) {
+      setErr(e);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!open) return null;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 5000, background: "rgba(2,6,23,.72)", backdropFilter: "blur(3px)", display: "grid", placeItems: "center", padding: 18 }}>
+      <div role="dialog" aria-modal="true" aria-label={editing ? "Editar adicional" : "Agregar adicional a la obra"} style={{ width: "min(1040px, calc(100vw - 28px))", maxHeight: "92vh", overflowY: "auto", border: `1px solid ${C.b1}`, borderRadius: 16, background: C.panelSolid, boxShadow: "0 30px 90px rgba(0,0,0,.45)" }}>
+        <div style={{ position: "sticky", top: 0, zIndex: 2, background: C.panelSolid, borderBottom: `1px solid ${C.b0}`, padding: 16, display: "flex", gap: 12, alignItems: "flex-start", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 750, color: C.t0 }}>{editing ? "Editar adicional" : "Agregar item propio"} a {obra?.codigo}</div>
+            <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>Podés elegir un material que ya esté en la lista y agregar más unidades solo para esta obra.</div>
+          </div>
+          <button type="button" onClick={onClose} style={{ ...BTN, padding: "7px 9px" }} title="Cerrar"><X size={15} /></button>
+        </div>
+
+        <div style={{ padding: 16, display: "grid", gap: 14 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", border: `1px solid ${C.b0}`, background: C.panelSolid2, borderRadius: 12, padding: 10 }}>
+            <div style={{ display: "inline-flex", gap: 3, background: C.panelSolid, border: `1px solid ${C.b0}`, borderRadius: 10, padding: 3 }}>
+              {[
+                ["nuevo", editing ? "Editar datos" : "Crear en catalogo"],
+                ["existente", editing ? "Vincular catalogo" : "Catalogo"],
+              ].map(([key, label]) => {
+                const on = mode === key;
+                return (
+                  <button key={key} type="button" onClick={() => { setMode(key); setErr(null); }} style={{ border: "none", borderRadius: 7, padding: "7px 12px", cursor: "pointer", fontSize: 12, fontWeight: 700, color: on ? "#fff" : C.t2, background: on ? C.blue : "transparent" }}>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <select value={tipo} onChange={(e) => setTipo(e.target.value)} style={{ ...INP, width: 150, height: 36 }}>
+              <option value="adicional" style={OPT_ST}>Adicional</option>
+              <option value="opcional" style={OPT_ST}>Opcional</option>
+            </select>
+            <input aria-label="Cantidad del adicional" type="number" step="any" min="0" value={cantidad} disabled={snapshotLocked} onChange={(e) => setCantidad(e.target.value)} placeholder="Cant." style={{ ...INP, width: 92, height: 36, fontFamily: C.mono }} />
+            <label style={{ display: "grid", gap: 3, flex: "1 1 210px", minWidth: 190 }}>
+              <span style={{ fontSize: 9.5, fontWeight: 700, color: C.t2, textTransform: "uppercase", letterSpacing: 0.7 }}>Obra destino</span>
+              <select
+                value={targetObraFinalId}
+                onChange={(e) => setTargetObraId(e.target.value)}
+                disabled={moveLocked || snapshotLocked}
+                style={{ ...INP, height: 36, opacity: moveLocked || snapshotLocked ? 0.65 : 1 }}
+                title={moveLocked || snapshotLocked ? "Este adicional ya tiene movimiento de pañol o compras vinculadas" : "Mover/asociar este adicional a otra obra"}
+              >
+                {obrasDestino.map((item) => (
+                  <option key={item.id} value={item.id} style={OPT_ST}>{item.codigo || "Sin codigo"}</option>
+                ))}
+              </select>
+              {moveLocked || snapshotLocked ? (
+                <span style={{ fontSize: 10.5, color: C.cyan }}>Ya tiene movimiento de pañol; mover desde stock para conservar kardex.</span>
+              ) : null}
+            </label>
+          </div>
+
+          {mode === "existente" ? (
+            <div style={{ display: "grid", gap: 10, border: `1px solid ${C.b0}`, background: C.panelSolid2, borderRadius: 12, padding: 12 }}>
+              <input autoFocus value={q} onChange={(e) => { setQ(e.target.value); setSelectedId(""); }} placeholder="Buscar material del catalogo..." style={{ ...INP, height: 38 }} />
+              <div style={{ display: "grid", gap: 7, maxHeight: 310, overflowY: "auto", paddingRight: 3 }}>
+                {candidatos.map((material) => {
+                  const on = selectedId === material.id;
+                  const precio = priceInfo(material);
+                  return (
+                    <button key={material.id} type="button" onClick={() => setSelectedId(material.id)} style={{ textAlign: "left", border: `1px solid ${on ? C.blueB : C.b0}`, background: on ? C.blueL : C.bg, color: C.t0, borderRadius: 10, padding: 10, cursor: "pointer", display: "flex", gap: 10, alignItems: "center" }}>
+                      <MaterialThumb material={material} size={42} />
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: "block", fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion}</span>
+                        <span style={{ display: "block", fontSize: 11, color: C.t2, marginTop: 2 }}>{categoriaNombre(categorias, material.categoria_id)} · {material.proveedor || "Sin proveedor"} · {material.codigo || "sin codigo"}</span>
+                      </span>
+                      <span style={{ fontFamily: C.mono, fontSize: 11, color: precio.amount ? C.t0 : C.cyan, whiteSpace: "nowrap" }}>{precio.text}</span>
+                    </button>
+                  );
+                })}
+                {!candidatos.length && (
+                  <div style={{ padding: 14, color: C.t2, fontSize: 12, border: `1px dashed ${C.b0}`, borderRadius: 10, textAlign: "center" }}>
+                    No encontre materiales. Cambia a Crear nuevo para cargarlo completo.
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: 10, border: `1px solid ${C.b0}`, background: C.panelSolid2, borderRadius: 12, padding: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 1.4fr) minmax(130px, .6fr)", gap: 8 }}>
+                <input value={draft.descripcion} onChange={(e) => setDraft((d) => ({ ...d, descripcion: e.target.value }))} placeholder="Descripcion del material" style={{ ...INP, height: 38, fontWeight: 650 }} />
+                <input value={draft.unidad_medida} onChange={(e) => setDraft((d) => ({ ...d, unidad_medida: e.target.value }))} onBlur={(e) => setDraft((d) => ({ ...d, unidad_medida: normalizeUnidadMedida(e.target.value, "unidad") }))} list="obra-addon-ums" placeholder="Unidad" style={{ ...INP, height: 38 }} />
+              </div>
+              <datalist id="obra-addon-ums">{ums.map((u) => <option key={u} value={u} />)}</datalist>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8, alignItems: "center" }}>
+                <select value={draft.categoria_id || ""} onChange={(e) => setDraft((d) => ({ ...d, categoria_id: e.target.value }))} style={{ ...INP, height: 38 }}>
+                  <option value="" style={OPT_ST}>Elegir rubro</option>
+                  {categorias.map((c) => <option key={c.id} value={c.id} style={OPT_ST}>{categoriaNombre(categorias, c.id)}</option>)}
+                </select>
+                <ProveedorSelect value={draft.proveedor_id} textValue={draft.proveedor} proveedores={proveedores} onCreated={onChanged} onChange={(id, nombre) => setDraft((d) => ({ ...d, proveedor_id: id, proveedor: nombre }))} />
+                <input value={draft.codigo} onChange={(e) => setDraft((d) => ({ ...d, codigo: e.target.value }))} placeholder="Codigo interno" style={{ ...INP, height: 38 }} />
+                <input value={draft.codigo_barra} onChange={(e) => setDraft((d) => ({ ...d, codigo_barra: e.target.value }))} placeholder="Codigo de barra" style={{ ...INP, height: 38, fontFamily: C.mono }} />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, alignItems: "center" }}>
+                <input value={draft.alias || ""} onChange={(e) => setDraft((d) => ({ ...d, alias: e.target.value }))} placeholder="Alias / nombre corto" style={{ ...INP, height: 38 }} />
+                <input value={draft.proveedor || ""} onChange={(e) => setDraft((d) => ({ ...d, proveedor: e.target.value }))} placeholder="Proveedor texto libre" style={{ ...INP, height: 38 }} />
+                <input type="number" step="any" value={draft.precio_unitario || ""} onChange={(e) => setDraft((d) => ({ ...d, precio_unitario: e.target.value }))} placeholder="Precio" style={{ ...INP, height: 38, fontFamily: C.mono }} />
+                <select value={draft.moneda || ""} onChange={(e) => setDraft((d) => ({ ...d, moneda: e.target.value }))} style={{ ...INP, height: 38 }}>
+                  {MONEDAS.map((m) => <option key={m || "null"} value={m} style={OPT_ST}>{m || "Moneda"}</option>)}
+                </select>
+              </div>
+              <VariantsEditor value={variantesNuevo} onChange={setVariantesNuevo} description={draft.descripcion} proveedores={proveedores} onCleanTitle={(descripcion) => setDraft((d) => ({ ...d, descripcion }))} />
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 10 }}>
+                <PendingImagePicker file={imageFileNuevo} onChange={setImageFileNuevo} imageUrl={draft.imagen_url} onImageUrlChange={(imagen_url) => setDraft((d) => ({ ...d, imagen_url }))} />
+                <DraftBarcodeEditor value={codigosExtraNuevo} onChange={setCodigosExtraNuevo} variantes={variantesNuevo} />
+              </div>
+              <MaterialLinksEditor value={draft.links} onChange={(links) => setDraft((d) => ({ ...d, links }))} compact />
+              <textarea value={draft.notas || ""} onChange={(e) => setDraft((d) => ({ ...d, notas: e.target.value }))} rows={2} placeholder="Observaciones reales del item" style={{ ...INP, width: "100%", resize: "vertical" }} />
+            </div>
+          )}
+
+          <textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={2} placeholder="Nota de esta obra (por que aplica, pedido del cliente, color, aclaracion)" style={{ ...INP, width: "100%", resize: "vertical" }} />
+          {err && <div style={{ fontSize: 12, color: C.red }}>{err.message || "No se pudo guardar el adicional."}</div>}
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", borderTop: `1px solid ${C.b0}`, paddingTop: 12 }}>
+            <button type="button" onClick={onClose} style={{ ...BTN, padding: "8px 13px" }}>Cancelar</button>
+            {mode === "existente" ? (
+              <button type="button" onClick={saveExisting} disabled={!canSaveExisting || saving} style={{ ...BTN_GREEN, padding: "8px 14px", opacity: !canSaveExisting || saving ? 0.6 : 1 }}>{saving ? "Guardando..." : editing ? "Guardar cambios" : "Agregar a la obra"}</button>
+            ) : (
+              <button type="button" onClick={saveNew} disabled={!canSaveNew || saving} style={{ ...BTN_GREEN, padding: "8px 14px", opacity: !canSaveNew || saving ? 0.6 : 1 }}>{saving ? "Guardando..." : editing ? "Guardar cambios" : "Crear y agregar"}</button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores, obras = [], onChanged, defaultSoloPendientes = true, compact = false, lineaFija = "", externalQuery = null, onExternalQueryChange = null, hideSearch = false }) {
+  const [soloPendientes, setSoloPendientes] = useState(defaultSoloPendientes);
+  const [q, setQ] = useState("");
+  const searchValue = externalQuery ?? q;
+  const deferredSearchValue = useDeferredValue(searchValue);
+  const setSearchValue = onExternalQueryChange ?? setQ;
+  const [renderState, setRenderState] = useState({ key: "", limit: CATALOG_INITIAL_RENDER });
+  // Stock libre de pañol (sin obra asignada) por material, para verlo en el catálogo
+  // antes de comprar. Un solo fetch por montaje; si falla, simplemente no se muestra.
+  const [stockLibre, setStockLibre] = useState(() => new Map());
+  useEffect(() => {
+    let alive = true;
+    fetchStockLibrePanolMateriales()
+      .then((rows) => { if (alive) setStockLibre(new Map((rows ?? []).map((r) => [r.key, r]))); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  const stockInfoFor = (m) => stockLibre.get(`material:${m.id}`)
+    || stockLibre.get(`text:${norm(`${m.descripcion || ""}|${m.codigo || ""}|${m.unidad_medida || ""}`)}`)
+    || null;
+  const [lineaState, setLineaState] = useState(""); // "" = todas las líneas
+  const [prov, setProv] = useState(""); // "" = todos. Guarda el id de panol_proveedores.
+  const [proveedorTipo, setProveedorTipo] = useState("todos");
+  const [rubro, setRubro] = useState("");
+  const [consumFiltro, setConsumFiltro] = useState("todos"); // todos | sin | solo
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [, startLineaTransition] = useTransition();
+  const linea = lineaFija || lineaState;
+  const deferredLinea = useDeferredValue(linea);
+  const lineaLista = lineaFija || deferredLinea;
+  const lineaPendiente = linea !== lineaLista;
+  // La lista sale de la tabla de Proveedores (no se infiere de los materiales).
+  const provs = useMemo(
+    () => (proveedores ?? []).filter((p) => p.activo !== false).slice().sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "", "es")),
+    [proveedores],
+  );
+  const rubrosFiltro = useMemo(
+    () => (categorias ?? []).slice().sort((a, b) => categoriaNombre(categorias, a.id).localeCompare(categoriaNombre(categorias, b.id), "es")),
+    [categorias],
+  );
+
+  const visibles = useMemo(() => {
+    // Buscador: ignora acentos y exige TODAS las palabras (AND), en descripción/proveedor/código.
+    const scope = selectedId ? idsScope(categorias, selectedId) : null;
+    const rubroScope = rubro ? idsScope(categorias, rubro) : null;
+    // Proveedor: matchea por id; si el material sólo tiene el texto, cae al nombre.
+    const provNombre = prov ? norm((proveedores ?? []).find((p) => p.id === prov)?.nombre || "") : "";
+    return materiales
+      .filter(materialActivo)
+      .filter((m) => !scope || materialEnScope(m, scope))
+      .filter((m) => !rubroScope || materialEnScope(m, rubroScope))
+      .filter((m) => !lineaLista || toNum(toBomMap(m)[lineaLista]) > 0) // solo los que van en esa línea
+      .filter((m) => !prov || m.proveedor_id === prov || (provNombre && norm(m.proveedor) === provNombre))
+      .filter((m) => proveedorTipo === "todos" || proveedorMeta(m.proveedor, proveedores)?.tipo === proveedorTipo)
+      .filter((m) => consumFiltro === "todos" || (consumFiltro === "solo" ? m.es_consumible : !m.es_consumible))
+      .filter((m) => !soloPendientes || !priceInfo(m).amount)
+      .filter((m) => matchesFlexibleSearch(deferredSearchValue, ...materialSearchFields(m)))
+      // Consumibles al fondo (no molestan entre los ítems del barco). Sort estable: mantiene el orden por descripción dentro de cada grupo.
+      .sort((a, b) => (a.es_consumible ? 1 : 0) - (b.es_consumible ? 1 : 0));
+  }, [materiales, categorias, deferredSearchValue, selectedId, soloPendientes, lineaLista, prov, proveedores, rubro, proveedorTipo, consumFiltro]);
+
+  const renderFilterKey = `${deferredSearchValue}|${selectedId}|${soloPendientes}|${lineaLista}|${prov}|${rubro}|${proveedorTipo}|${consumFiltro}`;
+  const effectiveRenderLimit = renderState.key === renderFilterKey ? renderState.limit : CATALOG_INITIAL_RENDER;
+  const renderedVisibles = useMemo(() => visibles.slice(0, effectiveRenderLimit), [visibles, effectiveRenderLimit]);
+  const hiddenVisibleCount = Math.max(0, visibles.length - renderedVisibles.length);
+
+  // Si se filtra por una línea, mostramos solo esa columna de cantidad (más prolijo y angosto).
+  const modelos = lineaLista ? [lineaLista] : MODELOS;
+
+  // Scroll horizontal con la rueda normal (sin Shift): mientras haya para correr en esa
+  // dirección lo consume; al llegar al borde, suelta para que la página scrollee vertical.
+  const scrollRef = useRef(null);
+  const onWheel = (e) => {
+    const el = scrollRef.current;
+    if (!el || e.deltaY === 0 || e.shiftKey) return;
+    const max = el.scrollWidth - el.clientWidth;
+    if (max <= 0) return;
+    const atStart = el.scrollLeft <= 0;
+    const atEnd = el.scrollLeft >= max - 1;
+    if ((e.deltaY > 0 && !atEnd) || (e.deltaY < 0 && !atStart)) {
+      el.scrollLeft += e.deltaY;
+      e.preventDefault();
+    }
+  };
+
+  const activeFilterCount = [
+    linea && !lineaFija,
+    prov,
+    proveedorTipo !== "todos",
+    rubro,
+    consumFiltro !== "todos",
+    soloPendientes,
+  ].filter(Boolean).length;
+  const listaTransitionKey = `${lineaLista || "todas"}:${selectedId || "catalogo"}`;
+  const cambiarLinea = useCallback((next) => {
+    startLineaTransition(() => setLineaState(next));
+  }, [startLineaTransition]);
+
+  const segmentStyle = (on) => ({
+    border: "none",
+    borderRadius: 9,
+    padding: "8px 13px",
+    cursor: "pointer",
+    fontSize: 12.5,
+    fontWeight: 700,
+    fontFamily: C.sans,
+    background: on ? C.blue : "transparent",
+    color: on ? "#fff" : C.t2,
+    boxShadow: on ? "0 8px 18px -14px rgba(37,99,235,0.75)" : "none",
+  });
+
+  const filterControls = (
+    <>
+      <select value={prov} onChange={(e) => setProv(e.target.value)} style={{ ...INP, width: 190, maxWidth: "44vw", height: 40, borderRadius: 10 }} title="Filtrar por proveedor">
+        <option value="" style={OPT_ST}>Todos los proveedores</option>
+        {provs.map((p) => <option key={p.id} value={p.id} style={OPT_ST}>{p.nombre}</option>)}
+      </select>
+      <ProveedorTipoFilter value={proveedorTipo} onChange={setProveedorTipo} style={{ ...INP, width: 190, maxWidth: "44vw", height: 40, borderRadius: 10 }} />
+      <select value={rubro} onChange={(e) => setRubro(e.target.value)} style={{ ...INP, width: 190, maxWidth: "44vw", height: 40, borderRadius: 10 }} title="Filtrar por rubro">
+        <option value="" style={OPT_ST}>Todos los rubros</option>
+        {rubrosFiltro.map((c) => <option key={c.id} value={c.id} style={OPT_ST}>{categoriaNombre(categorias, c.id)}</option>)}
+      </select>
+      <select value={consumFiltro} onChange={(e) => setConsumFiltro(e.target.value)} style={{ ...INP, width: 185, maxWidth: "44vw", height: 40, borderRadius: 10 }} title="Consumibles">
+        <option value="todos" style={OPT_ST}>Consumibles: al fondo</option>
+        <option value="sin" style={OPT_ST}>Sin consumibles</option>
+        <option value="solo" style={OPT_ST}>Solo consumibles</option>
+      </select>
+      <button type="button" onClick={() => setSoloPendientes((v) => !v)} title="Mostrar solo items sin precio"
+        style={{ ...BTN, height: 40, padding: "0 13px", borderRadius: 10, display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${soloPendientes ? C.cyanB : C.b0}`, background: soloPendientes ? C.cyanL : C.s0, color: soloPendientes ? C.cyan : C.t1, fontSize: 12.5, fontWeight: 700 }}>
+        <span style={{ width: 16, height: 16, borderRadius: 6, border: `1px solid ${soloPendientes ? C.cyan : C.b1}`, background: soloPendientes ? C.cyan : "transparent", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#111827", fontSize: 11, lineHeight: 1 }}>{soloPendientes ? "✓" : ""}</span>
+        Solo sin precio
+      </button>
+    </>
+  );
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: hideSearch && advancedOpen ? 8 : 16, padding: hideSearch ? 10 : "11px 13px", background: hideSearch ? "color-mix(in srgb, var(--panel) 84%, transparent)" : "var(--panel)", border: `1px solid ${C.b0}`, borderRadius: 14, boxShadow: hideSearch ? "0 10px 28px -26px rgba(15,23,42,0.75)" : "0 1px 3px rgba(0,0,0,0.05)", backdropFilter: hideSearch ? "blur(10px)" : undefined }}>
+        {!hideSearch && <div style={{ position: "relative", minWidth: 220, flex: "1 1 280px" }}>
+          <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
+          <input value={searchValue} onChange={(e) => setSearchValue(e.target.value)} placeholder="Buscar nombre, código, observaciones o #tag…" style={{ ...INP, width: "100%", height: 40, paddingLeft: 36, borderRadius: 10 }} />
+          {searchValue && <button type="button" onClick={() => setSearchValue("")} title="Limpiar" style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: C.t2, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 3 }}>✕</button>}
+        </div>}
+        {!lineaFija && <div style={{ display: "inline-flex", gap: 3, background: C.bg, border: `1px solid ${C.b0}`, borderRadius: 12, padding: 4, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.025)" }}>
+          {[["", "Todas"], ...MODELOS.map((m) => [m, `K${m}`])].map(([val, label]) => {
+            const on = linea === val;
+            return (
+              <button type="button" key={val || "all"} onClick={() => cambiarLinea(val)} title={val ? `Solo materiales de la línea K${val}` : "Todas las líneas"}
+                style={segmentStyle(on)}>
+                {label}
+              </button>
+            );
+          })}
+        </div>}
+        {hideSearch ? (
+          <button
+            type="button"
+            onClick={() => setAdvancedOpen((open) => !open)}
+            style={{ ...BTN, height: 40, padding: "0 13px", borderRadius: 11, color: advancedOpen || activeFilterCount ? C.blue : C.t1, border: `1px solid ${advancedOpen || activeFilterCount ? C.blueB : C.b0}`, background: advancedOpen || activeFilterCount ? C.blueL : C.s0, fontWeight: 700 }}
+            title="Proveedor, tipo, rubro, consumibles y sin precio"
+          >
+            <SlidersHorizontal size={14} /> Filtros
+            {activeFilterCount ? <span style={{ fontFamily: C.mono, color: C.blue }}>{activeFilterCount}</span> : null}
+          </button>
+        ) : (<>
+        <select value={prov} onChange={(e) => setProv(e.target.value)} style={{ ...INP, width: 180, maxWidth: "40vw", height: 40, borderRadius: 10 }} title="Filtrar por proveedor">
+          <option value="" style={OPT_ST}>Todos los proveedores</option>
+          {provs.map((p) => <option key={p.id} value={p.id} style={OPT_ST}>{p.nombre}</option>)}
+        </select>
+        <ProveedorTipoFilter value={proveedorTipo} onChange={setProveedorTipo} style={{ ...INP, width: 190, maxWidth: "44vw", height: 40, borderRadius: 10 }} />
+        <select value={rubro} onChange={(e) => setRubro(e.target.value)} style={{ ...INP, width: 180, maxWidth: "40vw", height: 40, borderRadius: 10 }} title="Filtrar por rubro">
+          <option value="" style={OPT_ST}>Todos los rubros</option>
+          {rubrosFiltro.map((c) => <option key={c.id} value={c.id} style={OPT_ST}>{categoriaNombre(categorias, c.id)}</option>)}
+        </select>
+        <select value={consumFiltro} onChange={(e) => setConsumFiltro(e.target.value)} style={{ ...INP, width: 175, maxWidth: "40vw", height: 40, borderRadius: 10 }} title="Consumibles">
+          <option value="todos" style={OPT_ST}>Consumibles: al fondo</option>
+          <option value="sin" style={OPT_ST}>Sin consumibles</option>
+          <option value="solo" style={OPT_ST}>Solo consumibles</option>
+        </select>
+        <button type="button" onClick={() => setSoloPendientes((v) => !v)} title="Mostrar solo items sin precio"
+          style={{ ...BTN, height: 40, padding: "0 13px", borderRadius: 10, display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${soloPendientes ? "rgba(34,211,238,0.45)" : C.b0}`, background: soloPendientes ? "rgba(34,211,238,0.12)" : C.s0, color: soloPendientes ? C.cyan : C.t1, fontSize: 12.5, fontWeight: 600 }}>
+          <span style={{ width: 15, height: 15, borderRadius: 5, border: `1px solid ${soloPendientes ? C.cyan : C.b1}`, background: soloPendientes ? C.cyan : "transparent", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#000", fontSize: 11, lineHeight: 1 }}>{soloPendientes ? "✓" : ""}</span>
+          Sólo sin precio
+        </button>
+        </>)}
+        <span style={{ marginLeft: "auto", fontFamily: C.mono, fontSize: 12, fontWeight: 600, color: C.t1, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "6px 12px", whiteSpace: "nowrap" }}>
+          {visibles.length} ítems{lineaLista ? ` · K${lineaLista}` : ""}{lineaPendiente ? " · actualizando..." : ""}
+        </span>
+      </div>
+
+      {hideSearch && advancedOpen && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 16, padding: 11, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 14 }}>
+          {filterControls}
+        </div>
+      )}
+
+      {lineaFija && <PrepararCompra items={visibles} linea={lineaFija} categorias={categorias} />}
+
+      <div key={listaTransitionKey} className="materiales-list-transition">
+      {compact ? (
+        <div>
+          {renderedVisibles.map((material) => (
+            <MaterialFila key={material.id} material={material} categorias={categorias} ums={ums} proveedores={proveedores} obras={obras} onChanged={onChanged} linea={lineaLista} stockInfo={stockInfoFor(material)} />
+          ))}
+          {!visibles.length && (
+            <div style={{ padding: 18, fontSize: 13, color: C.t2, textAlign: "center", border: `1px solid ${C.b0}`, borderRadius: 12 }}>No hay materiales con esos filtros.</div>
+          )}
+        </div>
+      ) : (
+      <div ref={scrollRef} onWheel={onWheel} style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 12 }}>
+        <table style={{ width: "100%", minWidth: (compact ? 820 : 1252) + modelos.length * 76, borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              {!compact && <Th>Imagen</Th>}
+              <Th>Descripción</Th>
+              <Th>Proveedor</Th>
+              {!compact && <Th>?ltimo precio</Th>}
+              <Th>UM</Th>
+              <Th>Precio</Th>
+              <Th>Moneda</Th>
+              <Th>Código</Th>
+              {modelos.map((m) => <Th key={m}>K{m}</Th>)}
+              <Th>Sector</Th>
+              {!compact && <Th>Estado</Th>}
+              <Th>Acción</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {renderedVisibles.map((material) => (
+              <MaterialRow key={material.id} material={material} categorias={categorias} ums={ums} proveedores={proveedores} onChanged={onChanged} modelos={modelos} compact={compact} />
+            ))}
+            {!visibles.length && (
+              <tr>
+                <td colSpan={(compact ? 8 : 11) + modelos.length} style={{ padding: 18, fontSize: 13, color: C.t2, textAlign: "center" }}>
+                  No hay materiales con esos filtros.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+      )}
+      </div>
+      <MaterialLoadMore
+        hiddenCount={hiddenVisibleCount}
+        batchSize={CATALOG_RENDER_BATCH}
+        onMore={() => setRenderState((current) => ({
+          key: renderFilterKey,
+          limit: (current.key === renderFilterKey ? current.limit : CATALOG_INITIAL_RENDER) + CATALOG_RENDER_BATCH,
+        }))}
+      />
+    </div>
+  );
+}
+
+// Cargar presupuesto (texto pegado o archivo PDF/foto) con IA, matchear cada ítem
+// contra la lista matriz y: si coincide → actualizar su precio; si no → crear en el
+// sector/subsector actual. Todo dentro de la Revisión guiada.
+// Selector de sector/subsector (para asignar el destino de un ítem).
+// Los <optgroup> nativos NO respetan el color en Chrome/Windows → títulos ilegibles en
+// tema oscuro. Por eso evitamos optgroup y usamos opciones planas (sí respetan el style),
+// con el sector padre en negrita y los subsectores con el path completo.
+const OPT_ST = { background: C.panelSolid, color: C.t0 };
+const OPT_HEAD = { background: C.panelSolid, color: C.t0, fontWeight: 650 };
+
+function SectorPicker({ categorias, value, onChange, invalid }) {
+  const raices = categorias.filter(esRaiz);
+  return (
+    <select
+      value={value || ""}
+      onChange={(e) => onChange(e.target.value)}
+      style={{ ...INP, flex: 1, fontSize: 12, border: `1px solid ${invalid ? C.red : C.b0}` }}
+    >
+      <option value="" style={OPT_ST}>— Elegir sector —</option>
+      {raices.flatMap((r) => [
+        <option key={r.id} value={r.id} style={OPT_HEAD}>{r.nombre}</option>,
+        ...hijosDe(categorias, r.id).map((s) => (
+          <option key={s.id} value={s.id} style={OPT_ST}>{"   "}{r.nombre} › {s.nombre}</option>
+        )),
+      ])}
+    </select>
+  );
+}
+
+// Buscador por ítem para vincular con un material del catálogo aunque se llame distinto y
+// la IA no lo haya detectado. Busca en TODO el catálogo (no solo en las sugerencias de la IA).
+function VincularItem({ activos, categorias, item, onChange, soloPrecios = false }) {
+  const [q, setQ] = useState("");
+  const sel = activos.find((m) => m.id === item.material_id);
+  const query = q.trim();
+  const resultados = useMemo(() => {
+    if (sel) return [];
+    return topMateriales(activos, query.length >= 2 ? query : item.descripcion).slice(0, 6);
+  }, [activos, item, query, sel]);
+
+  return (
+    <div style={{ marginTop: 7 }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <span style={{ fontSize: 11, color: C.t2, minWidth: 78 }}>Vincular</span>
+        {sel ? (
+          <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+            <div style={{ flex: 1, fontSize: 12, color: C.green, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              ✓ {sel.descripcion} <span style={{ color: C.t2, fontWeight: 400 }}>· {categoriaNombre(categorias, sel.categoria_id)}</span>
+            </div>
+            <button type="button" onClick={() => { onChange(""); setQ(""); }} style={{ ...BTN, padding: "5px 10px", whiteSpace: "nowrap" }}>Cambiar</button>
+          </div>
+        ) : (
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ðŸ” Buscar un material del catálogo para vincular (si la IA no lo encontró)…" style={{ ...INP, flex: 1, fontSize: 12 }} />
+        )}
+        <span style={{ fontSize: 11, color: sel ? C.green : C.cyan, fontWeight: 600, whiteSpace: "nowrap", minWidth: 104, textAlign: "right" }}>
+          {sel ? "actualiza precio" : soloPrecios ? "vincular" : "crea uno nuevo"}
+        </span>
+      </div>
+      {!sel && resultados.length > 0 && (
+        <div style={{ display: "grid", gap: 3, marginTop: 5, marginLeft: 86 }}>
+          {resultados.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={() => { onChange(m.id); setQ(""); }}
+              style={{ textAlign: "left", background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 7, padding: "6px 10px", color: C.t1, cursor: "pointer", fontSize: 12, display: "flex", justifyContent: "space-between", gap: 10 }}
+            >
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.descripcion}</span>
+              <span style={{ color: C.t2, whiteSpace: "nowrap" }}>{categoriaNombre(categorias, m.categoria_id)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const PRESUP_DRAFT_KEY = "klasea:presupuesto-draft";
+const PRECIOS_DRAFT_KEY = "klasea:precios-draft";
+
+function CargarPresupuestoModal({ categorias, materiales, onChanged, onClose, soloPrecios = false }) {
+  const [texto, setTexto] = useState("");
+  const [file, setFile] = useState(null);
+  const [leyendo, setLeyendo] = useState(false);
+  const [items, setItems] = useState(null);
+  const [proveedor, setProveedor] = useState("");
+  const [linea, setLinea] = useState("");
+  const [aplicando, setAplicando] = useState(false);
+  const [resultado, setResultado] = useState(null);
+  const [restaurado, setRestaurado] = useState(false);
+  const [err, setErr] = useState(null);
+  const fileRef = useRef(null);
+  const draftKey = soloPrecios ? PRECIOS_DRAFT_KEY : PRESUP_DRAFT_KEY;
+  const activos = useMemo(() => materiales.filter(materialActivo), [materiales]);
+  const nombresSectores = useMemo(() => categorias.map((c) => c.nombre), [categorias]);
+
+  // Borrador persistente: si cerrás, clickeás afuera o recargás, no se pierde lo cargado.
+  useEffect(() => {
+    try {
+      const d = JSON.parse(localStorage.getItem(draftKey) || "null");
+      if (d && (d.texto || (Array.isArray(d.items) && d.items.length))) {
+        if (d.texto) setTexto(d.texto);
+        if (d.proveedor) setProveedor(d.proveedor);
+        if (d.linea) setLinea(d.linea);
+        if (Array.isArray(d.items) && d.items.length) { setItems(d.items); setRestaurado(true); }
+      }
+    } catch { /* ignore */ }
+  }, [draftKey]);
+  useEffect(() => {
+    if (resultado) return; // ya se aplicó; no re-guardar
+    try { localStorage.setItem(draftKey, JSON.stringify({ texto, proveedor, linea, items })); } catch { /* ignore */ }
+  }, [texto, proveedor, linea, items, resultado, draftKey]);
+  const limpiarBorrador = () => { try { localStorage.removeItem(draftKey); } catch { /* ignore */ } };
+  function descartar() {
+    if (!window.confirm("¿Descartar el presupuesto en curso y empezar de cero?")) return;
+    limpiarBorrador();
+    setTexto(""); setFile(null); setItems(null); setProveedor(""); setLinea(""); setErr(null); setRestaurado(false);
+  }
+
+  async function leer() {
+    if (!texto.trim() && !file) { setErr(new Error("Pegá el texto del presupuesto o subí un archivo.")); return; }
+    setLeyendo(true); setErr(null); setResultado(null);
+    try {
+      const data = await leerPresupuestoConIA({ text: texto, file, sectores: nombresSectores });
+      setProveedor(data.proveedor || "");
+      const parsed = (data.items || []).map((it) => {
+        const material_id = bestMatchId(activos, it.descripcion || "");
+        const mat = activos.find((m) => m.id === material_id);
+        // El destino: si matchea un material, hereda su sector; si no, el que sugirió la IA.
+        const _catId = mat ? mat.categoria_id : catIdPorNombre(categorias, it.sector);
+        // Backstop de precio, SOLO HACIA ARRIBA: el error de formato (coma decimal) hace que el
+        // precio se lea más chico de lo real (33 en vez de 33.000), nunca más grande. Si el
+        // importe/cantidad da claramente MÁS que el precio leído, lo subimos; nunca bajamos un
+        // precio ya leído (eso "dividía" precios correctos cuando la IA leía mal el importe).
+        const cant = toNum(it.cantidad);
+        const total = toNum(it.total);
+        let precio = it.precio_unitario ?? "";
+        const leido = toNum(precio);
+        if (cant && cant > 1 && total != null && total > 0) {
+          const calc = total / cant;
+          if (leido == null || calc > leido * 1.5) {
+            precio = String(Math.round(calc * 100) / 100);
+          }
+        }
+        return {
+          descripcion: it.descripcion || "",
+          cantidad: it.cantidad ?? "",
+          precio_unitario: precio,
+          moneda: it.moneda || "ARS",
+          material_id,
+          _catId,
+        };
+      });
+      setItems(parsed);
+      if (!parsed.length) setErr(new Error("La IA no encontró ítems. Probá con más detalle o un archivo."));
+    } catch (e) { setErr(e); } finally { setLeyendo(false); }
+  }
+
+  const setItem = (idx, patch) => setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+  const quitar = (idx) => setItems((prev) => prev.filter((_, i) => i !== idx));
+
+  // Inválido: es "crear nuevo" (sin match) y no tiene sector asignado.
+  const faltaSector = (it) => !it.material_id && it.descripcion.trim() && !it._catId;
+  const faltaVinculo = (it) => soloPrecios && it.descripcion.trim() && !it.material_id;
+  const precioValido = (it) => toNum(it.precio_unitario) != null;
+
+  async function aplicar() {
+    if (soloPrecios) {
+      const aplicables = items.filter((it) => it.material_id && precioValido(it));
+      if (!aplicables.length) {
+        setErr(new Error("No hay precios listos para aplicar. Vinculá al menos un ítem del comprobante con un material existente y cargale precio."));
+        return;
+      }
+      setAplicando(true); setErr(null);
+      let actualizados = 0;
+      try {
+        for (const it of aplicables) {
+          await aplicarPrecioMaterial(it.material_id, { precio: it.precio_unitario, moneda: it.moneda, proveedor });
+          actualizados += 1;
+        }
+        setResultado({ actualizados, omitidos: items.length - actualizados, soloPrecios: true });
+        limpiarBorrador();
+        await onChanged?.();
+      } catch (e) { setErr(e); } finally { setAplicando(false); }
+      return;
+    }
+    if (items.some(faltaSector)) { setErr(new Error("Asigná sector a los ítems marcados en rojo antes de aplicar.")); return; }
+    setAplicando(true); setErr(null);
+    let actualizados = 0, creados = 0, movidos = 0, bom = 0;
+    try {
+      for (const it of items) {
+        if (!it.descripcion.trim()) continue;
+        let materialId = it.material_id;
+        if (materialId) {
+          const mat = activos.find((m) => m.id === materialId);
+          const corregir = it._catId && mat && mat.categoria_id !== it._catId ? it._catId : null;
+          await aplicarPrecioMaterial(materialId, { precio: it.precio_unitario, moneda: it.moneda, proveedor, categoria_id: corregir });
+          actualizados += 1;
+          if (corregir) movidos += 1;
+        } else if (it._catId) {
+          materialId = await crearMaterial({
+            categoria_id: it._catId,
+            descripcion: it.descripcion.trim(),
+            precio_unitario: toNum(it.precio_unitario),
+            moneda: it.moneda,
+            proveedor: proveedor || "",
+            revisado: false,
+          });
+          creados += 1;
+        } else continue;
+        if (linea && materialId && toNum(it.cantidad) != null) {
+          await setCantidadModelo(materialId, linea, it.cantidad);
+          bom += 1;
+        }
+      }
+      setResultado({ actualizados, creados, movidos, bom });
+      limpiarBorrador();
+      await onChanged?.();
+    } catch (e) { setErr(e); } finally { setAplicando(false); }
+  }
+
+  // Crea una subdivisión (subsector) bajo el sector raíz del ítem, sin salir del modal.
+  async function crearSubsectorPara(idx) {
+    const cat = categorias.find((c) => c.id === items[idx]._catId);
+    const raizId = cat ? (cat.parent_id || cat.id) : null;
+    if (!raizId) { setErr(new Error("Elegí primero un sector para crearle una subdivisión.")); return; }
+    const raiz = categorias.find((c) => c.id === raizId);
+    const nombre = window.prompt(`Nueva subdivisión de "${raiz?.nombre || "sector"}":`);
+    if (!nombre || !nombre.trim()) return;
+    try {
+      setErr(null);
+      const nueva = await crearCategoria(nombre, { parentId: raizId, orden: hijosDe(categorias, raizId).length });
+      setItem(idx, { _catId: nueva.id });
+      await onChanged?.();
+    } catch (e) { setErr(e); }
+  }
+
+  const coinciden = items?.filter((it) => it.material_id).length ?? 0;
+  const nuevos = items?.filter((it) => !it.material_id && it.descripcion.trim()).length ?? 0;
+  const sinSector = items?.filter(faltaSector).length ?? 0;
+  const sinVinculo = items?.filter(faltaVinculo).length ?? 0;
+  const listosPrecio = items?.filter((it) => it.material_id && precioValido(it)).length ?? 0;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 2200, background: "rgba(0,0,0,0.66)", backdropFilter: "blur(4px)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "3vh 12px", overflowY: "auto" }}>
+      <div style={{ background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 16, padding: 22, width: "min(1180px, 97vw)", maxHeight: "94vh", overflowY: "auto" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ fontSize: 17, fontWeight: 650, color: C.t0 }}>{soloPrecios ? "Cargar precios" : "Cargar presupuesto"}</div>
+            {restaurado && !resultado && <span style={{ fontSize: 10.5, color: "#a78bfa", background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 6, padding: "2px 8px", fontWeight: 600 }}>● borrador restaurado</span>}
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {(items || texto) && !resultado && <button type="button" onClick={descartar} style={{ ...BTN, padding: "4px 10px", color: C.red }}>Descartar</button>}
+            <button type="button" onClick={onClose} style={{ ...BTN, padding: "4px 9px" }} title="Cerrar — el borrador se guarda y lo recuperás al volver">✕</button>
+          </div>
+        </div>
+        <div style={{ fontSize: 12, color: C.t2, marginBottom: 14 }}>
+          {soloPrecios
+            ? "Leé un PDF, foto o texto con IA, vinculá cada renglón con un material existente y aplicá solo precios. Lo no vinculado queda omitido: no crea materiales nuevos."
+            : "Lo que coincide con la matriz actualiza su precio; lo nuevo lo clasifica la IA por sector (lo confirmás vos). Se guarda un borrador automático: si cerrás sin querer, lo recuperás al volver a abrir."}
+        </div>
+
+        {err && <div style={{ marginBottom: 12 }}><ErrorBox error={err} onRetry={() => setErr(null)} /></div>}
+
+        {resultado ? (
+          <div style={{ background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 12, padding: 18, textAlign: "center" }}>
+            <div style={{ fontSize: 15, color: C.green, fontWeight: 600 }}>{soloPrecios ? "Precios cargados" : "Presupuesto cargado"} ✓</div>
+            <div style={{ fontSize: 13, color: C.t1, marginTop: 6 }}>
+              {resultado.actualizados} precios actualizados
+              {soloPrecios && resultado.omitidos ? ` · ${resultado.omitidos} omitidos sin vínculo/precio` : ""}
+              {!soloPrecios && resultado.creados ? ` · ${resultado.creados} creados` : ""}
+              {!soloPrecios && resultado.movidos ? ` · ${resultado.movidos} reasignados de sector` : ""}
+              {!soloPrecios && resultado.bom ? ` · ${resultado.bom} cantidades cargadas a la línea` : ""}.
+            </div>
+            <button type="button" onClick={onClose} style={{ ...BTN_PRIMARY, marginTop: 14 }}>Listo</button>
+          </div>
+        ) : items === null ? (
+          <>
+            <textarea
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+              placeholder={"Pegá acá el texto del presupuesto…\nEj:\nBow thruster Side-Power 12V   1u   US$ 1.250\nCable 2.5mm rollo   x3   $45.000\nFiltro Racor combustible   2u   US$ 38"}
+              style={{ ...INP, width: "100%", minHeight: 160, resize: "vertical", fontFamily: C.mono, fontSize: 12.5, lineHeight: 1.5 }}
+            />
+            <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "12px 0", color: C.t2, fontSize: 12 }}>
+              <div style={{ flex: 1, height: 1, background: C.b0 }} /> o subí un archivo <div style={{ flex: 1, height: 1, background: C.b0 }} />
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button type="button" onClick={() => fileRef.current?.click()} style={BTN}><Upload size={14} /> {file ? "Cambiar archivo" : "PDF o foto"}</button>
+              {file && <span style={{ fontSize: 12, color: C.t1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</span>}
+              <input ref={fileRef} type="file" accept="image/*,application/pdf" style={{ display: "none" }} onChange={(e) => setFile(e.target.files?.[0] || null)} />
+              <div style={{ flex: 1 }} />
+              <button type="button" onClick={leer} disabled={leyendo} style={{ ...BTN_PRIMARY, opacity: leyendo ? 0.6 : 1 }}>
+                {leyendo ? "Leyendo con IA…" : "Leer con IA"}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12, color: C.t2 }}>Proveedor:</span>
+              <input value={proveedor} onChange={(e) => setProveedor(e.target.value)} placeholder="Proveedor" style={{ ...INP, width: 190 }} />
+              {!soloPrecios && (
+                <>
+                  <span style={{ fontSize: 12, color: C.t2, marginLeft: 6 }}>Línea de producción:</span>
+                  <select value={linea} onChange={(e) => setLinea(e.target.value)} style={{ ...INP, width: 140 }}>
+                    <option value="">— Sin línea —</option>
+                    {MODELOS.map((m) => <option key={m} value={m}>K{m}</option>)}
+                  </select>
+                </>
+              )}
+              <div style={{ flex: 1 }} />
+              <span style={{ fontSize: 11, color: C.t2, fontFamily: C.mono }}>
+                {soloPrecios ? `${listosPrecio} listos · ${sinVinculo} sin vincular` : `${coinciden} coinciden · ${nuevos} nuevos${sinSector ? ` · ${sinSector} sin sector` : ""}`}
+              </span>
+            </div>
+            <div style={{ fontSize: 11, color: linea ? "#a78bfa" : C.t2, marginBottom: 10 }}>
+              {soloPrecios
+                ? "Revisá los matches sugeridos por la IA. Si el material no es el correcto, tocá Cambiar y vinculalo manualmente antes de aplicar."
+                : linea ? `Las cantidades se cargan al BOM de la línea K${linea} (alimenta el Costo de obra de esa línea).` : "Sin línea: solo se crean/actualizan materiales y precios; las cantidades no se guardan."}
+            </div>
+
+            <div style={{ display: "grid", gap: 8, maxHeight: "58vh", overflowY: "auto", paddingRight: 4 }}>
+              {items.map((it, idx) => {
+                const malSector = faltaSector(it);
+                const malVinculo = faltaVinculo(it);
+                return (
+                  <div key={idx} style={{ border: `1px solid ${malSector || malVinculo ? "rgba(239,68,68,0.5)" : it.material_id ? "rgba(16,185,129,0.3)" : C.b0}`, borderRadius: 10, padding: 10, background: C.s0 }}>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <input value={it.descripcion} onChange={(e) => setItem(idx, { descripcion: e.target.value })} style={{ ...INP, flex: 1, fontWeight: 600 }} />
+                      <input value={it.cantidad} onChange={(e) => setItem(idx, { cantidad: e.target.value })} placeholder="Cant" type="number" step="any" title="Cantidad para el BOM de la línea" style={{ ...INP, width: 62, fontFamily: C.mono }} />
+                      <input value={it.precio_unitario} onChange={(e) => setItem(idx, { precio_unitario: e.target.value })} placeholder="Precio" type="number" step="any" style={{ ...INP, width: 100, fontFamily: C.mono }} />
+                      <select value={it.moneda} onChange={(e) => setItem(idx, { moneda: e.target.value })} style={{ ...INP, width: 72 }}>
+                        <option value="ARS">ARS</option>
+                        <option value="USD">USD</option>
+                      </select>
+                      <button type="button" onClick={() => quitar(idx)} title="Quitar" style={{ ...BTN, padding: "6px 8px", color: C.red }}>✕</button>
+                    </div>
+                    <VincularItem
+                      activos={activos}
+                      categorias={categorias}
+                      item={it}
+                      onChange={(mid) => {
+                        const mat = activos.find((m) => m.id === mid);
+                        setItem(idx, mat ? { material_id: mid, _catId: mat.categoria_id } : { material_id: "" });
+                      }}
+                      soloPrecios={soloPrecios}
+                    />
+                    {!soloPrecios && (
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 7 }}>
+                        <span style={{ fontSize: 11, color: C.t2, minWidth: 78 }}>Sector</span>
+                        <SectorPicker categorias={categorias} value={it._catId} onChange={(v) => setItem(idx, { _catId: v })} invalid={malSector} />
+                        <button type="button" onClick={() => crearSubsectorPara(idx)} title="Crear una subdivisión en este sector" style={{ ...BTN, padding: "6px 9px", whiteSpace: "nowrap" }}>ï¼‹ sub</button>
+                      </div>
+                    )}
+                    {!soloPrecios && it.material_id && (() => {
+                      const mat = activos.find((m) => m.id === it.material_id);
+                      return mat && it._catId && mat.categoria_id !== it._catId ? (
+                        <div style={{ fontSize: 11, color: C.cyan, marginTop: 4, paddingLeft: 84 }}>? se mueve de ?{categoriaNombre(categorias, mat.categoria_id)}? a ?{categoriaNombre(categorias, it._catId)}?</div>
+                      ) : null;
+                    })()}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14 }}>
+              <button type="button" onClick={() => { setItems(null); setResultado(null); }} style={BTN}>← Volver</button>
+              {sinSector > 0 && <span style={{ fontSize: 11, color: C.red }}>{sinSector} ítem(s) sin sector</span>}
+              {soloPrecios && sinVinculo > 0 && <span style={{ fontSize: 11, color: C.cyan }}>{sinVinculo} ítem(s) se omiten si no los vinculás</span>}
+              <div style={{ flex: 1 }} />
+              <button type="button" onClick={aplicar} disabled={aplicando || !items.length || (soloPrecios && !listosPrecio)} style={{ ...BTN_PRIMARY, opacity: aplicando || !items.length || (soloPrecios && !listosPrecio) ? 0.6 : 1 }}>
+                {aplicando ? "Aplicando…" : soloPrecios ? `Aplicar precios (${listosPrecio})` : `Aplicar (${coinciden + nuevos})`}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Buscador global: busca en TODO el catálogo y suma el material al sector/subsector
+// actual (multi-área, sin sacarlo de donde estaba) o crea uno nuevo ahí.
+function BuscadorAgregar({ categorias, materiales, selectedId, onChanged }) {
+  const [q, setQ] = useState("");
+  const [busy, setBusy] = useState(null);
+  const [err, setErr] = useState(null);
+  const query = q.trim().toLowerCase();
+  const scope = useMemo(() => idsScope(categorias, selectedId), [categorias, selectedId]);
+  const destino = categoriaNombre(categorias, selectedId);
+
+  const resultados = useMemo(() => {
+    if (query.length < 2) return [];
+    return materiales
+      .filter(materialActivo)
+      .filter((m) => `${m.descripcion ?? ""} ${m.proveedor ?? ""} ${m.codigo ?? ""}`.toLowerCase().includes(query))
+      .sort((a, b) => (a.descripcion ?? "").localeCompare(b.descripcion ?? "", "es"))
+      .slice(0, 40);
+  }, [materiales, query]);
+
+  async function agregar(m) {
+    setBusy(m.id); setErr(null);
+    try {
+      const extras = (m.areas ?? [m.categoria_id]).filter((a) => a !== m.categoria_id && a !== selectedId);
+      await setMaterialAreas(m.id, [...new Set([...extras, selectedId])]);
+      await onChanged?.();
+    } catch (e) { setErr(e); } finally { setBusy(null); }
+  }
+
+  async function crearNuevo() {
+    const desc = q.trim();
+    if (!desc) return;
+    setBusy("nuevo"); setErr(null);
+    try {
+      await crearMaterial({ descripcion: desc, categoria_id: selectedId, revisado: false });
+      setQ("");
+      await onChanged?.();
+    } catch (e) { setErr(e); } finally { setBusy(null); }
+  }
+
+  return (
+    <div style={{ background: C.s0, border: `1px solid ${C.b1}`, borderRadius: 12, padding: 14, marginBottom: 16 }}>
+      <div style={{ fontSize: 11, letterSpacing: 1.2, textTransform: "uppercase", color: C.t2, fontWeight: 600, marginBottom: 9 }}>
+        Buscar en el catálogo y agregar a <span style={{ color: "#60a5fa" }}>{destino}</span>
+      </div>
+      <div style={{ position: "relative" }}>
+        <Search size={15} style={{ position: "absolute", left: 11, top: 11, color: C.t2 }} />
+        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar material por descripción, proveedor o código…" style={{ ...INP, width: "100%", paddingLeft: 34 }} />
+      </div>
+      {err && <div style={{ marginTop: 8 }}><ErrorBox error={err} onRetry={() => setErr(null)} /></div>}
+
+      {query.length >= 2 && (
+        <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
+          {resultados.map((m) => {
+            const yaEsta = materialEnScope(m, scope);
+            return (
+              <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 9, background: C.panelSolid, border: `1px solid ${C.b0}` }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, color: C.t0, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.descripcion}</div>
+                  <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>
+                    {categoriaNombre(categorias, m.categoria_id)}{m.proveedor ? ` · ${m.proveedor}` : ""}
+                  </div>
+                </div>
+                <PriceBadge material={m} />
+                {yaEsta ? (
+                  <span style={{ fontSize: 11, color: C.green, fontWeight: 600, padding: "5px 10px", whiteSpace: "nowrap" }}>✓ ya está acá</span>
+                ) : (
+                  <button type="button" disabled={busy === m.id} onClick={() => agregar(m)} style={{ ...BTN_PRIMARY, padding: "6px 12px", fontSize: 12, opacity: busy === m.id ? 0.6 : 1, whiteSpace: "nowrap" }}>
+                    {busy === m.id ? "Agregando…" : "Agregar acá"}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+
+          <button type="button" disabled={busy === "nuevo"} onClick={crearNuevo} style={{ ...BTN, marginTop: 4, justifyContent: "center", border: `1px dashed ${C.b1}`, color: "#60a5fa", padding: "9px" }}>
+            <PackagePlus size={14} /> {busy === "nuevo" ? "Creando…" : <>Crear nuevo <strong style={{ marginLeft: 4 }}>“{q.trim()}”</strong> en {destino}</>}
+          </button>
+
+          {resultados.length === 0 && (
+            <div style={{ fontSize: 12, color: C.t2, textAlign: "center", padding: "6px 0" }}>
+              No hay materiales que coincidan. Pod?s crearlo nuevo ?
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RevisionTab({ categorias, materiales, proveedores, onChanged }) {
+  const [selectedId, setSelectedId] = useState(categorias[0]?.id ?? "");
+  const [modo, setModo] = useState("cola");
+  const [queueIndex, setQueueIndex] = useState(0);
+  const [showBuscar, setShowBuscar] = useState(false);
+  const [showPresupuesto, setShowPresupuesto] = useState(false);
+  const [err, setErr] = useState(null);
+  const effectiveSelectedId = selectedId && categorias.some((c) => c.id === selectedId)
+    ? selectedId
+    : categorias[0]?.id ?? "";
+
+  const progressByCat = useMemo(() => {
+    // Cada sector cuenta sus materiales por "scope" (él + subsectores), únicos.
+    // Así el padre hace roll-up de los hijos sin doble conteo.
+    const activos = materiales.filter(materialActivo);
+    const map = new Map();
+    for (const c of categorias) {
+      const scope = idsScope(categorias, c.id);
+      let total = 0, revisados = 0;
+      for (const m of activos) {
+        if (materialEnScope(m, scope)) { total += 1; if (m.revisado) revisados += 1; }
+      }
+      map.set(c.id, { total, revisados });
+    }
+    return map;
+  }, [categorias, materiales]);
+
+  const ums = useMemo(() => {
+    return buildUnidadOptions(materiales);
+  }, [materiales]);
+
+  const selectedMaterials = useMemo(() => {
+    const scope = idsScope(categorias, effectiveSelectedId);
+    return materiales.filter(materialActivo).filter((m) => materialEnScope(m, scope));
+  }, [materiales, categorias, effectiveSelectedId]);
+
+  const queue = useMemo(() => selectedMaterials.filter((m) => !m.revisado), [selectedMaterials]);
+  const current = queue.length ? queue[queueIndex % queue.length] : null;
+  const progress = progressByCat.get(effectiveSelectedId) ?? { total: 0, revisados: 0 };
+
+  async function saveQueue(draft, cantidades) {
+    await guardarMaterial(draft, cantidades, { revisado: true });
+    await onChanged?.();
+  }
+
+  async function deleteCurrent() {
+    if (!current) return;
+    if (!window.confirm(`¿Borrar "${current.descripcion}"?`)) return;
+    try {
+      setErr(null);
+      await borrarMaterial(current.id);
+      await onChanged?.();
+    } catch (e) {
+      setErr(e);
+    }
+  }
+
+  async function addSubsector(parent) {
+    const nombre = window.prompt(`Nuevo subsector de "${parent.nombre}":`);
+    if (!nombre?.trim()) return;
+    try {
+      setErr(null);
+      const c = await crearCategoria(nombre, { parentId: parent.id, orden: hijosDe(categorias, parent.id).length });
+      await onChanged?.();
+      setSelectedId(c.id);
+      setQueueIndex(0);
+    } catch (e) { setErr(e); }
+  }
+
+  async function suggestSubsectores(parent, sugeridas) {
+    if (!sugeridas?.length) return;
+    if (!window.confirm(`Crear ${sugeridas.length} subsectores en "${parent.nombre}":\n\n${sugeridas.join(" · ")}`)) return;
+    try {
+      setErr(null);
+      let orden = hijosDe(categorias, parent.id).length;
+      for (const nombre of sugeridas) await crearCategoria(nombre, { parentId: parent.id, orden: orden++ });
+      await onChanged?.();
+    } catch (e) { setErr(e); }
+  }
+
+  async function deleteSubsector(cat) {
+    if (!window.confirm(`¿Borrar el subsector "${cat.nombre}"? Sus materiales vuelven al sector padre.`)) return;
+    try {
+      setErr(null);
+      await borrarSubsector(cat.id, cat.parent_id);
+      if (effectiveSelectedId === cat.id) { setSelectedId(cat.parent_id); setQueueIndex(0); }
+      await onChanged?.();
+    } catch (e) { setErr(e); }
+  }
+
+  return (
+    <div>
+      <SectorSelector
+        categorias={categorias}
+        progressByCat={progressByCat}
+        selectedId={effectiveSelectedId}
+        onSelect={(id) => { setSelectedId(id); setQueueIndex(0); }}
+        onAddSub={addSubsector}
+        onSuggestSub={suggestSubsectores}
+        onDeleteSub={deleteSubsector}
+      />
+
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <div style={{ fontSize: 13, color: C.t0, fontWeight: 600 }}>
+            {categoriaNombre(categorias, effectiveSelectedId)}: {progress.revisados} / {progress.total} revisados
+          </div>
+          <div style={{ height: 7, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 99, marginTop: 7, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${progress.total ? Math.round((progress.revisados / progress.total) * 100) : 0}%`, background: C.green }} />
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 4, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 9, padding: 3 }}>
+          {[
+            ["cola", "Cola"],
+            ["lista", "Lista"],
+          ].map(([key, label]) => (
+            <button key={key} type="button" onClick={() => setModo(key)} style={{
+              ...BTN,
+              border: "none",
+              background: modo === key ? C.s2 : "transparent",
+              color: modo === key ? C.t0 : C.t2,
+              padding: "6px 12px",
+            }}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowBuscar((v) => !v)}
+          style={{ ...BTN, background: showBuscar ? "rgba(59,130,246,0.14)" : C.s0, border: `1px solid ${showBuscar ? "rgba(59,130,246,0.35)" : C.b0}`, color: showBuscar ? "#60a5fa" : C.t1 }}
+          title="Buscar en el catálogo y agregar al sector"
+        >
+          <Search size={14} /> {showBuscar ? "Cerrar buscador" : "Buscar y agregar"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowPresupuesto(true)}
+          style={{ ...BTN, background: "rgba(139,92,246,0.12)", border: "1px solid rgba(139,92,246,0.35)", color: "#a78bfa" }}
+          title="Cargar un presupuesto (texto o PDF/foto) con IA y matchearlo contra la matriz"
+        >
+          <Upload size={14} /> Cargar presupuesto
+        </button>
+        <button type="button" onClick={onChanged} style={BTN} title="Reintentar carga">
+          <RefreshCw size={14} /> Actualizar
+        </button>
+      </div>
+
+      {err && <ErrorBox error={err} onRetry={() => setErr(null)} />}
+
+      {showBuscar && (
+        <BuscadorAgregar
+          categorias={categorias}
+          materiales={materiales}
+          selectedId={effectiveSelectedId}
+          onChanged={onChanged}
+        />
+      )}
+
+      {showPresupuesto && (
+        <CargarPresupuestoModal
+          categorias={categorias}
+          materiales={materiales}
+          onChanged={onChanged}
+          onClose={() => setShowPresupuesto(false)}
+        />
+      )}
+
+      {modo === "cola" ? (
+        current ? (
+          <MaterialQueueCard
+            key={current.id}
+            material={current}
+            categorias={categorias}
+            ums={ums}
+            proveedores={proveedores}
+            onSave={saveQueue}
+            onSkip={() => setQueueIndex((i) => (i + 1) % Math.max(queue.length, 1))}
+            onDelete={deleteCurrent}
+            onChanged={onChanged}
+          />
+        ) : (
+          <div style={{ background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 12, padding: 20, marginBottom: 18 }}>
+            <div style={{ fontSize: 15, color: C.green, fontWeight: 600 }}>Sector revisado</div>
+            <div style={{ fontSize: 13, color: C.t1, marginTop: 6 }}>No quedan materiales pendientes en este sector.</div>
+          </div>
+        )
+      ) : (
+        <>
+          <AltaManual categorias={categorias} selectedId={effectiveSelectedId} ums={ums} proveedores={proveedores} onCreated={onChanged} />
+          <ListaMateriales categorias={categorias} materiales={materiales} selectedId={effectiveSelectedId} ums={ums} proveedores={proveedores} onChanged={onChanged} />
+        </>
+      )}
+    </div>
+  );
+}
+
+function exportCatalogoCsv(categorias, materiales) {
+  const catById = new Map(categorias.map((c) => [c.id, c.nombre]));
+  // Las cantidades condicionales van en su propia columna. Mezcladas con las
+  // estándar, el que abre el CSV suma un K37 que no existe: los ítems de línea
+  // de eje sólo van si el barco la lleva.
+  const headers = [
+    "Descripción", "Sector", "Proveedor", "UM", "Precio", "Moneda", "Código",
+    "Cant 37", "Cant 52", "Cant 55",
+    "Cant 37 línea de eje", "Cant 52 línea de eje", "Cant 55 línea de eje",
+    "Revisado",
+  ];
+  const rows = materiales.filter(materialActivo).map((m) => {
+    const bom = toBomMap(m, VARIANTE_BASE);
+    const bomEje = toBomMap(m, VARIANTE_LINEA_EJE);
+    const price = precioVigente(m);
+    return [
+      m.descripcion,
+      catById.get(m.categoria_id) ?? "",
+      m.proveedor,
+      m.unidad_medida,
+      price?.precio_unitario ?? m.precio_unitario,
+      price?.moneda ?? m.moneda,
+      m.codigo,
+      bom[37],
+      bom[52],
+      bom[55],
+      bomEje[37],
+      bomEje[52],
+      bomEje[55],
+      m.revisado ? "sí" : "no",
+    ];
+  });
+  const csv = "\uFEFF" + [headers, ...rows].map((r) => r.map(csvCell).join(";")).join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `catalogo-materiales-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function ResumenTab({ categorias, materiales }) {
+  const activos = useMemo(() => materiales.filter(materialActivo), [materiales]);
+  const total = activos.length;
+  const revisados = activos.filter((m) => m.revisado).length;
+  const sinPrecio = activos.filter((m) => !precioVigente(m)?.precio_unitario).length;
+  const sinUm = activos.filter((m) => !m.unidad_medida).length;
+  const sinCodigo = activos.filter((m) => !m.codigo).length;
+  const pct = total ? Math.round((revisados / total) * 100) : 0;
+
+  const rows = categorias.map((cat) => {
+    const list = activos.filter((m) => materialEnArea(m, cat.id));
+    const rev = list.filter((m) => m.revisado).length;
+    const precios = list.map((m) => precioVigente(m)?.precio_unitario).filter((v) => v != null).map(Number).filter(Number.isFinite);
+    return {
+      ...cat,
+      total: list.length,
+      revisados: rev,
+      pct: list.length ? Math.round((rev / list.length) * 100) : 0,
+      sinPrecio: list.filter((m) => !precioVigente(m)?.precio_unitario).length,
+      sinUm: list.filter((m) => !m.unidad_medida).length,
+      sinCodigo: list.filter((m) => !m.codigo).length,
+      promedio: precios.length ? precios.reduce((a, b) => a + b, 0) / precios.length : null,
+    };
+  });
+
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+        <KpiCard label="Materiales" value={total} />
+        <KpiCard label="Revisados" value={`${pct}%`} sub={`${revisados} de ${total}`} color={pct === 100 ? C.green : "#60a5fa"} />
+        <KpiCard label="Sin precio" value={sinPrecio} color={sinPrecio ? C.cyan : C.green} />
+        <KpiCard label="Sin UM" value={sinUm} color={sinUm ? C.cyan : C.green} />
+        <KpiCard label="Sin código" value={sinCodigo} color={sinCodigo ? C.t2 : C.green} />
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+        <button type="button" onClick={() => exportCatalogoCsv(categorias, activos)} style={BTN_PRIMARY}>
+          <Download size={14} /> Exportar CSV
+        </button>
+      </div>
+
+      <div style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 12 }}>
+        <table style={{ width: "100%", minWidth: 760, borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <Th>Sector</Th>
+              <Th right>Total</Th>
+              <Th right>Revisados</Th>
+              <Th>Progreso</Th>
+              <Th right>Sin precio</Th>
+              <Th right>Precio prom.</Th>
+              <Th right>Sin UM</Th>
+              <Th right>Sin código</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.id}>
+                <Td>{row.nombre}</Td>
+                <Td right mono>{row.total}</Td>
+                <Td right mono>{row.revisados}</Td>
+                <Td>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 170 }}>
+                    <div style={{ flex: 1, height: 7, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 99, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${row.pct}%`, background: row.pct === 100 ? C.green : "#60a5fa" }} />
+                    </div>
+                    <span style={{ fontFamily: C.mono, color: C.t2, fontSize: 12 }}>{row.pct}%</span>
+                  </div>
+                </Td>
+                <Td right mono color={row.sinPrecio ? C.cyan : C.t2}>{row.sinPrecio}</Td>
+                <Td right mono color={row.promedio ? C.t1 : C.t2}>{row.promedio ? fmtMoney(row.promedio, "") : "—"}</Td>
+                <Td right mono color={row.sinUm ? C.cyan : C.t2}>{row.sinUm}</Td>
+                <Td right mono color={row.sinCodigo ? C.t2 : C.green}>{row.sinCodigo}</Td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function EtapaCompraEditor({ row, etapas, asignaciones, busy, error, onSave }) {
+  const [origenId, setOrigenId] = useState(asignaciones[0]?.filaId || "");
+  const [destinoId, setDestinoId] = useState("");
+
+  const origenIdValido = asignaciones.some((item) => item.filaId === origenId)
+    ? origenId
+    : asignaciones[0]?.filaId || "";
+  const origen = asignaciones.find((item) => item.filaId === origenIdValido) || null;
+  const idsAsignados = new Set(asignaciones.map((item) => item.id));
+  const destinos = etapas.filter((etapa) => !idsAsignados.has(etapa.id));
+  const destinoIdValido = destinos.some((etapa) => etapa.id === destinoId) ? destinoId : "";
+
+  if (error) {
+    return (
+      <div style={{ flex: "1 1 100%", border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 10, padding: "8px 10px", color: C.red, fontSize: 11.5 }}>
+        No se pueden editar las etapas ahora: {error}
+      </div>
+    );
+  }
+
+  if (!row.materialId) {
+    return (
+      <div style={{ flex: "1 1 100%", border: `1px solid ${C.cyanB}`, background: C.cyanL, borderRadius: 10, padding: "8px 10px", color: C.cyan, fontSize: 11.5 }}>
+        Este adicional no está vinculado al catálogo de pañol. Vinculalo antes de asignarlo a una etapa de compra.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ flex: "1 1 100%", display: "grid", gap: 8, border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 10, padding: "9px 10px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 11.5, fontWeight: 750, color: C.t0 }}>Etapas de compra</div>
+          <div style={{ fontSize: 10.5, color: C.t2, marginTop: 1 }}>
+            {asignaciones.length ? "Mover conserva la cantidad y las notas de la asignación." : "Este material todavía está sin asignar."}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+          {asignaciones.length ? asignaciones.map((etapa) => (
+            <span key={etapa.filaId} title={`${qtyText(etapa.cantidad, etapa.unidad || row.unidad)} en ${etapa.nombre}`} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 10, fontWeight: 700, color: etapa.color, background: `${etapa.color}16`, border: `1px solid ${etapa.color}48`, borderRadius: 999, padding: "3px 7px" }}>
+              <span style={{ width: 6, height: 6, borderRadius: 999, background: etapa.color }} />
+              {etapa.nombre}
+            </span>
+          )) : (
+            <span style={{ fontSize: 10, fontWeight: 700, color: C.red, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 999, padding: "3px 7px" }}>
+              Sin asignar
+            </span>
+          )}
+        </div>
+      </div>
+
+      {etapas.length === 0 ? (
+        <div style={{ color: C.t2, fontSize: 11.5 }}>Esta obra todavía no tiene etapas de compra. Crealas desde el seguimiento de Compras.</div>
+      ) : destinos.length === 0 ? (
+        <div style={{ color: C.green, fontSize: 11.5, fontWeight: 650 }}>El material ya está contemplado en todas las etapas disponibles.</div>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+          {asignaciones.length > 1 ? (
+            <select value={origenIdValido} onChange={(e) => setOrigenId(e.target.value)} disabled={busy} style={{ ...INP, width: 190, height: 34, borderRadius: 9, fontSize: 11.5 }} title="Asignación que se va a mover">
+              {asignaciones.map((etapa) => (
+                <option key={etapa.filaId} value={etapa.filaId} style={OPT_ST}>Mover desde {etapa.nombre}</option>
+              ))}
+            </select>
+          ) : null}
+          <select value={destinoIdValido} onChange={(e) => setDestinoId(e.target.value)} disabled={busy} style={{ ...INP, width: 210, height: 34, borderRadius: 9, fontSize: 11.5 }} title="Etapa de compra de destino">
+            <option value="" style={OPT_ST}>{asignaciones.length ? "Elegir destino..." : "Asignar a etapa..."}</option>
+            {destinos.map((etapa) => (
+              <option key={etapa.id} value={etapa.id} style={OPT_ST}>{etapa.nombre}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            disabled={busy || !destinoIdValido}
+            onClick={() => onSave({ origen, destinoId: destinoIdValido })}
+            style={{ ...BTN, minHeight: 34, padding: "6px 10px", fontSize: 11, color: asignaciones.length ? C.blue : C.green, borderColor: asignaciones.length ? C.blueB : C.greenB, background: asignaciones.length ? C.blueL : C.greenL, opacity: busy || !destinoIdValido ? 0.55 : 1 }}
+          >
+            {busy ? "Guardando..." : asignaciones.length ? "Mover material" : "Asignar material"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function snapshotLockReason(row = {}) {
+  if (row.purchase_request_id) return "Tiene un pedido de compras asociado.";
+  if (row.panol_envio_id || row.panol_envio_item_id) return "Tiene un envío o movimiento de pañol asociado.";
+  if (Array.isArray(row.recepcion_items) && row.recepcion_items.length) return "Tiene una recepción de pañol asociada.";
+
+  const recepcionEstado = String(row.recepcion_estado || "").toLowerCase();
+  if (["recibido", "parcial", "sin_info", "falta_stock", "rechazado"].includes(recepcionEstado)) {
+    return "Tiene una recepción de pañol registrada.";
+  }
+
+  const estado = String(row.snapshot_estado || row.estadoObra || "").toLowerCase();
+  if (["pedido", "comprado"].includes(estado)) return "Ya fue enviado a compras.";
+  if (["en_panol", "parcial", "recibido"].includes(estado)) return "Ya fue recibido o ingresó a pañol.";
+  if (estado === "egresado") return "Ya fue egresado de pañol.";
+  return "";
+}
+
+export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, materiales, proveedores = [], opciones = [], ums = [], onChanged, onBack, soloPedirACompras = false }) {
+  const { isMobile } = useResponsive();
+  const [q, setQ] = useState("");
+  const deferredQ = useDeferredValue(q);
+  const [proveedorFilter, setProveedorFilter] = useState("");
+  const [rubroFilter, setRubroFilter] = useState("");
+  const [tipoFilter, setTipoFilter] = useState("todos");
+  // Conjunto de etiquetas de estado elegidas en el filtro de la columna.
+  // Vacío = todas, como una planilla sin filtro puesto.
+  const [estadosSel, setEstadosSel] = useState(() => new Set());
+  const [groupBy, setGroupBy] = useState("ninguno");
+  // Columna por la que se ordena la planilla. key vacía = rubro y nombre.
+  const [orden, setOrden] = useState({ key: "", dir: 1 });
+  const [selected, setSelected] = useState(() => new Set());
+  const [loteOpen, setLoteOpen] = useState(false);
+  const [loteAvance, setLoteAvance] = useState(null);
+  const [masOpen, setMasOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [addons, setAddons] = useState([]);
+  const [addonModalOpen, setAddonModalOpen] = useState(false);
+  const [editingAddon, setEditingAddon] = useState(null);
+  const [reassignAddon, setReassignAddon] = useState(null);
+  const [reassignObraId, setReassignObraId] = useState("");
+  const [reassignBusy, setReassignBusy] = useState(false);
+  const [addonPromoteBusy, setAddonPromoteBusy] = useState("");
+  const [addonDeleteBusy, setAddonDeleteBusy] = useState("");
+  const [snapshotDeleteBusy, setSnapshotDeleteBusy] = useState("");
+  const [snapshotPromoteBusy, setSnapshotPromoteBusy] = useState("");
+  const [snapshotLinkBusy, setSnapshotLinkBusy] = useState("");
+  const [obraPanel, setObraPanel] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [snapshot, setSnapshot] = useState([]);
+  const [snapshotBusy, setSnapshotBusy] = useState(false);
+  const [stockLibreMap, setStockLibreMap] = useState(() => new Map());
+  const [stockLibreLoading, setStockLibreLoading] = useState(false);
+  const [actionBusy, setActionBusy] = useState("");
+  const [flowMsg, setFlowMsg] = useState(null);
+  const [panolPrefill, setPanolPrefill] = useState(null);
+  const [pedidoObraTipo, setPedidoObraTipo] = useState(null);
+  const [pedidoConfirm, setPedidoConfirm] = useState(null);
+  const [pedidoTitulo, setPedidoTitulo] = useState("");
+  const pedidoEnviandoRef = useRef(false);
+  const [condicionantesMatriz, setCondicionantesMatriz] = useState([]);
+  const [condicionantesObra, setCondicionantesObra] = useState(() => new Map());
+  const [condicionanteBusy, setCondicionanteBusy] = useState("");
+  const [exclusionesObra, setExclusionesObra] = useState([]);
+  const [exclusionBusy, setExclusionBusy] = useState("");
+  const [estadoBusy, setEstadoBusy] = useState("");
+  const [productoBusy, setProductoBusy] = useState("");
+  const [productosCompatibles, setProductosCompatibles] = useState([]);
+  const [editingMaterialRowId, setEditingMaterialRowId] = useState("");
+  // Fila con el panel de estado/acciones secundarias abierto (⋯). Una a la vez.
+  const [openActionsRowId, setOpenActionsRowId] = useState("");
+  const [detailTab, setDetailTab] = useState("resumen");
+  const detailTriggerRef = useRef(null);
+
+  const cargarAddons = useCallback(async () => {
+    try {
+      setAddons(await fetchAddonsObra(obra?.id));
+    } catch {
+      setAddons([]);
+    }
+  }, [obra?.id]);
+  useEffect(() => { cargarAddons(); }, [cargarAddons]);
+
+  const cargarSnapshot = useCallback(async () => {
+    try {
+      setSnapshot(await fetchObraMaterialSnapshot(obra?.id));
+    } catch {
+      setSnapshot([]);
+    }
+  }, [obra?.id]);
+  useEffect(() => { cargarSnapshot(); }, [cargarSnapshot]);
+
+  // Etapas de COMPRA de ESTA obra + mapa material_id -> etapas donde está cargado.
+  // Antes esto leía la vieja receta por etapa de producción del modelo, que ya no
+  // se usa: ahora los materiales viven dentro de las etapas de compra de la obra.
+  // Un material puede estar en varias etapas, por eso el valor es un array.
+  const [etapasObra, setEtapasObra] = useState([]);
+  const [etapaPorMaterial, setEtapaPorMaterial] = useState(() => new Map());
+  const [etapasObraError, setEtapasObraError] = useState("");
+  // Filtro por etapa de compra: "todos" | "sin_asignar" | <id de etapa>.
+  const [etapaFilter, setEtapaFilter] = useState("todos");
+  const [asignarEtapaBusy, setAsignarEtapaBusy] = useState("");
+  const cargarEtapasObra = useCallback(async () => {
+    try {
+      const { etapas, porMaterial } = await fetchEtapasDeObraConMateriales(obra?.id);
+      setEtapasObra(etapas);
+      setEtapaPorMaterial(porMaterial);
+      setEtapasObraError("");
+    } catch (e) {
+      setEtapasObra([]);
+      setEtapaPorMaterial(new Map());
+      setEtapasObraError(e?.message || "No se pudieron cargar las etapas de compra.");
+      setEtapaFilter("todos");
+    }
+  }, [obra?.id]);
+  useEffect(() => { cargarEtapasObra(); }, [cargarEtapasObra]);
+
+  // Se resetea si cambia la obra: los ids de etapa no sobreviven al cambio.
+  useEffect(() => { setEtapaFilter("todos"); }, [obra?.id]);
+
+  const cargarStockLibre = useCallback(async () => {
+    setStockLibreLoading(true);
+    try {
+      const rows = await fetchStockLibrePanolMateriales();
+      setStockLibreMap(new Map((rows ?? []).map((row) => [row.key, row])));
+    } catch {
+      setStockLibreMap(new Map());
+    } finally {
+      setStockLibreLoading(false);
+    }
+  }, []);
+  useEffect(() => { cargarStockLibre(); }, [cargarStockLibre]);
+
+  const cargarCondicionantesObra = useCallback(async () => {
+    if (!obra?.id) return;
+    try {
+      const [defs, overrides] = await Promise.all([
+        fetchMatrizCondicionantes(),
+        fetchObraMatrizCondicionantes(obra.id),
+      ]);
+      setCondicionantesMatriz(defs.condicionantes ?? []);
+      setCondicionantesObra(overrides.map ?? new Map());
+    } catch {
+      setCondicionantesMatriz([]);
+      setCondicionantesObra(new Map());
+    }
+  }, [obra?.id]);
+  useEffect(() => { cargarCondicionantesObra(); }, [cargarCondicionantesObra]);
+
+  const cargarExclusionesObra = useCallback(async () => {
+    if (!obra?.id) return;
+    try {
+      const res = await fetchObraMaterialExclusiones(obra.id);
+      setExclusionesObra(res.rows ?? []);
+    } catch {
+      setExclusionesObra([]);
+    }
+  }, [obra?.id]);
+  useEffect(() => { cargarExclusionesObra(); }, [cargarExclusionesObra]);
+
+  useEffect(() => {
+    setSelected(new Set());
+    setSnapshot([]);
+    setFlowMsg(null);
+    setEstadosSel(new Set());
+    setCondicionantesObra(new Map());
+    setExclusionesObra([]);
+    setObraPanel("");
+    setAddonModalOpen(false);
+    setPedidoConfirm(null);
+    setEditingAddon(null);
+    setReassignAddon(null);
+    setReassignObraId("");
+    setReassignBusy(false);
+    setAddonPromoteBusy("");
+    setAddonDeleteBusy("");
+    setSnapshotDeleteBusy("");
+    setSnapshotPromoteBusy("");
+    setSnapshotLinkBusy("");
+    setExclusionBusy("");
+    setEstadoBusy("");
+    setProductoBusy("");
+    setProductosCompatibles([]);
+    setAsignarEtapaBusy("");
+    setEditingMaterialRowId("");
+    setFiltersOpen(false);
+  }, [obra?.id, linea]);
+
+  const obrasDestinoReassign = useMemo(() => {
+    const map = new Map();
+    [...(obras ?? []), obra].filter(Boolean).forEach((item) => {
+      if (item?.id) map.set(item.id, item);
+    });
+    return [...map.values()].sort((a, b) => String(a.codigo || "").localeCompare(String(b.codigo || ""), "es", { numeric: true }));
+  }, [obras, obra]);
+
+  const materialById = useMemo(() => new Map((materiales ?? []).map((material) => [material.id, material])), [materiales]);
+  const exclusionMaterialIds = useMemo(() => new Set(exclusionesObra.map((row) => row.material_id).filter(Boolean)), [exclusionesObra]);
+  const exclusionesDetalle = useMemo(() => exclusionesObra
+    .map((row) => ({ ...row, material: materialById.get(row.material_id) || null }))
+    .sort((a, b) => String(a.material?.descripcion || a.material_id || "").localeCompare(String(b.material?.descripcion || b.material_id || ""), "es", { numeric: true })),
+  [exclusionesObra, materialById]);
+
+  const condicionantesModelo = useMemo(() => (condicionantesMatriz ?? [])
+    .filter((condicionante) => condicionante.activo !== false)
+    .filter((condicionante) => String(condicionante.modelo) === String(linea))
+    .map((condicionante) => ({
+      ...condicionante,
+      activoEnObra: condicionanteActivoEnObra(condicionante, condicionantesObra),
+      definidoEnObra: condicionantesObra.has(condicionante.id),
+    }))
+    .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0) || a.nombre.localeCompare(b.nombre, "es")),
+  [condicionantesMatriz, condicionantesObra, linea]);
+
+  const condicionantesActivos = useMemo(() => condicionantesModelo.filter((condicionante) => condicionante.activoEnObra), [condicionantesModelo]);
+
+  const addonStats = useMemo(() => ({
+    total: addons.length,
+    adicionales: addons.filter((addon) => addon.tipo !== "opcional").length,
+    opcionales: addons.filter((addon) => addon.tipo === "opcional").length,
+  }), [addons]);
+
+  const baseRows = useMemo(() => {
+    const materialesDeLinea = (materiales ?? [])
+      .filter(materialActivo)
+      .filter((m) => materialQty(m, linea) > 0);
+    return materialesDeLinea.map((m) => {
+      const modeloConfig = (m.modelos ?? []).find((item) => (
+        String(item.modelo) === String(linea)
+        && String(item.variante || "standard") === "standard"
+      )) || null;
+      // Los requisitos definidos por obra (pisos, terminaciones, etc.) nunca
+      // heredan un SKU aunque haya quedado un valor viejo en la matriz.
+      const productoPorObra = productoSeDefinePorObra(m);
+      const producto = !productoPorObra && modeloConfig?.producto_predeterminado_id
+        ? materialById.get(modeloConfig.producto_predeterminado_id) || null
+        : null;
+      const precio = priceInfo(producto || m);
+      const bucket = materialBucket(m, opciones, linea);
+      return {
+        id: m.id,
+        materialId: m.id,
+        requisitoMaterialId: m.id,
+        productoMaterialId: producto?.id || null,
+        producto,
+        productoEstandar: !!producto,
+        productoPorObra,
+        esRequisito: m.es_requisito === true || materialVariants(m).length > 0 || !!producto,
+        especificaciones: normalizeProductSpecs(modeloConfig?.especificaciones_defecto),
+        especificacionesOrigen: modeloConfig ? "matriz_linea" : null,
+        material: m,
+        source: "matriz",
+        // La matriz conserva el requisito para cantidades y trazabilidad; la
+        // lista operativa, en cambio, debe decir qué producto se compra.
+        descripcion: producto?.descripcion || m.descripcion,
+        requisitoDescripcion: producto ? m.descripcion : "",
+        codigo: producto?.codigo || m.codigo,
+        cantidad: materialQty(m, linea),
+        unidad: m.unidad_medida || "unidad",
+        proveedor: nombreProveedorVisible(precio.proveedor || producto?.proveedor || m.proveedor) || "Sin proveedor",
+        rubro: rubroDeLista(categorias, m.categoria_id),
+        precio,
+        bucket,
+        obs: m.notas || "",
+        imagen_url: producto?.imagen_url || m.imagen_url || "",
+        links: normalizeMaterialLinks(m.links),
+        revisado: !!m.revisado,
+        review: reviewInfoForMaterial(m),
+      };
+    })
+    .sort((a, b) => {
+      const order = { base: 0, condicionante: 1, linea_eje: 2, variante: 3 };
+      return (order[a.bucket.key] ?? 9) - (order[b.bucket.key] ?? 9)
+        || a.rubro.localeCompare(b.rubro, "es")
+        || a.descripcion.localeCompare(b.descripcion, "es");
+    });
+  }, [materiales, linea, categorias, opciones, materialById]);
+
+  const requisitoIds = useMemo(
+    () => baseRows.filter((row) => row.esRequisito).map((row) => row.requisitoMaterialId),
+    [baseRows],
+  );
+  const cargarProductosCompatibles = useCallback(async () => {
+    try {
+      setProductosCompatibles(await fetchRequisitoProductos(requisitoIds));
+    } catch {
+      setProductosCompatibles([]);
+    }
+  }, [requisitoIds]);
+  useEffect(() => { cargarProductosCompatibles(); }, [cargarProductosCompatibles]);
+  const productosCompatiblesPorRequisito = useMemo(() => {
+    const map = new Map();
+    for (const link of productosCompatibles) {
+      const list = map.get(link.requisito_material_id) || [];
+      list.push(link);
+      map.set(link.requisito_material_id, list);
+    }
+    return map;
+  }, [productosCompatibles]);
+
+  const liveRows = useMemo(() => {
+    const baseAplicable = baseRows.filter((row) => !row.materialId || !exclusionMaterialIds.has(row.materialId));
+    const byKey = new Map(baseAplicable.map((row) => [row.materialId || row.id, { ...row, baseCantidad: row.cantidad, condicionantes: [] }]));
+
+    for (const condicionante of condicionantesActivos) {
+      const { replacements, consumedItemIds } = findConditionProductReplacements(
+        [...byKey.values()], condicionante.items, productosCompatibles,
+      );
+      for (const replacement of replacements) {
+        const current = byKey.get(replacement.requirementId);
+        const producto = materialById.get(replacement.productId);
+        if (!current || !producto) continue;
+        const precio = priceInfo(producto);
+        byKey.set(replacement.requirementId, {
+          ...current,
+          productoMaterialId: producto.id,
+          producto,
+          productoEstandar: false,
+          productoCondicionante: true,
+          descripcion: producto.descripcion,
+          codigo: producto.codigo || "",
+          proveedor: nombreProveedorVisible(precio.proveedor || producto.proveedor) || "Sin proveedor",
+          precio,
+          imagen_url: producto.imagen_url || "",
+          obs: [current.obs, `${condicionante.nombre}: ${producto.descripcion}`].filter(Boolean).join(" - "),
+          condicionantes: [...(current.condicionantes || []), {
+            id: replacement.addition.id,
+            condicionante: condicionante.nombre,
+            delta: 0,
+            label: `Sustituye ${current.producto?.descripcion || current.descripcion}`,
+          }],
+        });
+      }
+      for (const item of condicionante.items ?? []) {
+        if (item.activo === false || consumedItemIds.has(item.id)) continue;
+        const delta = condicionanteDelta(item);
+        const material = item.material_id ? materialById.get(item.material_id) || item.material || null : null;
+        const key = item.material_id || `condicionante-${condicionante.id}-${item.id}`;
+        const detalle = {
+          id: item.id,
+          condicionante: condicionante.nombre,
+          delta,
+          label: condicionanteItemLabel(item),
+        };
+
+        if (byKey.has(key)) {
+          const current = byKey.get(key);
+          const nextQty = Math.max(0, (toNum(current.cantidad) || 0) + delta);
+          byKey.set(key, {
+            ...current,
+            cantidad: nextQty,
+            obs: [current.obs, `${condicionante.nombre}: ${detalle.label}`].filter(Boolean).join(" - "),
+            condicionantes: [...(current.condicionantes ?? []), detalle],
+          });
+          continue;
+        }
+
+        if (delta <= 0) continue;
+        const precio = material ? priceInfo(material) : { amount: null, moneda: "ARS", text: "Sin precio", proveedor: "" };
+        byKey.set(key, {
+          id: key,
+          materialId: item.material_id || null,
+          material,
+          source: "condicionante",
+          descripcion: item.descripcion || material?.descripcion || condicionante.nombre,
+          codigo: material?.codigo || "",
+          cantidad: delta,
+          baseCantidad: 0,
+          unidad: item.unidad || material?.unidad_medida || "unidad",
+          proveedor: nombreProveedorVisible(precio.proveedor || material?.proveedor) || "Sin proveedor",
+          rubro: material ? rubroDeLista(categorias, material.categoria_id) : "Condicionante",
+          precio,
+          bucket: { key: "condicionante", label: "Condicionante", color: C.violet },
+          obs: [condicionante.nombre, item.notas].filter(Boolean).join(" - "),
+          imagen_url: material?.imagen_url || "",
+          links: normalizeMaterialLinks(material?.links),
+          revisado: !!material?.revisado,
+          review: material ? reviewInfoForMaterial(material) : { flag: false, reason: "" },
+          condicionantes: [detalle],
+        });
+      }
+    }
+
+    return [...byKey.values()]
+      .filter((row) => (toNum(row.cantidad) || 0) > 0)
+      .sort((a, b) => {
+        const order = { base: 0, condicionante: 1, linea_eje: 2, variante: 3 };
+        return (order[a.bucket.key] ?? 9) - (order[b.bucket.key] ?? 9)
+          || a.rubro.localeCompare(b.rubro, "es")
+          || a.descripcion.localeCompare(b.descripcion, "es");
+      });
+  }, [baseRows, categorias, condicionantesActivos, exclusionMaterialIds, materialById, productosCompatibles]);
+
+  const addonRows = useMemo(() => (addons ?? [])
+    .map((addon) => addonRowToView(addon, materialById, categorias))
+    .sort((a, b) => String(a.descripcion || "").localeCompare(String(b.descripcion || ""), "es", { numeric: true })),
+  [addons, materialById, categorias]);
+
+  const addonByMergeKey = useMemo(() => {
+    const map = new Map();
+    addonRows.forEach((row) => {
+      const addon = addons.find((item) => item.id === row.addonId);
+      const key = snapshotMergeKey(row);
+      if (addon && key) map.set(key, addon);
+    });
+    return map;
+  }, [addonRows, addons]);
+
+  const obraRows = useMemo(() => [...liveRows, ...addonRows], [liveRows, addonRows]);
+  // Los consumibles van por su circuito (Consumibles), no en la lista del barco:
+  // se ven aparte, en "Consumibles consumidos". Ninguno está en la matriz.
+  const consumibleIds = useMemo(() => new Set((materiales ?? []).filter((material) => material.es_consumible).map((material) => material.id)), [materiales]);
+  const snapshotRows = useMemo(() => snapshot
+    .filter((row) => !esFilaDeConsumible(row, consumibleIds))
+    .map((row) => snapshotRowToView(row, materialById, categorias))
+    .filter((row) => !row.materialId || !exclusionMaterialIds.has(row.materialId)),
+  [snapshot, consumibleIds, materialById, categorias, exclusionMaterialIds]);
+  const rows = useMemo(() => mergeMatrixAndSnapshotRows(obraRows, snapshotRows), [obraRows, snapshotRows]);
+  const liveMergeKeys = useMemo(() => new Set(obraRows.map((row, index) => snapshotMergeKey(row, index)).filter(Boolean)), [obraRows]);
+  const snapshotActivo = snapshot.length > 0;
+  const snapshotParcial = useMemo(() => {
+    if (!snapshotRows.length || !liveRows.length) return false;
+    const snapshotKeys = new Set(snapshotRows.map((row, index) => snapshotMergeKey(row, index)).filter(Boolean));
+    const liveKeys = liveRows.map((row, index) => snapshotMergeKey(row, index)).filter(Boolean);
+    return liveKeys.some((key) => !snapshotKeys.has(key));
+  }, [snapshotRows, liveRows]);
+  const snapshotNecesitaSync = useMemo(() => {
+    if (!snapshotRows.length || !obraRows.length) return !snapshotRows.length && !!obraRows.length;
+    const snapshotKeys = new Set(snapshotRows.map((row, index) => snapshotMergeKey(row, index)).filter(Boolean));
+    const liveKeys = obraRows.map((row, index) => snapshotMergeKey(row, index)).filter(Boolean);
+    return liveKeys.some((key) => !snapshotKeys.has(key));
+  }, [snapshotRows, obraRows]);
+  // Filas cuya cantidad fijada quedó vieja respecto de la matriz. Se detectan
+  // aparte de snapshotParcial, que sólo mira ítems que faltan: un condicionante
+  // que CAMBIA una cantidad no agrega ni saca filas, así que por ahí no se veía.
+  const snapshotStatus = snapshotActivo
+    ? snapshotParcial
+      ? { label: "Lista parcial", color: C.blue, border: C.blueB, bg: C.blueL }
+      : { label: "Lista fijada", color: C.green, border: C.greenB, bg: C.greenL }
+    : { label: "Matriz viva", color: C.t2, border: C.b0, bg: C.s0 };
+
+  // Etapas de compra donde está cargado el material de esta fila. Los adicionales
+  // sin material_id nunca están en una etapa: cuentan como "sin asignar", que es
+  // justamente lo que hay que revisar.
+  const etapasDeRow = useCallback(
+    (row) => (row?.materialId ? etapaPorMaterial.get(row.materialId) ?? [] : []),
+    [etapaPorMaterial]
+  );
+
+  // Cuánto falta cargar. Se calcula sobre `rows` (todas), no sobre las visibles:
+  // es el checklist de la obra, no del filtro actual.
+  const sinAsignarCount = useMemo(
+    () => rows.reduce((acc, row) => acc + (etapasDeRow(row).length ? 0 : 1), 0),
+    [rows, etapasDeRow]
+  );
+  const asignadosCount = rows.length - sinAsignarCount;
+  const etapaStats = useMemo(() => {
+    const counts = new Map(etapasObra.map((etapa) => [etapa.id, 0]));
+    rows.forEach((row) => {
+      etapasDeRow(row).forEach((etapa) => counts.set(etapa.id, (counts.get(etapa.id) || 0) + 1));
+    });
+    return counts;
+  }, [etapasObra, rows, etapasDeRow]);
+
+  // Stock libre de pañol (sin obra) para lo que todavía hay que comprar. Pedido
+  // para los barcos anteriores al sistema (52-24 antes de irse al río): antes de
+  // comprar, ver si el pañol ya lo tiene suelto y asignarlo a la obra.
+  const stockLibreDeFila = useCallback((row) => {
+    const info = stockLibreMap.get(stockLibreKeyForRow(row));
+    if (!info || !(toNum(info.cantidad) > 0)) return null;
+    if (!(cantidadesDeFila(row).faltaComprar > 0)) return null;
+    return info;
+  }, [stockLibreMap]);
+  const stockLibreCount = useMemo(() => rows.filter((row) => stockLibreDeFila(row)).length, [rows, stockLibreDeFila]);
+
+  // Todo menos el estado. El filtro de la columna Estado cuenta sobre esto, como
+  // en una planilla: los números que muestra ya tienen aplicado el resto de los
+  // filtros, no son los de la obra entera.
+  const rowsSinEstado = useMemo(() => {
+    return rows
+      .filter((row) => coincideProveedor(row.proveedor, proveedorFilter))
+      .filter((row) => !rubroFilter || rubroDeFila(row) === rubroFilter)
+      .filter((row) => {
+        if (etapaFilter === "todos") return true;
+        const etapas = etapasDeRow(row);
+        if (etapaFilter === "sin_asignar") return etapas.length === 0;
+        return etapas.some((e) => e.id === etapaFilter);
+      })
+      .filter((row) => tipoFilter === "todos" || (tipoFilter === "sin_precio" ? !row.precio.amount : tipoFilter === "revisar" ? row.review?.flag : tipoFilter === "stock_libre" ? !!stockLibreDeFila(row) : row.bucket.key === tipoFilter))
+      .filter((row) => matchesFlexibleSearch(
+        deferredQ,
+        row.descripcion,
+        row.codigo,
+        row.proveedor,
+        row.rubro,
+        row.variante || "",
+        row.obs,
+        recepcionMetaForRow(row).label,
+        row.recepcion_estado || "",
+        row.recepcion_nota || "",
+        ...materialSearchFields(row.material),
+        // Se encuentra tanto por el requisito como por el producto elegido
+        // (alias, código o notas del producto).
+        ...(row.producto ? materialSearchFields(row.producto) : []),
+      ))
+      .map((row) => {
+        if (etapaFilter === "todos" || etapaFilter === "sin_asignar") return row;
+        const asignacion = etapasDeRow(row).find((etapa) => etapa.id === etapaFilter);
+        if (!asignacion) return row;
+        return {
+          ...row,
+          cantidad: toNum(asignacion.cantidad) ?? row.cantidad,
+          unidad: asignacion.unidad || row.unidad,
+          cantidadOrigenEtapa: true,
+        };
+      });
+  }, [rows, deferredQ, proveedorFilter, rubroFilter, tipoFilter, etapaFilter, etapasDeRow, stockLibreDeFila]);
+
+  // Las opciones del filtro de la columna Estado: las etiquetas que la columna
+  // muestra de verdad, con su cuenta, en el orden del recorrido del material.
+  const estadoOpciones = useMemo(() => {
+    const cuenta = new Map();
+    for (const row of rowsSinEstado) {
+      const meta = estadoMetaDeFila(row);
+      const previo = cuenta.get(meta.label);
+      cuenta.set(meta.label, { value: meta.label, label: meta.label, color: meta.color, count: (previo?.count || 0) + 1 });
+    }
+    return [...cuenta.values()].sort((a, b) => {
+      const ia = ORDEN_ETIQUETA_ESTADO.indexOf(a.label), ib = ORDEN_ETIQUETA_ESTADO.indexOf(b.label);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
+  }, [rowsSinEstado]);
+
+  // Orden de la planilla. Sin columna elegida va por rubro y nombre, que es como
+  // se lee una lista de barco; con columna, como una planilla.
+  const visibleRows = useMemo(() => {
+    const filtradas = estadosSel.size ? rowsSinEstado.filter((row) => estadosSel.has(estadoMetaDeFila(row).label)) : rowsSinEstado;
+    return ordenarFilasObra(filtradas, orden.key ? orden : { key: groupBy === "ninguno" ? "rubro" : "", dir: 1 });
+  }, [rowsSinEstado, estadosSel, orden, groupBy]);
+
+  const groupedRows = useMemo(() => {
+    if (groupBy === "ninguno") {
+      return [{ label: "Todos los ítems", rows: visibleRows, plano: true }];
+    }
+    const map = new Map();
+    visibleRows.forEach((row) => {
+      // Si está en varias etapas se agrupa por la primera (la más temprana del
+      // plan), salvo cuando el usuario filtró una etapa concreta. El grupo tiene
+      // que ser uno solo para que la orden de compra no repita el item.
+      const etapasRow = groupBy === "etapa" ? etapasDeRow(row) : [];
+      const etapaInfo = groupBy === "etapa"
+        ? (etapaFilter !== "todos" && etapaFilter !== "sin_asignar"
+          ? etapasRow.find((etapa) => etapa.id === etapaFilter)
+          : etapasRow[0])
+        : null;
+      const key = groupBy === "rubro" ? rubroDeFila(row)
+        : groupBy === "tipo" ? row.bucket.label
+        : groupBy === "etapa" ? (etapaInfo?.nombre || "Sin asignar")
+        : row.proveedor;
+      const label = key || "Sin clasificar";
+      if (!map.has(label)) map.set(label, { label, rows: [], usd: 0, ars: 0, sinPrecio: 0, revisar: 0, esAddon: false, color: groupBy === "etapa" ? (etapaInfo?.color || null) : null });
+      const group = map.get(label);
+      group.rows.push(row);
+      // Marcar si el grupo contiene adicionales
+      if (row.source === "addon" || row.bucket?.key === "addon") group.esAddon = true;
+      if (row.review?.flag) group.revisar += 1;
+      const qty = row.secundario && row.circuito === "maderas" ? 0 : (toNum(row.cantidad) || 1);
+      if (row.precio.amount) {
+        if (row.precio.moneda === "USD") group.usd += row.precio.amount * qty;
+        else group.ars += row.precio.amount * qty;
+      } else {
+        group.sinPrecio += 1;
+      }
+    });
+    // Alfabético, con los "Sin …" al final, igual que el índice de la izquierda.
+    // Antes se mandaba al final todo grupo que tuviera un adicional, y como casi
+    // todos los rubros tienen uno el orden quedaba al azar (Vidrios primero,
+    // Electricidad al fondo). Lo de adicionales al final sólo vale agrupando
+    // por tipo, donde "Adicional" es un grupo en sí.
+    return [...map.values()].sort((a, b) => {
+      if (groupBy === "tipo" && a.esAddon !== b.esAddon) return a.esAddon ? 1 : -1;
+      return compararEtiquetaGrupo(a.label, b.label);
+    });
+  }, [visibleRows, groupBy, etapaFilter, etapasDeRow]);
+
+  const kpis = useMemo(() => rows.reduce((acc, row) => {
+    const qty = row.secundario && row.circuito === "maderas" ? 0 : (toNum(row.cantidad) || 1);
+    acc.items += 1;
+    if (row.secundario) acc.secundarios += 1;
+    if (row.bucket.key === "linea_eje") acc.lineaEje += 1;
+    if (row.bucket.key === "variante") acc.variantes += 1;
+    if (row.bucket.key === "condicionante" || row.condicionantes?.length) acc.condicionantes += 1;
+    const estado = estadoObraForRow(row);
+    if (estado === "pendiente") acc.pendientes += 1;
+    if (estado === "pedido") acc.pedidos += 1;
+    if (estado === "comprado") acc.comprados += 1;
+    if (estado === "en_panol") acc.enPanol += 1;
+    if (estado === "egresado") acc.egresados += 1;
+    if (row.review?.flag) acc.revisar += 1;
+    if (row.esRequisito && !row.productoMaterialId) acc.productosPendientes += 1;
+    if (!row.precio.amount) acc.sinPrecio += 1;
+    else if (row.precio.moneda === "USD") {
+      if (row.bucket.key === "linea_eje") acc.ejeUsd += row.precio.amount * qty;
+      else acc.usd += row.precio.amount * qty;
+    } else {
+      acc.ars += row.precio.amount * qty;
+    }
+    return acc;
+  }, { items: 0, sinPrecio: 0, revisar: 0, productosPendientes: 0, lineaEje: 0, variantes: 0, condicionantes: 0, pendientes: 0, pedidos: 0, comprados: 0, enPanol: 0, egresados: 0, usd: 0, ars: 0, ejeUsd: 0 }), [rows]);
+  const orderRows = useMemo(() => {
+    const base = selected.size ? visibleRows.filter((r) => selected.has(r.id)) : visibleRows;
+    return base.map((r) => {
+      const material = r.producto || r.material || null;
+      const proveedor = r.proveedor;
+      const supplierTerms = supplierTermsForMaterial(material, { proveedor });
+      return {
+        id: r.id,
+        snapshotId: r.snapshotId,
+        addonId: r.addonId || null,
+        materialId: r.materialId,
+        requisitoMaterialId: r.requisitoMaterialId || r.materialId,
+        productoMaterialId: r.productoMaterialId || null,
+        producto: r.producto || null,
+        material,
+        productoEstandar: !!r.productoEstandar,
+        esRequisito: !!r.esRequisito,
+        especificaciones: normalizeProductSpecs(r.especificaciones),
+        source: r.source,
+        bucketKey: r.bucket.key,
+        descripcion: r.producto?.descripcion || r.descripcion,
+        // La fila ya puede estar mostrando el producto: el requisito viene aparte.
+        requisitoDescripcion: r.requisitoDescripcion || r.descripcion,
+        codigo: r.producto?.codigo || r.codigo,
+        cantidad: r.cantidad,
+        baseCantidad: r.baseCantidad,
+        condicionantes: r.condicionantes ?? [],
+        unidad: r.unidad,
+        proveedor,
+        supplierDescription: supplierTerms?.description || "",
+        supplierCode: supplierTerms?.code || "",
+        supplierComponents: supplierTerms?.components || [],
+        rubro: r.rubro,
+        tipo: r.bucket.label,
+        precio: r.precio,
+        obs: [r.bucket.key !== "base" ? r.bucket.label : "", r.esRequisito ? `Requisito: ${r.requisitoDescripcion || r.descripcion}` : "", productSpecsNote(r.especificaciones), r.obs].filter(Boolean).join(" · "),
+      };
+    });
+  }, [visibleRows, selected]);
+  const productosPendientesOrden = useMemo(
+    () => orderRows.filter((row) => row.esRequisito && !row.productoMaterialId),
+    [orderRows],
+  );
+
+  function validarProductosConcretos() {
+    if (!productosPendientesOrden.length) return true;
+    const preview = productosPendientesOrden.slice(0, 3).map((row) => row.requisitoDescripcion || row.descripcion).join(", ");
+    const extra = productosPendientesOrden.length > 3 ? ` y ${productosPendientesOrden.length - 3} más` : "";
+    setFlowMsg({
+      type: "err",
+      text: `Falta elegir el producto real en ${productosPendientesOrden.length} ítem${productosPendientesOrden.length === 1 ? "" : "s"}: ${preview}${extra}.`,
+    });
+    return false;
+  }
+
+  async function guardarEtapaMaterial(row, { origen, destinoId }) {
+    if (!row?.materialId || !destinoId || asignarEtapaBusy) return;
+    const destino = etapasObra.find((etapa) => etapa.id === destinoId);
+    setAsignarEtapaBusy(row.id);
+    setFlowMsg(null);
+    try {
+      if (origen?.filaId) {
+        const result = await moverMaterialEntreEtapas(origen.filaId, destinoId);
+        if (result.status === "conflicto_destino") {
+          setFlowMsg({ type: "err", text: `${row.descripcion} ya está cargado en ${destino?.nombre || "la etapa de destino"}. No se modificó ninguna cantidad.` });
+          return;
+        }
+        setFlowMsg({ type: "ok", text: `${row.descripcion} movido de ${origen.nombre} a ${destino?.nombre || "la etapa elegida"}.` });
+      } else {
+        const result = await asignarMaterialAEtapa(destinoId, {
+          materialId: row.materialId,
+          cantidad: toNum(row.cantidad) || 1,
+          unidad: row.unidad || null,
+        });
+        setFlowMsg({
+          type: "ok",
+          text: result.status === "existente"
+            ? `${row.descripcion} ya estaba cargado en ${destino?.nombre || "esa etapa"}; se conservaron sus datos.`
+            : `${row.descripcion} asignado a ${destino?.nombre || "la etapa elegida"}.`,
+        });
+      }
+      await cargarEtapasObra();
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo actualizar la etapa de compra del material." });
+    } finally {
+      setAsignarEtapaBusy("");
+    }
+  }
+
+  // Sale lo que se ve: mismos filtros y mismo agrupado que la pantalla. Sin
+  // filtros es la lista completa de la obra. Los filtros puestos quedan
+  // escritos arriba del papel, para que nadie lo tome por la lista entera.
+  function exportarExcel() {
+    const tipos = { base: "Base", addon: "Adicionales", condicionante: "Condicionantes", linea_eje: "Línea eje", variante: "Variantes", sin_precio: "Sin precio", revisar: "A revisar", stock_libre: "Hay stock libre en pañol" };
+    const etapaElegida = etapasObra.find((etapa) => etapa.id === etapaFilter);
+    const filtros = [
+      deferredQ.trim() ? `búsqueda “${deferredQ.trim()}”` : "",
+      proveedorFilter ? `proveedor ${proveedorFilter}` : "",
+      rubroFilter ? `rubro ${rubroFilter}` : "",
+      tipoFilter !== "todos" ? (tipos[tipoFilter] || tipoFilter) : "",
+      estadosSel.size ? `estado ${[...estadosSel].join(" / ")}` : "",
+      etapaFilter === "sin_asignar" ? "sin etapa de compra" : etapaElegida ? `etapa ${etapaElegida.nombre}` : "",
+    ].filter(Boolean);
+    // Sin agrupar en pantalla, el papel igual va por rubro: es como se tilda en el barco.
+    const gruposBase = groupBy === "ninguno"
+      ? [...visibleRows.reduce((map, row) => { const k = rubroDeFila(row); if (!map.has(k)) map.set(k, []); map.get(k).push(row); return map; }, new Map())]
+        .sort(([a], [b]) => compararEtiquetaGrupo(a, b)).map(([label, rowsGrupo]) => ({ label, rows: rowsGrupo }))
+      : groupedRows;
+    const grupos = gruposBase.map((group) => ({
+      nombre: group.label,
+      filas: group.rows.map((row) => {
+        const cant = cantidadesDeFila(row);
+        const accion = accionDeFila(row).texto;
+        return {
+          descripcion: row.variante ? `${row.descripcion} · ${row.variante}` : row.descripcion,
+          requisito: row.requisitoDescripcion && norm(row.requisitoDescripcion) !== norm(row.descripcion) ? row.requisitoDescripcion : "",
+          codigo: row.codigo || "",
+          proveedor: row.proveedor || "Sin proveedor",
+          rubro: row.rubro || "Sin rubro",
+          origen: snapshotOnlyForRow(row) ? "Fuera de matriz" : row.bucket?.label || "Base",
+          cantidad: cant.necesita,
+          unidad: row.unidad || "",
+          recibido: cant.panol,
+          entregado: cant.entregado,
+          faltaComprar: cant.faltaComprar,
+          faltaEntregar: cant.faltaEntregar,
+          estado: estadoMetaDeFila(row).label,
+          accion: accion === "—" ? "" : accion,
+          etapas: etapasDeRow(row).map((etapa) => etapa.nombre).filter(Boolean).join(", "),
+          precio: row.precio?.amount || 0,
+          moneda: row.precio?.moneda || "",
+          obs: row.obs || "",
+        };
+      }),
+    }));
+    try {
+      exportarListaObraXlsx({ obra: obra.codigo, linea: lineaNombre, grupos, agrupadoPor: groupBy === "ninguno" ? "rubro" : groupBy, filtros });
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo armar el Excel." });
+    }
+  }
+
+  async function copiarOrden() {
+    const text = buildOrdenTexto({ obra, lineaNombre, rows: orderRows, groupBy });
+    await navigator.clipboard?.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+  }
+
+  async function ensureSnapshotForFlow() {
+    if (snapshot.length && !snapshotNecesitaSync) return snapshot;
+    setSnapshotBusy(true);
+    try {
+      const saved = await ensureObraMaterialSnapshot(obra.id, obraRows);
+      if (saved.length) {
+        setSnapshot(saved);
+        setSelected(new Set());
+      }
+      return saved;
+    } finally {
+      setSnapshotBusy(false);
+    }
+  }
+
+  async function fijarConfiguracionesParaFlujo(saved, flowRows = []) {
+    const jobs = [];
+    for (const row of flowRows) {
+      if (!row?.esRequisito && !productSpecEntries(row?.especificaciones).length) continue;
+      const snapshotId = snapshotIdForOrderRow(row, saved);
+      if (!snapshotId) continue;
+      jobs.push(guardarConfiguracionProductoObra({
+        snapshotId,
+        productoMaterialId: row.productoMaterialId || null,
+        especificaciones: normalizeProductSpecs(row.especificaciones),
+        origen: row.productoEstandar ? "matriz_linea" : "asignacion_obra",
+      }));
+    }
+    if (jobs.length) await Promise.all(jobs);
+  }
+
+  function snapshotIdForOrderRow(row, saved = snapshot) {
+    return snapshotIdsForOrderRow(row, saved)[0] || null;
+  }
+
+  function snapshotIdsForOrderRow(row, saved = snapshot) {
+    if (!row) return [];
+    if (row.source === "adicional_obra" && row.snapshotId) return [row.snapshotId];
+    const views = separarRecepcionesDeMatriz(obraRows, saved.map((s) => snapshotRowToView(s)), {
+      keyOf: snapshotMergeKey,
+      esSoloMovimiento: isLedgerOnlySnapshot,
+      tieneAdicional: (view) => !!addonRemitoMatch(obraRows, view),
+    });
+    const viewsById = new Map(views.map((view) => [view.snapshotId, view]));
+    const ids = new Set();
+    if (row.source === "addon" || row.bucketKey === "addon") {
+      const rowKey = snapshotMergeKey({ ...row, source: "addon", bucket: { key: "addon" } });
+      saved.forEach((s) => {
+        const view = viewsById.get(s.id);
+        if (!isLedgerOnlySnapshot(view) && snapshotMergeKey(view) === rowKey) ids.add(s.id);
+      });
+      if (row.snapshotId) ids.add(row.snapshotId);
+      return [...ids];
+    }
+    const rowKey = snapshotMergeKey(row);
+    saved.forEach((s) => {
+      const view = viewsById.get(s.id);
+      if (!isLedgerOnlySnapshot(view) && snapshotMergeKey(view) === rowKey) ids.add(s.id);
+    });
+    if (row.snapshotId) ids.add(row.snapshotId);
+    if (!ids.size && row.materialId) {
+      saved.forEach((s) => {
+        const view = viewsById.get(s.id);
+        if (!isLedgerOnlySnapshot(view) && s.material_id === row.materialId) ids.add(s.id);
+      });
+    }
+    return [...ids];
+  }
+
+  // El botón ya no envía: abre la confirmación. Mandar a compras es una acción
+  // que sale del sistema —le genera trabajo a otra persona y hay que dar de baja
+  // el pedido a mano si estaba mal— así que conviene ver qué se manda antes.
+  function confirmarPedidoACompras() {
+    if (!orderRows.length) return;
+    if (!validarProductosConcretos()) return;
+    if (!pedidoObraTipo) {
+      setFlowMsg({ type: "err", text: "Elegí el tipo de pedido." });
+      return;
+    }
+    // El título se propone acá y queda editable en la confirmación: es el último
+    // momento donde quien pide todavía tiene el contexto de qué está mandando.
+    setPedidoTitulo(buildPedidoTitulo({ obra, rows: orderRows }));
+    setFlowMsg(null);
+    setPedidoConfirm({ rows: orderRows.map(row=>({...row})), tipo: pedidoObraTipo, envioId:crypto.randomUUID() });
+  }
+
+  async function pedirAComprasObra() {
+    const pedido = pedidoConfirm;
+    if (!pedido?.rows.length || pedidoEnviandoRef.current) return;
+    const pedidoRows = pedido.rows;
+    if (!pedidoRows.every(row=>cantidadPedidoValida(row.cantidad))) return;
+    pedidoEnviandoRef.current = true;
+    setActionBusy("compras");
+    setFlowMsg(null);
+    try {
+      const saved = await ensureSnapshotForFlow();
+      const documents = await fetchProductDocuments(pedidoRows.flatMap(row => [row.productoMaterialId, row.materialId, row.requisitoMaterialId]), linea);
+      const attachments = [...documents.values()].flat();
+      if (pedido.tipo === "adicional") {
+        await crearPedidoAdicionalObra({
+          attachments,
+          obraId:obra.id,envioId:pedido.envioId,
+          titulo:pedidoTitulo.trim() || buildPedidoTitulo({obra,rows:pedidoRows}),
+          descripcion:buildOrdenTexto({obra,lineaNombre,rows:pedidoRows,groupBy}),
+          items:pedidoRows.map(row=>({
+            snapshot_id:snapshotIdForOrderRow(row,saved),addon_id:row.addonId,
+            description:row.descripcion,quantity:toNum(row.cantidad),unit:row.unidad||"unidad",
+            material_id:row.productoMaterialId||row.materialId||null,
+            requisito_material_id:row.requisitoMaterialId||row.materialId||null,
+            especificaciones:normalizeProductSpecs(row.especificaciones),
+            proveedor:row.proveedor,codigo:row.codigo,categoria_id:row.material?.categoria_id||null,
+            precio_unitario:row.precio?.amount??null,moneda:row.precio?.moneda||null,
+            notes:[esProveedorAlternativo(row.proveedor)?`Proveedores posibles: ${row.proveedor}. Compras debe elegir uno.`:"",row.obs].filter(Boolean).join(" · ")||null,
+            ...(row.material?supplierSnapshotForMaterial(row.material,{proveedor:row.proveedor}):{}),
+          })),
+        });
+        setPedidoConfirm(null);
+        await Promise.all([cargarAddons(),cargarSnapshot()]);
+        setSelected(new Set());
+        setFlowMsg({type:"ok",text:`Pedido adicional creado con ${pedidoRows.length} ítem${pedidoRows.length===1?"":"s"}.`});
+        return;
+      }
+      await fijarConfiguracionesParaFlujo(saved, pedidoRows);
+      const req = await createPurchaseRequest({
+        form: {
+          // Si el usuario lo vació, se vuelve al sugerido antes que mandar un pedido sin nombre.
+          title: pedidoTitulo.trim() || buildPedidoTitulo({ obra, rows: pedidoRows }),
+          description: buildOrdenTexto({ obra, lineaNombre, rows: pedidoRows, groupBy }),
+          priority: "media",
+          source: "materiales_obra",
+          project_id: obra.id,
+          destino: `Obra ${obra.codigo}`,
+          es_adicional: pedido.tipo === "adicional",
+          tipo_pedido: pedido.tipo,
+        },
+        existingAttachments: attachments,
+      });
+
+      const touched = [];
+      for (const row of pedidoRows) {
+        const supplierSnapshot = row.material
+          ? supplierSnapshotForMaterial(row.material, { proveedor: row.proveedor })
+          : {};
+        const created = await addRequestItem(req.id, {
+          description: row.descripcion,
+          quantity: toNum(row.cantidad) || 1,
+          unit: row.unidad || "unidad",
+          destination: `Obra ${obra.codigo}`,
+          material_id: row.productoMaterialId || row.materialId || null,
+          requisito_material_id: row.requisitoMaterialId || row.materialId || null,
+          especificaciones: normalizeProductSpecs(row.especificaciones),
+          catalog_source: "panol",
+          notes: [
+            row.requisitoDescripcion && row.requisitoDescripcion !== row.descripcion
+              ? `Requisito de matriz: ${row.requisitoDescripcion}`
+              : "",
+            esProveedorAlternativo(row.proveedor) ? `Proveedores posibles: ${row.proveedor}. Compras debe elegir uno.` : "",
+            row.obs,
+          ].filter(Boolean).join(" · ") || null,
+          ...supplierSnapshot,
+        });
+        const snapId = snapshotIdForOrderRow(row, saved);
+        if (snapId) {
+          touched.push(snapId);
+          await updateObraSnapshotRows([snapId], {
+            estado: "pedido",
+            purchase_request_id: req.id,
+            purchase_request_item_id: created?.id || null,
+          });
+        }
+      }
+      if (touched.length) cargarSnapshot();
+      setPedidoConfirm(null);
+      setFlowMsg({ type: "ok", text: `Pedido creado para compras con ${pedidoRows.length} items.` });
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo crear el pedido a compras." });
+    } finally {
+      pedidoEnviandoRef.current = false;
+      setActionBusy("");
+    }
+  }
+
+  async function abrirAvisoPanol() {
+    if (!orderRows.length) return;
+    if (!validarProductosConcretos()) return;
+    setActionBusy("panol");
+    setFlowMsg(null);
+    try {
+      const saved = await ensureSnapshotForFlow();
+      await fijarConfiguracionesParaFlujo(saved, orderRows);
+      setPanolPrefill({
+        titulo: `Recepcion ${obra.codigo} - ${selected.size ? `${selected.size} items` : "lista filtrada"}`,
+        sede: obra.sede || "Pampa",
+        obraId: obra.id,
+        prioridad: "media",
+        observaciones: `Recepcion por obra desde lista matriz ${lineaNombre}.`,
+        origen: "obra_matriz",
+        items: orderRows.map((row) => ({
+          descripcion: row.descripcion,
+          codigo: row.codigo || "",
+          cantidad: row.cantidad,
+          unidad: row.unidad || "unidad",
+          material_id: row.productoMaterialId || row.materialId || "",
+          requisito_material_id: row.requisitoMaterialId || row.materialId || "",
+          especificaciones: normalizeProductSpecs(row.especificaciones),
+          proveedor: row.proveedor || "",
+          precio_unitario: row.precio?.amount ?? "",
+          moneda: row.precio?.moneda || "ARS",
+          obra_snapshot_item_id: snapshotIdForOrderRow(row, saved),
+        })),
+      });
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo preparar el aviso a pañol." });
+    } finally {
+      setActionBusy("");
+    }
+  }
+
+  async function toggleCondicionanteObra(condicionante) {
+    if (!obra?.id || condicionanteBusy) return;
+    const next = !condicionante.activoEnObra;
+    setCondicionanteBusy(condicionante.id);
+    setFlowMsg(null);
+    try {
+      await setObraMatrizCondicionante(obra.id, condicionante.id, next);
+      await cargarCondicionantesObra();
+      if (snapshotActivo) {
+        setFlowMsg({ type: "ok", text: "Configuracion guardada. Esta obra ya tiene lista fijada; regenerala para recalcular cantidades." });
+      }
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo guardar el condicionante de la obra." });
+    } finally {
+      setCondicionanteBusy("");
+    }
+  }
+
+  async function regenerarSnapshotObra() {
+    if (!obra?.id || snapshotBusy) return;
+    if (!window.confirm("Regenerar la lista fija desde la matriz viva? Solo se permite si aun no tiene pedidos o recepciones vinculadas.")) return;
+    setSnapshotBusy(true);
+    setFlowMsg(null);
+    try {
+      const saved = await reemplazarObraMaterialSnapshotSeguro(obra.id, obraRows);
+      setSnapshot(saved);
+      setSelected(new Set());
+      setFlowMsg({ type: "ok", text: "Lista fija regenerada con la configuracion actual de la obra." });
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo regenerar la lista fija." });
+    } finally {
+      setSnapshotBusy(false);
+    }
+  }
+
+  async function regularizarEstadoRow(row, estado, nota = "", retiradoPor = "") {
+    if (!row || !estado || estadoBusy) return;
+    setEstadoBusy(row.id);
+    setFlowMsg(null);
+    try {
+      const saved = await ensureSnapshotForFlow();
+      const snapId = snapshotIdForOrderRow({ ...row, bucketKey: row.bucket?.key }, saved);
+      if (!snapId) throw new Error("No se pudo identificar el item de obra para guardar el estado.");
+      await cambiarEstadoObraSnapshot(snapId, estado, nota, retiradoPor);
+      await cargarSnapshot();
+      setFlowMsg({ type: "ok", text: `Estado actualizado: ${row.descripcion} -> ${SNAPSHOT_ESTADO_META[estado]?.label || estado}.` });
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo cambiar el estado del item." });
+    } finally {
+      setEstadoBusy("");
+    }
+  }
+
+  // El mismo cambio que hace el detalle de un renglón, para muchos a la vez.
+  // Va de a 6 para no saturar la base y sigue aunque alguno falle: al final
+  // se dice cuántos quedaron y cuáles no se pudieron.
+  // El renglón guardado de la obra para una fila de la lista. Si no existe lo
+  // crea, igual que al asignar un producto. Pasa cuando lo único guardado de
+  // ese material son movimientos (un remito, un traslado): comparten la clave
+  // con el requisito y por eso la sincronización de la lista no lo agrega.
+  // Caso real: Plotter GPSMAP 1223 de la 52-24 (14/11), «sin renglón de obra».
+  async function snapshotIdParaEstado(row, saved) {
+    const id = snapshotIdForOrderRow({ ...row, bucketKey: row.bucket?.key }, saved);
+    if (id || !obra?.id) return id;
+    const created = await ensureObraMaterialSnapshotRow(obra.id, row);
+    if (created?.id) setSnapshot((current) => current.some((item) => item.id === created.id) ? current : [...current, created]);
+    return created?.id || null;
+  }
+
+  // Un toque desde el detalle, para ir marcando en el barco sin tildar.
+  // Se puede volver atrás con «Cambiar estado» → Pendiente.
+  const [instalandoId, setInstalandoId] = useState(null);
+  // El error va en el pie del detalle: en el celular el detalle tapa la pantalla
+  // y el aviso de arriba de la lista no se ve.
+  const [instalarError, setInstalarError] = useState(null);
+  async function marcarInstalado(row) {
+    if (!row || instalandoId) return;
+    setInstalandoId(row.id);
+    setInstalarError(null);
+    setFlowMsg(null);
+    try {
+      const saved = await ensureSnapshotForFlow();
+      const snapId = await snapshotIdParaEstado(row, saved);
+      if (!snapId) throw new Error("No se pudo encontrar ni crear el renglón de la obra.");
+      const { estado, retiradoPor } = estadoParaGuardar("instalado");
+      await cambiarEstadoObraSnapshot(snapId, estado, "", retiradoPor);
+      await cargarSnapshot();
+      setFlowMsg({ type: "ok", text: `${row.descripcion}: instalado.` });
+    } catch (e) {
+      setInstalarError({ id: row.id, text: e?.message || "No se pudo marcar como instalado." });
+    } finally {
+      setInstalandoId(null);
+    }
+  }
+
+  async function cambiarEstadoEnLote({ estado, etiqueta: etiquetaElegida, nota, retiradoPor, filas }) {
+    if (!filas?.length || loteAvance) return;
+    setFlowMsg(null);
+    setLoteAvance({ hechos: 0, total: filas.length });
+    try {
+      const saved = await ensureSnapshotForFlow();
+      const resultados = await enParalelo(filas, 6, async (row) => {
+        const snapId = await snapshotIdParaEstado(row, saved);
+        if (!snapId) throw new Error("no se pudo encontrar ni crear el renglón de la obra");
+        await cambiarEstadoObraSnapshot(snapId, estado, nota, retiradoPor);
+      }, (hechos, total) => setLoteAvance({ hechos, total }));
+      const fallaron = filas.filter((_, i) => !resultados[i]?.ok);
+      await cargarSnapshot();
+      setSelected(new Set(fallaron.map((row) => row.id)));
+      setLoteOpen(false);
+      const etiqueta = etiquetaElegida || SNAPSHOT_ESTADO_META[estado]?.label || estado;
+      const ok = filas.length - fallaron.length;
+      setFlowMsg(fallaron.length
+        ? { type: "err", text: `${ok} pasaron a ${etiqueta}. ${fallaron.length} no se pudieron (quedan tildados): ${fallaron.slice(0, 3).map((row) => row.descripcion).join(", ")}${fallaron.length > 3 ? "…" : ""}. ${resultados.find((r) => !r?.ok)?.error?.message || ""}`.trim() }
+        : { type: "ok", text: `${ok} ${ok === 1 ? "ítem pasó" : "ítems pasaron"} a ${etiqueta}.` });
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo cambiar el estado." });
+    } finally {
+      setLoteAvance(null);
+    }
+  }
+
+  async function cambiarProductoRow(row, configuracion = {}) {
+    if (!row || productoBusy) return;
+    const productoMaterialId = configuracion.productoMaterialId || null;
+    const especificaciones = normalizeProductSpecs(configuracion.especificaciones);
+    const alcance = configuracion.alcance === "linea" ? "linea" : "obra";
+    setProductoBusy(row.id);
+    setFlowMsg(null);
+    try {
+      if (alcance === "linea") {
+        const resultado = await guardarConfiguracionProductoLinea({
+          requisitoMaterialId: row.requisitoMaterialId || row.materialId,
+          modelo: linea,
+          productoMaterialId,
+          especificaciones,
+          aplicarObrasExistentes: configuracion.aplicarObrasExistentes,
+        });
+        await onChanged?.();
+        await cargarSnapshot();
+        await cargarProductosCompatibles();
+        const producto = materiales.find((material) => material.id === productoMaterialId);
+        const actualizadas = Number(resultado?.obras_actualizadas || 0);
+        const omitidas = Number(resultado?.obras_omitidas || 0);
+        setFlowMsg({
+          type: "ok",
+          text: [
+            `${producto?.descripcion || "Producto pendiente"} quedó como estándar de K${linea}.`,
+            configuracion.aplicarObrasExistentes
+              ? `${actualizadas} obra${actualizadas === 1 ? "" : "s"} actualizada${actualizadas === 1 ? "" : "s"}.`
+              : "Se aplicará automáticamente a las obras nuevas.",
+            omitidas ? `${omitidas} con compras o movimientos quedaron intactas.` : "",
+          ].filter(Boolean).join(" "),
+        });
+        return;
+      }
+
+      const saved = await ensureSnapshotForFlow();
+      let snapIds = snapshotIdsForOrderRow({ ...row, bucketKey: row.bucket?.key }, saved);
+      if (!snapIds.length && obra?.id) {
+        const created = await ensureObraMaterialSnapshotRow(obra.id, row);
+        if (created?.id) {
+          snapIds = [created.id];
+          setSnapshot((prev) => [...prev, created]);
+        }
+      }
+      if (!snapIds.length) throw new Error("No se pudo identificar el ítem de obra para asignar el producto.");
+      await Promise.all(snapIds.map((snapshotId) => guardarConfiguracionProductoObra({
+        snapshotId,
+        productoMaterialId,
+        especificaciones,
+        origen: "asignacion_obra",
+      })));
+      await cargarSnapshot();
+      await cargarProductosCompatibles();
+      const producto = materiales.find((material) => material.id === productoMaterialId);
+      setFlowMsg({
+        type: "ok",
+        text: producto
+          ? `${row.requisitoDescripcion || row.descripcion}: producto asignado ${producto.descripcion} para ${obra?.codigo || "esta obra"}.`
+          : `${row.requisitoDescripcion || row.descripcion}: producto concreto pendiente para ${obra?.codigo || "esta obra"}.`,
+      });
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo guardar la configuración del ítem." });
+    } finally {
+      setProductoBusy("");
+    }
+  }
+
+  function snapshotLockedForAddon(row) {
+    return !!snapshotLockReason(row);
+  }
+
+  function addonForVisibleRow(row) {
+    if (!row || row.bucket?.key !== "addon") return null;
+    const direct = row.addonId ? addons.find((item) => item.id === row.addonId) : null;
+    const byKey = addonByMergeKey.get(snapshotMergeKey(row));
+    const addon = direct || byKey;
+    return addon ? { ...addon, __snapshotId: row.snapshotId || null, __snapshotLocked: snapshotLockedForAddon(row) } : null;
+  }
+
+  function openReassignAddon(addon) {
+    if (!addon) return;
+    setReassignAddon(addon);
+    setReassignObraId(addon.obra_id || obra?.id || "");
+  }
+
+  function addonPromotionMeta(addon) {
+    const material = addon?.material_id ? materialById.get(addon.material_id) : null;
+    const currentQty = material ? materialQty(material, linea) : 0;
+    if (addonPromoteBusy === addon?.id) {
+      return { disabled: true, label: "Pasando...", title: "Actualizando la lista matriz" };
+    }
+    if (!material) {
+      return {
+        disabled: true,
+        label: "Vincular catálogo",
+        title: "Este adicional todavía no está vinculado a un material del catálogo.",
+      };
+    }
+    if (currentQty > 0) {
+      return {
+        disabled: true,
+        label: "Ya es estándar",
+        title: `Este material ya integra la matriz K${linea} con ${qtyText(currentQty, material.unidad_medida || addon.unidad || "unidad")}.`,
+      };
+    }
+    if (addon?.__snapshotLocked) {
+      return {
+        disabled: true,
+        label: "Con historial",
+        title: "Ya tiene movimientos de compras o pañol. No se puede convertir sin alterar el historial de la obra.",
+      };
+    }
+    return {
+      disabled: false,
+      label: "Pasar a estándar",
+      title: `Agregar a la lista matriz K${linea} y quitarlo como adicional de ${obra?.codigo || "esta obra"}.`,
+    };
+  }
+
+  async function promoteAddonToMatrix(addon) {
+    if (!addon?.id || addonPromoteBusy) return;
+    const material = addon.material_id ? materialById.get(addon.material_id) : null;
+    const cantidad = toNum(addon.cantidad) || 1;
+    const meta = addonPromotionMeta(addon);
+    if (meta.disabled) {
+      setFlowMsg({ type: "err", text: meta.title });
+      return;
+    }
+    const accepted = window.confirm(
+      `¿Pasar "${material.descripcion}" a la lista estándar K${linea}?\n\n` +
+      `Se guardarán ${qtyText(cantidad, material.unidad_medida || addon.unidad || "unidad")} en la matriz y dejará de figurar como adicional de ${obra.codigo}. ` +
+      `A partir de ahora aplicará a todas las obras de esta línea.`,
+    );
+    if (!accepted) return;
+
+    setAddonPromoteBusy(addon.id);
+    setFlowMsg(null);
+    try {
+      // El snapshot se quita primero porque todavía no tiene movimientos. Si
+      // algo falla después, el adicional sigue vivo y la lista se puede fijar
+      // nuevamente sin perder información.
+      if (addon.__snapshotId) await borrarObraSnapshotRows([addon.__snapshotId]);
+      await setCantidadModelo(material.id, linea, cantidad);
+      try {
+        await borrarAddon(addon.id);
+      } catch (deleteError) {
+        try {
+          await quitarCantidadModelo(material.id, linea);
+        } catch {
+          throw new Error("El material se agregó a la matriz, pero no se pudo quitar el adicional ni revertir el cambio. Actualizá la pantalla y revisalo para evitar un duplicado.");
+        }
+        throw deleteError;
+      }
+
+      await Promise.allSettled([
+        cargarAddons(),
+        cargarSnapshot(),
+        onChanged?.(),
+      ]);
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(`addon:${addon.id}`);
+        return next;
+      });
+      setOpenActionsRowId("");
+      setFlowMsg({
+        type: "ok",
+        text: `${material.descripcion} ahora es estándar de K${linea} (${qtyText(cantidad, material.unidad_medida || addon.unidad || "unidad")}). Se quitó el adicional de ${obra.codigo}.`,
+      });
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo pasar el material a la lista estándar." });
+    } finally {
+      setAddonPromoteBusy("");
+    }
+  }
+
+  async function submitReassignAddon() {
+    if (!reassignAddon?.id || !reassignObraId || reassignBusy) return;
+    if (reassignAddon.__snapshotLocked) {
+      setFlowMsg({ type: "err", text: "Este adicional ya tiene movimiento de panol. Movelo desde stock para conservar el kardex." });
+      return;
+    }
+    setReassignBusy(true);
+    setFlowMsg(null);
+    try {
+      await reasignarAddon(reassignAddon.id, reassignObraId, {
+        materialId: reassignAddon.material_id || null,
+        fromObraId: reassignAddon.obra_id || obra?.id || null,
+        descripcion: reassignAddon.descripcion || "",
+      });
+      const destino = obrasDestinoReassign.find((item) => item.id === reassignObraId);
+      setFlowMsg({ type: "ok", text: `Adicional reasignado a ${destino?.codigo || "otra obra"}.` });
+      setReassignAddon(null);
+      setReassignObraId("");
+      await Promise.all([cargarAddons(), cargarSnapshot()]);
+      await onChanged?.();
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo reasignar el adicional." });
+    } finally {
+      setReassignBusy(false);
+    }
+  }
+
+  function snapshotOnlyForRow(row) {
+    if (!row?.snapshotId) return false;
+    if (row.bucket?.key === "addon" && addonForVisibleRow(row)) return false;
+    const key = snapshotMergeKey(row);
+    return !!key && !liveMergeKeys.has(key);
+  }
+
+  function snapshotPromotionMeta(row, material) {
+    if (snapshotPromoteBusy === row?.snapshotId) {
+      return { disabled: true, label: "Restituyendo...", title: "Actualizando la matriz K" + linea + "." };
+    }
+    if (!row?.snapshotId) {
+      return { disabled: true, label: "Sin registro", title: "No hay una fila histórica para restituir." };
+    }
+    if (!material?.id) {
+      return {
+        disabled: true,
+        label: "Vincular catálogo",
+        title: "Esta fila histórica no está vinculada a un material activo del catálogo. Primero hay que vincularlo o reactivarlo.",
+      };
+    }
+    if (exclusionMaterialIds.has(material.id)) {
+      return {
+        disabled: true,
+        label: "Restaurar en obra",
+        title: "El material está excluido para esta obra. Restauralo primero desde la matriz viva.",
+      };
+    }
+    const lockReason = snapshotLockReason(row);
+    if (lockReason) {
+      return {
+        disabled: true,
+        label: "Con historial",
+        title: lockReason + " Se conserva como registro histórico.",
+      };
+    }
+    return {
+      disabled: false,
+      label: "Pasar a estándar",
+      title: "Agregarlo a la matriz K" + linea + " y reemplazar esta fila histórica sin movimientos.",
+    };
+  }
+
+  async function promoteSnapshotToMatrix(row, material) {
+    const meta = snapshotPromotionMeta(row, material);
+    if (meta.disabled) {
+      setFlowMsg({ type: "err", text: meta.title });
+      return;
+    }
+
+    const cantidad = toNum(row.cantidad) || 1;
+    const accepted = window.confirm(
+      `¿Pasar "${row.descripcion}" a la lista estándar K${linea}? Se guardarán ${qtyText(cantidad, material.unidad_medida || row.unidad || "unidad")} en la matriz y se reemplazará el registro histórico de ${obra.codigo}.`,
+    );
+    if (!accepted) return;
+
+    setSnapshotPromoteBusy(row.snapshotId);
+    setFlowMsg(null);
+    try {
+      await setCantidadModelo(material.id, linea, cantidad);
+      try {
+        await borrarObraSnapshotRows([row.snapshotId]);
+      } catch (deleteError) {
+        try {
+          await quitarCantidadModelo(material.id, linea);
+        } catch {
+          throw new Error("El material se agregó a la matriz, pero no se pudo retirar la fila histórica ni revertir el cambio. Actualizá la pantalla y revisalo antes de continuar.");
+        }
+        throw deleteError;
+      }
+      await Promise.allSettled([cargarSnapshot(), onChanged?.()]);
+      setOpenActionsRowId("");
+      setFlowMsg({
+        type: "ok",
+        text: `${material.descripcion} ahora es estándar de K${linea} (${qtyText(cantidad, material.unidad_medida || row.unidad || "unidad")}).`,
+      });
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo pasar el item histórico a la lista estándar." });
+    } finally {
+      setSnapshotPromoteBusy("");
+    }
+  }
+
+  async function linkSnapshotToCatalog(row, material) {
+    if (!row?.snapshotId || !material?.id || snapshotLinkBusy) return;
+    setSnapshotLinkBusy(row.snapshotId);
+    setFlowMsg(null);
+    try {
+      await updateObraSnapshotRows([row.snapshotId], { material_id: material.id });
+      await Promise.all([onChanged?.(), cargarSnapshot()]);
+      setFlowMsg({
+        type: "ok",
+        text: `${row.descripcion} quedó vinculado a ${material.descripcion}. Ya podés pasarlo a estándar K${linea}.`,
+      });
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo vincular la fila histórica al catálogo." });
+    } finally {
+      setSnapshotLinkBusy("");
+    }
+  }
+
+  async function createCatalogAndLinkSnapshot(row, draft) {
+    const descripcion = String(draft?.descripcion || row?.descripcion || "").trim();
+    const categoriaId = draft?.categoria_id || null;
+    if (!descripcion) {
+      setFlowMsg({ type: "err", text: "Indicá el nombre del material antes de crearlo." });
+      return;
+    }
+    if (!categoriaId) {
+      setFlowMsg({ type: "err", text: "Elegí el rubro del material antes de crearlo." });
+      return;
+    }
+    if (!row?.snapshotId || snapshotLinkBusy) return;
+
+    setSnapshotLinkBusy(row.snapshotId);
+    setFlowMsg(null);
+    try {
+      const materialId = await crearMaterial({
+        descripcion,
+        categoria_id: categoriaId,
+        codigo: row.codigo || null,
+        unidad_medida: row.unidad || "unidad",
+        notas: `Creado al recuperar la fila histórica de ${obra.codigo}.`,
+        origen: "snapshot_historico",
+        revisado: false,
+      }, {});
+      await updateObraSnapshotRows([row.snapshotId], { material_id: materialId });
+      await Promise.all([onChanged?.(), cargarSnapshot()]);
+      setFlowMsg({
+        type: "ok",
+        text: `${descripcion} fue creado en catálogo y vinculado. Ya podés pasarlo a estándar K${linea}.`,
+      });
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo crear y vincular el material al catálogo." });
+    } finally {
+      setSnapshotLinkBusy("");
+    }
+  }
+
+  async function deleteAddonRow(addon) {
+    if (!addon?.id || addonDeleteBusy) return;
+    if (addon.__snapshotLocked) {
+      setFlowMsg({ type: "err", text: "Este item ya tiene movimiento de pañol. Para moverlo o anularlo usá Stock de pañol, así no se rompe el kardex." });
+      return;
+    }
+    if (!window.confirm(`Quitar "${addon.descripcion || "este adicional"}" solo de ${obra.codigo}?`)) return;
+    setAddonDeleteBusy(addon.id);
+    setFlowMsg(null);
+    try {
+      await borrarAddon(addon.id, { snapshotId: addon.__snapshotId || null });
+      await Promise.all([cargarAddons(), cargarSnapshot()]);
+      await onChanged?.();
+      setFlowMsg({ type: "ok", text: "Item quitado de esta obra." });
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo quitar el item de esta obra." });
+    } finally {
+      setAddonDeleteBusy("");
+    }
+  }
+
+  async function deleteSnapshotOnlyRow(row) {
+    if (!row?.snapshotId || snapshotDeleteBusy) return;
+    if (snapshotLockedForAddon(row)) {
+      setFlowMsg({ type: "err", text: "Este item ya tiene compra, recepción o pañol asociado. Para corregirlo usá el flujo de pañol, así queda historial." });
+      return;
+    }
+    if (!window.confirm(`Quitar "${row.descripcion}" solo de ${obra.codigo}?`)) return;
+    setSnapshotDeleteBusy(row.snapshotId);
+    setFlowMsg(null);
+    try {
+      await borrarObraSnapshotRows([row.snapshotId]);
+      await cargarSnapshot();
+      setFlowMsg({ type: "ok", text: "Item quitado de esta obra." });
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo quitar el item de esta obra." });
+    } finally {
+      setSnapshotDeleteBusy("");
+    }
+  }
+
+  async function excluirRowDeObra(row) {
+    if (!row?.materialId || exclusionBusy) return;
+    if (!window.confirm(`Quitar "${row.descripcion}" solo de ${obra.codigo}? No se borra del catalogo ni de la matriz K${linea}.`)) return;
+    setExclusionBusy(row.materialId);
+    setFlowMsg(null);
+    try {
+      await excluirMaterialDeObra(obra.id, row.materialId, `No aplica a ${obra.codigo}`);
+      if (row.snapshotId && !snapshotLockedForAddon(row)) await borrarObraSnapshotRows([row.snapshotId]);
+      await Promise.all([cargarExclusionesObra(), cargarSnapshot()]);
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(row.id);
+        return next;
+      });
+      setFlowMsg({ type: "ok", text: `${row.descripcion} quitado solo de ${obra.codigo}.` });
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo quitar el item de esta obra. Revisá si falta correr el SQL de exclusiones." });
+    } finally {
+      setExclusionBusy("");
+    }
+  }
+
+  async function restaurarRowEnObra(materialId) {
+    if (!materialId || exclusionBusy) return;
+    setExclusionBusy(materialId);
+    setFlowMsg(null);
+    try {
+      await restaurarMaterialDeObra(obra.id, materialId);
+      await cargarExclusionesObra();
+      setFlowMsg({ type: "ok", text: "Item restaurado en esta obra." });
+    } catch (e) {
+      setFlowMsg({ type: "err", text: e?.message || "No se pudo restaurar el item." });
+    } finally {
+      setExclusionBusy("");
+    }
+  }
+
+  const obraButton = { ...BTN, minHeight: isMobile ? 44 : 32, padding: "5px 9px", borderRadius: 6, fontSize: 12, fontWeight: 550, boxShadow: "none", background: C.panelSolid, color: C.text };
+  const obraSelect = { ...INP, height: isMobile ? 44 : 34, minWidth: 0, width: "auto", maxWidth: isMobile ? "100%" : 240, borderRadius: 6, fontSize: 12, padding: "5px 8px" };
+  const facets = useMemo(() => {
+    const proveedoresSet = new Set();
+    const rubrosSet = new Set();
+    rows.forEach((row) => {
+      const names = nombresProveedor(row.proveedor);
+      for (const name of names.length ? names : ["Sin proveedor"]) proveedoresSet.add(name);
+      if (row.rubro) rubrosSet.add(row.rubro);
+    });
+    return {
+      proveedores: [...proveedoresSet].sort((a, b) => a.localeCompare(b, "es")),
+      rubros: [...rubrosSet].sort((a, b) => a.localeCompare(b, "es")),
+    };
+  }, [rows]);
+
+  const activeObraFilterCount = [proveedorFilter, rubroFilter, estadosSel.size > 0, tipoFilter !== "todos", etapaFilter !== "todos", q.trim()].filter(Boolean).length;
+  const detailRow = visibleRows.find((row) => row.id === openActionsRowId) || rows.find((row) => row.id === openActionsRowId);
+  const detailIndex = visibleRows.findIndex((row) => row.id === openActionsRowId);
+
+  function openObraDetail(row, trigger) {
+    detailTriggerRef.current = trigger;
+    setDetailTab("resumen");
+    setOpenActionsRowId(row.id);
+  }
+  const closeObraDetail = useCallback(() => setOpenActionsRowId(""), []);
+  useEffect(() => {
+    if (!detailRow && detailTriggerRef.current) {
+      detailTriggerRef.current.focus?.({ preventScroll: true });
+      detailTriggerRef.current = null;
+    }
+  }, [detailRow]);
+
+  function getObraRowView(row) {
+    const cant = cantidadesDeFila(row);
+    const status = estadoMetaDeFila(row);
+    const material = row.material || materialById.get(row.materialId);
+    const rowImageUrl = row.producto?.imagen_url || materialVariantImageUrl(material, row.variante) || String(row.imagen_url || material?.imagen_url || material?.imagenes?.[0]?.url || "").trim();
+    const action = accionDeFila(row);
+    // Si la fila muestra el producto elegido, abajo va el requisito de matriz
+    // que cubre ("Caja de piso Urben Alamo" / Requisito: Caja de piso).
+    const requisito = row.requisitoDescripcion && norm(row.requisitoDescripcion) !== norm(row.descripcion)
+      ? row.requisitoDescripcion
+      : "";
+    // Lo que le falta al barco, con el color de por qué falta: comprar (azul),
+    // está en compras (cian) o ya está en pañol y hay que ir a buscarlo (violeta).
+    const falta = faltaDeFila(row);
+    const faltaColor = cant.faltaComprar > 0 ? C.blue : cant.faltaEntregar > 0 ? C.violet : cant.enCompras > 0 ? C.cyan : C.muted;
+    const faltaTitle = falta
+      ? [cant.faltaComprar ? `${fmtQtyCorto(cant.faltaComprar)} por comprar` : "", cant.enCompras ? `${fmtQtyCorto(cant.enCompras)} en compras` : "", cant.faltaEntregar ? `${fmtQtyCorto(cant.faltaEntregar)} en pañol para retirar` : ""].filter(Boolean).join(" · ") || `Faltan ${fmtQtyCorto(falta)}`
+      : "Entregado completo";
+    const libre = stockLibreDeFila(row);
+    const stockLibre = libre ? {
+      // Corto a propósito: en el celular la columna del nombre tiene ~20 letras.
+      texto: `Stock libre ${fmtQtyCorto(libre.cantidad)} ${unidadCorta(libre.unidad || row.unidad)}${toNum(libre.cantidad) < cant.faltaComprar ? ` de ${fmtQtyCorto(cant.faltaComprar)}` : ""}`,
+      title: `Stock libre en pañol${Object.entries(libre.sedes || {}).filter(([, n]) => toNum(n) > 0).map(([sede, n]) => ` · ${sede}: ${fmtQtyCorto(n)}`).join("")}. Se puede asignar a la obra en vez de comprarlo.`,
+    } : null;
+    return {
+      status, cant, requisito, falta, faltaColor, faltaTitle, faltaTexto: fmtQtyCorto(falta), stockLibre,
+      necesarioCorto: fmtQtyCorto(cant.necesita), unidadCorta: unidadCorta(row.unidad),
+      needed: qtyText(row.cantidad, row.unidad), received: fmtQtyCorto(cant.panol), delivered: fmtQtyCorto(cant.entregado),
+      quantityTitle: `Necesario ${fmtQtyCorto(cant.necesita)} · recibido ${fmtQtyCorto(cant.panol)} · entregado ${fmtQtyCorto(cant.entregado)}`,
+      imageMaterial: { ...(row.producto || material || {}), imagen_url: rowImageUrl, descripcion: row.variante ? `${row.descripcion} · ${row.variante}` : row.descripcion },
+      uploadMaterial: row.producto?.id ? row.producto : material,
+      origin: [
+        row.bucket?.key === "addon" ? "Adicional" : snapshotOnlyForRow(row) ? "Fuera de matriz" : "",
+        requisito ? `Requisito: ${requisito}` : "",
+      ].filter(Boolean).join(" · "),
+      issue: action.trabado ? action.texto : row.review?.flag ? "A revisar" : "",
+    };
+  }
+
+  function renderObraDetail(row, tab) {
+    const view = getObraRowView(row);
+    const cant = view.cant;
+    const materialForRow = row.material || materialById.get(row.materialId);
+    const editableAddon = addonForVisibleRow(row);
+    const addonPromotion = editableAddon ? addonPromotionMeta(editableAddon) : null;
+    const snapshotOnly = snapshotOnlyForRow(row);
+    const snapshotPromotion = snapshotOnly ? snapshotPromotionMeta(row, materialForRow) : null;
+    const editingMaterial = editingMaterialRowId === row.id;
+    const etapasRow = etapasDeRow(row);
+    const miniBtn = { ...obraButton, minHeight: isMobile ? 44 : 32 };
+    const stockLibreInfo = stockLibreMap.get(stockLibreKeyForRow(row));
+    if (tab === "resumen") return <div style={{ display: "grid", gap: 14, fontSize: 12 }}>
+      <MaterialDocuments materialId={(row.producto || materialForRow)?.id} links={(row.producto || materialForRow)?.links || []} linea={linea} editable={!!(row.producto || materialForRow)?.id} onChanged={async () => { await onChanged?.(); await cargarSnapshot(); }} />
+      {[...(view.requisito ? [["Requisito", view.requisito]] : []), ["Rubro", row.rubro || "Sin rubro"], ["Proveedor", row.proveedor || "Sin proveedor"], ["Código", row.codigo || "Sin código"], ["Origen", row.bucket?.label || "Matriz"]].map(([label, value]) => <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span style={{ color: C.muted }}>{label}</span><span style={{ textAlign: "right", color: C.text }}>{value}</span></div>)}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}><span style={{ color: C.muted }}>Precio unitario</span><span style={{ fontFamily: C.mono }}>{row.precio.amount ? row.precio.text : "Sin precio"}</span>{materialForRow && !editableAddon && <button type="button" aria-label="Editar precio en catálogo" onClick={() => { setEditingMaterialRowId(row.id); setDetailTab("mas"); }} style={obraButton}><Pencil size={13} /></button>}</div>
+      <div style={{ paddingTop: 12, borderTop: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
+        <strong style={{ fontWeight: 600 }}>Cantidades</strong>
+        {[["Necesario", cant.necesita], ["Recibido", cant.panol], ["Entregado", cant.entregado], ["Por comprar", cant.faltaComprar], ["Por entregar", cant.faltaEntregar]].map(([label, value]) => <div key={label} style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.muted }}>{label}</span><span style={{ fontFamily: C.mono }}>{qtyText(value, row.unidad)}</span></div>)}
+        <DesgloseCantidad row={row} />
+        {row.cantidadOrigenEtapa && <span style={{ color: C.blue }}>Cantidad de esta etapa</span>}
+      </div>
+      <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10, display: "flex", justifyContent: "space-between", gap: 8 }}><span style={{ color: C.muted }}>Stock libre</span><span style={{ fontFamily: C.mono }}>{stockLibreLoading ? "Cargando…" : stockLibreInfo ? qtyText(stockLibreInfo.cantidad, stockLibreInfo.unidad) : "Sin disponibilidad informada"}</span></div>
+      <StockLibreChip info={stockLibreInfo} loading={stockLibreLoading} />
+      <div aria-label="Estado actual del abastecimiento" style={{ display: "flex", gap: 4, padding: "12px 0" }}>{[["pendiente", "Pendiente"], ["pedido", "Pedido"], ["comprado", "Comprado"], ["en_panol", "En pañol"], ["egresado", "Entregado"]].map(([key, label]) => <div key={key} style={{ flex: 1, textAlign: "center", color: estadoObraForRow(row) === key ? C.blue : C.muted, borderTop: `2px solid ${estadoObraForRow(row) === key ? C.blue : C.border}`, paddingTop: 7, fontSize: 11 }}>{label}{estadoObraForRow(row) === key ? " · actual" : ""}</div>)}</div>
+      {view.issue && <div style={{ color: C.red }}>{view.issue}</div>}
+      {row.obs && <div style={{ color: C.muted, lineHeight: 1.5 }}>{row.obs}</div>}
+      {!!row.condicionantes?.length && <div style={{ display: "grid", gap: 5 }}><strong>Condicionantes</strong>{row.condicionantes.map((item) => <span key={`${item.id}-${item.condicionante}`} style={{ color: item.delta < 0 ? C.red : C.violet }}>{item.condicionante}: {item.label}</span>)}</div>}
+      {productSpecEntries(row.especificaciones).map((item) => <div key={item.key}><span style={{ color: C.muted }}>{item.label}: </span>{item.value}</div>)}
+      {(row.esRequisito || row.source === "matriz") && <ProductoAsignadoControl row={row} materiales={materiales} compatibles={productosCompatiblesPorRequisito.get(row.requisitoMaterialId || row.materialId) || []} busy={productoBusy === row.id || snapshotBusy} obraCodigo={obra?.codigo || "esta obra"} linea={linea} allowLineScope={!row.productoPorObra && !row.productoCondicionante} specOnly={!row.esRequisito} onSave={cambiarProductoRow} />}
+    </div>;
+    if (tab === "compras") return <div style={{ display: "grid", gap: 20 }}>
+      <div><strong style={{ fontSize: 12 }}>Estado y regularización</strong><div style={{ marginTop: 10 }}><ObraEstadoControl key={row.id} row={row} busy={estadoBusy === row.id || snapshotBusy} onChange={regularizarEstadoRow} /></div></div>
+      <EtapaCompraEditor row={row} etapas={etapasObra} asignaciones={etapasRow} busy={asignarEtapaBusy === row.id} error={etapasObraError} onSave={(payload) => guardarEtapaMaterial(row, payload)} />
+      <RecepcionDetalle row={row} />
+      {(row.purchase_request_id || row.recepcion_envio?.titulo) && <div style={{ fontSize: 12, color: C.muted, overflowWrap: "anywhere" }}>{row.purchase_request_id ? `Pedido vinculado: ${row.purchase_request_id}` : ""}{row.recepcion_envio?.titulo ? ` · ${row.recepcion_envio.titulo}` : ""}</div>}
+    </div>;
+    return <div style={{ display: "grid", gap: 14 }}>
+                        {snapshotOnly ? (
+                          <SnapshotTraceCard
+                            key={row.snapshotId}
+                            row={row}
+                            linea={linea}
+                            material={materialForRow}
+                            materiales={materiales}
+                            categorias={categorias}
+                            promotion={snapshotPromotion}
+                            linkBusy={snapshotLinkBusy === row.snapshotId}
+                            onPromote={() => promoteSnapshotToMatrix(row, materialForRow)}
+                            onLinkExisting={(catalogMaterial) => linkSnapshotToCatalog(row, catalogMaterial)}
+                            onCreateAndLink={(draft) => createCatalogAndLinkSnapshot(row, draft)}
+                          />
+                        ) : null}
+                        <div style={{ flex: "1 1 220px", display: "flex", flexWrap: "wrap", gap: 6, alignContent: "flex-start" }}>
+                          {materialForRow && !editableAddon ? (
+                            <button
+                              type="button"
+                              onClick={() => setEditingMaterialRowId((id) => (id === row.id ? "" : row.id))}
+                              style={{ ...miniBtn, color: editingMaterial ? C.blue : C.t1 }}
+                              title="Editar item del catalogo completo"
+                            >
+                              <Pencil size={12} /> {editingMaterial ? "Cerrar edición" : "Editar catálogo"}
+                            </button>
+                          ) : null}
+                          {editableAddon ? (
+                            <>
+                              <button
+                                type="button"
+                                disabled={addonPromotion.disabled}
+                                onClick={() => promoteAddonToMatrix(editableAddon)}
+                                style={{
+                                  ...miniBtn,
+                                  color: addonPromotion.disabled ? C.t3 : C.blue,
+                                  borderColor: addonPromotion.disabled ? C.b0 : C.blueB,
+                                  background: addonPromotion.disabled ? C.s0 : C.blueL,
+                                  opacity: addonPromotion.disabled ? 0.68 : 1,
+                                }}
+                                title={addonPromotion.title}
+                              >
+                                <PackagePlus size={12} /> {addonPromotion.label}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingAddon(editableAddon);
+                                  setAddonModalOpen(true);
+                                }}
+                                style={{ ...miniBtn, color: C.blue }}
+                                title="Editar adicional"
+                              >
+                                <Pencil size={12} /> Editar adicional
+                              </button>
+                              <button
+                                type="button"
+                                disabled={editableAddon.__snapshotLocked}
+                                onClick={() => openReassignAddon(editableAddon)}
+                                style={{ ...miniBtn, color: editableAddon.__snapshotLocked ? C.t3 : C.violet, opacity: editableAddon.__snapshotLocked ? 0.55 : 1 }}
+                                title={editableAddon.__snapshotLocked ? "Ya tiene movimiento de panol" : "Reasignar adicional a otra obra"}
+                              >
+                                <RefreshCw size={12} /> Reasignar
+                              </button>
+                              <button
+                                type="button"
+                                disabled={addonDeleteBusy === editableAddon.id}
+                                onClick={() => deleteAddonRow(editableAddon)}
+                                style={{ ...miniBtn, color: editableAddon.__snapshotLocked ? C.t3 : C.red, opacity: editableAddon.__snapshotLocked ? 0.8 : 1 }}
+                                title={editableAddon.__snapshotLocked ? "Ya tiene movimiento de pañol: tocá para ver el motivo" : "Quitar solo de esta obra"}
+                              >
+                                <Trash2 size={12} /> {addonDeleteBusy === editableAddon.id ? "Sacando..." : "Sacar de esta obra"}
+                              </button>
+                            </>
+                          ) : null}
+                          {row.source === "matriz" && row.materialId ? (
+                            <button
+                              type="button"
+                              disabled={exclusionBusy === row.materialId}
+                              onClick={() => excluirRowDeObra(row)}
+                              style={{ ...miniBtn, color: C.red, opacity: exclusionBusy === row.materialId ? 0.65 : 1 }}
+                              title={`Quitar solo de ${obra.codigo}. Si tiene movimientos, se conserva el kardex.`}
+                            >
+                              <Trash2 size={12} /> {exclusionBusy === row.materialId ? "Sacando..." : "Sacar de esta obra"}
+                            </button>
+                          ) : null}
+                          {snapshotOnly && !editableAddon ? (
+                            <button
+                              type="button"
+                              disabled={snapshotDeleteBusy === row.snapshotId}
+                              onClick={() => deleteSnapshotOnlyRow(row)}
+                              style={{ ...miniBtn, color: snapshotLockedForAddon(row) ? C.t3 : C.red, opacity: snapshotLockedForAddon(row) ? 0.8 : 1 }}
+                              title={snapshotLockedForAddon(row) ? "Tiene compras/recepción/pañol asociado: tocá para ver el motivo" : "Quitar solo de esta obra"}
+                            >
+                              <Trash2 size={12} /> {snapshotDeleteBusy === row.snapshotId ? "Sacando..." : "Sacar de esta obra"}
+                            </button>
+                          ) : null}
+                        </div>
+                          {editingMaterial && materialForRow ? (
+                      <MaterialFila
+                        material={materialForRow}
+                        categorias={categorias}
+                        ums={ums}
+                        proveedores={proveedores}
+                        onChanged={async () => {
+                          await onChanged?.();
+                          await cargarSnapshot();
+                        }}
+                        linea={linea}
+                        inDrawer
+                        initialOpen
+                      />
+                    ) : null}
+    </div>;
+  }
+
+  return (
+    <div className="obra-workspace" style={{ ...obraThemeScope, minWidth: 0 }}>
+      <ObraWorkspaceStyles />
+      <header style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", gap: "8px 14px", padding: "2px 0 10px" }}>
+        <div style={{ minWidth: 0 }}>
+          <button type="button" onClick={onBack} style={{ border: "none", background: "transparent", color: C.muted, cursor: "pointer", padding: "0 0 3px", fontSize: 11, fontFamily: C.sans }}>← {lineaNombre}</button>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+            <h2 style={{ margin: 0, fontSize: 22, lineHeight: 1.15, fontWeight: 700, color: C.text, letterSpacing: -0.2 }}>Obra {obra.codigo}</h2>
+            <span title={snapshotActivo ? "La lista de esta obra está fijada: los cambios de la matriz no la tocan hasta regenerarla." : "La lista sale de la matriz en vivo."} style={{ fontSize: 11, color: snapshotStatus.color, border: `1px solid ${snapshotStatus.border}`, borderRadius: 999, padding: "1px 8px" }}>{snapshotStatus.label}</span>
+          </div>
+        </div>
+        <div style={{ flex: 1 }} />
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          <button type="button" onClick={exportarExcel} disabled={!visibleRows.length} style={obraButton} title="Descargar la lista en Excel: una hoja para imprimir y tildar ítem por ítem, y otra con todos los datos. Sale lo que se ve con los filtros puestos."><FileSpreadsheet size={13} />Excel</button>
+          <button type="button" onClick={() => { setEditingAddon(null); setAddonModalOpen(true); }} style={{ ...obraButton, color: C.blue, borderColor: C.blueB }}><Plus size={13} />Adicional</button>
+          <div style={{ position: "relative" }}>
+            <button type="button" aria-haspopup="menu" aria-expanded={masOpen} onClick={() => setMasOpen((v) => !v)} style={{ ...obraButton, color: obraPanel ? C.blue : C.text }}><MoreHorizontal size={14} />Más</button>
+            {masOpen && <>
+              <div onClick={() => setMasOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
+              <div role="menu" style={{ position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 41, minWidth: 250, background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 9, boxShadow: "0 14px 40px var(--shadow)", padding: 5, display: "grid" }}>
+                {[
+                  ["config", <Settings2 key="i" size={13} />, "Configuración de la obra", `${condicionantesActivos.length} de ${condicionantesModelo.length}`],
+                  ["excluidos", <X key="i" size={13} />, "Ítems sacados de esta obra", exclusionesDetalle.length],
+                  ["consumibles", <PackagePlus key="i" size={13} />, "Consumibles consumidos", ""],
+                ].map(([key, icono, label, extra]) => <button key={key} type="button" role="menuitemcheckbox" aria-checked={obraPanel === key} onClick={() => { setObraPanel(obraPanel === key ? "" : key); setMasOpen(false); }} style={{ ...obraButton, border: "none", justifyContent: "flex-start", width: "100%", background: obraPanel === key ? C.blueL : "transparent", color: obraPanel === key ? C.blue : C.text }}>{icono}<span style={{ flex: 1, textAlign: "left" }}>{label}</span><span style={{ color: C.muted, fontFamily: C.mono, fontSize: 11 }}>{extra}</span></button>)}
+                {snapshotActivo && <><div style={{ borderTop: `1px solid ${C.border}`, margin: "4px 0" }} />
+                  <button type="button" role="menuitem" disabled={snapshotBusy} onClick={() => { setMasOpen(false); regenerarSnapshotObra(); }} style={{ ...obraButton, border: "none", justifyContent: "flex-start", width: "100%", background: "transparent" }}><RefreshCw size={13} />Regenerar lista</button></>}
+              </div>
+            </>}
+          </div>
+        </div>
+      </header>
+      {obraPanel && <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}><button type="button" onClick={() => setObraPanel("")} style={{ ...obraButton, border: "none", background: "transparent", color: C.muted }}><X size={13} />Cerrar panel</button></div>}
+      {obraPanel === "consumibles" && <div style={{ marginBottom: 10 }}><PanelConsumiblesDeObra key={obra.id} obraId={obra.id} obraLabel={obra.codigo} abiertoInicial /></div>}
+      {obraPanel === "config" && !condicionantesModelo.length && <div style={{ color: C.muted, padding: 12, fontSize: 12 }}>Esta línea no tiene condicionantes cargados.</div>}
+
+      {obraPanel === "config" && condicionantesModelo.length > 0 && (
+        <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 10, marginBottom: 12, display: "grid", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 12.5, fontWeight: 750, color: C.t0 }}>Configuracion de esta obra</div>
+              <div style={{ fontSize: 11, color: C.t2, marginTop: 2, lineHeight: 1.35 }}>
+                Se toca una vez: base + condicionantes activos.
+              </div>
+            </div>
+            <span style={{ fontSize: 11, fontWeight: 700, color: C.violet, border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 999, padding: "4px 9px" }}>
+              {condicionantesActivos.length}/{condicionantesModelo.length} activos
+            </span>
+          </div>
+          {snapshotActivo && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", fontSize: 11.5, color: C.violet, border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 10, padding: "7px 9px" }}>
+              <span>Esta obra ya tiene lista fijada. Los cambios quedan guardados, pero para que impacten en cantidades hay que regenerar la lista antes de pedir/avisar.</span>
+              <button type="button" onClick={regenerarSnapshotObra} disabled={snapshotBusy} style={{ ...BTN, padding: "5px 9px", fontSize: 11, color: C.violet, borderColor: C.violetB, background: C.bg }}>
+                {snapshotBusy ? "Regenerando..." : "Regenerar lista"}
+              </button>
+            </div>
+          )}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 6, maxHeight: 210, overflowY: "auto" }}>
+            {condicionantesModelo.map((condicionante) => {
+              const active = condicionante.activoEnObra;
+              const items = (condicionante.items ?? []).filter((item) => item.activo !== false);
+              return (
+                <div key={condicionante.id} style={{ border: `1px solid ${active ? C.greenB : C.b0}`, background: active ? C.greenL : C.s0, borderRadius: 10, padding: "7px 8px", display: "grid", gap: 5 }} title={condicionante.descripcion || condicionante.nombre}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "flex-start", justifyContent: "space-between" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 750, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{condicionante.nombre}</div>
+                      <div style={{ fontSize: 10, color: C.t2, marginTop: 1 }}>
+                        {condicionante.definidoEnObra ? "Definido en esta obra" : condicionante.activo_por_defecto ? "Activo por defecto" : "Apagado por defecto"}
+                      </div>
+                    </div>
+                    <button type="button" disabled={condicionanteBusy === condicionante.id} onClick={() => toggleCondicionanteObra(condicionante)} style={{ ...BTN, padding: "4px 8px", color: active ? C.green : C.t2, borderColor: active ? C.greenB : C.b0, background: active ? C.bg : C.s0, fontSize: 10.5, fontWeight: 700 }}>
+                      {active ? "Lleva" : "No lleva"}
+                    </button>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+                    {items.length ? items.slice(0, 4).map((item) => (
+                      <span key={item.id} style={{ fontSize: 10.5, color: condicionanteDelta(item) < 0 ? C.red : C.t1, border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 999, padding: "2px 7px" }}>
+                        {condicionanteItemLabel(item)}
+                      </span>
+                    )) : <span style={{ fontSize: 10.5, color: C.t3 }}>Sin items asociados</span>}
+                    {items.length > 4 && <span style={{ fontSize: 10.5, color: C.t3 }}>+{items.length - 4} mas</span>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {obraPanel === "excluidos" && (
+        <div style={{ border: `1px solid ${C.b0}`, borderRadius: 14, background: "var(--panel)", padding: 13, marginBottom: 16, display: "grid", gap: 10 }}>
+          <div>
+            <div style={{ fontSize: 12.5, fontWeight: 750, color: C.t0 }}>Items quitados solo de {obra.codigo}</div>
+            <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>
+              No se borran del catalogo ni de la matriz K{linea}; simplemente no aplican a esta obra.
+            </div>
+          </div>
+          <div style={{ display: "grid", gap: 7 }}>
+            {exclusionesDetalle.map((item) => (
+              <div key={item.material_id} style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "space-between", border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 10, padding: 10, flexWrap: "wrap" }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.material?.descripcion || "Material excluido"}</div>
+                  <div style={{ fontSize: 11, color: C.t2, marginTop: 3 }}>{item.material?.codigo || "sin codigo"}{item.motivo ? ` · ${item.motivo}` : ""}</div>
+                </div>
+                <button type="button" disabled={exclusionBusy === item.material_id} onClick={() => restaurarRowEnObra(item.material_id)} style={{ ...BTN_GREEN, padding: "7px 10px", fontSize: 11 }}>
+                  {exclusionBusy === item.material_id ? "Restaurando..." : "Restaurar"}
+                </button>
+              </div>
+            ))}
+            {!exclusionesDetalle.length && (
+              <div style={{ padding: 16, border: `1px dashed ${C.b0}`, borderRadius: 11, textAlign: "center", color: C.t2, fontSize: 12 }}>
+                No hay items excluidos en esta obra.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <ObraAddonModal
+        open={addonModalOpen}
+        obra={obra}
+        obras={obras}
+        addon={editingAddon}
+        materiales={materiales}
+        categorias={categorias}
+        proveedores={proveedores}
+        ums={ums}
+        onClose={() => { setAddonModalOpen(false); setEditingAddon(null); }}
+        onSaved={async () => {
+          setAddonModalOpen(false);
+          setEditingAddon(null);
+          await Promise.all([cargarAddons(),cargarSnapshot()]);
+          await onChanged?.();
+        }}
+        onChanged={onChanged}
+      />
+
+      {pedidoConfirm && <PedidoObraModal
+        pedido={pedidoConfirm} obraCodigo={obra.codigo} titulo={pedidoTitulo} onTitulo={setPedidoTitulo}
+        onCantidad={(index,cantidad)=>setPedidoConfirm(actual=>({...actual,rows:actual.rows.map((row,i)=>i===index?{...row,cantidad}:row)}))}
+        onCerrar={()=>setPedidoConfirm(null)} onConfirmar={pedirAComprasObra}
+        busy={actionBusy === "compras" || snapshotBusy} error={flowMsg?.type === "err" ? flowMsg.text : ""}
+      />}
+      {reassignAddon ? (
+        <div style={{ position: "fixed", inset: 0, zIndex: 5100, background: "rgba(2,6,23,.62)", display: "grid", placeItems: "center", padding: 18 }}>
+          <div style={{ width: "min(460px, calc(100vw - 28px))", border: `1px solid ${C.b1}`, borderRadius: 14, background: C.panelSolid, boxShadow: "0 24px 80px rgba(0,0,0,.35)", padding: 16, display: "grid", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 750, color: C.t0 }}>Reasignar adicional</div>
+                <div style={{ fontSize: 12, color: C.t2, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {reassignAddon.descripcion || "Item adicional"}
+                </div>
+              </div>
+              <button type="button" onClick={() => setReassignAddon(null)} style={{ ...BTN, padding: "6px 8px" }} title="Cerrar">
+                <X size={14} />
+              </button>
+            </div>
+
+            {reassignAddon.__snapshotLocked ? (
+              <div style={{ fontSize: 12, color: C.violet, border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 10, padding: "8px 9px", lineHeight: 1.35 }}>
+                Este adicional ya tuvo movimiento de panol. Para moverlo hay que hacerlo desde stock y conservar el kardex.
+              </div>
+            ) : (
+              <div style={{ fontSize: 12, color: C.t2, lineHeight: 1.35 }}>
+                Lo mueve de {obra.codigo} a otra obra. Si solo tenia pedido/aviso pendiente tambien se actualiza ese vinculo.
+              </div>
+            )}
+
+            <label style={{ display: "grid", gap: 5 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: C.t2, textTransform: "uppercase", letterSpacing: 0.7 }}>Obra destino</span>
+              <select
+                value={reassignObraId}
+                disabled={reassignAddon.__snapshotLocked || reassignBusy}
+                onChange={(e) => setReassignObraId(e.target.value)}
+                style={{ ...INP, height: 38 }}
+              >
+                {obrasDestinoReassign.map((item) => (
+                  <option key={item.id} value={item.id} style={OPT_ST}>
+                    {item.codigo || "Sin codigo"}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+              <button type="button" onClick={() => setReassignAddon(null)} disabled={reassignBusy} style={{ ...BTN, padding: "8px 12px" }}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={reassignAddon.__snapshotLocked || reassignBusy || !reassignObraId || reassignObraId === (reassignAddon.obra_id || obra?.id)}
+                onClick={submitReassignAddon}
+                style={{
+                  ...BTN_GREEN,
+                  padding: "8px 13px",
+                  opacity: (reassignAddon.__snapshotLocked || reassignBusy || !reassignObraId || reassignObraId === (reassignAddon.obra_id || obra?.id)) ? 0.55 : 1,
+                }}
+              >
+                {reassignBusy ? "Guardando..." : "Reasignar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <div style={{ display: "grid", gap: 6, padding: "0 0 8px" }}>
+        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+          <div style={{ position: "relative", flex: "1 1 260px", minWidth: 160 }}>
+            <Search aria-hidden="true" size={14} style={{ position: "absolute", top: "50%", left: 10, transform: "translateY(-50%)", color: C.muted }} />
+            <BuscadorDiferido value={q} onChange={setQ} placeholder="Buscar material, código o proveedor" style={{ ...INP, width: "100%", boxSizing: "border-box", paddingLeft: 32, height: 34, borderRadius: 7, fontSize: 12 }} />
+          </div>
+          <select aria-label="Agrupar materiales" value={groupBy} onChange={(event) => setGroupBy(event.target.value)} style={obraSelect}>
+            <option value="ninguno" style={OPT_ST}>Sin agrupar</option><option value="rubro" style={OPT_ST}>Por rubro</option><option value="proveedor" style={OPT_ST}>Por proveedor</option><option value="etapa" style={OPT_ST}>Por etapa</option><option value="tipo" style={OPT_ST}>Por tipo</option>
+          </select>
+          <button type="button" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)} style={{ ...obraButton, color: activeObraFilterCount ? C.blue : C.muted }}><SlidersHorizontal size={13} />Filtros{activeObraFilterCount ? ` · ${activeObraFilterCount}` : ""}</button>
+          {stockLibreCount > 0 && <button type="button" aria-pressed={tipoFilter === "stock_libre"} onClick={() => setTipoFilter(tipoFilter === "stock_libre" ? "todos" : "stock_libre")} title="Lo que falta comprar y el pañol tiene sin obra asignada" style={{ ...obraButton, color: C.green, borderColor: tipoFilter === "stock_libre" ? C.green : C.greenB, background: tipoFilter === "stock_libre" ? C.greenL : obraButton.background }}><Warehouse size={13} />Hay en pañol · {stockLibreCount}</button>}
+          {!!activeObraFilterCount && <button type="button" onClick={() => { setQ(""); setProveedorFilter(""); setRubroFilter(""); setTipoFilter("todos"); setEstadosSel(new Set()); setEtapaFilter("todos"); }} style={{ ...obraButton, border: "none", background: "transparent", color: C.muted }}>Limpiar filtros</button>}
+        </div>
+        {filtersOpen && <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          <select aria-label="Proveedor" value={proveedorFilter} onChange={(event) => setProveedorFilter(event.target.value)} style={{ ...obraSelect, maxWidth: "100%" }}><option value="" style={OPT_ST}>Todos los proveedores</option>{facets.proveedores.map((name) => <option key={name} value={name} style={OPT_ST}>{name}</option>)}</select>
+          <select aria-label="Tipo de material" value={tipoFilter} onChange={(event) => setTipoFilter(event.target.value)} style={obraSelect}>{[["todos", "Todos los tipos"], ["base", "Base"], ["addon", `Adicionales · ${addonStats.total}`], ["condicionante", "Condicionantes"], ["linea_eje", "Línea eje"], ["variante", "Variantes"], ["sin_precio", "Sin precio"], ["revisar", "A revisar"], ["stock_libre", `Hay en pañol sin obra · ${stockLibreCount}`]].map(([key, label]) => <option key={key} value={key} style={OPT_ST}>{label}</option>)}</select>
+          <select aria-label="Etapa de compra" value={etapaFilter} onChange={(event) => setEtapaFilter(event.target.value)} disabled={!!etapasObraError} style={{ ...obraSelect, maxWidth: "100%" }}><option value="todos" style={OPT_ST}>Todas las etapas · {asignadosCount} asignados</option><option value="sin_asignar" style={OPT_ST}>Sin asignar · {sinAsignarCount}</option>{etapasObra.map((etapa) => <option key={etapa.id} value={etapa.id} style={OPT_ST}>{etapa.nombre} · {etapaStats.get(etapa.id) || 0}{etapa.fecha_compra ? ` · ${String(etapa.fecha_compra).slice(0, 10)}` : ""}</option>)}</select>
+        </div>}
+        {etapasObraError && <div role="alert" style={{ fontSize: 12, color: C.red }}>{etapasObraError} <button type="button" onClick={cargarEtapasObra} style={obraButton}>Reintentar etapas</button></div>}
+        {flowMsg && <div role={flowMsg.type === "err" ? "alert" : "status"} style={{ fontSize: 12, color: flowMsg.type === "err" ? C.red : C.green, padding: "7px 9px", border: `1px solid ${flowMsg.type === "err" ? C.redB : C.greenB}`, borderRadius: 7 }}>{flowMsg.text}</div>}
+      </div>
+      <ObraListaTable
+        key={obra.id}
+        groups={groupedRows} allRows={rows} visibleRows={visibleRows} rubro={rubroFilter} onRubro={setRubroFilter} proveedor={proveedorFilter} onProveedor={setProveedorFilter}
+        filterKey={JSON.stringify([obra.id, deferredQ, proveedorFilter, rubroFilter, tipoFilter, [...estadosSel].sort(), etapaFilter, groupBy, orden])}
+        selected={selected} onSelectionChange={setSelected} getRowView={getObraRowView} onOpen={openObraDetail} detailId={openActionsRowId}
+        estadoOpciones={estadoOpciones} estadosSel={estadosSel} onEstados={setEstadosSel}
+        orden={orden} onOrden={setOrden}
+        valorizacion={{ texto: [kpis.usd ? fmtMoney(kpis.usd, "USD") : "", kpis.ars ? fmtMoney(kpis.ars, "ARS") : ""].filter(Boolean).join(" · "), conPrecio: kpis.items ? Math.round((kpis.items - kpis.sinPrecio) / kpis.items * 100) : 0 }}
+        onImageUploaded={async () => { await onChanged?.(); await cargarSnapshot(); }}
+        accionesSeleccion={<>
+          <button type="button" onClick={() => setLoteOpen(true)} disabled={!!loteAvance || snapshotBusy} style={{ ...obraButton, color: C.blue, borderColor: C.blueB }}>Cambiar estado</button>
+          <select aria-label="Tipo de pedido" value={pedidoObraTipo || ""} onChange={(event) => setPedidoObraTipo(event.target.value || null)} style={obraSelect}><option value="" style={OPT_ST}>Tipo de pedido</option><option value="stock" style={OPT_ST}>Stock</option><option value="estandar" style={OPT_ST}>Estándar</option><option value="adicional" style={OPT_ST}>Adicional</option></select>
+          <CopiarOcProveedor lineas={ordenLineasDesdeMatriz(orderRows)} label="OC proveedor" style={obraButton} />
+          <button type="button" onClick={copiarOrden} disabled={!orderRows.length} style={obraButton}><Copy size={13} />{copied ? "Copiado" : "Copiar OC"}</button>
+          {!soloPedirACompras && <button type="button" onClick={abrirAvisoPanol} disabled={!orderRows.length || !!actionBusy || snapshotBusy} style={obraButton}><PackagePlus size={13} />{actionBusy === "panol" ? "Preparando…" : "Avisar a pañol"}</button>}
+          <button type="button" onClick={confirmarPedidoACompras} disabled={!orderRows.length || !!actionBusy || snapshotBusy} style={{ ...obraButton, background: C.blue, color: "var(--on-accent, #fff)", borderColor: C.blue }}><ShoppingCart size={13} />{actionBusy === "compras" ? "Creando…" : "Pedir a compras"}</button>
+        </>}
+      />
+      {loteOpen && <CambioEstadoLoteModal
+        rows={visibleRows.filter((row) => selected.has(row.id))} estadoDe={estadoObraForRow} obraCodigo={obra.codigo}
+        busy={!!loteAvance} avance={loteAvance}
+        onCerrar={() => setLoteOpen(false)} onConfirmar={cambiarEstadoEnLote}
+      />}
+      {detailRow && <ObraItemDrawer
+        row={detailRow} view={getObraRowView(detailRow)} obraLabel={`${obra.codigo} · ${lineaNombre}`} tab={detailTab} onTab={setDetailTab}
+        onClose={closeObraDetail} suspendEscape={!!(addonModalOpen || reassignAddon || pedidoConfirm || panolPrefill)}
+        onPrevious={detailIndex > 0 ? () => setOpenActionsRowId(visibleRows[detailIndex - 1].id) : null}
+        onNext={detailIndex >= 0 && detailIndex < visibleRows.length - 1 ? () => setOpenActionsRowId(visibleRows[detailIndex + 1].id) : null}
+        editing={detailTab === "mas" && editingMaterialRowId === detailRow.id}
+        renderContent={renderObraDetail}
+        footer={<>{instalarError?.id === detailRow.id && <div role="alert" style={{ color: C.red, fontSize: 12, marginBottom: 8 }}>{instalarError.text}</div>}{estadoObraForRow(detailRow) === "egresado" && esInstalado(detailRow)
+          ? <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.teal, fontSize: 13, fontWeight: 600, minHeight: 44 }}>Instalado en el barco</div>
+          : <button type="button" onClick={() => marcarInstalado(detailRow)} disabled={!!instalandoId || snapshotBusy}
+            style={{ ...obraButton, width: "100%", minHeight: 44, justifyContent: "center", fontSize: 13, fontWeight: 600, color: C.teal, borderColor: C.tealB, background: C.tealL }}>
+            {instalandoId === detailRow.id ? "Guardando…" : "Marcar instalado"}
+          </button>}</>}
+      />}
+
+      <EnviarAPanolModal
+        open={!!panolPrefill}
+        prefill={panolPrefill}
+        showPrices={false}
+        onClose={(saved) => {
+          setPanolPrefill(null);
+          if (saved) {
+            setFlowMsg({ type: "ok", text: "Aviso enviado a pañol para recepcion por obra." });
+            cargarSnapshot();
+          }
+        }}
+      />
+    </div>
+  );
+}
+
+// Ocho columnas fijas con scroll horizontal por debajo de 860px. Colapsarlas
+// en pantalla angosta no achica la fila: envuelve y cada ítem pasa a medir
+// varios renglones, que es justo lo que se quería sacar.
+const MATRIZ_COLS = "38px minmax(230px,1.7fr) minmax(104px,.5fr) minmax(140px,.7fr) 104px 104px 100px 72px";
+
+/**
+ * Un renglón de la matriz que falta cotizar de verdad. Lo que va en un
+ * conjunto (Merniez, Maxi) y lo especificado ("se fabrica en el astillero"...)
+ * no tiene precio propio pero tampoco falta: contarlo como "sin precio" era lo
+ * que hacía que las 23 piezas de Merniez aparecieran en rojo acá aunque el
+ * conjunto ya estuviera cotizado.
+ */
+function faltaPrecioLinea(row) {
+  return !row.precio?.amount && !row.conjunto && !row.especificado;
+}
+
+function LineaMatrizView({ linea, lineas = [], obras = [], categorias, materiales, proveedores = [], opciones = [], conjuntos = [], ums, onChanged, onBack, onSelectObra, onSelectLinea }) {
+  // La tabla necesita alto propio: un contenedor con overflow-x crea su propio
+  // scrollport y sin alto el encabezado sticky no se pega a nada.
+  const listaRef = useRef(null);
+  const [listaAlto, setListaAlto] = useState(560);
+  useEffect(() => {
+    const medir = () => {
+      const caja = listaRef.current?.getBoundingClientRect();
+      if (caja) setListaAlto(Math.max(360, window.innerHeight - caja.top - 16));
+    };
+    const obs = new ResizeObserver(medir);
+    if (listaRef.current) obs.observe(listaRef.current);
+    window.addEventListener("resize", medir);
+    medir();
+    return () => { obs.disconnect(); window.removeEventListener("resize", medir); };
+  }, []);
+
+  const [q, setQ] = useState("");
+  const deferredQ = useDeferredValue(q);
+  // Conjuntos, no valores sueltos: se filtra desde el encabezado de la
+  // columna y se pueden tildar varios, como en una planilla.
+  const [proveedoresSel, setProveedoresSel] = useState(() => new Set());
+  const [proveedorTipoFilter, setProveedorTipoFilter] = useState("todos");
+  const [rubrosSel, setRubrosSel] = useState(() => new Set());
+  const [tipoFilter, setTipoFilter] = useState("todos");
+  const [groupBy, setGroupBy] = useState("proveedor");
+  const [selected, setSelected] = useState(() => new Set());
+  const [copied, setCopied] = useState(false);
+  const [editingId, setEditingId] = useState("");
+  const [removingId, setRemovingId] = useState("");
+  const [statsOpen, setStatsOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [showAddItem, setShowAddItem] = useState(false);
+  const [lineSnapshots, setLineSnapshots] = useState([]);
+  const [lineSnapshotsLoading, setLineSnapshotsLoading] = useState(false);
+  const [lineSnapshotsLoaded, setLineSnapshotsLoaded] = useState(false);
+  const [lineSnapshotsError, setLineSnapshotsError] = useState("");
+  const [outOfMatrixOpen, setOutOfMatrixOpen] = useState(false);
+  const [outOfMatrixResolver, setOutOfMatrixResolver] = useState(null);
+  const [outOfMatrixResolveBusy, setOutOfMatrixResolveBusy] = useState(false);
+  const [outOfMatrixResolveError, setOutOfMatrixResolveError] = useState("");
+  const [secondaryState, setSecondaryState] = useState({ rows: [], loading: false, error: "" });
+  const [renderState, setRenderState] = useState({ key: "", limit: LINEA_INITIAL_RENDER });
+  const code = String(linea?.codigo || "").replace(/^K/i, "");
+  const title = linea?.nombre || `K${code}`;
+  const lineObras = useMemo(() => (obras ?? []).filter((obra) => obra?.id), [obras]);
+  const lineObraIds = useMemo(() => lineObras.map((obra) => obra.id), [lineObras]);
+
+  useEffect(() => {
+    let active = true;
+    if (!["52", "55"].includes(code) || !lineObras.length) {
+      setSecondaryState({ rows: [], loading: false, error: "" });
+      return () => { active = false; };
+    }
+    setSecondaryState((current) => ({ ...current, loading: true, error: "" }));
+    fetchMaterialesSecundariosPlanilla({ linea: `K${code}`, obras: lineObras })
+      .then((result) => {
+        if (!active) return;
+        setSecondaryState({ rows: result?.filas ?? [], loading: false, error: "" });
+      })
+      .catch((error) => {
+        if (!active) return;
+        setSecondaryState({ rows: [], loading: false, error: error?.message || "No se pudieron cargar los materiales de producción." });
+      });
+    return () => { active = false; };
+  }, [code, lineObras]);
+
+  const cargarLineSnapshots = useCallback(async () => {
+    setLineSnapshotsLoading(true);
+    setLineSnapshotsError("");
+    try {
+      setLineSnapshots(await fetchObrasMaterialSnapshots(lineObraIds));
+    } catch (error) {
+      setLineSnapshots([]);
+      setLineSnapshotsError(error?.message || "No se pudieron revisar las listas de las obras.");
+    } finally {
+      setLineSnapshotsLoading(false);
+      setLineSnapshotsLoaded(true);
+    }
+  }, [lineObraIds]);
+
+  useEffect(() => {
+    setSelected(new Set());
+    setEditingId("");
+    setRemovingId("");
+    setOutOfMatrixOpen(false);
+    setOutOfMatrixResolver(null);
+    setOutOfMatrixResolveError("");
+    setLineSnapshots([]);
+    setLineSnapshotsLoaded(false);
+  }, [code]);
+
+  const primaryRows = useMemo(() => {
+    const materialesDeLinea = (materiales ?? [])
+      .filter(materialActivo)
+      .filter((m) => materialQty(m, code) > 0);
+    const materialPorId = new Map((materiales ?? []).map((material) => [material.id, material]));
+    const conjuntoDe = new Map();
+    for (const conjunto of conjuntos) {
+      if (conjunto.modelo && String(conjunto.modelo) !== String(code)) continue;
+      for (const id of conjunto.materiales || []) conjuntoDe.set(id, conjunto);
+    }
+
+    return materialesDeLinea.map((m) => {
+      const modeloConfig = (m.modelos ?? []).find((item) => (
+        String(item.modelo) === String(code)
+        && String(item.variante || "standard") === "standard"
+      )) || null;
+      const productoPorObra = productoSeDefinePorObra(m);
+      const producto = !productoPorObra && modeloConfig?.producto_predeterminado_id
+        ? materialPorId.get(modeloConfig.producto_predeterminado_id) || null
+        : null;
+      const materialOperativo = producto || m;
+      const precio = priceInfo(materialOperativo);
+      const bucket = materialBucket(m, opciones, code);
+      const proveedor = nombreProveedorVisible(precio.proveedor || materialOperativo.proveedor || m.proveedor) || "Sin proveedor";
+      return {
+        id: m.id,
+        materialId: materialOperativo.id,
+        requisitoMaterialId: m.id,
+        productoMaterialId: producto?.id || null,
+        material: materialOperativo,
+        requisito: m,
+        producto,
+        descripcion: materialOperativo.descripcion,
+        requisitoDescripcion: producto ? m.descripcion : "",
+        codigo: materialOperativo.codigo || m.codigo,
+        cantidad: materialQty(m, code),
+        unidad: materialOperativo.unidad_medida || m.unidad_medida || "unidad",
+        proveedor,
+        proveedorMeta: proveedorMeta(proveedor, proveedores),
+        rubro: rubroDeLista(categorias, materialOperativo.categoria_id || m.categoria_id),
+        precio,
+        conjunto: conjuntoDe.get(m.id) || null,
+        especificado: !precio.amount ? (m.sin_precio_motivo || materialOperativo.sin_precio_motivo || null) : null,
+        bucket,
+        obs: materialOperativo.notas || m.notas || "",
+        revisado: !!materialOperativo.revisado,
+        review: reviewInfoForMaterial(materialOperativo),
+      };
+    })
+    .sort((a, b) => {
+      const order = { base: 0, linea_eje: 1, variante: 2 };
+      return (order[a.bucket.key] ?? 9) - (order[b.bucket.key] ?? 9)
+        || a.rubro.localeCompare(b.rubro, "es")
+        || a.descripcion.localeCompare(b.descripcion, "es");
+    });
+  }, [materiales, code, categorias, opciones, proveedores, conjuntos]);
+
+  const secondaryRows = useMemo(() => (secondaryState.rows ?? [])
+    .filter((row) => row.circuito !== "maderas" || !row.referenciaMaderasCodigo || Number(row.cantidadReferencia || 0) > 0)
+    .map((row) => {
+    const precioAmount = Number(row.precioInfo?.precio_unidad_matriz || 0);
+    const moneda = row.precioInfo?.moneda === "USD" ? "USD" : "ARS";
+    const primeraCelda = Object.values(row.porObra || {})[0] || null;
+    const cantidadPlan = row.circuito === "laminacion" ? Number(primeraCelda?.requerido || 0) : 0;
+    const usaReferencia = row.circuito === "maderas" && !!row.referenciaMaderasCodigo;
+    const cantidadConsumida = usaReferencia
+      ? Number(row.cantidadReferencia || 0)
+      : Number(row.totales?.egresado || 0);
+    const bucketLabel = row.circuito === "laminacion" ? "Producción · Laminación" : "Producción · Maderas";
+    return {
+      ...row,
+      materialId: row.materialSecundarioId,
+      material: null,
+      cantidad: row.circuito === "laminacion" ? cantidadPlan : cantidadConsumida,
+      cantidadConsumida,
+      proveedor: nombreProveedorVisible(row.proveedor) || "Sin proveedor",
+      proveedorMeta: proveedorMeta(nombreProveedorVisible(row.proveedor), proveedores),
+      precio: {
+        amount: precioAmount,
+        moneda,
+        text: precioAmount ? fmtMoney(precioAmount, moneda) : "Sin precio",
+        proveedor: nombreProveedorVisible(row.proveedor),
+      },
+      bucket: { key: "secundario", label: bucketLabel, color: C.violet },
+      obs: row.circuito === "laminacion"
+        ? "Plan de Laminación por barco · se administra desde su circuito propio"
+        : usaReferencia
+          ? `Consumo real de ${row.referenciaMaderasCodigo}, usado como referencia por barco · se administra desde Maderas`
+          : `Consumo acumulado de Maderas en ${lineObras.length} ${lineObras.length === 1 ? "obra" : "obras"} K${code} · se administra desde Maderas`,
+      revisado: true,
+      review: { flag: false, reason: "" },
+      secundario: true,
+    };
+  }), [secondaryState.rows, proveedores, lineObras.length, code]);
+
+  const rows = useMemo(() => [...primaryRows, ...secondaryRows], [primaryRows, secondaryRows]);
+
+  // Cuántos renglones quedan fuera de la lista estándar por ser del paquete de
+  // línea de eje. Se avisa: un ítem que desaparece sin decir nada es peor que
+  // uno de más, porque nadie sabe si falta o si nunca estuvo.
+  const ocultosLineaEje = useMemo(
+    () => rows.filter((row) => row.bucket?.key === "linea_eje").length,
+    [rows],
+  );
+
+  const materialById = useMemo(
+    () => new Map((materiales ?? []).map((material) => [material.id, material])),
+    [materiales],
+  );
+
+  const matrizLiveKeys = useMemo(
+    () => new Set(primaryRows.map((row, index) => snapshotMergeKey(row, index)).filter(Boolean)),
+    [primaryRows],
+  );
+  const outOfMatrixItems = useMemo(() => {
+    const obrasById = new Map(lineObras.map((obra) => [obra.id, obra]));
+    const grouped = new Map();
+
+    lineSnapshots.forEach((snapshot, index) => {
+      const tipo = String(snapshot.tipo || "base").toLowerCase();
+      const source = String(snapshot.source || "matriz").toLowerCase();
+      if (tipo === "addon" || source === "addon" || isLedgerOnlySnapshot(snapshot)) return;
+
+      const mergeKey = snapshotMergeKey(snapshot, index);
+      if (!mergeKey || matrizLiveKeys.has(mergeKey)) return;
+
+      if (!grouped.has(mergeKey)) {
+        grouped.set(mergeKey, {
+          key: mergeKey,
+          descripcion: snapshot.descripcion || "Material sin nombre",
+          codigo: snapshot.codigo || "",
+          unidad: snapshot.unidad || "unidad",
+          rubro: snapshot.rubro || "",
+          tipo,
+          materialId: snapshot.material_id || null,
+          obras: new Map(),
+          snapshotIds: [],
+          cantidadVotes: new Map(),
+        });
+      }
+      const issue = grouped.get(mergeKey);
+      const obra = obrasById.get(snapshot.obra_id);
+      if (obra?.id) issue.obras.set(obra.id, obra);
+      if (snapshot.id) issue.snapshotIds.push(snapshot.id);
+      const cantidad = toNum(snapshot.cantidad) || 1;
+      issue.cantidadVotes.set(cantidad, (issue.cantidadVotes.get(cantidad) || 0) + 1);
+    });
+
+    return [...grouped.values()]
+      .map(({ obras: obrasAfectadas, cantidadVotes, ...issue }) => {
+        const [cantidadSugerida = 1] = [...cantidadVotes.entries()]
+          .sort((a, b) => b[1] - a[1] || Number(a[0]) - Number(b[0]))[0] || [];
+        return {
+          ...issue,
+          obras: [...obrasAfectadas.values()],
+          snapshotIds: [...new Set(issue.snapshotIds)],
+          cantidadSugerida: Number(cantidadSugerida) || 1,
+          cantidadesDistintas: cantidadVotes.size > 1,
+        };
+      })
+      .sort((a, b) => b.obras.length - a.obras.length || a.descripcion.localeCompare(b.descripcion, "es", { numeric: true }));
+  }, [lineSnapshots, lineObras, matrizLiveKeys]);
+  const outOfMatrixObrasCount = useMemo(
+    () => new Set(outOfMatrixItems.flatMap((item) => item.obras.map((obra) => obra.id))).size,
+    [outOfMatrixItems],
+  );
+
+  // Todo lo que no es de columna. Los filtros de Proveedor y Rubro cuentan
+  // sobre esto: los números que muestran ya tienen la búsqueda aplicada.
+  const rowsBase = useMemo(() => {
+    return rows
+      .filter((row) => proveedorTipoFilter === "todos" || row.proveedorMeta?.tipo === proveedorTipoFilter)
+      // "Todos los tipos" es el barco ESTÁNDAR, no todo lo que existe. El
+      // paquete de línea de eje no lo lleva un K37 con pata ni con dentro-fuera,
+      // así que mezclarlo en la lista hace que la matriz describa un barco que
+      // no se fabrica. Se ve con el filtro "Línea eje", que ya estaba.
+      .filter((row) => (tipoFilter === "todos"
+        ? row.bucket.key !== "linea_eje"
+        : tipoFilter === "sin_precio" ? faltaPrecioLinea(row)
+          : tipoFilter === "revisar" ? row.review?.flag
+            : row.bucket.key === tipoFilter))
+      .filter((row) => matchesFlexibleSearch(
+        deferredQ,
+        row.descripcion,
+        row.codigo,
+        row.proveedor,
+        row.rubro,
+        row.obs,
+        ...materialSearchFields(row.material),
+      ));
+  }, [rows, deferredQ, proveedorTipoFilter, tipoFilter]);
+
+  // Opciones de cada filtro de columna, con su cuenta. Cada una se cuenta sin
+  // su propio filtro puesto: si no, tildar un proveedor dejaría el resto en 0 y
+  // no se podría sumar otro.
+  const opcionesColumna = useMemo(() => {
+    const contar = (lista, campo, vacio) => {
+      const m = new Map();
+      for (const row of lista) {
+        const values = campo === "proveedor" ? nombresProveedor(row.proveedor) : [row[campo] || vacio];
+        for (const v of values.length ? values : [vacio]) m.set(v, (m.get(v) || 0) + 1);
+      }
+      return [...m.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0], "es"))
+        .map(([value, count]) => ({ value, label: value, count }));
+    };
+    const sinRubro = rubrosSel.size ? rowsBase.filter((row) => rubrosSel.has(row.rubro)) : rowsBase;
+    const sinProv = proveedoresSel.size ? rowsBase.filter((row) => [...proveedoresSel].some((name) => coincideProveedor(row.proveedor, name))) : rowsBase;
+    return {
+      proveedores: contar(sinRubro, "proveedor", "Sin proveedor"),
+      rubros: contar(sinProv, "rubro", "Sin rubro"),
+    };
+  }, [rowsBase, proveedoresSel, rubrosSel]);
+
+  const visibleRows = useMemo(() => rowsBase
+    .filter((row) => !proveedoresSel.size || [...proveedoresSel].some((name) => coincideProveedor(row.proveedor || "Sin proveedor", name)))
+    .filter((row) => !rubrosSel.size || rubrosSel.has(row.rubro || "Sin rubro")),
+  [rowsBase, proveedoresSel, rubrosSel]);
+
+  const groupedRows = useMemo(() => {
+    const map = new Map();
+    visibleRows.forEach((row) => {
+      const key = groupBy === "rubro" ? row.rubro : groupBy === "tipo" ? row.bucket.label : row.proveedor;
+      const label = key || "Sin clasificar";
+      if (!map.has(label)) map.set(label, { label, rows: [], usd: 0, ars: 0, sinPrecio: 0, revisar: 0 });
+      const group = map.get(label);
+      group.rows.push(row);
+      if (row.review?.flag) group.revisar += 1;
+      const qty = toNum(row.cantidad) || 1;
+      if (row.precio.amount) {
+        if (row.precio.moneda === "USD") group.usd += row.precio.amount * qty;
+        else group.ars += row.precio.amount * qty;
+      } else if (faltaPrecioLinea(row)) {
+        group.sinPrecio += 1;
+      }
+    });
+    return [...map.values()].sort((a, b) => b.rows.length - a.rows.length || a.label.localeCompare(b.label, "es"));
+  }, [visibleRows, groupBy]);
+
+  const renderFilterKey = `${code}|${deferredQ}|${[...proveedoresSel].sort()}|${proveedorTipoFilter}|${[...rubrosSel].sort()}|${tipoFilter}|${groupBy}`;
+  const effectiveRenderLimit = renderState.key === renderFilterKey ? renderState.limit : LINEA_INITIAL_RENDER;
+  const renderedGroupedRows = useMemo(
+    () => limitGroupedRows(groupedRows, effectiveRenderLimit),
+    [groupedRows, effectiveRenderLimit],
+  );
+  const hiddenRowCount = Math.max(0, visibleRows.length - Math.min(effectiveRenderLimit, visibleRows.length));
+
+  const kpis = useMemo(() => {
+    const acc = rows.reduce((suma, row) => {
+      const qty = toNum(row.cantidad) || 1;
+      suma.items += 1;
+      if (row.secundario) suma.secundarios += 1;
+      for (const name of nombresProveedor(row.proveedor)) suma.proveedores.add(name);
+      if (row.rubro) suma.rubros.add(row.rubro);
+      if (row.review?.flag) suma.revisar += 1;
+      if (row.conjunto) suma.conjuntos.add(row.conjunto);
+      if (!row.precio.amount) {
+        if (faltaPrecioLinea(row)) suma.sinPrecio += 1;
+      } else if (row.precio.moneda === "USD") {
+        if (row.bucket.key === "linea_eje") suma.ejeUsd += row.precio.amount * qty;
+        else suma.usd += row.precio.amount * qty;
+      } else {
+        suma.ars += row.precio.amount * qty;
+      }
+      return suma;
+    }, { items: 0, secundarios: 0, proveedores: new Set(), rubros: new Set(), conjuntos: new Set(), sinPrecio: 0, revisar: 0, usd: 0, ars: 0, ejeUsd: 0 });
+    // Cada conjunto suma su precio una sola vez, no por pieza.
+    for (const conjunto of acc.conjuntos) {
+      const monto = Number(conjunto.precio);
+      if (!(monto > 0)) continue;
+      if (conjunto.moneda === "USD") acc.usd += monto;
+      else acc.ars += monto;
+    }
+    return acc;
+  }, [rows]);
+
+  const orderRows = useMemo(() => {
+    const base = selected.size ? visibleRows.filter((r) => selected.has(r.id)) : visibleRows;
+    return base.filter((r) => !r.secundario).map((r) => ({
+      descripcion: r.descripcion,
+      codigo: r.codigo,
+      cantidad: r.cantidad,
+      unidad: r.unidad,
+      proveedor: r.proveedor,
+      rubro: r.rubro,
+      tipo: r.bucket.label,
+      obs: [r.bucket.key !== "base" ? r.bucket.label : "", r.obs].filter(Boolean).join(" · "),
+    }));
+  }, [visibleRows, selected]);
+
+  function toggleSelected(id) {
+    if (secondaryRows.some((row) => row.id === id)) return;
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  // Igual que en la obra: sale lo que se ve. "Todo" es el barco estándar, así
+  // que el paquete de línea de eje queda afuera y el papel lo dice.
+  function exportarExcel() {
+    const tipos = { sin_precio: "Sin precio", revisar: "A revisar", secundario: "Producción", base: "Base", linea_eje: "Línea eje", variante: "Variantes" };
+    const filtros = [
+      deferredQ.trim() ? `búsqueda “${deferredQ.trim()}”` : "",
+      proveedoresSel.size ? `proveedor ${[...proveedoresSel].join(" / ")}` : "",
+      rubrosSel.size ? `rubro ${[...rubrosSel].join(" / ")}` : "",
+      proveedorTipoFilter !== "todos" ? `proveedor ${proveedorTipoUi(proveedorTipoFilter)?.label || proveedorTipoFilter}` : "",
+      tipoFilter !== "todos" ? (tipos[tipoFilter] || tipoFilter) : "",
+    ].filter(Boolean);
+    const extra = tipoFilter === "todos" && ocultosLineaEje
+      ? [`barco estándar, sin los ${ocultosLineaEje} de línea de eje`]
+      : [];
+    const grupos = groupedRows.map((group) => ({
+      nombre: group.label,
+      filas: group.rows.map((row) => {
+        const maderas = row.secundario && row.circuito === "maderas";
+        return {
+          descripcion: row.descripcion,
+          requisito: row.requisitoDescripcion || "",
+          codigo: row.codigo || "",
+          proveedor: row.proveedor || "Sin proveedor",
+          rubro: row.rubro || "Sin rubro",
+          tipo: row.bucket.label,
+          esBase: row.bucket.key === "base",
+          cantidad: maderas ? Number(row.cantidadConsumida || 0) : (toNum(row.cantidad) || 1),
+          unidad: row.unidad || "",
+          precio: row.precio.amount || 0,
+          moneda: row.precio.moneda || "",
+          // Maderas toma el consumo de referencia: en pantalla tampoco suma total.
+          total: maderas ? null : undefined,
+          precioNota: row.conjunto ? "En conjunto" : row.especificado ? "No lleva" : "Sin precio",
+          obs: [row.conjunto ? `Conjunto: ${row.conjunto.nombre}` : "", row.especificado || "", row.obs].filter(Boolean).join(" · "),
+        };
+      }),
+    }));
+    try {
+      exportarMatrizLineaXlsx({ linea: title, grupos, agrupadoPor: groupBy, filtros, extra });
+    } catch (e) {
+      window.alert(e?.message || "No se pudo armar el Excel.");
+    }
+  }
+
+  async function copiarOrden() {
+    const text = buildOrdenTexto({ obra: { codigo: title }, lineaNombre: title, rows: orderRows, groupBy });
+    await navigator.clipboard?.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+  }
+
+  async function guardarIssueFueraDeMatriz(issue, material, cantidad) {
+    const qty = toNum(cantidad);
+    if (!issue?.snapshotIds?.length) throw new Error("No encontré las filas históricas a corregir.");
+    if (!material?.id) throw new Error("Elegí un material de catálogo antes de agregarlo a la matriz.");
+    if (!Number.isFinite(qty) || qty <= 0) throw new Error("Indicá una cantidad estándar mayor a cero.");
+
+    // Se preserva la historia de cada obra. Sólo se vinculan las filas que
+    // todavía no apuntan al material correcto y se agrega el material a Kxx.
+    if (String(issue.materialId || "") !== String(material.id)) {
+      await updateObraSnapshotRows(issue.snapshotIds, { material_id: material.id });
+    }
+    await setCantidadModelo(material.id, code, qty);
+    await Promise.all([onChanged?.(), cargarLineSnapshots()]);
+  }
+
+  async function resolverIssueFueraDeMatriz(issue, material, cantidad) {
+    if (outOfMatrixResolveBusy) return;
+    if (!material?.id) {
+      setOutOfMatrixResolveError("Elegí un material existente o crealo desde este panel.");
+      return;
+    }
+    const qty = toNum(cantidad);
+    const vinculaFilas = String(issue.materialId || "") !== String(material.id);
+    const accepted = window.confirm(
+      `${vinculaFilas ? "Vinculará" : "Conservará"} ${issue.snapshotIds.length} fila(s) histórica(s) de ${issue.obras.length} obra(s) y agregará "${material.descripcion}" a la matriz K${code} con ${qtyText(qty || issue.cantidadSugerida, issue.unidad)}.`,
+    );
+    if (!accepted) return;
+
+    setOutOfMatrixResolveBusy(true);
+    setOutOfMatrixResolveError("");
+    try {
+      await guardarIssueFueraDeMatriz(issue, material, qty || issue.cantidadSugerida);
+      setOutOfMatrixResolver(null);
+    } catch (error) {
+      setOutOfMatrixResolveError(error?.message || "No se pudo corregir este item en la matriz.");
+    } finally {
+      setOutOfMatrixResolveBusy(false);
+    }
+  }
+
+  async function crearYResolverIssueFueraDeMatriz(issue, draft, cantidad) {
+    if (outOfMatrixResolveBusy) return;
+    const descripcion = String(draft?.descripcion || issue?.descripcion || "").trim();
+    const categoriaId = draft?.categoria_id || null;
+    if (!descripcion || !categoriaId) {
+      setOutOfMatrixResolveError("Indicá el nombre y rubro antes de crear el material.");
+      return;
+    }
+    const qty = toNum(cantidad) || issue.cantidadSugerida;
+    const accepted = window.confirm(
+      `Se creará "${descripcion}" en catálogo, se vincularán ${issue.snapshotIds.length} fila(s) histórica(s) y se agregará a la matriz K${code} con ${qtyText(qty, issue.unidad)}. ¿Continuar?`,
+    );
+    if (!accepted) return;
+
+    setOutOfMatrixResolveBusy(true);
+    setOutOfMatrixResolveError("");
+    try {
+      const materialId = await crearMaterial({
+        descripcion,
+        categoria_id: categoriaId,
+        codigo: issue.codigo || null,
+        unidad_medida: issue.unidad || "unidad",
+        notas: `Creado al corregir una fila fuera de matriz K${code}.`,
+        origen: "snapshot_historico",
+        revisado: false,
+      });
+      await guardarIssueFueraDeMatriz(issue, {
+        id: materialId,
+        descripcion,
+        unidad_medida: issue.unidad || "unidad",
+        activo: true,
+      }, qty);
+      setOutOfMatrixResolver(null);
+    } catch (error) {
+      setOutOfMatrixResolveError(error?.message || "No se pudo crear y agregar el material a la matriz.");
+    } finally {
+      setOutOfMatrixResolveBusy(false);
+    }
+  }
+
+  async function removeFromLine(row) {
+    if (row.secundario) return;
+    if (!window.confirm(`¿Sacar "${row.descripcion}" de ${title}? No se borra del catálogo.`)) return;
+    setRemovingId(row.id);
+    try {
+      const sacadas = await quitarCantidadModelo(row.id, code);
+      if (!sacadas) {
+        window.alert(`"${row.descripcion}" no tenía ninguna fila propia en ${title}, así que no se sacó nada.\n\nSi lo seguís viendo en la lista, viene de otro lado: puede ser una condicionante o un adicional de la obra.`);
+        return;
+      }
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(row.id);
+        return next;
+      });
+      if (editingId === row.id) setEditingId("");
+      await onChanged?.();
+    } catch (error) {
+      // Había `finally` pero no `catch`: si fallaba, se apagaba el spinner y
+      // listo. La fila quedaba en su lugar sin ninguna explicación.
+      window.alert(error?.message || `No se pudo sacar "${row.descripcion}" de ${title}.`);
+    } finally {
+      setRemovingId("");
+    }
+  }
+
+  const filterPillStyle = (on, color = C.blue) => ({
+    border: `1px solid ${on ? `${color}66` : C.b0}`,
+    background: on ? `${color}16` : "transparent",
+    color: on ? color : C.t2,
+    borderRadius: 999,
+    padding: "7px 11px",
+    fontSize: 12,
+    fontWeight: 700,
+    cursor: "pointer",
+    fontFamily: C.sans,
+    transition: "background .16s ease, border-color .16s ease, color .16s ease, transform .16s ease",
+    whiteSpace: "nowrap",
+  });
+  const activeFilterCount = [
+    proveedoresSel.size > 0,
+    proveedorTipoFilter !== "todos",
+    rubrosSel.size > 0,
+    tipoFilter !== "todos",
+    q.trim(),
+  ].filter(Boolean).length;
+  const lineOptions = lineas.length ? lineas : [linea].filter(Boolean);
+  const visibleObras = lineObras;
+  // Los dos importes. Antes, si había dólares, mostraba sólo los dólares y se
+  // comía la parte en pesos entera: en el K52 eran más de 50 millones que no
+  // aparecían en ningún lado del encabezado.
+  const millones = (n) => `$ ${(n / 1e6).toLocaleString("es-AR", { maximumFractionDigits: n >= 1e8 ? 0 : 1 })} M`;
+  const partesTotal = [
+    kpis.usd ? fmtMoney(kpis.usd, "USD") : null,
+    kpis.ars ? (kpis.ars >= 1e6 ? millones(kpis.ars) : fmtMoney(kpis.ars, "ARS")) : null,
+  ].filter(Boolean);
+  const totalLabel = partesTotal.length ? partesTotal.join(" + ") : "Sin precios";
+  const totalTitulo = [kpis.usd ? fmtMoney(kpis.usd, "USD") : null, kpis.ars ? fmtMoney(kpis.ars, "ARS") : null].filter(Boolean).join(" + ");
+
+  return (
+    <div className="linea-workspace">
+      {/* Una banda de una línea, no una tarjeta con gradiente. La anterior medía
+          349px de alto y dejaba dos materiales en pantalla. El camino completo ya
+          está arriba, en el encabezado de la página: acá no hace falta repetirlo. */}
+      <div style={{ border: `1px solid ${C.b0}`, borderRadius: 12, background: "var(--panel)", padding: "7px 11px", marginBottom: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
+          <button type="button" onClick={onBack} title="Volver a las líneas de producción" style={{ ...BTN, height: 32, padding: "0 10px 0 7px", color: C.blue }}>
+            <ChevronLeft size={14} /> Líneas
+          </button>
+          <select
+            value={code}
+            onChange={(event) => onSelectLinea?.(event.target.value)}
+            style={{ ...INP, width: 112, height: 32, borderRadius: 8, padding: "0 24px 0 10px", fontWeight: 700, color: C.t0, background: C.s0 }}
+            title="Cambiar linea"
+          >
+            {lineOptions.map((item) => {
+              const optionCode = String(item?.codigo || "").replace(/^K/i, "");
+              return <option key={optionCode || item?.nombre} value={optionCode} style={OPT_ST}>{item?.nombre || `K${optionCode}`}</option>;
+            })}
+          </select>
+          {/* El selector de al lado ya dice K37: repetirlo de título no agrega nada. */}
+          {kpis.sinPrecio ? <span style={{ fontSize: 11, fontWeight: 650, color: C.red, border: `1px solid ${C.redB}`, background: C.redL, borderRadius: 8, padding: "3px 8px", whiteSpace: "nowrap" }}>{kpis.sinPrecio} sin precio</span> : null}
+          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", justifyContent: "flex-end", marginLeft: "auto" }}>
+            <span title={`Presupuesto base estimado: ${totalTitulo || "sin precios"}. Pesos y dólares van separados.`} style={{ display: "inline-flex", alignItems: "baseline", gap: 7, marginRight: 3 }}>
+              <span style={{ fontSize: 10, color: C.t2, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.6 }}>Presupuesto</span>
+              <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 700, color: kpis.usd || kpis.ars ? C.green : C.t2 }}>{totalLabel}</span>
+            </span>
+            {lineSnapshotsLoading ? (
+              <span style={{ fontSize: 10.5, color: C.t2, fontWeight: 700 }}>Revisando listas de obras...</span>
+            ) : lineSnapshotsError ? (
+              <button type="button" onClick={cargarLineSnapshots} style={{ ...BTN, height: 32, padding: "0 10px", color: C.red, borderColor: C.redB, background: "rgba(239,68,68,0.08)" }} title={lineSnapshotsError}>
+                <AlertTriangle size={14} /> Reintentar control
+              </button>
+            ) : !lineSnapshotsLoaded ? (
+              <button
+                type="button"
+                onClick={() => { setOutOfMatrixOpen(true); cargarLineSnapshots(); }}
+                style={{ ...BTN, height: 32, padding: "0 10px", color: C.t2 }}
+                title="Comparar las listas históricas de las obras con la matriz viva"
+              >
+                <RefreshCw size={14} /> Revisar matriz
+              </button>
+            ) : outOfMatrixItems.length ? (
+              <button
+                type="button"
+                onClick={() => setOutOfMatrixOpen((open) => !open)}
+                style={{ ...BTN, height: 32, padding: "0 10px", color: outOfMatrixOpen ? C.red : C.teal, borderColor: outOfMatrixOpen ? C.redB : C.tealB, background: outOfMatrixOpen ? "rgba(239,68,68,0.09)" : C.tealL }}
+                title="Ver items de las obras que no existen en la matriz de esta linea"
+              >
+                <AlertTriangle size={14} /> Fuera de matriz ({outOfMatrixItems.length})
+              </button>
+            ) : null}
+            <button type="button" onClick={() => setStatsOpen((v) => !v)} style={{ ...BTN, height: 32, padding: "0 10px" }} title="Ver estadisticas">
+              {statsOpen ? "Ocultar stats" : "Stats"}
+            </button>
+            <button type="button" onClick={exportarExcel} disabled={!visibleRows.length} style={{ ...BTN, height: 32, padding: "0 11px" }} title="Descargar la matriz en Excel: una hoja para imprimir y tildar ítem por ítem, y otra con todos los datos y precios. Sale lo que se ve con los filtros puestos.">
+              <FileSpreadsheet size={14} /> Exportar Excel
+            </button>
+            <button type="button" onClick={() => setShowAddItem((v) => !v)} style={{ ...BTN_GREEN, height: 32, padding: "0 11px" }}>
+              <Plus size={14} /> Agregar item
+            </button>
+            <CopiarOcProveedor
+              lineas={ordenLineasDesdeMatriz(orderRows)}
+              label="Copiar OC proveedor"
+              iconSize={14}
+              style={{ ...BTN, height: 32, padding: "0 11px", color: C.blue, borderColor: C.blueB, background: C.blueL }}
+            />
+            <button type="button" onClick={copiarOrden} disabled={!orderRows.length} style={{ ...BTN, height: 32, padding: "0 11px", color: C.green, borderColor: C.greenB, background: C.greenL }}>
+              <Copy size={14} /> {copied ? "Copiado" : "Copiar OC"}
+            </button>
+          </div>
+        </div>
+        {statsOpen && (
+          <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8, borderTop: `1px solid ${C.b0}`, paddingTop: 12 }}>
+            {[
+              ["Items", kpis.items, C.blue],
+              ["Producción", kpis.secundarios, C.violet],
+              ["Proveedores", kpis.proveedores.size, C.green],
+              ["Rubros", kpis.rubros.size, C.violet],
+              ["A revisar", kpis.revisar, C.teal],
+              ["Base ARS", kpis.ars ? fmtMoney(kpis.ars, "ARS") : "-", C.t2],
+              ["Linea eje USD", kpis.ejeUsd ? fmtMoney(kpis.ejeUsd, "USD") : "-", C.t2],
+            ].map(([label, value, color]) => (
+              <div key={label} style={{ borderLeft: `2px solid ${color}`, padding: "3px 10px", minWidth: 0 }}>
+                <div style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: 0.7, fontWeight: 700 }}>{label}</div>
+                <div style={{ marginTop: 3, fontFamily: C.mono, fontSize: 13, fontWeight: 750, color }}>{value}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        {/* Las obras son a dónde se va desde acá: van siempre a la vista, no
+            detrás de un botón. La matriz se mira para entrar a una obra.
+            Cada una muestra su avance con una barra en vez de un texto: de un
+            vistazo se ve cuál está arrancando y cuál está por terminar. */}
+        {visibleObras.length > 0 && (
+          <div style={{ marginTop: 6, borderTop: `1px solid ${C.b0}`, paddingTop: 6, display: "flex", gap: 5, flexWrap: "wrap" }}>
+            {visibleObras.map((obra) => {
+              const r = obra.materiales_recepcion || {};
+              const total = Number(r.total || 0);
+              const entregado = Number(r.egresado || 0);
+              const enPanol = Number(r.en_panol || 0);
+              const pc = (n) => (total ? `${Math.min(100, (n / total) * 100)}%` : "0%");
+              return (
+                <button
+                  type="button"
+                  key={obra.id}
+                  onClick={() => onSelectObra?.(obra)}
+                  className="obra-linea-card"
+                  title={`Abrir la lista de ${obra.codigo} · ${total ? obraRecepcionResumenLabel(r) : "sin lista"}`}
+                  style={{ border: `1px solid ${C.b0}`, borderRadius: 7, background: C.panelSolid, color: C.t1, fontFamily: C.sans, padding: "0 7px 0 8px", height: 26, display: "inline-flex", alignItems: "center", gap: 7, cursor: "pointer" }}
+                >
+                  <span style={{ color: C.t0, fontWeight: 650, fontSize: 12.5, letterSpacing: -0.2 }}>{obra.codigo}</span>
+                  {/* La barra dice el avance sin que haya que leer el número. */}
+                  <span style={{ display: "flex", width: 34, height: 4, borderRadius: 99, overflow: "hidden", background: C.panel3 }}>
+                    {total ? <>
+                      <i style={{ width: pc(entregado), background: C.green }} />
+                      <i style={{ width: pc(enPanol), background: C.violet }} />
+                    </> : null}
+                  </span>
+                  <span style={{ fontSize: 10.5, color: C.t2, fontWeight: 600, whiteSpace: "nowrap" }}>
+                    {total ? obraRecepcionResumenLabel(r) : "sin lista"}
+                  </span>
+                  <ChevronRight className="obra-linea-flecha" size={13} style={{ color: C.t2 }} />
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {outOfMatrixOpen && outOfMatrixItems.length ? (
+          <div style={{ marginTop: 14, borderTop: `1px solid ${C.b0}`, paddingTop: 12, display: "grid", gap: 9 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.red, fontSize: 12.5, fontWeight: 750 }}>
+                  <AlertTriangle size={15} /> Control de matriz K{code}
+                </div>
+                <div style={{ marginTop: 3, color: C.t2, fontSize: 11.5, lineHeight: 1.4 }}>
+                  {outOfMatrixItems.length} items detectados en {outOfMatrixObrasCount} obras. Son filas históricas no adicionales que ya no están en la matriz viva.
+                </div>
+              </div>
+              <button type="button" onClick={cargarLineSnapshots} disabled={lineSnapshotsLoading} style={{ ...BTN, minHeight: 29, padding: "5px 9px", fontSize: 10.5, color: C.t2 }}>
+                <RefreshCw size={12} /> {lineSnapshotsLoading ? "Revisando..." : "Actualizar"}
+              </button>
+            </div>
+            <div style={{ display: "grid", gap: 6, maxHeight: 300, overflowY: "auto", paddingRight: 2 }}>
+              {outOfMatrixItems.map((issue) => {
+                const tipoLabel = issue.tipo === "base" ? "Base" : issue.tipo.replaceAll("_", " ");
+                const obraCodes = issue.obras.map((obra) => obra.codigo || "Obra");
+                const linkedMaterial = issue.materialId ? materialById.get(issue.materialId) || null : null;
+                const readyToAdd = !!(linkedMaterial && materialActivo(linkedMaterial));
+                const actionLabel = readyToAdd ? `Agregar a K${code}` : issue.materialId ? "Revisar catálogo" : "Vincular y agregar";
+                return (
+                  <div key={issue.key} style={{ display: "grid", gridTemplateColumns: "minmax(220px, 1fr) auto", gap: 10, alignItems: "center", border: `1px solid ${C.tealB}`, background: "color-mix(in srgb, var(--panel) 88%, #14b8a6 6%)", borderRadius: 11, padding: "8px 9px" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <span style={{ minWidth: 0, fontSize: 12.5, color: C.t0, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{issue.descripcion}</span>
+                        <span style={{ fontSize: 9.5, color: C.teal, border: `1px solid ${C.tealB}`, background: C.tealL, borderRadius: 999, padding: "2px 6px", fontWeight: 700, textTransform: "capitalize" }}>{tipoLabel}</span>
+                        {!issue.materialId ? <span style={{ fontSize: 9.5, color: C.red, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 999, padding: "2px 6px", fontWeight: 700 }}>Sin vínculo catálogo</span> : null}
+                        {issue.cantidadesDistintas ? <span style={{ fontSize: 9.5, color: C.red, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 999, padding: "2px 6px", fontWeight: 700 }}>Cantidades distintas</span> : null}
+                      </div>
+                      <div title={obraCodes.join(", ")} style={{ marginTop: 4, color: C.t2, fontSize: 10.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {issue.codigo || "sin código"} · {issue.obras.length} obras: {obraCodes.join(", ")}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOutOfMatrixResolveError("");
+                          setOutOfMatrixResolver(issue);
+                        }}
+                        style={{ ...BTN, minHeight: 27, padding: "4px 8px", fontSize: 10, color: readyToAdd ? C.green : C.blue, borderColor: readyToAdd ? C.greenB : C.blueB, background: readyToAdd ? C.greenL : C.blueL }}
+                        title={readyToAdd ? `Agregar ${issue.descripcion} como estándar de K${code}` : "Elegir o crear un material de catálogo y agregarlo a la matriz"}
+                      >
+                        <PackagePlus size={12} /> {actionLabel}
+                      </button>
+                      {issue.obras.slice(0, 3).map((obra) => (
+                        <button key={obra.id} type="button" onClick={() => onSelectObra?.(obra)} style={{ ...BTN, minHeight: 27, padding: "4px 7px", fontSize: 10, color: C.blue, borderColor: C.blueB, background: C.blueL }} title={`Abrir ${obra.codigo || "obra"}`}>
+                          {obra.codigo || "Abrir"}
+                        </button>
+                      ))}
+                      {issue.obras.length > 3 ? <span style={{ color: C.t2, fontFamily: C.mono, fontSize: 10.5 }}>+{issue.obras.length - 3}</span> : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      {/* El aviso violeta de "N materiales de producción incluidos" era una
+          tarjeta entera de 60px para un dato que se usa al filtrar. Ahora vive
+          en el botón "Producción" del filtro: la cuenta en el botón, la
+          explicación al pasar el mouse. Sólo el error queda a la vista, porque
+          ése sí hay que verlo. */}
+      {secondaryState.error ? (
+        <div role="alert" style={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 8, border: `1px solid ${C.redB}`, background: C.redL, borderRadius: 10, padding: "6px 10px", fontSize: 11.5, color: C.red, fontWeight: 650 }}>
+          <AlertTriangle size={13} /> No se pudieron cargar los materiales de producción
+          <span style={{ color: C.t2, fontWeight: 500 }}>{secondaryState.error}</span>
+        </div>
+      ) : null}
+
+      {outOfMatrixResolver ? (
+        <ResolverFueraDeMatrizModal
+          key={outOfMatrixResolver.key}
+          issue={outOfMatrixResolver}
+          linea={code}
+          materiales={materiales}
+          categorias={categorias}
+          busy={outOfMatrixResolveBusy}
+          error={outOfMatrixResolveError}
+          onClose={() => {
+            if (outOfMatrixResolveBusy) return;
+            setOutOfMatrixResolver(null);
+            setOutOfMatrixResolveError("");
+          }}
+          onResolve={(material, cantidad) => resolverIssueFueraDeMatriz(outOfMatrixResolver, material, cantidad)}
+          onCreate={(draft, cantidad) => crearYResolverIssueFueraDeMatriz(outOfMatrixResolver, draft, cantidad)}
+        />
+      ) : null}
+
+      {showAddItem && (
+        <div style={{ marginBottom: 12 }}>
+          <AgregarItemLinea
+            linea={code}
+            title={title}
+            materiales={materiales}
+            categorias={categorias}
+            proveedores={proveedores}
+            ums={ums}
+            onChanged={onChanged}
+          />
+        </div>
+      )}
+
+      <div style={{ position: "sticky", top: 0, zIndex: 24, border: `1px solid ${C.b0}`, borderRadius: 11, background: "color-mix(in srgb, var(--panel) 88%, transparent)", backdropFilter: "blur(14px)", padding: 5, marginBottom: 8, display: "grid", gap: 6 }}>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ position: "relative", flex: "1 1 320px" }}>
+            <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
+            <BuscadorDiferido value={q} onChange={setQ} placeholder="Buscar nombre, código, observaciones o #tag..." style={{ ...INP, width: "100%", paddingLeft: 34, height: 32, borderRadius: 8 }} />
+          </div>
+          {[
+            ["todos", "Todo", C.blue, null],
+            ["sin_precio", "Sin precio", C.red, null],
+            ["revisar", "A revisar", C.teal, null],
+            ["secundario", secondaryState.loading ? "Producción…" : `Producción${secondaryRows.length ? ` · ${secondaryRows.length}` : ""}`, C.violet,
+              `${secondaryRows.length} materiales de producción incluidos en K${code}. Laminación muestra el plan por barco; maderas suma el consumo de ${lineObras.length} ${lineObras.length === 1 ? "obra activa" : "obras activas"} de la línea. No generan OC de Pañol.`],
+          ].map(([key, label, color, ayuda]) => (
+            <button key={key} type="button" onClick={() => setTipoFilter(key)} title={ayuda || undefined} style={{ ...filterPillStyle(tipoFilter === key, color), padding: "6px 10px" }}>
+              {label}
+            </button>
+          ))}
+          <button type="button" onClick={() => setFiltersOpen((v) => !v)} style={{ ...BTN, height: 32, padding: "0 11px", color: filtersOpen || activeFilterCount ? C.blue : C.t1, borderColor: filtersOpen || activeFilterCount ? C.blueB : C.b0, background: filtersOpen || activeFilterCount ? C.blueL : C.s0 }}>
+            <SlidersHorizontal size={14} /> Filtros{activeFilterCount ? ` (${activeFilterCount})` : ""}
+          </button>
+        </div>
+        {filtersOpen && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", borderTop: `1px solid ${C.b0}`, paddingTop: 10 }}>
+            <ProveedorTipoFilter value={proveedorTipoFilter} onChange={setProveedorTipoFilter} style={{ ...INP, width: 188, height: 38, borderRadius: 12 }} />
+            <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)} style={{ ...INP, width: 150, height: 38, borderRadius: 12 }} title="Agrupar por">
+              <option value="proveedor" style={OPT_ST}>Proveedor</option>
+              <option value="rubro" style={OPT_ST}>Rubro</option>
+              <option value="tipo" style={OPT_ST}>Tipo</option>
+            </select>
+            {[
+              ["base", "Base", C.green],
+              ["linea_eje", "Linea eje", C.violet],
+              ["variante", "Variantes", C.cyan],
+            ].map(([key, label, color]) => (
+              <button key={key} type="button" onClick={() => setTipoFilter(key)} style={filterPillStyle(tipoFilter === key, color)}>
+                {label}
+              </button>
+            ))}
+            {tipoFilter === "todos" && ocultosLineaEje > 0 && (
+              <button
+                type="button"
+                onClick={() => setTipoFilter("linea_eje")}
+                title={`El barco estándar no lleva línea de eje. Hay ${ocultosLineaEje} ítems que sólo van si la obra la lleva; tocá para verlos.`}
+                style={{ ...filterPillStyle(false, C.violet), color: C.t2, fontWeight: 600 }}
+              >
+                {`+${ocultosLineaEje} de línea de eje`}
+              </button>
+            )}
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 7, fontSize: 11.5, color: C.t2 }}>
+              <FileText size={14} style={{ color: C.blue }} />
+              {selected.size ? `${selected.size} seleccionados` : `${visibleRows.length} visibles`}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: "grid", gap: 12 }}>
+        {/* Una sola tabla con encabezado fijo, en lugar de una tarjeta por grupo
+            con las etiquetas repetidas adentro de cada celda. El encabezado dice
+            qué es cada columna una vez y desde ahí se filtra, como en una
+            planilla. Cada material pasa de tres renglones a uno. */}
+        <div ref={listaRef} style={{ border: `1px solid ${C.b0}`, borderRadius: 14, overflow: "clip", background: "var(--panel)" }}>
+          <div style={{ overflow: "auto", height: listaAlto, minHeight: 320, scrollbarWidth: "thin", scrollbarColor: "var(--border) transparent" }}>
+            <div style={{ minWidth: 940, fontSize: 12.5 }}>
+              {/* 34px exactos: los títulos de grupo se pegan en top: 34. Con 42,
+                  al scrollear cada título se metía 8px por debajo de este. */}
+              <div role="row" style={{ display: "grid", gridTemplateColumns: MATRIZ_COLS, alignItems: "center", height: 34, position: "sticky", top: 0, zIndex: 3, background: C.panelSolid, borderBottom: `1px solid ${C.b1}`, color: C.t2, fontSize: 10.5, fontWeight: 650, textTransform: "uppercase", letterSpacing: 0.5, boxSizing: "border-box" }}>
+                <span />
+                <span style={{ padding: "0 12px" }}>Material</span>
+                <ObraColumnFilter label="Rubro" options={opcionesColumna.rubros} selected={rubrosSel} onChange={setRubrosSel} />
+                <ObraColumnFilter label="Proveedor" options={opcionesColumna.proveedores} selected={proveedoresSel} onChange={setProveedoresSel} />
+                <span style={{ padding: "0 12px", textAlign: "right" }}>Cantidad</span>
+                <span style={{ padding: "0 12px", textAlign: "right" }}>Precio</span>
+                <span style={{ padding: "0 12px", textAlign: "right" }}>Total</span>
+                <span />
+              </div>
+              {renderedGroupedRows.map((group) => (
+                <Fragment key={group.label}>
+                  {/* Fondo sólido, no var(--panel-2): al quedar fijo, un fondo
+                      con transparencia deja ver la fila que pasa por debajo. */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 9, minHeight: 36, padding: "0 14px", background: C.panelSolid2, borderBottom: `1px solid ${C.b0}`, boxShadow: `inset 3px 0 0 ${group.color || C.blue}`, position: "sticky", top: 34, zIndex: 2 }}>
+                    <strong style={{ fontSize: 13, fontWeight: 650, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", letterSpacing: -0.1 }}>{group.label}</strong>
+                    <span style={{ fontSize: 11, color: C.t2, background: C.panel2, borderRadius: 6, padding: "2px 7px", fontWeight: 600, whiteSpace: "nowrap" }}>{group.totalRows ?? group.rows.length}</span>
+                    {group.sinPrecio ? <span style={{ fontSize: 11, color: C.red, whiteSpace: "nowrap" }}>{group.sinPrecio} sin precio</span> : null}
+                    <span style={{ marginLeft: "auto", display: "flex", gap: 10, alignItems: "center", whiteSpace: "nowrap" }}>
+                      {/* Teal y no ámbar: "a revisar" es una tarea pendiente, no una alarma. */}
+                      {group.revisar ? <span style={{ fontSize: 10.5, fontWeight: 650, color: C.teal }}>{group.revisar} a revisar</span> : null}
+                      {group.usd ? <span style={{ fontFamily: C.mono, fontSize: 11.5, fontWeight: 600, color: C.t1 }}>{fmtMoney(group.usd, "USD")}</span> : null}
+                      {group.ars ? <span style={{ fontFamily: C.mono, fontSize: 11.5, fontWeight: 600, color: C.t1 }}>{fmtMoney(group.ars, "ARS")}</span> : null}
+                    </span>
+                  </div>
+                  {group.rows.map((row) => {
+                    const qty = row.secundario && row.circuito === "maderas"
+                      ? Number(row.cantidadConsumida || 0)
+                      : (toNum(row.cantidad) || 1);
+                    const total = row.precio.amount && !(row.secundario && row.circuito === "maderas")
+                      ? row.precio.amount * qty
+                      : null;
+                    const editing = editingId === row.id;
+                    return (
+                      <Fragment key={row.id}>
+                        <div
+                          className="linea-data-row"
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: MATRIZ_COLS,
+                            alignItems: "center",
+                            minHeight: 56,
+                            borderBottom: `1px solid ${C.b0}`,
+                            background: row.secundario ? "var(--violet-soft)" : selected.has(row.id) ? C.blueL : "transparent",
+                            transition: "background 140ms ease",
+                          }}
+                        >
+                          <div style={{ display: "grid", placeItems: "center" }}>
+                            {row.secundario ? (
+                              <span title="Material de producción: conserva su circuito propio" style={{ width: 18, height: 18, display: "grid", placeItems: "center", borderRadius: 5, border: `1px solid ${C.violet}44`, color: C.violet, fontSize: 9, fontWeight: 750 }}>P</span>
+                            ) : (
+                              <input type="checkbox" checked={selected.has(row.id)} onChange={() => toggleSelected(row.id)} title="Seleccionar para la orden" style={{ accentColor: C.blue, margin: 0 }} />
+                            )}
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 11, minWidth: 0, padding: "6px 12px" }}>
+                            {/* fallbackLabel: 96 de cada 100 materiales no tienen foto.
+                                La inicial del rubro es más callada que un ícono de cámara
+                                repetido en toda la columna. */}
+                            <MaterialThumb material={row.material} size={34} fallbackLabel={row.rubro?.slice(0, 1) || "M"} />
+                            <div style={{ minWidth: 0, display: "grid", gap: 3 }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+                                <span style={{ fontSize: 13.5, fontWeight: 600, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", letterSpacing: -0.1 }}>{row.descripcion}</span>
+                                <span style={{ fontSize: 10, fontWeight: 650, color: row.bucket.color, background: `${row.bucket.color}16`, border: `1px solid ${row.bucket.color}44`, borderRadius: 6, padding: "2px 6px", whiteSpace: "nowrap", flexShrink: 0 }}>{row.bucket.label}</span>
+                                {row.review?.flag && <ReviewBadge reason={row.review.reason} />}
+                              </div>
+                              <div style={{ fontSize: 11, color: C.t2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                {row.codigo || "sin código"}{row.obs ? ` · ${row.obs}` : ""}
+                              </div>
+                            </div>
+                          </div>
+                          <div title={row.rubro} style={{ padding: "0 12px", minWidth: 0, color: C.t2, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.rubro || "Sin rubro"}</div>
+                          <div style={{ padding: "0 12px", minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                              <span title={row.proveedor} style={{ fontSize: 12, color: C.t1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.proveedor}</span>
+                              <ProveedorTipoBadge meta={row.proveedorMeta} compact />
+                            </div>
+                            <ProveedorAlternativasHint proveedor={row.proveedor} proveedores={proveedores} compact />
+                          </div>
+                          <div style={{ padding: "0 12px", textAlign: "right" }}>
+                            <span style={{ fontFamily: C.mono, fontSize: 13, fontWeight: 650, color: row.secundario ? C.violet : tieneAjusteCondicionante(row) ? C.cyan : C.t0 }}>{qtyText(qty, row.unidad)}</span>
+                            {row.secundario && row.circuito === "maderas"
+                              ? <div style={{ color: C.t2, fontSize: 9.5 }}>{row.referenciaMaderasCodigo ? `Patrón: ${row.referenciaMaderasCodigo}` : `${lineObras.length} ${lineObras.length === 1 ? "obra K" : "obras K"}${code}`}</div>
+                              : null}
+                            {!row.secundario && <DesgloseCantidad row={row} />}
+                          </div>
+                          {/* Sin precio va en rojo: es lo que traba una compra, no un aviso.
+                              Lo que va en un conjunto o está especificado no falta: se
+                              dice qué es, sin el rojo. */}
+                          {row.precio.amount ? (
+                            <div style={{ padding: "0 12px", textAlign: "right", fontFamily: C.mono, fontSize: 13, fontWeight: 650, color: C.t0 }}>{row.precio.text}</div>
+                          ) : row.conjunto ? (
+                            <div title={`${row.conjunto.nombre}${Number(row.conjunto.precio) > 0 ? "" : " · falta cotizar el conjunto"}`} style={{ padding: "0 12px", textAlign: "right", fontSize: 11.5, fontWeight: 650, color: Number(row.conjunto.precio) > 0 ? C.teal : C.cyan }}>En conjunto</div>
+                          ) : row.especificado ? (
+                            <div title={row.especificado} style={{ padding: "0 12px", textAlign: "right", fontSize: 11.5, fontWeight: 600, color: C.t2 }}>No lleva</div>
+                          ) : (
+                            <div style={{ padding: "0 12px", textAlign: "right", fontFamily: C.mono, fontSize: 11.5, fontWeight: 650, color: C.red }}>Sin precio</div>
+                          )}
+                          <div style={{ padding: "0 12px", textAlign: "right", fontFamily: C.mono, fontSize: 12, color: C.t2 }}>{total ? fmtMoney(total, row.precio.moneda) : ""}</div>
+                          <div style={{ display: "flex", gap: 3, justifyContent: "flex-end", paddingRight: 10 }}>
+                            {row.secundario ? (
+                              <span title="Se administra desde su módulo de origen" style={{ color: C.violet, fontSize: 9.5, fontWeight: 700 }}>propio</span>
+                            ) : (
+                              <>
+                                <button type="button" onClick={() => setEditingId((id) => (id === row.id ? "" : row.id))} style={{ ...BTN, padding: 5, minHeight: 28, color: editing ? C.blue : C.t2, borderColor: "transparent", background: "transparent" }} title="Editar item">
+                                  <Pencil size={13} />
+                                </button>
+                                <button type="button" onClick={() => removeFromLine(row)} disabled={removingId === row.id} style={{ ...BTN, padding: 5, minHeight: 28, color: C.red, borderColor: "transparent", background: "transparent" }} title={`Sacar de ${title}`}>
+                                  <Trash2 size={13} />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        {editing && (
+                          <div style={{ padding: "8px 10px", borderBottom: `1px solid ${C.b0}`, background: "var(--panel-2)" }}>
+                            <MaterialFila
+                              key={`${row.id}-editor`}
+                              // La fila de un requisito muestra su producto
+                              // estándar, pero en la matriz está el requisito:
+                              // editar el producto lo cargaba como ítem directo.
+                              material={row.requisito || row.material}
+                              categorias={categorias}
+                              ums={ums}
+                              proveedores={proveedores}
+                              onChanged={onChanged}
+                              linea={code}
+                              initialOpen
+                            />
+                          </div>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </Fragment>
+              ))}
+              <div style={{ padding: 10 }}>
+                <MaterialLoadMore
+                  hiddenCount={hiddenRowCount}
+                  batchSize={LINEA_RENDER_BATCH}
+                  onMore={() => setRenderState((current) => ({
+                    key: renderFilterKey,
+                    limit: (current.key === renderFilterKey ? current.limit : LINEA_INITIAL_RENDER) + LINEA_RENDER_BATCH,
+                  }))}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+        {!groupedRows.length && (
+          <div style={{ padding: 28, textAlign: "center", color: C.t2, fontSize: 13, border: `1px dashed ${C.b0}`, borderRadius: 14 }}>
+            No hay items con esos filtros.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const SNAPSHOT_ESTADO_META = {
+  pendiente: { label: "Pendiente", color: C.t2, bg: C.s0, border: C.b0 },
+  // "Enviado a compras" y "comprado" son dos cosas distintas: en el medio puede
+  // pasar cualquier cosa —que no consigan el material, que no haya precio, que
+  // quede frenado—. Mostrarlos igual hacía que la obra creyera que algo ya
+  // estaba comprado cuando todavía nadie lo había comprado.
+  pedido: { label: "En compras", color: C.cyan, bg: C.cyanL, border: C.cyanB },
+  comprado: { label: "Comprado", color: C.blue, bg: C.blueL, border: C.blueB },
+  en_panol: { label: "En pañol", color: C.green, bg: C.greenL, border: C.greenB },
+  egresado: { label: "Egresado", color: C.violet, bg: "var(--violet-soft)", border: `${C.violet}55` },
+};
+
+// Un verbo y un número: qué hay que hacer con esta fila hoy. Se lee de arriba
+// hacia abajo y gana la primera condición — lo trabado antes que lo pendiente,
+// porque es lo que necesita que alguien intervenga.
+function accionDeFila(row) {
+  const q = cantidadesDeFila(row);
+  const recepcion = String(row?.recepcion_estado || "").toLowerCase();
+
+  if (recepcion === "rechazado") return { texto: "RECHAZADO", color: C.red, trabado: true };
+  if (recepcion === "falta_stock") return { texto: "SIN STOCK", color: C.red, trabado: true };
+  if (recepcion === "problema" || recepcion === "sin_info") return { texto: "PROBLEMA", color: C.red, trabado: true };
+  if (row?.esRequisito && !row?.productoMaterialId && q.panol === 0) {
+    return { texto: "DEFINIR PRODUCTO", color: C.red, trabado: true };
+  }
+  if (q.faltaEntregar > 0) return { texto: `RETIRAR ${fmtQtyCorto(q.faltaEntregar)}`, color: C.violet };
+  if (q.faltaComprar > 0) return { texto: `COMPRAR ${fmtQtyCorto(q.faltaComprar)}`, color: C.blue };
+  if (q.enCompras > 0) return { texto: `EN COMPRAS ${fmtQtyCorto(q.enCompras)}`, color: C.cyan };
+  if (q.entregado > 0 && q.entregado >= q.necesita) return { texto: "LISTO", color: C.t3 };
+  return { texto: "—", color: C.t3 };
+}
+
+// En una columna angosta, "1" pesa distinto que "1,00".
+function fmtQtyCorto(value) {
+  const n = Number(value || 0);
+  return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100).replace(".", ",");
+}
+
+function recepcionMetaForRow(row) {
+  const estado = estadoObraForRow(row);
+  return SNAPSHOT_ESTADO_META[estado] || SNAPSHOT_ESTADO_META.pendiente;
+}
+
+/**
+ * La pastilla que se ve en la columna Estado.
+ *
+ * Vive acá y no adentro de la vista de la fila porque el filtro de la columna
+ * usa exactamente esto: lo que se ve es lo que se filtra. Si se calcularan por
+ * separado, tildar "Parcial" podría no traer las filas que dicen "Parcial".
+ */
+function estadoMetaDeFila(row) {
+  const cant = cantidadesDeFila(row);
+  const estado = estadoObraForRow(row);
+  const parcial = (estado !== "egresado" && row.recepcion_estado === "parcial")
+    || (cant.panol > 0 && Math.max(cant.panol, cant.entregado) < cant.necesita)
+    || (cant.entregado > 0 && cant.entregado < cant.necesita);
+  if (parcial) {
+    return { label: "Parcial", color: C.violet, bg: C.violetL, border: C.violetB,
+      title: `Recibido ${fmtQtyCorto(cant.panol)} · entregado ${fmtQtyCorto(cant.entregado)}` };
+  }
+  const meta = recepcionMetaForRow(row);
+  if (estado === "egresado" && esInstalado(row)) {
+    return { label: "Instalado", color: C.teal, bg: C.tealL, border: C.tealB, title: "Se encontró puesto en el barco" };
+  }
+  return { ...meta, label: estado === "pedido" ? "Pedido" : estado === "egresado" ? "Entregado" : meta.label };
+}
+
+// El recorrido real de un material, para listar los estados en ese orden y no
+// alfabéticamente.
+const ORDEN_ETIQUETA_ESTADO = ["Pendiente", "Pedido", "Comprado", "En pañol", "Parcial", "Entregado", "Instalado"];
+
+// "unidad"/"unidades"/"unid" ocupan una columna entera para decir "u".
+function unidadCorta(unidad) {
+  const u = String(unidad || "").trim();
+  if (/^(unidad(es)?|unid\.?|un\.?|u)$/i.test(u)) return "u";
+  if (/^(metros?|mts?\.?|m)$/i.test(u)) return "m";
+  return u;
+}
+
+// Lo que le falta tener al barco: lo necesario menos lo que ya se le entregó.
+function faltaDeFila(row) {
+  const cant = cantidadesDeFila(row);
+  return Math.max(0, cant.necesita - cant.entregado);
+}
+
+function ordenarFilasObra(rows, orden) {
+  return ordenarFilas(rows, orden, {
+    rubro: (row) => `${rubroDeFila(row) === "Sin rubro" ? 1 : 0} ${rubroDeFila(row)} ${row.descripcion || ""}`,
+    material: (row) => row.descripcion || "",
+    proveedor: (row) => row.proveedor || "",
+    necesario: (row) => cantidadesDeFila(row).necesita,
+    falta: faltaDeFila,
+    estado: (row) => ORDEN_ETIQUETA_ESTADO.indexOf(estadoMetaDeFila(row).label),
+    precio: (row) => row.precio?.amount || null,
+  });
+}
+
+function condicionanteActivoEnObra(condicionante, overrides) {
+  const override = overrides?.get?.(condicionante.id);
+  return override ? !!override.activo : !!condicionante.activo_por_defecto;
+}
+
+function condicionanteDelta(item) {
+  const qty = Math.abs(toNum(item?.cantidad) ?? 1);
+  return item?.tipo_item === "quita" ? -qty : qty;
+}
+
+function totalAjusteCondicionantes(row) {
+  return (row?.condicionantes ?? []).reduce((total, detalle) => total + (toNum(detalle?.delta) || 0), 0);
+}
+
+function tieneAjusteCondicionante(row) {
+  return Math.abs(totalAjusteCondicionantes(row)) > 0.0001;
+}
+
+function DesgloseCantidad({ row }) {
+  if (!tieneAjusteCondicionante(row)) return null;
+  const base = toNum(row?.baseCantidad);
+  const ajuste = totalAjusteCondicionantes(row);
+  if (base == null) return null;
+  const sign = ajuste < 0 ? "−" : "+";
+  const detalle = (row.condicionantes ?? []).map((item) => `${item.condicionante}: ${item.label}`).join(" · ");
+  return (
+    <div
+      title={detalle || "Cantidad ajustada por la configuración de esta obra"}
+      style={{ marginTop: 3, color: C.cyan, fontSize: 10, fontWeight: 700, whiteSpace: "nowrap" }}
+    >
+      {qtyText(base, row.unidad)} base {sign} {qtyText(Math.abs(ajuste), row.unidad)} = {qtyText(row.cantidad, row.unidad)}
+    </div>
+  );
+}
+
+function condicionanteItemLabel(item) {
+  const delta = condicionanteDelta(item);
+  const prefix = delta < 0 ? "-" : "+";
+  return `${prefix}${qtyText(Math.abs(delta), item?.unidad)} ${item?.descripcion || "item"}`;
+}
+
+function RecepcionChip({ row }) {
+  const meta = recepcionMetaForRow(row);
+  return (
+    <span style={{ fontSize: 10, fontWeight: 700, color: meta.color, background: meta.bg, border: `1px solid ${meta.border}`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
+      {meta.label}
+    </span>
+  );
+}
+
+function StockLibreChip({ info, loading = false }) {
+  if (loading || !info || !(toNum(info.cantidad) > 0)) return null;
+  const sedes = Object.entries(info.sedes || {})
+    .filter(([, qty]) => toNum(qty) > 0)
+    .map(([sede, qty]) => `${sede}: ${qtyText(qty, info.unidad)}`);
+  const title = sedes.length ? `Stock sin obra asignada · ${sedes.join(" · ")}` : "Stock sin obra asignada";
+  return (
+    <span title={title} style={{ fontSize: 10, fontWeight: 750, color: C.green, background: C.greenL, border: `1px solid ${C.greenB}`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
+      Stock libre {qtyText(info.cantidad, info.unidad)}
+    </span>
+  );
+}
+
+function CompactStat({ label, value, color, active = false, onClick }) {
+  return (
+    <button type="button" onClick={onClick} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${active ? color : C.b0}`, background: active ? softStateBg(color) : C.s0, borderRadius: 999, padding: "4px 9px", fontSize: 11, fontWeight: 700, color: active ? C.t0 : C.t2, cursor: "pointer", fontFamily: C.sans }}>
+      <span>{label}</span>
+      <span style={{ color, fontFamily: C.mono }}>{value}</span>
+    </button>
+  );
+}
+
+function softStateBg(color) {
+  if (color === C.blue) return C.blueL;
+  if (color === C.cyan) return C.cyanL;
+  if (color === C.green) return C.greenL;
+  if (color === C.violet) return "var(--violet-soft)";
+  return C.s1;
+}
+
+function RecepcionDetalle({ row }) {
+  const estado = estadoObraForRow(row);
+  const received = String(row?.recepcion_cantidad_recibida ?? "").trim();
+  const nota = String(row?.recepcion_nota ?? "").trim();
+  const egresoNota = String(row?.egreso_nota ?? "").trim();
+  const envio = row?.recepcion_envio;
+  if (estado === "pendiente" && !received && !nota && !egresoNota && !envio) return null;
+
+  const parts = [];
+  if (received) parts.push(`Llegaron ${received}${row?.unidad ? ` ${row.unidad}` : ""}`);
+  if ((toNum(row?.panolLedger) || 0) > 0) parts.push(`Conteo físico: ${qtyText(row.panolLedger, row?.unidad)} en pañol`);
+  if ((toNum(row?.entregadoConteo) || 0) > 0) parts.push(`Retirado del conteo: ${qtyText(row.entregadoConteo, row?.unidad)}`);
+  if (envio?.titulo) parts.push(envio.titulo);
+  if (nota) parts.push(`Nota: ${nota}`);
+  if (egresoNota) parts.push(`Egreso: ${egresoNota}`);
+  if (!parts.length && row?.recepcion_estado) parts.push(`Pañol: ${recepcionMetaForRow(row).label}`);
+
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6, fontSize: 10.5, color: C.t2, lineHeight: 1.35 }}>
+      {parts.map((part, index) => (
+        <span key={`${part}-${index}`} style={{ border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 999, padding: "2px 7px", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {part}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+const OBRA_ESTADO_OPTIONS = [
+  ["pendiente", "Pendiente"],
+  ["pedido", "En compras (enviado, sin comprar)"],
+  ["comprado", "Comprado"],
+  ["en_panol", "En panol"],
+  ["egresado", "Egresado"],
+];
+
+function ObraEstadoControl({ row, busy = false, onChange }) {
+  const current = estadoObraForRow(row);
+  const [estadoDraft, setEstadoDraft] = useState("");
+  const [nota, setNota] = useState("");
+  const [retira, setRetira] = useState("");
+  const [historyOpen, setHistoryOpen] = useState(false);
+
+  const estado = estadoDraft || current;
+  // Sólo se pide la persona cuando el renglón PASA a egresado. Editar la nota de
+  // algo ya egresado no tiene por qué volver a pedirla.
+  const pasaAEgresado = estado === "egresado" && current !== "egresado";
+  const changed = estado !== current || !!nota.trim();
+  const disabled = busy || !changed || (pasaAEgresado && !retira.trim());
+
+  async function save() {
+    await onChange?.(row, estado, nota, retira);
+    setEstadoDraft("");
+    setNota("");
+    setRetira("");
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 5, minWidth: 0 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(102px, 120px) minmax(0, 1fr) auto", gap: 5, alignItems: "center", minWidth: 0 }}>
+        <select
+          value={estado}
+          onChange={(e) => setEstadoDraft(e.target.value)}
+          disabled={busy}
+          title="Estado de esta obra"
+          style={{ ...INP, height: 30, padding: "4px 8px", fontSize: 11.5, fontWeight: 700, minWidth: 0 }}
+        >
+          {OBRA_ESTADO_OPTIONS.map(([value, label]) => <option key={value} value={value} style={OPT_ST}>{label}</option>)}
+        </select>
+        <input
+          value={nota}
+          onChange={(e) => setNota(e.target.value)}
+          placeholder="Nota"
+          disabled={busy}
+          style={{ ...INP, height: 30, padding: "4px 8px", fontSize: 11.5, minWidth: 0 }}
+        />
+        <button type="button" disabled={disabled} onClick={save} style={{ ...BTN_GREEN, padding: "4px 8px", minHeight: 30, fontSize: 10.5, opacity: disabled ? 0.5 : 1 }} title="Guardar cambio de estado">
+          {busy ? "..." : "Guardar"}
+        </button>
+      </div>
+
+      {/* Marcar Egresado desde acá es una regularización: nadie pasó por el
+          mostrador. El stock se descuenta bien igual, pero sin la persona el
+          registro no sirve — dentro de tres meses la fila dice "egresado" y no
+          hay a quién preguntarle si salió de verdad. */}
+      {pasaAEgresado && (
+        <div style={{ display: "grid", gap: 5, border: `1px solid ${C.blue}55`, background: `${C.blue}10`, borderRadius: 8, padding: 7 }}>
+          <div style={{ fontSize: 10.5, color: C.t1, lineHeight: 1.4 }}>
+            Se va a descontar <strong style={{ color: C.t0 }}>{row.cantidad ?? ""} {row.unidad || ""}</strong> del stock de pañol
+            y queda marcado como regularización, no como un egreso del mostrador.
+          </div>
+          <input
+            value={retira}
+            onChange={(e) => setRetira(e.target.value)}
+            placeholder="¿Quién lo retiró? (nombre y apellido)"
+            disabled={busy}
+            style={{ ...INP, height: 30, padding: "4px 8px", fontSize: 11.5, minWidth: 0, borderColor: retira.trim() ? C.b0 : C.red }}
+          />
+          {!retira.trim() && (
+            <span style={{ fontSize: 10, color: C.red, fontWeight: 650 }}>Obligatorio para marcar como egresado.</span>
+          )}
+        </div>
+      )}
+      <button type="button" onClick={() => setHistoryOpen((open) => !open)} disabled={!row.snapshotId} style={{ ...BTN, justifySelf: "start", padding: "3px 7px", minHeight: 24, fontSize: 10.5, color: row.snapshotId ? C.blue : C.t3 }} title={row.snapshotId ? "Ver historial" : "Se crea historial al guardar estado"}>
+        Historial
+      </button>
+      {historyOpen && row.snapshotId && <ObraSnapshotHistory snapshotId={row.snapshotId} />}
+    </div>
+  );
+}
+
+function ObraSnapshotHistory({ snapshotId }) {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    async function load() {
+      setLoading(true);
+      setError("");
+      try {
+        const data = await fetchObraSnapshotAudit(snapshotId);
+        if (alive) setRows(data);
+      } catch (e) {
+        if (alive) setError(e?.message || "No se pudo cargar el historial.");
+      } finally {
+        if (alive) setLoading(false);
+      }
+    }
+    load();
+    return () => { alive = false; };
+  }, [snapshotId]);
+
+  if (loading) return <Cargando compacto texto="Cargando historial…" />;
+  if (error) return <div style={{ fontSize: 11, color: C.red }}>{error}</div>;
+  if (!rows.length) return <div style={{ fontSize: 11, color: C.t2 }}>Sin cambios registrados.</div>;
+
+  return (
+    <div style={{ display: "grid", gap: 5, border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 8, padding: 7, maxHeight: 170, overflowY: "auto" }}>
+      {rows.map((item) => {
+        const actor = item.actor?.username || item.actor?.role || "Usuario";
+        return (
+          <div key={item.id} style={{ display: "grid", gap: 2, borderBottom: `1px solid ${C.b0}`, paddingBottom: 5 }}>
+            <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+              <span style={{ fontSize: 10.5, fontWeight: 700, color: C.t0 }}>{item.campo}</span>
+              <span style={{ fontSize: 10, color: C.t3, fontFamily: C.mono }}>{auditDateLabel(item.created_at)}</span>
+              <span style={{ fontSize: 10, color: C.t2 }}>{actor}</span>
+            </div>
+            <div style={{ fontSize: 10.5, color: C.t2 }}>
+              {auditValueLabel(item.valor_anterior)} {"->"} <strong style={{ color: C.t0 }}>{auditValueLabel(item.valor_nuevo)}</strong>
+            </div>
+            {item.nota && <div style={{ fontSize: 10.5, color: C.t2 }}>Nota: {item.nota}</div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function SnapshotTraceCard({
+  row,
+  linea,
+  material,
+  materiales = [],
+  categorias = [],
+  promotion,
+  linkBusy = false,
+  onPromote,
+  onLinkExisting,
+  onCreateAndLink,
+}) {
+  const [catalogQuery, setCatalogQuery] = useState(() => row.descripcion || "");
+  const [selectedMaterialId, setSelectedMaterialId] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createDescription, setCreateDescription] = useState(() => row.descripcion || "");
+  const suggestedCategoryId = useMemo(() => {
+    const rubro = norm(row.rubro || "");
+    return categorias.find((categoria) => norm(categoria.nombre || "") === rubro)?.id
+      || categorias.find((categoria) => rubro && norm(categoria.nombre || "").includes(rubro))?.id
+      || "";
+  }, [categorias, row.rubro]);
+  const [createCategoryId, setCreateCategoryId] = useState(() => suggestedCategoryId);
+  const catalogCandidates = useMemo(() => (materiales ?? [])
+    .filter(materialActivo)
+    .filter((item) => matchesFlexibleSearch(catalogQuery, ...materialSearchFields(item)))
+    .sort((a, b) => String(a.descripcion || "").localeCompare(String(b.descripcion || ""), "es", { numeric: true }))
+    .slice(0, 12), [catalogQuery, materiales]);
+  const selectedCatalogMaterial = catalogCandidates.find((item) => item.id === selectedMaterialId)
+    || materiales.find((item) => item.id === selectedMaterialId)
+    || null;
+  const lockReason = snapshotLockReason(row);
+  const estadoMeta = SNAPSHOT_ESTADO_META[estadoObraForRow(row)] || SNAPSHOT_ESTADO_META.pendiente;
+  const catalogStatus = !row.materialId
+    ? "No tiene un vínculo de catálogo guardado."
+    : !material
+      ? "Conserva un vínculo de catálogo, pero ese material ya no aparece como activo en el catálogo."
+      : `Está vinculado al catálogo, pero ya no integra la matriz viva K${linea}.`;
+  const origen = String(row.source || "matriz").replaceAll("_", " ");
+
+  return (
+    <div style={{ flex: "1 1 360px", minWidth: 0, display: "grid", gap: 8, padding: "10px 11px", border: `1px solid ${C.cyanB}`, borderRadius: 10, background: "linear-gradient(135deg, color-mix(in srgb, var(--panel) 88%, var(--cyan) 7%), var(--panel))" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 8, justifyContent: "space-between", flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 11.5, color: C.t0, fontWeight: 750 }}>Tracking de fila histórica</div>
+          <div style={{ marginTop: 2, fontSize: 10.5, color: C.t2, lineHeight: 1.35 }}>
+            Está visible porque la obra la conserva, pero no encontró equivalente en la matriz viva.
+          </div>
+        </div>
+        <span style={{ fontSize: 10, color: estadoMeta.color, border: `1px solid ${estadoMeta.border}`, background: estadoMeta.bg, borderRadius: 999, padding: "3px 7px", fontWeight: 700 }}>
+          {estadoMeta.label}
+        </span>
+      </div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
+        {[
+          ["Origen", origen],
+          ["Tipo", row.snapshot_tipo || row.bucket?.label || "base"],
+          ["Creado", auditDateLabel(row.created_at) || "sin fecha"],
+          ["Último cambio", auditDateLabel(row.updated_at) || "sin cambios"],
+        ].map(([label, value]) => (
+          <span key={label} style={{ fontSize: 10, color: C.t2, border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 999, padding: "3px 7px" }}>
+            <strong style={{ color: C.t1 }}>{label}:</strong> {value}
+          </span>
+        ))}
+      </div>
+
+      <div style={{ padding: "7px 8px", borderRadius: 8, background: C.s0, border: `1px solid ${C.b0}`, color: C.t1, fontSize: 11, lineHeight: 1.45 }}>
+        {catalogStatus}
+        {lockReason ? <span style={{ color: C.cyan }}> {lockReason}</span> : <span style={{ color: C.green }}> No tiene movimientos bloqueantes.</span>}
+      </div>
+
+      {!material?.id ? (
+        <div style={{ display: "grid", gap: 7, padding: "9px", border: `1px solid ${C.blueB}`, borderRadius: 9, background: C.blueL }}>
+          <div>
+            <div style={{ fontSize: 10.5, color: C.blue, fontWeight: 750 }}>Vincular al catálogo</div>
+            <div style={{ marginTop: 2, fontSize: 10.5, color: C.t2, lineHeight: 1.35 }}>
+              Elegí un material ya existente o crealo acá. Después se habilita Pasar a estándar para K{linea}.
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+            <input
+              value={catalogQuery}
+              onChange={(event) => {
+                setCatalogQuery(event.target.value);
+                setSelectedMaterialId("");
+              }}
+              placeholder="Buscar en catálogo..."
+              style={{ ...INP, height: 31, minWidth: 150, flex: "1 1 170px", fontSize: 11 }}
+            />
+            <select
+              value={selectedMaterialId}
+              onChange={(event) => setSelectedMaterialId(event.target.value)}
+              style={{ ...INP, height: 31, minWidth: 190, flex: "2 1 235px", fontSize: 11 }}
+            >
+              <option value="" style={OPT_ST}>Elegir material existente...</option>
+              {catalogCandidates.map((item) => (
+                <option key={item.id} value={item.id} style={OPT_ST}>
+                  {item.descripcion}{item.codigo ? ` · ${item.codigo}` : ""}{item.categoria_id ? ` · ${categoriaNombre(categorias, item.categoria_id)}` : ""}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={!selectedCatalogMaterial || linkBusy}
+              onClick={() => onLinkExisting?.(selectedCatalogMaterial)}
+              style={{ ...BTN, minHeight: 31, padding: "5px 9px", fontSize: 10.5, color: selectedCatalogMaterial && !linkBusy ? C.blue : C.t3, borderColor: selectedCatalogMaterial && !linkBusy ? C.blueB : C.b0, background: selectedCatalogMaterial && !linkBusy ? C.s0 : C.bg, opacity: selectedCatalogMaterial && !linkBusy ? 1 : .65 }}
+            >
+              <LinkIcon size={12} /> {linkBusy ? "Vinculando..." : "Vincular"}
+            </button>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => setCreateOpen((open) => !open)}
+              disabled={linkBusy}
+              style={{ ...BTN, minHeight: 27, padding: "4px 8px", fontSize: 10, color: C.t1 }}
+            >
+              <Plus size={12} /> {createOpen ? "Cancelar alta" : "No existe: crear en catálogo"}
+            </button>
+            <span style={{ fontSize: 10, color: C.t2 }}>Se crea activo, en el rubro que elijas y sin precio/proveedor.</span>
+          </div>
+
+          {createOpen ? (
+            <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, paddingTop: 1 }}>
+              <input
+                value={createDescription}
+                onChange={(event) => setCreateDescription(event.target.value)}
+                placeholder="Nombre del material"
+                style={{ ...INP, height: 31, minWidth: 170, flex: "2 1 230px", fontSize: 11 }}
+              />
+              <select
+                value={createCategoryId || suggestedCategoryId}
+                onChange={(event) => setCreateCategoryId(event.target.value)}
+                style={{ ...INP, height: 31, minWidth: 150, flex: "1 1 170px", fontSize: 11 }}
+              >
+                <option value="" style={OPT_ST}>Elegir rubro...</option>
+                {categorias.map((categoria) => (
+                  <option key={categoria.id} value={categoria.id} style={OPT_ST}>{categoria.nombre}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                disabled={linkBusy || !createDescription.trim() || !(createCategoryId || suggestedCategoryId)}
+                onClick={() => onCreateAndLink?.({
+                  descripcion: createDescription,
+                  categoria_id: createCategoryId || suggestedCategoryId,
+                })}
+                style={{ ...BTN, minHeight: 31, padding: "5px 9px", fontSize: 10.5, color: !linkBusy && createDescription.trim() && (createCategoryId || suggestedCategoryId) ? C.green : C.t3, borderColor: !linkBusy && createDescription.trim() && (createCategoryId || suggestedCategoryId) ? C.greenB : C.b0, background: !linkBusy && createDescription.trim() && (createCategoryId || suggestedCategoryId) ? C.greenL : C.bg, opacity: !linkBusy && createDescription.trim() && (createCategoryId || suggestedCategoryId) ? 1 : .65 }}
+              >
+                <Plus size={12} /> {linkBusy ? "Creando..." : "Crear y vincular"}
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+        <button
+          type="button"
+          disabled={promotion?.disabled}
+          onClick={onPromote}
+          title={promotion?.title}
+          style={{ ...BTN, minHeight: 29, padding: "5px 9px", fontSize: 10.5, color: promotion?.disabled ? C.t3 : C.blue, borderColor: promotion?.disabled ? C.b0 : C.blueB, background: promotion?.disabled ? C.s0 : C.blueL, opacity: promotion?.disabled ? 0.7 : 1 }}
+        >
+          <PackagePlus size={12} /> {promotion?.label || "Pasar a estándar"}
+        </button>
+        {row.snapshotId ? (
+          <span style={{ fontSize: 10.5, color: C.t2 }}>Registro #{String(row.snapshotId).slice(0, 8)}</span>
+        ) : null}
+      </div>
+
+      {row.snapshotId ? (
+        <div style={{ display: "grid", gap: 5, paddingTop: 2 }}>
+          <div style={{ fontSize: 10, color: C.t3, textTransform: "uppercase", letterSpacing: .8, fontWeight: 700 }}>Historial registrado</div>
+          <ObraSnapshotHistory snapshotId={row.snapshotId} />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function obraRecepcionResumenLabel(resumen) {
+  if (!resumen?.total) return "sin lista";
+  if (resumen.egresado) return `${resumen.egresado}/${resumen.total} egr.`;
+  if (resumen.en_panol) return `${resumen.en_panol}/${resumen.total} pañol`;
+  if (resumen.comprado) return `${resumen.comprado}/${resumen.total} comp.`;
+  return `${resumen.pendiente || 0}/${resumen.total} pend.`;
+}
+
+function snapshotBucket(row) {
+  const key = row?.es_adicional === true ? "addon" : row?.tipo || "base";
+  if (key === "linea_eje") return { key, label: row?.tipo_label || "Linea eje", color: C.violet };
+  if (key === "variante") return { key, label: row?.tipo_label || "Variante", color: C.cyan };
+  if (key === "condicionante") return { key, label: row?.tipo_label || "Condicionante", color: C.violet };
+  if (key === "addon") return { key, label: row?.tipo_label || "Addon", color: C.blue };
+  return { key: "base", label: row?.tipo_label || "Base", color: C.green };
+}
+
+function originalSnapshotLabel(snapshotDescripcion, catalogDescripcion) {
+  const original = String(snapshotDescripcion || "").trim();
+  const catalog = String(catalogDescripcion || "").trim();
+  if (!original || !catalog || norm(original) === norm(catalog)) return "";
+  return `Pedido original: ${original}`;
+}
+
+function snapshotRowToView(row, materialById = new Map(), categorias = []) {
+  const requisitoMaterialId = row?.requisito_material_id || row?.material_id || null;
+  const productoMaterialId = row?.material_id && row.material_id !== requisitoMaterialId ? row.material_id : null;
+  const requisito = requisitoMaterialId ? materialById.get(requisitoMaterialId) || null : null;
+  const producto = productoMaterialId ? materialById.get(productoMaterialId) || null : null;
+  const material = requisito || producto;
+  const priceMaterial = producto || material;
+  const materialPrice = priceMaterial ? priceInfo(priceMaterial) : null;
+  const snapshotAmount = row?.precio_unitario != null && row.precio_unitario !== "" ? Number(row.precio_unitario) : null;
+  const amount = Number.isFinite(materialPrice?.amount) && materialPrice.amount > 0 ? materialPrice.amount : snapshotAmount;
+  const moneda = materialPrice?.moneda || (row?.moneda === "USD" ? "USD" : "ARS");
+  const descripcion = requisito?.descripcion || row.descripcion || producto?.descripcion;
+  const codigo = requisito?.codigo || row.codigo;
+  const proveedor = nombreProveedorVisible(producto?.proveedor || row.proveedor || materialPrice?.proveedor || material?.proveedor) || "Sin proveedor";
+  const rubroMaterial = requisito || producto;
+  // El rubro no es una foto: es la clasificación de hoy. El texto guardado en el
+  // snapshot quedó congelado cuando se creó la fila y arrastra nombres que ya no
+  // existen, así que sólo se usa si la fila no llegó a ningún material.
+  const rubro = rubroMaterial ? rubroDeLista(categorias, rubroMaterial.categoria_id) : row.rubro || "Sin rubro";
+  const pedidoOriginal = originalSnapshotLabel(row.descripcion, requisito?.descripcion || producto?.descripcion);
+  const obs = mergeNotes(producto?.notas || material?.notas || "", mergeNotes(row.notas || "", pedidoOriginal));
+  const reason = reviewReasonForText(`${descripcion || ""} ${codigo || ""} ${obs || ""}`);
+  const esAdicional = row.es_adicional === true || row.tipo === "addon" || row.source === "addon";
+  return {
+    id: row.id,
+    snapshotId: row.id,
+    materialId: requisitoMaterialId,
+    requisitoMaterialId,
+    productoMaterialId,
+    producto,
+    productoEstandar: row.producto_asignacion_origen === "matriz_linea",
+    productoConfiguracionOrigen: row.producto_asignacion_origen || null,
+    esRequisito: requisito?.es_requisito === true || !!productoMaterialId || !!row.variante,
+    especificaciones: normalizeProductSpecs(row.especificaciones),
+    especificacionesOrigen: row.especificaciones_origen || null,
+    material,
+    source: row.source === "adicional_obra" || isLedgerOnlySnapshot({...row,snapshot_tipo:row.tipo}) ? row.source : esAdicional ? "addon" : row.source || "snapshot",
+    snapshot_tipo: isLedgerOnlySnapshot({...row,snapshot_tipo:row.tipo}) ? row.tipo : esAdicional ? "addon" : row.tipo || null,
+    es_adicional: esAdicional,
+    descripcion,
+    snapshotDescripcion: row.descripcion,
+    descripcionOriginal: pedidoOriginal ? row.descripcion : "",
+    codigo,
+    cantidad: row.cantidad || 1,
+    unidad: row.unidad || producto?.unidad_medida || material?.unidad_medida || "unidad",
+    proveedor,
+    rubro,
+    precio: {
+      amount: Number.isFinite(amount) && amount > 0 ? amount : null,
+      moneda,
+      text: Number.isFinite(amount) && amount > 0 ? fmtMoney(amount, moneda) : materialPrice?.text || "Sin precio",
+      proveedor,
+    },
+    bucket: snapshotBucket(row),
+    obs,
+    variante: row.variante || "",
+    revisado: material?.revisado ?? true,
+    review: { flag: !!reason, reason },
+    snapshot_estado: row.estado || null,
+    // Va el estado crudo del snapshot. Antes acá se pisaba con el que deducía
+    // la recepción, y como esa deducción da "en_panol" para casi cualquier
+    // valor, el "egresado" real nunca llegaba a la pantalla. La combinación de
+    // ambos la hace estadoObraForRow, que sabe cuál de los dos va más adelante.
+    estadoObra: row.estado || "pendiente",
+    purchase_request_id: row.purchase_request_id || null,
+    // Estos dos ya venían en la tabla y no llegaban a la pantalla: sin ellos no
+    // se puede decir cuánto se entregó ni si el ítem está enganchado a un
+    // pedido concreto, que son las dos mitades de "falta comprar / falta
+    // entregar".
+    purchase_request_item_id: row.purchase_request_item_id || null,
+    cantidad_egresada: row.cantidad_egresada ?? null,
+    panol_envio_id: row.panol_envio_id || null,
+    panol_envio_item_id: row.panol_envio_item_id || null,
+    recepcion_estado: row.recepcion_estado || null,
+    recepcion_cantidad_recibida: row.recepcion_cantidad_recibida ?? null,
+    recepcion_nota: row.recepcion_nota ?? null,
+    recepcion_updated_at: row.recepcion_updated_at ?? null,
+    recepcion_envio: row.recepcion_envio ?? null,
+    recepcion_items: row.recepcion_items ?? [],
+    egreso_at: row.egreso_at ?? null,
+    egreso_nota: row.egreso_nota ?? null,
+    egreso_por: row.egreso_por ?? null,
+    retirado_por: row.retirado_por ?? null,
+    // Se lo llevaron a OTRA obra desde el stock de esta (egreso de producto o
+    // reasignación con egreso, que guardan la obra de origen en obra_id).
+    saleHaciaOtraObra: Boolean(row.egreso_destino_obra_id && row.obra_id && row.egreso_destino_obra_id !== row.obra_id),
+    created_at: row.created_at ?? null,
+    updated_at: row.updated_at ?? null,
+  };
+}
+
+// Qué cuenta como material que la obra ya tiene en la mano. Sigue la misma
+// definición que usa la pantalla de Movimientos (MOV_SALIDA): salió del pañol
+// hacia una persona o hacia la obra.
+//
+// Queda AFUERA la asignación (transferencia_ingreso): reservar material para una
+// obra no es entregárselo — puede seguir en el estante. Contarla como entregada
+// diría que la obra tiene cosas que todavía no fue a buscar.
+function esEntregaAObra(row) {
+  // Salió del stock de esta obra hacia otra: acá no se entregó nada, hay que
+  // reponerlo (pedido de Ezequiel, 29/10/2026).
+  if (row?.saleHaciaOtraObra) return false;
+  if (row?.soloMovimientoDeMatriz && row?.snapshot_estado === "egresado") return true;
+  const source = String(row?.source || "").toLowerCase();
+  if (source.startsWith("egreso")) return true;
+  if (source === "solicitud_consumible_retiro") return true;
+  // "Asign. -> egreso" y "Reasig. -> egreso": el source dice transferencia pero
+  // el destino delata que salió hacia una obra.
+  if (row?.egreso_destino_obra_id) return true;
+  return false;
+}
+
+function isLedgerOnlySnapshot(row) {
+  if (row?.soloMovimientoDeMatriz) return true;
+  // Un renglón que se fue a otra obra no cubre la necesidad de esta.
+  if (row?.saleHaciaOtraObra) return true;
+  const source = String(row?.source || "").toLowerCase();
+  const tipo = String(row?.snapshot_tipo || row?.bucket?.key || "").toLowerCase();
+  const text = `${source} ${tipo} ${row?.bucket?.label || ""} ${row?.obs || ""}`.toLowerCase();
+  return (
+    text.includes("conteo_fisico")
+    || source.startsWith("egreso")
+    || source.includes("transferencia_egreso")
+    || tipo.startsWith("egreso")
+    || tipo.includes("reversion")
+    // Un cambio de ubicación se guarda con cantidad 0 pero como "en pañol /
+    // recibido": mezclado con el requerimiento lo daba por recibido (el VHF 215
+    // del 55-1 pedía RETIRAR algo ya retirado). Pañol tampoco lo cuenta.
+    || source === "ajuste_ubicacion"
+  );
+}
+
+function snapshotMergeKey(row, index = 0) {
+  const adicionalKey = adicionalSnapshotKey(row);
+  if (adicionalKey) return adicionalKey;
+  const materialId = row?.requisitoMaterialId || row?.requisito_material_id || row?.materialId || row?.material_id;
+  if (row?.source === "addon" || row?.bucket?.key === "addon") {
+    const addonText = norm(`${row?.descripcion || ""}|${row?.codigo || ""}|${row?.unidad || row?.unidad_medida || ""}`);
+    if (addonText) return `addon:${addonText}`;
+  }
+  if (materialId) return `material:${materialId}`;
+  const textKey = norm(`${row?.descripcion || ""}|${row?.codigo || ""}|${row?.unidad || row?.unidad_medida || ""}`);
+  if (textKey) return `text:${textKey}`;
+  return row?.snapshotId || row?.id ? `id:${row.snapshotId || row.id}` : `row:${index}`;
+}
+
+function isAddonRow(row) {
+  return row?.es_adicional === true || row?.source === "addon" || row?.bucket?.key === "addon" || row?.snapshot_tipo === "addon";
+}
+
+function isRemitoSnapshot(row) {
+  return row?.source === "remito" || row?.snapshot_tipo === "remito";
+}
+
+function addonRemitoMatch(liveRows = [], snapshot) {
+  if (!isRemitoSnapshot(snapshot)) return null;
+  const snapshotMaterialId = snapshot?.materialId || snapshot?.material_id || null;
+  const snapshotDescription = norm(snapshot?.descripcion || "");
+  const snapshotUnit = norm(snapshot?.unidad || snapshot?.unidad_medida || "unidad");
+  if (!snapshotMaterialId && snapshotDescription.length < 8) return null;
+
+  const candidates = liveRows.filter((row) => {
+    if (!isAddonRow(row)) return false;
+    const rowMaterialId = row?.materialId || row?.material_id || null;
+    const sameMaterial = !!snapshotMaterialId && snapshotMaterialId === rowMaterialId;
+    const sameDescription = snapshotDescription.length >= 8
+      && snapshotDescription === norm(row?.descripcion || "")
+      && snapshotUnit === norm(row?.unidad || row?.unidad_medida || "unidad");
+    return sameMaterial || sameDescription;
+  });
+
+  // Sólo se reconcilia en pantalla cuando hay una coincidencia inequívoca.
+  // Si hay dos adicionales posibles, se conservan separados para no esconder
+  // una necesidad real de la obra.
+  return candidates.length === 1 ? candidates[0] : null;
+}
+
+function mergeNotes(a, b) {
+  const parts = [a, b].map((part) => String(part || "").trim()).filter(Boolean);
+  return [...new Set(parts)].join(" - ");
+}
+
+function preferSnapshotText(snapshotValue, liveValue, emptyLabel) {
+  const clean = String(snapshotValue || "").trim();
+  if (clean && clean !== emptyLabel) return clean;
+  return liveValue || snapshotValue || emptyLabel;
+}
+
+function mergeSnapshotIntoLive(live, snapshot) {
+  const linkedToCatalog = !!(live.materialId || live.material);
+  const remitoDeAddon = isAddonRow(live) && isRemitoSnapshot(snapshot);
+  const cantidadPlanificada = toNum(live.cantidad);
+  const cantidadFijada = toNum(snapshot.cantidad);
+  const ajusteCondicionantes = totalAjusteCondicionantes(live);
+  const condicionaFilaBase = live.source !== "condicionante"
+    && (live.condicionantes?.length || 0) > 0
+    && cantidadFijada != null;
+  const cantidadConCondicionantes = condicionaFilaBase
+    ? Math.max(0, cantidadFijada + ajusteCondicionantes)
+    : null;
+  const cantidadRecibida = toNum(snapshot.recepcion_cantidad_recibida);
+  const notaRecepcion = remitoDeAddon && cantidadRecibida != null
+    ? `RecepciÃ³n por remito: ${qtyText(cantidadRecibida, snapshot.unidad || live.unidad)}`
+    : "";
+  const snapshotOperado = !!(snapshot.purchase_request_id || snapshot.purchase_request_item_id
+    || snapshot.panol_envio_id || snapshot.panol_envio_item_id || snapshot.recepcion_estado
+    || (toNum(snapshot.cantidad_egresada) || 0) > 0)
+    || !["", "pendiente"].includes(String(snapshot.snapshot_estado || "").toLowerCase());
+  // Una terminación opcional definida para el barco prevalece sobre la elección
+  // previa de una fila aún pendiente. Nunca cambia un pedido o movimiento hecho.
+  const snapshotDefineProducto = !(live.productoCondicionante && !snapshotOperado)
+    && (!!snapshot.productoConfiguracionOrigen || !!snapshot.productoMaterialId);
+  const conflictoProductoCondicionante = !!live.productoCondicionante && snapshotOperado
+    && snapshot.productoMaterialId !== live.productoMaterialId;
+  const avisoProductoCondicionante = conflictoProductoCondicionante
+    ? "Revisar terminación: la configuración actual difiere de un producto ya pedido o movido."
+    : "";
+  const snapshotDefineEspecificaciones = !!snapshot.especificacionesOrigen;
+  // El producto que lleva esta obra: el elegido para la obra (ninguno, si se
+  // dejó pendiente a propósito) o, si no se eligió, el estándar de la línea.
+  // Cuando hay uno, la lista muestra ese producto y el requisito queda de
+  // referencia: antes decía "Caja de piso" aunque la obra ya tuviera elegida
+  // la caja, y el producto sólo se veía en el detalle.
+  const productoObra = remitoDeAddon ? null : snapshotDefineProducto ? (snapshot.producto || null) : (live.producto || null);
+  const requisitoLive = live.material || snapshot.material || null;
+  const vuelveAlRequisito = !remitoDeAddon && snapshotDefineProducto && !productoObra && !!requisitoLive;
+  return {
+    ...live,
+    ...snapshot,
+    id: live.id,
+    snapshotId: snapshot.snapshotId,
+    materialId: live.materialId || snapshot.materialId,
+    requisitoMaterialId: live.requisitoMaterialId || snapshot.requisitoMaterialId || live.materialId || snapshot.materialId,
+    productoMaterialId: snapshotDefineProducto ? (snapshot.productoMaterialId || null) : (live.productoMaterialId || null),
+    producto: snapshotDefineProducto ? (snapshot.producto || null) : (live.producto || null),
+    productoEstandar: snapshotDefineProducto ? !!snapshot.productoEstandar : !!live.productoEstandar,
+    productoCondicionante: !!live.productoCondicionante,
+    productoConfiguracionOrigen: snapshot.productoConfiguracionOrigen || live.productoConfiguracionOrigen || null,
+    esRequisito: live.esRequisito || snapshot.esRequisito || false,
+    especificaciones: snapshotDefineEspecificaciones
+      ? normalizeProductSpecs(snapshot.especificaciones)
+      : normalizeProductSpecs(live.especificaciones),
+    especificacionesOrigen: snapshot.especificacionesOrigen || live.especificacionesOrigen || null,
+    material: live.material || snapshot.material || null,
+    source: live.source || snapshot.source,
+    snapshot_tipo: remitoDeAddon ? (live.snapshot_tipo || live.bucket?.key || "addon") : (snapshot.snapshot_tipo || live.snapshot_tipo || null),
+    descripcion: remitoDeAddon
+      ? live.descripcion || snapshot.descripcion
+      : productoObra?.descripcion
+        ? productoObra.descripcion
+        : vuelveAlRequisito
+          ? requisitoLive.descripcion || live.descripcion
+          : linkedToCatalog ? live.descripcion || snapshot.descripcion : snapshot.descripcion || live.descripcion,
+    requisitoDescripcion: productoObra?.descripcion
+      ? live.requisitoDescripcion || requisitoLive?.descripcion || live.descripcion
+      : "",
+    snapshotDescripcion: snapshot.snapshotDescripcion || snapshot.descripcion,
+    descripcionOriginal: snapshot.descripcionOriginal || "",
+    codigo: remitoDeAddon
+      ? live.codigo || snapshot.codigo
+      : productoObra
+        ? productoObra.codigo || null
+        : vuelveAlRequisito
+          ? requisitoLive.codigo || null
+          : linkedToCatalog ? live.codigo || snapshot.codigo : snapshot.codigo || live.codigo,
+    // El adicional conserva la cantidad planificada; el detalle recibido queda
+    // en recepcion_cantidad_recibida. Antes la cantidad de un remito parcial
+    // reemplazaba la necesidad original y daba la impresiÃ³n de dos Ã­tems.
+    cantidad: remitoDeAddon && cantidadPlanificada != null
+      ? cantidadPlanificada
+      : cantidadConCondicionantes ?? cantidadFijada ?? toNum(live.cantidad) ?? 0,
+    unidad: remitoDeAddon ? live.unidad || snapshot.unidad : snapshot.unidad || live.unidad,
+    proveedor: productoObra?.proveedor
+      ? productoObra.proveedor
+      : vuelveAlRequisito && requisitoLive.proveedor
+        ? requisitoLive.proveedor
+        : linkedToCatalog ? live.proveedor || snapshot.proveedor : preferSnapshotText(snapshot.proveedor, live.proveedor, "Sin proveedor"),
+    // A diferencia de descripción y proveedor, acá no se prefiere el texto del
+    // snapshot: el rubro es una clasificación y vale la del catálogo de hoy.
+    rubro: live.rubro || snapshot.rubro || "Sin rubro",
+    precio: snapshot.productoMaterialId
+      ? snapshot.precio
+      : vuelveAlRequisito
+        ? priceInfo(requisitoLive)
+        : linkedToCatalog ? live.precio || snapshot.precio : snapshot.precio?.amount ? snapshot.precio : live.precio,
+    bucket: live.bucket || snapshot.bucket,
+    obs: mergeNotes(mergeNotes(mergeNotes(live.obs, snapshot.obs), notaRecepcion), avisoProductoCondicionante),
+    variante: snapshot.variante || live.variante || "",
+    revisado: live.revisado ?? snapshot.revisado,
+    review: conflictoProductoCondicionante
+      ? { flag: true, reason: avisoProductoCondicionante }
+      : live.review?.flag ? live.review : snapshot.review,
+    // La lista fijada de la obra es la base operativa. Ej.: 32 fijadas +8 por
+    // "sin vestidor" = 40; ese 40 es el que se muestra y se manda a Compras.
+    baseCantidad: condicionaFilaBase ? cantidadFijada : live.baseCantidad,
+    condicionantes: live.condicionantes ?? [],
+    snapshot_estado: snapshot.snapshot_estado || live.snapshot_estado || null,
+    estadoObra: snapshot.estadoObra || live.estadoObra,
+    purchase_request_id: snapshot.purchase_request_id || live.purchase_request_id || null,
+    panol_envio_id: snapshot.panol_envio_id || live.panol_envio_id || null,
+    panol_envio_item_id: snapshot.panol_envio_item_id || live.panol_envio_item_id || null,
+    recepcion_estado: snapshot.recepcion_estado,
+    recepcion_cantidad_recibida: snapshot.recepcion_cantidad_recibida,
+    recepcion_nota: snapshot.recepcion_nota,
+    recepcion_updated_at: snapshot.recepcion_updated_at,
+    recepcion_envio: snapshot.recepcion_envio,
+    recepcion_items: snapshot.recepcion_items,
+    egreso_at: snapshot.egreso_at,
+    egreso_nota: snapshot.egreso_nota,
+    egreso_por: snapshot.egreso_por,
+    retirado_por: snapshot.retirado_por,
+  };
+}
+
+function compareMatrizRows(a, b) {
+  const order = { base: 0, condicionante: 1, linea_eje: 2, variante: 3, addon: 4 };
+  return (order[a.bucket?.key] ?? 9) - (order[b.bucket?.key] ?? 9)
+    || String(a.rubro || "").localeCompare(String(b.rubro || ""), "es")
+    || String(a.descripcion || "").localeCompare(String(b.descripcion || ""), "es", { numeric: true });
+}
+
+function snapshotMergePriority(row) {
+  let score = 0;
+  if (row?.productoMaterialId) score += 1200;
+  if (String(row?.variante || "").trim()) score += 1000;
+  if (row?.recepcion_estado) score += 140;
+  if (row?.panol_envio_id || row?.panol_envio_item_id) score += 120;
+  if (row?.purchase_request_id) score += 100;
+  if (row?.snapshot_estado && row.snapshot_estado !== "pendiente") score += 60;
+  if (String(row?.obs || "").trim()) score += 10;
+  return score;
+}
+
+function pickSnapshotForMerge(current, candidate) {
+  if (!current) return candidate;
+  const currentScore = snapshotMergePriority(current);
+  const candidateScore = snapshotMergePriority(candidate);
+  if (candidateScore !== currentScore) return candidateScore > currentScore ? candidate : current;
+  const currentDate = new Date(current.updated_at || current.created_at || 0).getTime();
+  const candidateDate = new Date(candidate.updated_at || candidate.created_at || 0).getTime();
+  return candidateDate >= currentDate ? candidate : current;
+}
+
+function mergeMatrixAndSnapshotRows(liveRows = [], snapshotRows = []) {
+  if (!snapshotRows.length) return liveRows;
+  snapshotRows = separarRecepcionesDeMatriz(liveRows, snapshotRows, {
+    keyOf: snapshotMergeKey,
+    esSoloMovimiento: isLedgerOnlySnapshot,
+    tieneAdicional: (row) => !!addonRemitoMatch(liveRows, row),
+  });
+  const merged = new Map();
+  const snapshotsByKey = new Map();
+
+  liveRows.forEach((row, index) => {
+    merged.set(snapshotMergeKey(row, index), row);
+  });
+
+  // Un egreso no modifica la fila del requerimiento: queda como una fila aparte.
+  // Si se descarta sin sumarla, la obra muestra "no se entregó nada" aunque el
+  // material ya se haya ido —era el caso de la 37-40, con 18 egresos
+  // registrados y la lista entera en cero—. Se suman antes de descartarlas.
+  // Lo mismo con el conteo físico: no es una necesidad de la obra, pero lo que
+  // dejó en pañol y lo que se retiró de ahí la cubren (ver aporteDeFilaLedger).
+  const egresadoPorKey = new Map();
+  const panolLedgerPorKey = new Map();
+  const entregadoConteoPorKey = new Map();
+  const adicionalesPorPedidoItem = new Map(snapshotRows
+    .filter(row=>row.source === "adicional_obra" && row.purchase_request_item_id && !isLedgerOnlySnapshot(row))
+    .map(row=>[row.purchase_request_item_id,row]));
+  const sumar = (map, key, cantidad) => {
+    if (cantidad) map.set(key, (map.get(key) || 0) + cantidad);
+  };
+  snapshotRows.forEach((row, index) => {
+    if (row.omitirMovimientoDeMatriz) return;
+    const adicionalVinculado = adicionalesPorPedidoItem.get(row.purchase_request_item_id);
+    const addon = adicionalVinculado || addonRemitoMatch(liveRows, row);
+    const key = addon ? snapshotMergeKey(addon) : snapshotMergeKey(row, index);
+    if (!key) return;
+    if (isLedgerOnlySnapshot(row)) {
+      const aporte = aporteDeFilaLedger(row);
+      sumar(panolLedgerPorKey, key, aporte.panol);
+      if (esEntregaAObra(row)) {
+        sumar(egresadoPorKey, key, Math.abs(toNum(row?.cantidad_egresada) || toNum(row?.cantidad) || 0));
+      } else {
+        sumar(entregadoConteoPorKey, key, aporte.entregadoConteo);
+      }
+      return;
+    }
+    snapshotsByKey.set(key, pickSnapshotForMerge(snapshotsByKey.get(key), row));
+  });
+
+  snapshotsByKey.forEach((row, key) => {
+    const live = merged.get(key);
+    merged.set(key, live ? mergeSnapshotIntoLive(live, row) : row);
+  });
+
+  return [...merged.entries()]
+    .map(([key, row]) => {
+      const egresado = egresadoPorKey.get(key) || 0;
+      // Un egreso de stock que no vino del conteo deja el saldo en negativo:
+      // eso no le quita nada al renglón, que ya lo cuenta por su lado.
+      const panolLedger = Math.max(0, panolLedgerPorKey.get(key) || 0);
+      const entregadoConteo = entregadoConteoPorKey.get(key) || 0;
+      if (!(egresado > 0) && !(panolLedger > 0) && !(entregadoConteo > 0)) return row;
+      return {
+        ...row,
+        ...(egresado > 0 ? { egresadoLedger: egresado } : {}),
+        ...(panolLedger > 0 ? { panolLedger } : {}),
+        ...(entregadoConteo > 0 ? { entregadoConteo } : {}),
+      };
+    })
+    .sort(compareMatrizRows);
+}
+
+function LineaMetricDot({ label, value, color }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 10px", borderRadius: 999, color: C.t2, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>
+      <span style={{ width: 7, height: 7, borderRadius: 999, background: color, boxShadow: `0 0 10px ${color}88`, flexShrink: 0 }} />
+      <span>{label}</span>
+      <span style={{ color: C.t0, fontFamily: C.mono, fontWeight: 750 }}>{value}</span>
+    </span>
+  );
+}
+
+function ResolverFueraDeMatrizModal({
+  issue,
+  linea,
+  materiales = [],
+  categorias = [],
+  busy = false,
+  error = "",
+  onClose,
+  onResolve,
+  onCreate,
+}) {
+  const linkedMaterial = materiales.find((material) => material.id === issue.materialId && materialActivo(material)) || null;
+  const [catalogQuery, setCatalogQuery] = useState(() => issue.descripcion || "");
+  const [selectedMaterialId, setSelectedMaterialId] = useState(() => linkedMaterial?.id || "");
+  const [cantidad, setCantidad] = useState(() => String(issue.cantidadSugerida || 1));
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createDescription, setCreateDescription] = useState(() => issue.descripcion || "");
+  const suggestedCategoryId = useMemo(() => {
+    const rubro = norm(issue.rubro || "");
+    return categorias.find((categoria) => norm(categoria.nombre || "") === rubro)?.id
+      || categorias.find((categoria) => rubro && norm(categoria.nombre || "").includes(rubro))?.id
+      || "";
+  }, [categorias, issue.rubro]);
+  const [createCategoryId, setCreateCategoryId] = useState(() => suggestedCategoryId);
+  const catalogCandidates = useMemo(() => (materiales ?? [])
+    .filter(materialActivo)
+    .filter((material) => matchesFlexibleSearch(catalogQuery, ...materialSearchFields(material)))
+    .sort((a, b) => String(a.descripcion || "").localeCompare(String(b.descripcion || ""), "es", { numeric: true }))
+    .slice(0, 16), [catalogQuery, materiales]);
+  const selectedMaterial = materiales.find((material) => material.id === selectedMaterialId && materialActivo(material)) || null;
+  const targetMaterial = selectedMaterial || linkedMaterial;
+  const quantityValid = (toNum(cantidad) || 0) > 0;
+
+  useEffect(() => {
+    const closeWithEscape = (event) => {
+      if (event.key === "Escape" && !busy) onClose?.();
+    };
+    window.addEventListener("keydown", closeWithEscape);
+    return () => window.removeEventListener("keydown", closeWithEscape);
+  }, [busy, onClose]);
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !busy) onClose?.();
+      }}
+      style={{ position: "fixed", inset: 0, zIndex: 10020, display: "grid", placeItems: "center", padding: 12, background: "var(--overlay-strong)", backdropFilter: "blur(5px)", WebkitBackdropFilter: "blur(5px)" }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Resolver material fuera de matriz"
+        onMouseDown={(event) => event.stopPropagation()}
+        style={{ position: "relative", zIndex: 1, width: "min(680px, calc(100vw - 24px))", maxHeight: "min(760px, calc(100vh - 24px))", overflowY: "auto", border: `1px solid ${C.b1}`, borderRadius: 16, background: "var(--panel-solid)", color: C.t0, boxShadow: "0 28px 80px rgba(15,23,42,.28)", padding: 14, display: "grid", gap: 12 }}
+      >
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+              <AlertTriangle size={17} style={{ color: C.cyan }} />
+              <span style={{ color: C.t0, fontSize: 15, fontWeight: 750 }}>Resolver fuera de matriz</span>
+            </div>
+            <div style={{ marginTop: 5, color: C.t2, fontSize: 11.5, lineHeight: 1.4 }}>
+              Se conserva el historial de {issue.obras.length} obra(s), se vincula al catálogo si hace falta y se agrega como estándar de K{linea}.
+            </div>
+          </div>
+          <button type="button" onClick={onClose} disabled={busy} style={{ ...BTN, minHeight: 31, padding: "5px 7px", color: C.t2 }} title="Cerrar">
+            <X size={15} />
+          </button>
+        </div>
+
+        <div style={{ border: `1px solid ${C.cyanB}`, borderRadius: 11, background: "color-mix(in srgb, var(--panel) 88%, #22d3ee 6%)", padding: "9px 10px" }}>
+          <div style={{ color: C.t0, fontSize: 13.5, fontWeight: 750 }}>{issue.descripcion}</div>
+          <div style={{ marginTop: 5, display: "flex", gap: 5, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 10, color: C.t2, border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 999, padding: "3px 7px" }}>{issue.obras.length} obras afectadas</span>
+            <span style={{ fontSize: 10, color: C.t2, border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 999, padding: "3px 7px" }}>{issue.snapshotIds.length} filas históricas</span>
+            {!issue.materialId ? <span style={{ fontSize: 10, color: C.red, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 999, padding: "3px 7px", fontWeight: 700 }}>Sin vínculo catálogo</span> : null}
+          </div>
+        </div>
+
+        <label style={{ display: "grid", gap: 5 }}>
+          <span style={{ fontSize: 10, color: C.t2, textTransform: "uppercase", letterSpacing: .7, fontWeight: 700 }}>Cantidad estándar para K{linea}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+            <input type="number" min="0.001" step="any" value={cantidad} onChange={(event) => setCantidad(event.target.value)} disabled={busy} style={{ ...INP, width: 150, height: 36 }} />
+            <span style={{ color: C.t2, fontSize: 12 }}>{issue.unidad || "unidad"}</span>
+            {issue.cantidadesDistintas ? <span style={{ color: C.red, fontSize: 10.5, fontWeight: 700 }}>Las obras tenían cantidades distintas: revisá este valor antes de confirmar.</span> : null}
+          </div>
+        </label>
+
+        <div style={{ display: "grid", gap: 7, borderTop: `1px solid ${C.b0}`, paddingTop: 11 }}>
+          <div>
+            <div style={{ fontSize: 11, color: C.blue, fontWeight: 750 }}>Material de catálogo</div>
+            <div style={{ marginTop: 2, color: C.t2, fontSize: 10.5 }}>Buscá por nombre, observación o #tag. Podés cambiar el vínculo existente si estaba mal.</div>
+          </div>
+          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+            <input value={catalogQuery} onChange={(event) => setCatalogQuery(event.target.value)} placeholder="Buscar nombre, observación o #tag..." disabled={busy} style={{ ...INP, minWidth: 175, flex: "1 1 210px", height: 34, fontSize: 11 }} />
+            <select value={selectedMaterialId} onChange={(event) => setSelectedMaterialId(event.target.value)} disabled={busy} style={{ ...INP, minWidth: 210, flex: "2 1 260px", height: 34, fontSize: 11 }}>
+              <option value="" style={OPT_ST}>{linkedMaterial ? "Mantener material vinculado" : "Elegir material existente..."}</option>
+              {catalogCandidates.map((material) => (
+                <option key={material.id} value={material.id} style={OPT_ST}>
+                  {material.descripcion}{material.codigo ? ` · ${material.codigo}` : ""}{material.categoria_id ? ` · ${categoriaNombre(categorias, material.categoria_id)}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          {targetMaterial ? (
+            <div style={{ color: C.green, fontSize: 10.5, border: `1px solid ${C.greenB}`, background: C.greenL, borderRadius: 8, padding: "6px 8px" }}>
+              Se agregará: <strong>{targetMaterial.descripcion}</strong>{targetMaterial.codigo ? ` · ${targetMaterial.codigo}` : ""}.
+            </div>
+          ) : null}
+        </div>
+
+        <div style={{ display: "grid", gap: 7, borderTop: `1px solid ${C.b0}`, paddingTop: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+            <button type="button" onClick={() => setCreateOpen((open) => !open)} disabled={busy} style={{ ...BTN, minHeight: 28, padding: "4px 8px", fontSize: 10.5, color: C.t1 }}>
+              <Plus size={12} /> {createOpen ? "Cancelar alta" : "No existe: crear en catálogo"}
+            </button>
+            <span style={{ fontSize: 10, color: C.t2 }}>Usalo sólo si verificaste que no existe un equivalente.</span>
+          </div>
+          {createOpen ? (
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(180px, 1fr) minmax(150px, .7fr)", gap: 7 }}>
+              <input value={createDescription} onChange={(event) => setCreateDescription(event.target.value)} placeholder="Nombre del material" disabled={busy} style={{ ...INP, height: 34, fontSize: 11 }} />
+              <select value={createCategoryId || suggestedCategoryId} onChange={(event) => setCreateCategoryId(event.target.value)} disabled={busy} style={{ ...INP, height: 34, fontSize: 11 }}>
+                <option value="" style={OPT_ST}>Elegir rubro...</option>
+                {categorias.map((categoria) => <option key={categoria.id} value={categoria.id} style={OPT_ST}>{categoria.nombre}</option>)}
+              </select>
+            </div>
+          ) : null}
+        </div>
+
+        {error ? <div style={{ color: C.red, fontSize: 11.5, border: `1px solid ${C.redB}`, background: "rgba(239,68,68,0.08)", borderRadius: 9, padding: "8px 9px" }}>{error}</div> : null}
+
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 7, flexWrap: "wrap", borderTop: `1px solid ${C.b0}`, paddingTop: 11 }}>
+          <button type="button" onClick={onClose} disabled={busy} style={{ ...BTN, padding: "7px 10px" }}>Cancelar</button>
+          {createOpen ? (
+            <button type="button" disabled={busy || !quantityValid || !createDescription.trim() || !(createCategoryId || suggestedCategoryId)} onClick={() => onCreate?.({ descripcion: createDescription, categoria_id: createCategoryId || suggestedCategoryId }, cantidad)} style={{ ...BTN_GREEN, padding: "7px 10px", opacity: busy || !quantityValid || !createDescription.trim() || !(createCategoryId || suggestedCategoryId) ? .58 : 1 }}>
+              <Plus size={13} /> {busy ? "Creando..." : `Crear y agregar a K${linea}`}
+            </button>
+          ) : (
+            <button type="button" disabled={busy || !quantityValid || !targetMaterial} onClick={() => onResolve?.(targetMaterial, cantidad)} style={{ ...BTN_GREEN, padding: "7px 10px", opacity: busy || !quantityValid || !targetMaterial ? .58 : 1 }}>
+              <PackagePlus size={13} /> {busy ? "Guardando..." : `Agregar a K${linea}`}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/**
+ * La tarjeta de una línea: cuánto sale el barco y cuánto de eso se sabe.
+ *
+ * La versión anterior mostraba nueve números —dos totales, tres desgloses, tres
+ * contadores y un porcentaje— y ninguno mandaba. Acá hay UNO solo grande: la
+ * plata unificada al dólar del día, que es la pregunta con la que se entra. El
+ * resto baja de categoría: la composición en pesos y dólares queda como
+ * renglón chico, y las obras, proveedores y rubros se van al pie.
+ *
+ * La barra dejó de ser un porcentaje suelto: es el costo mismo. La parte llena
+ * es lo que ya tiene precio y la rayada lo que falta, así se ve de un vistazo
+ * cuánto puede crecer el número antes de ser el definitivo.
+ *
+ * Sin cotización del dólar no se inventa nada: se muestran los dos importes
+ * separados, como antes.
+ */
+function TarjetaLinea({ linea, dolar, indice, onAbrir }) {
+  const unificado = dolar > 0 ? linea.ars + linea.usd * dolar : null;
+  const cubierto = Math.max(0, Math.min(100, linea.progreso));
+  const colorCobertura = cubierto >= 80 ? C.green : cubierto >= 50 ? C.blue : C.cyan;
+  const composicion = [
+    linea.ars > 0 ? fmtMoney(linea.ars, "ARS") : null,
+    linea.usd > 0 ? fmtMoney(linea.usd, "USD") : null,
+  ].filter(Boolean);
+
+  return (
+    <FadeIn delay={indice * 60} duration={320}>
+      <button
+        type="button"
+        onClick={() => onAbrir(linea.codigo)}
+        className="linea-premium-card"
+        style={{
+          textAlign: "left",
+          cursor: "pointer",
+          padding: 22,
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          gap: 18,
+          minHeight: 236,
+          border: `1px solid ${C.b0}`,
+          borderRadius: 24,
+          background: "radial-gradient(circle at 18% 0%, var(--glow-a), transparent 36%), var(--panel)",
+          boxShadow: "var(--elev-1)",
+          transition: "transform .3s ease, box-shadow .3s ease, border-color .3s ease",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        <span style={{ position: "absolute", inset: "0 0 auto 0", height: 1, background: "var(--brand-grad)", opacity: 0.4 }} />
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+            <div style={{ width: 46, height: 46, borderRadius: 999, background: "var(--blue-soft)", border: `1px solid ${C.blueB}`, display: "flex", alignItems: "center", justifyContent: "center", color: C.blue, fontFamily: C.mono, fontWeight: 700, fontSize: 17, flexShrink: 0 }}>
+              {linea.nombre?.replace(/^K/i, "") || linea.codigo}
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontFamily: C.mono, fontSize: 22, fontWeight: 700, color: C.t0, letterSpacing: "-0.4px", lineHeight: 1.1 }}>{linea.nombre || `K${linea.codigo}`}</div>
+              <div style={{ fontSize: 11.5, color: C.t2, fontWeight: 600, marginTop: 2 }}>{linea.obras.length} obras activas</div>
+            </div>
+          </div>
+          <div className="linea-arrow" style={{ width: 32, height: 32, borderRadius: 999, background: C.s0, border: `1px solid ${C.b0}`, display: "flex", alignItems: "center", justifyContent: "center", color: C.t2, flexShrink: 0, transition: "transform .3s ease, color .3s ease, background .3s ease, border-color .3s ease" }}>
+            <span style={{ fontSize: 20, transform: "translateY(-1px)" }}>›</span>
+          </div>
+        </div>
+
+        <div>
+          <div style={{ fontSize: 10.5, color: C.t2, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.6 }}>Material por barco</div>
+          {unificado != null ? (
+            <>
+              <div style={{ fontFamily: C.mono, fontSize: 31, fontWeight: 750, color: C.t0, letterSpacing: "-1px", lineHeight: 1.1, marginTop: 6 }}>
+                <span style={{ fontSize: 21, color: C.t2, marginRight: 3, letterSpacing: 0 }}>$</span>
+                <AnimatedNumber value={unificado} />
+              </div>
+              <div style={{ fontSize: 11, color: C.t2, fontWeight: 600, marginTop: 5 }}>
+                {composicion.join("  +  ")}
+                {linea.usd > 0 ? <span style={{ opacity: 0.7 }}> · al dólar {Math.round(dolar).toLocaleString("es-AR")}</span> : null}
+              </div>
+            </>
+          ) : (
+            <div style={{ display: "flex", alignItems: "baseline", gap: 9, flexWrap: "wrap", marginTop: 6 }}>
+              {composicion.length ? composicion.map((texto, i) => (
+                <Fragment key={texto}>
+                  {i > 0 ? <span style={{ fontFamily: C.mono, fontSize: 18, color: C.t2 }}>+</span> : null}
+                  <span style={{ fontFamily: C.mono, fontSize: 24, fontWeight: 750, color: C.t0, letterSpacing: "-0.6px" }}>{texto}</span>
+                </Fragment>
+              )) : <span style={{ fontSize: 14, color: C.t2, fontWeight: 600 }}>Todavía sin precios</span>}
+            </div>
+          )}
+        </div>
+
+        <div style={{ marginTop: "auto", display: "grid", gap: 8 }}>
+          <div className="linea-barra" style={{ height: 9, borderRadius: 999, background: "var(--panel-3)", border: `1px solid ${C.b0}`, overflow: "hidden", display: "flex" }}>
+            <span style={{ width: `${cubierto}%`, background: "var(--brand-grad)", borderRadius: 999 }} />
+            <span className="linea-barra-falta" style={{ flex: 1 }} />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", fontSize: 11.5, fontWeight: 650 }}>
+            <span style={{ color: colorCobertura }}>{cubierto}% costeado</span>
+            {linea.secundariosLoading ? (
+              <span style={{ color: C.violet }}>sumando producción…</span>
+            ) : linea.secundariosError ? (
+              <span style={{ color: C.red }}>producción sin calcular</span>
+            ) : linea.sinPrecio ? (
+              <span style={{ color: C.t2 }}>faltan <span style={{ fontFamily: C.mono, color: C.t1 }}>{linea.sinPrecio}</span> de {linea.items} ítems</span>
+            ) : (
+              <span style={{ color: C.green }}>los {linea.items} ítems tienen precio</span>
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, color: C.t2, fontWeight: 600, flexWrap: "wrap", paddingTop: 2, borderTop: `1px solid ${C.b0}`, marginTop: 2 }}>
+            <span style={{ paddingTop: 8 }}>{linea.matrizItems} matriz</span>
+            {!linea.secundariosLoading && linea.laminacionItems ? <span style={{ paddingTop: 8, color: C.violet }}>· {linea.laminacionItems} laminación</span> : null}
+            {!linea.secundariosLoading && linea.maderasItems ? <span style={{ paddingTop: 8, color: C.cyan }}>· {linea.maderasItems} maderas</span> : null}
+            <span style={{ paddingTop: 8, marginLeft: "auto" }}>{linea.proveedores} proveedores · {linea.rubros} rubros</span>
+          </div>
+        </div>
+      </button>
+    </FadeIn>
+  );
+}
+
+function LineasTab({ lineas, obras, categorias, materiales, proveedores, opciones = [], onChanged, soloPedirACompras = false }) {
+  const [sel, setSel] = useState("");
+  const [selObra, setSelObra] = useState(null);
+  const [q, setQ] = useState("");
+  const [secondaryByLine, setSecondaryByLine] = useState({});
+  const [, startRouteTransition] = useTransition();
+
+  // El dólar va por su lado: si la API no contesta, la tarjeta muestra los dos
+  // importes separados en vez de un total unificado. Nunca se queda sin pintar.
+  const [cotizacion, setCotizacion] = useState(() => dolarGuardado());
+  useEffect(() => {
+    let vivo = true;
+    fetchDolarOficial().then((valor) => { if (vivo && valor) setCotizacion(valor); }).catch(() => {});
+    return () => { vivo = false; };
+  }, []);
+  const dolar = Number(cotizacion?.venta) || 0;
+
+  const [conjuntos, setConjuntos] = useState([]);
+  useEffect(() => {
+    let vivo = true;
+    fetchConjuntos().then((filas) => { if (vivo) setConjuntos(filas); }).catch(() => {});
+    return () => { vivo = false; };
+  }, []);
+
+  const ums = useMemo(
+    () => buildUnidadOptions(materiales),
+    [materiales],
+  );
+  const listaLineas = useMemo(() => {
+    const base = lineas?.length ? lineas : MODELOS.map((c) => ({ codigo: c, nombre: `K${c}` }));
+    return base.map((l) => ({ ...l, codigo: String(l.codigo || "").replace(/^K/i, "") }));
+  }, [lineas]);
+
+  useEffect(() => {
+    let active = true;
+    const targets = listaLineas.filter((item) => ["52", "55"].includes(String(item.codigo)));
+    if (!targets.length) return () => { active = false; };
+
+    Promise.all(targets.map(async (item) => {
+      const lineObras = (obras ?? []).filter((obra) => String(obra.modelo) === String(item.codigo));
+      if (!lineObras.length) return [item.codigo, { rows: [], loading: false, error: "" }];
+      try {
+        const result = await fetchMaterialesSecundariosPlanilla({ linea: `K${item.codigo}`, obras: lineObras });
+        return [item.codigo, { rows: result?.filas ?? [], loading: false, error: "" }];
+      } catch (error) {
+        return [item.codigo, { rows: [], loading: false, error: error?.message || "No se pudo calcular Laminación." }];
+      }
+    })).then((entries) => {
+      if (!active) return;
+      setSecondaryByLine((current) => ({ ...current, ...Object.fromEntries(entries) }));
+    });
+
+    return () => { active = false; };
+  }, [listaLineas, obras]);
+
+  const cards = useMemo(() => listaLineas.map((linea) => {
+    const mats = (materiales ?? []).filter(materialActivo).filter((m) => materialQty(m, linea.codigo) > 0);
+    const proveedoresSet = new Set();
+    const rubrosSet = new Set();
+    let baseUsd = 0;
+    let baseArs = 0;
+    let baseSinPrecio = 0;
+    // Mismas reglas que Costo de obra y Costo del barco, para que las tres
+    // pantallas den el mismo número: lo que va en un conjunto suma una vez con
+    // el precio del conjunto, y lo especificado no suma ni falta.
+    const conjuntoDe = new Map();
+    for (const conjunto of conjuntos) {
+      if (conjunto.modelo && String(conjunto.modelo) !== String(linea.codigo)) continue;
+      for (const id of conjunto.materiales || []) conjuntoDe.set(id, conjunto);
+    }
+    const conjuntosUsados = new Set();
+    mats.forEach((m) => {
+      const precio = priceInfo(m);
+      const qty = materialQty(m, linea.codigo) || 1;
+      for (const name of nombresProveedor(precio.proveedor || m.proveedor)) proveedoresSet.add(name);
+      rubrosSet.add(categoriaNombre(categorias, m.categoria_id));
+      const conjunto = conjuntoDe.get(m.id);
+      if (conjunto) {
+        conjuntosUsados.add(conjunto);
+        if (!(Number(conjunto.precio) > 0)) baseSinPrecio += 1;
+        return;
+      }
+      if (!precio.amount) {
+        if (!m.sin_precio_motivo) baseSinPrecio += 1;
+        return;
+      }
+      if (precio.moneda === "USD") baseUsd += precio.amount * qty;
+      else baseArs += precio.amount * qty;
+    });
+    for (const conjunto of conjuntosUsados) {
+      const monto = Number(conjunto.precio);
+      if (!(monto > 0)) continue;
+      if (conjunto.moneda === "USD") baseUsd += monto;
+      else baseArs += monto;
+    }
+    const secondaryState = secondaryByLine[linea.codigo] || {};
+    const supportsSecondaries = ["52", "55"].includes(String(linea.codigo));
+    const laminacionRows = (secondaryState.rows || []).filter((row) => row.circuito === "laminacion");
+    const maderasRows = (secondaryState.rows || []).filter((row) => (
+      row.circuito === "maderas"
+      && row.referenciaMaderasCodigo
+      && Number(row.cantidadReferencia || 0) > 0
+    ));
+    let laminacionUsd = 0;
+    let laminacionArs = 0;
+    let laminacionSinPrecio = 0;
+    laminacionRows.forEach((row) => {
+      for (const name of nombresProveedor(row.proveedor)) proveedoresSet.add(name);
+      if (row.rubro) rubrosSet.add(row.rubro);
+      const precio = Number(row.precioInfo?.precio_unidad_matriz || 0);
+      const requerido = Number(Object.values(row.porObra || {})[0]?.requerido || 0);
+      if (!(precio > 0)) laminacionSinPrecio += 1;
+      else if (row.precioInfo?.moneda === "USD") laminacionUsd += precio * requerido;
+      else laminacionArs += precio * requerido;
+    });
+    let maderasUsd = 0;
+    let maderasArs = 0;
+    let maderasSinPrecio = 0;
+    maderasRows.forEach((row) => {
+      for (const name of nombresProveedor(row.proveedor)) proveedoresSet.add(name);
+      if (row.rubro) rubrosSet.add(row.rubro);
+      const precio = Number(row.precioInfo?.precio_unidad_matriz || 0);
+      const cantidad = Number(row.cantidadReferencia || 0);
+      if (!(precio > 0)) maderasSinPrecio += 1;
+      else if (row.precioInfo?.moneda === "USD") maderasUsd += precio * cantidad;
+      else maderasArs += precio * cantidad;
+    });
+    const items = mats.length + laminacionRows.length + maderasRows.length;
+    const sinPrecio = baseSinPrecio + laminacionSinPrecio + maderasSinPrecio;
+    const conPrecio = items - sinPrecio;
+    return {
+      ...linea,
+      items,
+      matrizItems: mats.length,
+      laminacionItems: laminacionRows.length,
+      maderasItems: maderasRows.length,
+      maderasReferenciaCodigo: maderasRows[0]?.referenciaMaderasCodigo || "",
+      proveedores: proveedoresSet.size,
+      rubros: rubrosSet.size,
+      sinPrecio,
+      baseUsd,
+      baseArs,
+      laminacionUsd,
+      laminacionArs,
+      maderasUsd,
+      maderasArs,
+      usd: baseUsd + laminacionUsd + maderasUsd,
+      ars: baseArs + laminacionArs + maderasArs,
+      secundariosLoading: supportsSecondaries && !secondaryState.rows && !secondaryState.error,
+      secundariosError: secondaryState.error || "",
+      progreso: items ? Math.round((conPrecio / items) * 100) : 0,
+      obras: (obras ?? []).filter((o) => String(o.modelo) === String(linea.codigo)),
+    };
+  }), [listaLineas, materiales, categorias, obras, secondaryByLine, conjuntos]);
+
+  const visibles = useMemo(() => {
+    const terms = norm(q).split(/\s+/).filter(Boolean);
+    if (!terms.length) return cards;
+    return cards.filter((linea) => terms.every((t) => norm(`${linea.codigo} ${linea.nombre}`).includes(t)));
+  }, [cards, q]);
+
+  const totals = useMemo(() => ({
+    lineas: cards.length,
+    obras: cards.reduce((sum, l) => sum + l.obras.length, 0),
+    items: cards.reduce((sum, l) => sum + l.items, 0),
+    sinPrecio: cards.reduce((sum, l) => sum + l.sinPrecio, 0),
+  }), [cards]);
+
+  const abrirLinea = useCallback((codigo) => {
+    startRouteTransition(() => setSel(codigo));
+  }, [startRouteTransition]);
+
+  const abrirObra = useCallback((obra) => {
+    startRouteTransition(() => setSelObra(obra));
+  }, [startRouteTransition]);
+
+  if (selObra) {
+    const lineaNombre = cards.find((l) => l.codigo === sel)?.nombre || (sel ? `K${sel}` : "Líneas");
+    return (
+      <div key={`obra-${selObra.id || selObra.codigo}`} className="materiales-route-content">
+      <ObraMatrizView
+        obra={selObra}
+        obras={obras}
+        linea={sel}
+        lineaNombre={lineaNombre}
+        categorias={categorias}
+        materiales={materiales}
+        proveedores={proveedores}
+        opciones={opciones}
+        ums={ums}
+        onChanged={onChanged}
+        onBack={() => setSelObra(null)}
+        soloPedirACompras={soloPedirACompras}
+      />
+      </div>
+    );
+  }
+
+  if (sel) {
+    const linea = cards.find((l) => l.codigo === sel) || { codigo: sel, nombre: `K${sel}`, obras: [], items: 0, proveedores: 0, rubros: 0, sinPrecio: 0, usd: 0 };
+    return (
+      <div key={`linea-${sel}`} className="materiales-route-content">
+      <LineaMatrizView
+        linea={linea}
+        lineas={cards}
+        obras={linea.obras}
+        categorias={categorias}
+        materiales={materiales}
+        proveedores={proveedores}
+        opciones={opciones}
+        conjuntos={conjuntos}
+        ums={ums}
+        onChanged={onChanged}
+        onBack={() => setSel("")}
+        onSelectLinea={abrirLinea}
+        onSelectObra={abrirObra}
+      />
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ animation: "fadeIn 0.4s ease-out" }}>
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .lineas-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 18px;
+        }
+        @media (max-width: 1180px) {
+          .lineas-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 760px) {
+          .lineas-grid { grid-template-columns: 1fr; }
+        }
+      `}</style>
+
+      <div style={{
+        padding: "22px 24px",
+        marginBottom: 24,
+        border: `1px solid ${C.b0}`,
+        borderRadius: 26,
+        background: "radial-gradient(circle at 12% 0%, rgba(37,99,235,0.08), transparent 34%), linear-gradient(135deg, color-mix(in srgb, var(--panel) 90%, transparent), color-mix(in srgb, var(--panel-2) 68%, transparent))",
+        backdropFilter: "blur(20px)",
+        boxShadow: "0 30px 70px -52px rgba(15,23,42,0.9)",
+      }}>
+        <div style={{ display: "grid", gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 18 }}>
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 750, color: C.t0, letterSpacing: "-0.4px" }}>Matriz por línea de producción</div>
+            <div style={{ fontSize: 13, color: C.t2, marginTop: 5 }}>Entrá a una línea para administrar matriz, obras activas y preparación de compras.</div>
+          </div>
+
+            <div style={{ position: "relative", width: 240, maxWidth: "100%" }}>
+              <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2, pointerEvents: "none" }} />
+              <input
+                className="lineas-search"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Buscar línea..."
+                style={{ ...INP, width: "100%", height: 40, paddingLeft: 34, borderRadius: 999, fontSize: 13, background: C.bg, transition: "border-color .3s ease, box-shadow .3s ease" }}
+              />
+            </div>
+        </div>
+          <div style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            flexWrap: "wrap",
+            border: `1px solid ${C.b0}`,
+            borderRadius: 999,
+            background: "color-mix(in srgb, var(--panel) 66%, transparent)",
+            backdropFilter: "blur(14px)",
+            padding: 4,
+            width: "fit-content",
+            maxWidth: "100%",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
+          }}>
+            <LineaMetricDot label="Líneas" value={totals.lineas} color={C.blue} />
+            <LineaMetricDot label="Obras" value={totals.obras} color={C.green} />
+            <LineaMetricDot label="Items" value={totals.items} color={C.violet} />
+            <LineaMetricDot label="Sin precio" value={totals.sinPrecio} color={totals.sinPrecio ? C.cyan : C.green} />
+          </div>
+        </div>
+      </div>
+
+      <div className="lineas-grid">
+        {visibles.map((linea, indice) => (
+          <TarjetaLinea key={linea.codigo} linea={linea} dolar={dolar} indice={indice} onAbrir={abrirLinea} />
+        ))}
+        {!visibles.length && (
+          <div style={{ padding: 40, textAlign: "center", color: C.t2, fontSize: 15, background: C.s0, border: `1px dashed ${C.b0}`, borderRadius: 20, gridColumn: "1 / -1" }}>
+            No encontramos líneas que coincidan con tu búsqueda.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const NORMALIZATION_KIND_META = {
+  proveedor: { label: "Proveedor", color: C.blue, bg: C.blueL, border: C.blueB },
+  codigo: { label: "Código", color: C.green, bg: C.greenL, border: C.greenB },
+  unidad: { label: "Unidad", color: C.teal || C.green, bg: "rgba(20,184,166,0.1)", border: "rgba(20,184,166,0.32)" },
+  rubro: { label: "Rubro", color: C.violet, bg: C.violetL, border: C.violetB },
+  fraccion: { label: "Fracción", color: C.red, bg: "rgba(239,68,68,0.08)", border: "rgba(239,68,68,0.28)" },
+};
+
+const NORMALIZATION_FILTERS = [
+  ["todos", "Todo"],
+  ["proveedor", "Proveedor"],
+  ["codigo", "Código"],
+  ["unidad", "Unidad"],
+  ["rubro", "Rubro"],
+  ["fraccion", "Fracciones"],
+];
+
+function hasUsableProvider(material) {
+  const proveedor = norm(material?.proveedor || "");
+  return !!(material?.proveedor_id || (proveedor && proveedor !== "sin proveedor"));
+}
+
+function normalizationTokens(value = "") {
+  return norm(value)
+    .split(/\s+/)
+    .map(canonicalDuplicateToken)
+    .filter((token) => token.length >= 3 && !DUPLICATE_STOPWORDS.has(token));
+}
+
+function setOverlapScore(a, b) {
+  if (!a.size || !b.size) return { shared: 0, score: 0 };
+  let shared = 0;
+  for (const token of a) if (b.has(token)) shared += 1;
+  const union = new Set([...a, ...b]).size || 1;
+  return { shared, score: shared / union };
+}
+
+function providerByName(proveedores = [], name = "") {
+  const key = norm(name);
+  if (!key) return null;
+  return proveedores.find((p) => norm(p.nombre) === key)
+    || proveedores.find((p) => {
+      const current = norm(p.nombre);
+      return current && (current.includes(key) || key.includes(current));
+    })
+    || null;
+}
+
+function providerLabelFromMaterial(material, proveedores = []) {
+  if (material?.proveedor_id) {
+    const p = proveedores.find((proveedor) => proveedor.id === material.proveedor_id);
+    if (p?.nombre) return { id: p.id, nombre: p.nombre };
+  }
+  const nombre = String(material?.proveedor || "").trim();
+  if (!nombre) return null;
+  const p = providerByName(proveedores, nombre);
+  return { id: p?.id || "", nombre: p?.nombre || nombre };
+}
+
+function providerSuggestionForMaterial(material, materiales = [], proveedores = []) {
+  if (hasUsableProvider(material)) return null;
+
+  const directMeta = proveedorMeta(material.descripcion, proveedores);
+  if (directMeta?.nombre) {
+    const direct = providerByName(proveedores, directMeta.nombre);
+    return {
+      proveedor_id: direct?.id || directMeta.id || "",
+      proveedor: direct?.nombre || directMeta.nombre,
+      confidence: "alta",
+      reason: "El proveedor aparece escrito en el título.",
+    };
+  }
+
+  const tokens = new Set(normalizationTokens(material.descripcion));
+  if (tokens.size < 2) return null;
+  const materialAreas = new Set((material.areas?.length ? material.areas : [material.categoria_id]).filter(Boolean));
+  const byProvider = new Map();
+  const materialFirstToken = normalizationTokens(material.descripcion)[0];
+
+  for (const other of materiales || []) {
+    if (!materialActivo(other) || other.id === material.id || !hasUsableProvider(other)) continue;
+    const label = providerLabelFromMaterial(other, proveedores);
+    if (!label?.nombre) continue;
+    const otherTokensList = normalizationTokens(other.descripcion);
+    const otherTokens = new Set(otherTokensList);
+    const overlap = setOverlapScore(tokens, otherTokens);
+    if (!overlap.shared) continue;
+    const otherAreas = new Set((other.areas?.length ? other.areas : [other.categoria_id]).filter(Boolean));
+    const sameArea = materialAreas.size && intersects(materialAreas, otherAreas);
+    const firstTokenBonus = materialFirstToken && materialFirstToken === otherTokensList[0] ? 6 : 0;
+    const score = (overlap.shared * 12) + (overlap.score * 44) + (sameArea ? 20 : 0) + firstTokenBonus;
+    if (score < 28) continue;
+    const key = label.id || norm(label.nombre);
+    const current = byProvider.get(key) || { ...label, score: 0, best: 0, count: 0 };
+    current.score += score;
+    current.best = Math.max(current.best, score);
+    current.count += 1;
+    byProvider.set(key, current);
+  }
+
+  const [best] = [...byProvider.values()].sort((a, b) => (b.score + b.best) - (a.score + a.best));
+  if (!best || best.best < 34) return null;
+  return {
+    proveedor_id: best.id || "",
+    proveedor: best.nombre,
+    confidence: best.best >= 58 || best.count >= 3 ? "alta" : "media",
+    reason: `${best.count} material${best.count === 1 ? "" : "es"} parecido${best.count === 1 ? "" : "s"} ya usan este proveedor.`,
+  };
+}
+
+function categorySuggestionForMaterial(material, materiales = [], categorias = []) {
+  if (material?.categoria_id) return null;
+  const tokens = new Set(normalizationTokens(material.descripcion));
+  if (tokens.size < 2) return null;
+  const byCat = new Map();
+  for (const other of materiales || []) {
+    if (!materialActivo(other) || other.id === material.id || !other.categoria_id) continue;
+    const otherTokens = new Set(normalizationTokens(other.descripcion));
+    const overlap = setOverlapScore(tokens, otherTokens);
+    if (!overlap.shared) continue;
+    const score = (overlap.shared * 14) + (overlap.score * 48);
+    if (score < 34) continue;
+    const current = byCat.get(other.categoria_id) || { id: other.categoria_id, score: 0, best: 0, count: 0 };
+    current.score += score;
+    current.best = Math.max(current.best, score);
+    current.count += 1;
+    byCat.set(other.categoria_id, current);
+  }
+  const [best] = [...byCat.values()].sort((a, b) => (b.score + b.best) - (a.score + a.best));
+  if (!best) return null;
+  return {
+    categoria_id: best.id,
+    confidence: best.best >= 58 || best.count >= 3 ? "alta" : "media",
+    reason: `${best.count} material${best.count === 1 ? "" : "es"} parecido${best.count === 1 ? "" : "s"} están en este rubro.`,
+    label: categoriaNombre(categorias, best.id),
+  };
+}
+
+function unitSuggestionForMaterial(material) {
+  const current = norm(material?.unidad_medida || "");
+  const text = norm(material?.descripcion || "");
+  if (!text || (current && current !== "unidad")) return null;
+  const rules = [
+    [/\b\d+(?:[.,]\d+)?\s*(mts?|mtrs?|metros?)\b/, "metro"],
+    [/\b\d+(?:[.,]\d+)?\s*(kg|kilos?)\b/, "kg"],
+    [/\b\d+(?:[.,]\d+)?\s*(lts?|litros?)\b/, "litro"],
+    [/\b\d+(?:[.,]\d+)?\s*(pies|pie)\b/, "pies"],
+    [/\b\d+(?:[.,]\d+)?\s*(m2|m²)\b/, "m2"],
+    [/\b(caja|cajas)\b/, "caja"],
+    [/\b(rollo|rollos)\b/, "rollo"],
+    [/\b(par|pares)\b/, "par"],
+    [/\b(juego|juegos)\b/, "juego"],
+  ];
+  const found = rules.find(([pattern]) => pattern.test(text));
+  if (!found || current === found[1]) return null;
+  return { unidad_medida: found[1], confidence: "media", reason: "La unidad aparece en la descripción." };
+}
+
+function codeSuggestionForMaterial(material) {
+  if (material?.codigo) return null;
+  const [code] = [...codeCandidatesFromText(`${material?.descripcion || ""} ${material?.notas || ""}`)];
+  if (!code) return null;
+  return { codigo: code, confidence: "media", reason: "Parece un código dentro del texto." };
+}
+
+function repairFractionText(value = "") {
+  let text = String(value || "");
+  for (let i = 0; i < 4; i += 1) {
+    text = text.replace(/(^|[^0-9])([1357])\s+([248])(")/g, "$1$2/$3$4");
+  }
+  return text.replace(/\s{2,}/g, " ").trim();
+}
+
+function fractionSuggestionForMaterial(material) {
+  const descripcion = String(material?.descripcion || "");
+  const repaired = repairFractionText(descripcion);
+  if (!descripcion || repaired === descripcion) return null;
+  return {
+    descripcion: repaired,
+    confidence: "alta",
+    reason: "Parece una fracción que perdió la barra.",
+  };
+}
+
+function buildNormalizationGroups(materiales = [], categorias = [], proveedores = []) {
+  return (materiales || [])
+    .filter(materialActivo)
+    .map((material) => {
+      const actions = [];
+      const provider = providerSuggestionForMaterial(material, materiales, proveedores);
+      if (provider) {
+        actions.push({
+          id: `${material.id}:proveedor`,
+          kind: "proveedor",
+          confidence: provider.confidence,
+          title: "Asignar proveedor sugerido",
+          detail: provider.reason,
+          before: material.proveedor || "Sin proveedor",
+          after: provider.proveedor,
+          patch: { proveedor_id: provider.proveedor_id || null, proveedor: provider.proveedor },
+        });
+      }
+
+      const fraction = fractionSuggestionForMaterial(material);
+      if (fraction) {
+        actions.push({
+          id: `${material.id}:fraccion`,
+          kind: "fraccion",
+          confidence: fraction.confidence,
+          title: "Reparar fracción",
+          detail: fraction.reason,
+          before: material.descripcion || "",
+          after: fraction.descripcion,
+          patch: { descripcion: fraction.descripcion },
+        });
+      }
+
+      const code = codeSuggestionForMaterial(material);
+      if (code) {
+        actions.push({
+          id: `${material.id}:codigo`,
+          kind: "codigo",
+          confidence: code.confidence,
+          title: "Completar código",
+          detail: code.reason,
+          before: "Sin código",
+          after: code.codigo,
+          patch: { codigo: code.codigo },
+        });
+      }
+
+      const unit = unitSuggestionForMaterial(material);
+      if (unit) {
+        actions.push({
+          id: `${material.id}:unidad`,
+          kind: "unidad",
+          confidence: unit.confidence,
+          title: "Ajustar unidad",
+          detail: unit.reason,
+          before: material.unidad_medida || "Sin unidad",
+          after: unit.unidad_medida,
+          patch: { unidad_medida: unit.unidad_medida },
+        });
+      }
+
+      const category = categorySuggestionForMaterial(material, materiales, categorias);
+      if (category) {
+        actions.push({
+          id: `${material.id}:rubro`,
+          kind: "rubro",
+          confidence: category.confidence,
+          title: "Asignar rubro sugerido",
+          detail: category.reason,
+          before: "Sin rubro",
+          after: category.label,
+          patch: { categoria_id: category.categoria_id },
+          areas: [category.categoria_id, ...(material.areas || []).filter((id) => id && id !== material.categoria_id && id !== category.categoria_id)],
+        });
+      }
+
+      return {
+        id: material.id,
+        material,
+        actions,
+        score: actions.reduce((sum, action) => sum + (action.confidence === "alta" ? 3 : 2), 0),
+      };
+    })
+    .filter((group) => group.actions.length)
+    .sort((a, b) => b.score - a.score || String(a.material.descripcion || "").localeCompare(String(b.material.descripcion || ""), "es"));
+}
+
+function duplicatePairKey(a, b) {
+  const ids = [a, b].filter(Boolean).map(String).sort();
+  return ids.length === 2 && ids[0] !== ids[1] ? `${ids[0]}:${ids[1]}` : "";
+}
+
+function duplicateGroupPairKeys(group) {
+  const ids = (group?.materials || []).map((material) => material.id).filter(Boolean).sort();
+  const keys = [];
+  for (let i = 0; i < ids.length; i += 1) {
+    for (let j = i + 1; j < ids.length; j += 1) {
+      const key = duplicatePairKey(ids[i], ids[j]);
+      if (key) keys.push(key);
+    }
+  }
+  return keys;
+}
+
+function duplicateGroupDismissed(group, dismissedPairs) {
+  const keys = duplicateGroupPairKeys(group);
+  return keys.length > 0 && keys.every((key) => dismissedPairs.has(key));
+}
+
+function ConfidenceBadge({ value }) {
+  const meta = value === "alta"
+    ? { label: "Alta", color: C.green, bg: C.greenL, border: C.greenB }
+    : { label: "Media", color: C.cyan, bg: C.cyanL, border: C.cyanB };
+  return (
+    <span style={{ fontSize: 10, fontWeight: 700, color: meta.color, background: meta.bg, border: `1px solid ${meta.border}`, borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap" }}>
+      {meta.label}
+    </span>
+  );
+}
+
+function NormalizacionTab({ categorias, materiales, proveedores, onChanged }) {
+  const [q, setQ] = useState("");
+  const [kind, setKind] = useState("todos");
+  const [confidence, setConfidence] = useState("todos");
+  const [selected, setSelected] = useState(() => new Set());
+  const [busy, setBusy] = useState("");
+  const [err, setErr] = useState(null);
+
+  const groups = useMemo(() => buildNormalizationGroups(materiales, categorias, proveedores), [materiales, categorias, proveedores]);
+  const actionById = useMemo(() => {
+    const map = new Map();
+    groups.forEach((group) => group.actions.forEach((action) => map.set(action.id, { ...action, material: group.material })));
+    return map;
+  }, [groups]);
+
+  const visibleGroups = useMemo(() => {
+    const terms = norm(q).split(/\s+/).filter(Boolean);
+    return groups
+      .map((group) => {
+        const actions = group.actions.filter((action) =>
+          (kind === "todos" || action.kind === kind)
+          && (confidence === "todos" || action.confidence === confidence)
+        );
+        return { ...group, visibleActions: actions };
+      })
+      .filter((group) => {
+        if (!group.visibleActions.length) return false;
+        if (!terms.length) return true;
+        const hay = norm([
+          group.material.descripcion,
+          group.material.codigo,
+          group.material.proveedor,
+          categoriaNombre(categorias, group.material.categoria_id),
+          group.visibleActions.map((action) => `${action.title} ${action.before} ${action.after} ${action.detail}`).join(" "),
+        ].join(" "));
+        return terms.every((term) => hay.includes(term));
+      });
+  }, [groups, q, kind, confidence, categorias]);
+
+  const visibleActions = useMemo(() => visibleGroups.flatMap((group) => group.visibleActions.map((action) => ({ ...action, material: group.material }))), [visibleGroups]);
+  const selectedActions = useMemo(() => [...selected].map((id) => actionById.get(id)).filter(Boolean), [selected, actionById]);
+  const kpis = useMemo(() => {
+    const all = groups.flatMap((group) => group.actions);
+    return {
+      materiales: groups.length,
+      acciones: all.length,
+      alta: all.filter((action) => action.confidence === "alta").length,
+      proveedor: all.filter((action) => action.kind === "proveedor").length,
+    };
+  }, [groups]);
+
+  function toggleAction(id) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function selectVisible(mode = "all") {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      visibleActions
+        .filter((action) => mode !== "alta" || action.confidence === "alta")
+        .forEach((action) => next.add(action.id));
+      return next;
+    });
+  }
+
+  async function applyActions(actions, label = "sugerencias") {
+    const clean = actions.filter(Boolean);
+    if (!clean.length || busy) return;
+    const byMaterial = new Map();
+    clean.forEach((action) => {
+      if (!byMaterial.has(action.material.id)) byMaterial.set(action.material.id, { material: action.material, actions: [] });
+      byMaterial.get(action.material.id).actions.push(action);
+    });
+    if (!window.confirm(`¿Aplicar ${clean.length} ${label} en ${byMaterial.size} material${byMaterial.size === 1 ? "" : "es"}?\n\nNo se archiva ni se borra nada.`)) return;
+    setBusy("apply");
+    setErr(null);
+    try {
+      for (const entry of byMaterial.values()) {
+        let draft = { ...entry.material };
+        let areas = null;
+        for (const action of entry.actions) {
+          draft = { ...draft, ...action.patch };
+          if (action.areas) areas = action.areas;
+        }
+        await guardarMaterial(draft, toBomMap(entry.material), { revisado: entry.material.revisado });
+        if (areas) await setSectoresMaterial(entry.material.id, areas);
+      }
+      setSelected(new Set());
+      await onChanged?.();
+    } catch (e) {
+      setErr(e);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  const chip = (on, color = C.blue) => ({
+    ...BTN,
+    padding: "7px 11px",
+    background: on ? C.s1 : C.s0,
+    border: `1px solid ${on ? C.b1 : C.b0}`,
+    color: on ? color : C.t2,
+    fontWeight: 700,
+  });
+
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+      <div style={{ border: `1px solid ${C.b0}`, background: "var(--panel)", borderRadius: 18, padding: 16, display: "grid", gap: 13 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 750, color: C.t0 }}>Asistente de normalización</div>
+            <div style={{ fontSize: 12.5, color: C.t2, marginTop: 3 }}>Sugerencias confirmables para limpiar nombres, proveedores, códigos, unidades y rubros.</div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(110px, 1fr))", gap: 8, minWidth: 330 }}>
+            <KpiCard label="Materiales" value={kpis.materiales} color={C.blue} />
+            <KpiCard label="Sugerencias" value={kpis.acciones} color={C.violet} />
+            <KpiCard label="Alta confianza" value={kpis.alta} color={C.green} />
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <div style={{ position: "relative", flex: "1 1 280px" }}>
+            <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar material, proveedor sugerido, código o rubro..." style={{ ...INP, width: "100%", height: 40, paddingLeft: 36 }} />
+          </div>
+          <select value={kind} onChange={(e) => setKind(e.target.value)} style={{ ...INP, width: 180, height: 40 }}>
+            {NORMALIZATION_FILTERS.map(([key, label]) => (
+              <option key={key} value={key} style={OPT_ST}>{label}</option>
+            ))}
+          </select>
+          <select value={confidence} onChange={(e) => setConfidence(e.target.value)} style={{ ...INP, width: 160, height: 40 }}>
+            <option value="todos" style={OPT_ST}>Confianza: todas</option>
+            <option value="alta" style={OPT_ST}>Alta</option>
+            <option value="media" style={OPT_ST}>Media</option>
+          </select>
+        </div>
+
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
+          <button type="button" onClick={() => selectVisible("alta")} disabled={!visibleActions.some((action) => action.confidence === "alta")} style={chip(false, C.green)}>
+            Seleccionar alta confianza
+          </button>
+          <button type="button" onClick={() => selectVisible("all")} disabled={!visibleActions.length} style={chip(false, C.blue)}>
+            Seleccionar visibles
+          </button>
+          <button type="button" onClick={() => setSelected(new Set())} disabled={!selected.size} style={chip(false, C.t2)}>
+            Limpiar selección
+          </button>
+          <div style={{ flex: 1 }} />
+          <span style={{ fontSize: 11.5, color: C.t2 }}>
+            {visibleGroups.length} materiales visibles · {selectedActions.length} seleccionadas
+          </span>
+          <button type="button" onClick={() => applyActions(selectedActions, "sugerencias seleccionadas")} disabled={!selectedActions.length || !!busy} style={{ ...BTN_GREEN, padding: "8px 13px", opacity: !selectedActions.length || busy ? 0.6 : 1 }}>
+            <Save size={14} /> {busy ? "Aplicando..." : "Aplicar selección"}
+          </button>
+        </div>
+        {err && <ErrorBox error={err} onRetry={() => setErr(null)} />}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+        <KpiCard label="Sin proveedor sugerido" value={kpis.proveedor} color={C.blue} />
+        <KpiCard label="Visibles" value={visibleActions.length} color={C.cyan} />
+      </div>
+
+      <div style={{ display: "grid", gap: 10 }}>
+        {visibleGroups.map((group) => {
+          const material = group.material;
+          return (
+            <section key={group.id} style={{ border: `1px solid ${C.b0}`, background: "var(--panel)", borderRadius: 14, overflow: "hidden" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 10, alignItems: "start", padding: "12px 14px", borderBottom: `1px solid ${C.b0}`, background: C.s0 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 13.5, fontWeight: 750, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion || "(sin descripción)"}</span>
+                    <PriceBadge material={material} />
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", color: C.t2, fontSize: 11.5, marginTop: 4 }}>
+                    <span>{categoriaNombre(categorias, material.categoria_id)}</span>
+                    <span>{material.proveedor || "Sin proveedor"}</span>
+                    {material.codigo && <span style={{ fontFamily: C.mono }}>{material.codigo}</span>}
+                    {materialVariants(material).length > 0 && <span style={{ color: C.violet }}>Variantes: {materialVariants(material).join(" / ")}</span>}
+                  </div>
+                </div>
+                <button type="button" onClick={() => applyActions(group.visibleActions.map((action) => ({ ...action, material })), "sugerencias de este material")} disabled={!!busy} style={{ ...BTN, padding: "7px 10px", color: C.green, borderColor: C.greenB, background: C.greenL, opacity: busy ? 0.6 : 1 }}>
+                  Aplicar este
+                </button>
+              </div>
+              <div style={{ display: "grid", gap: 7, padding: 10 }}>
+                {group.visibleActions.map((action) => {
+                  const meta = NORMALIZATION_KIND_META[action.kind] || NORMALIZATION_KIND_META.proveedor;
+                  const checked = selected.has(action.id);
+                  return (
+                    <label key={action.id} style={{ display: "grid", gridTemplateColumns: "22px minmax(0, 1fr)", gap: 8, alignItems: "start", border: `1px solid ${checked ? meta.border : C.b0}`, background: checked ? meta.bg : C.bg, borderRadius: 11, padding: 10, cursor: "pointer" }}>
+                      <input type="checkbox" checked={checked} onChange={() => toggleAction(action.id)} style={{ marginTop: 3 }} />
+                      <div style={{ minWidth: 0, display: "grid", gap: 5 }}>
+                        <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
+                          <span style={{ color: meta.color, fontSize: 10.5, fontWeight: 750, textTransform: "uppercase", letterSpacing: 0.6 }}>{meta.label}</span>
+                          <ConfidenceBadge value={action.confidence} />
+                          {action.kind === "proveedor" && <ProveedorTipoBadge meta={proveedorMeta(action.patch.proveedor, proveedores)} compact />}
+                          <span style={{ fontSize: 12.5, fontWeight: 700, color: C.t0 }}>{action.title}</span>
+                        </div>
+                        <div style={{ display: "grid", gap: 3, minWidth: 0 }}>
+                          <div style={{ color: C.t2, fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            Antes: <span style={{ color: C.t1 }}>{action.before}</span>
+                          </div>
+                          <div style={{ color: C.t2, fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            Después: <span style={{ color: C.t0, fontWeight: 700 }}>{action.after}</span>
+                          </div>
+                        </div>
+                        <div style={{ color: C.t3, fontSize: 11 }}>{action.detail}</div>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+
+      {!visibleGroups.length && (
+        <div style={{ padding: 32, textAlign: "center", color: C.t2, border: `1px dashed ${C.b0}`, borderRadius: 14, fontSize: 13 }}>
+          No hay sugerencias con esos filtros.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Lista matriz: el catálogo completo, navegable por sector/subsector, editable (descripción,
+// precio, cantidades por línea K37/K52/K55, sector). Reusa la tabla MaterialRow.
+function DuplicadosCatalogo({ groups, cleanupCandidates = [], categorias, ums, proveedores, onChanged }) {
+  const [q, setQ] = useState("");
+  const [filtro, setFiltro] = useState("todos");
+  const [busy, setBusy] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [selectedByGroup, setSelectedByGroup] = useState({});
+  const [keeperByGroup, setKeeperByGroup] = useState({});
+  const [dismissed, setDismissed] = useState(() => new Set());
+  const [dismissedPairs, setDismissedPairs] = useState(() => new Set());
+  const [decisionErr, setDecisionErr] = useState(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetchMaterialDuplicateDecisions()
+      .then((keys) => {
+        if (alive) setDismissedPairs(new Set(keys));
+      })
+      .catch((error) => {
+        if (alive) setDecisionErr(error);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const visibles = useMemo(() => {
+    const terms = norm(q).split(/\s+/).filter(Boolean);
+    return groups.filter((group) => {
+      if (dismissed.has(group.id)) return false;
+      if (duplicateGroupDismissed(group, dismissedPairs)) return false;
+      if (filtro === "alta" && group.score < 92) return false;
+      if (filtro === "media" && group.score < 82) return false;
+      if (filtro === "revisar" && group.score >= 82) return false;
+      if (filtro === "codigo" && !/codigo|descripcion/i.test(group.reason || "")) return false;
+      if (!terms.length) return true;
+      const hay = norm(group.materials.map((m) => `${m.descripcion || ""} ${m.codigo || ""} ${m.proveedor || ""} ${categoriaNombre(categorias, m.categoria_id)}`).join(" "));
+      return terms.every((term) => hay.includes(term));
+    });
+  }, [groups, q, filtro, categorias, dismissed, dismissedPairs]);
+  const totalItems = useMemo(() => groups.reduce((sum, group) => sum + group.materials.length, 0), [groups]);
+  const highConfidence = useMemo(() => groups.filter((group) => group.score >= 92).length, [groups]);
+  const mediumConfidence = useMemo(() => groups.filter((group) => group.score >= 82).length, [groups]);
+
+  function keeperForGroup(group) {
+    return keeperByGroup[group.id] || group.keeperId || group.materials[0]?.id;
+  }
+
+  function selectedIdsForGroup(group) {
+    const keeperId = keeperForGroup(group);
+    const stored = selectedByGroup[group.id];
+    if (stored) return [...stored].filter((id) => id !== keeperId);
+    return group.materials.filter((material) => material.id !== keeperId).map((material) => material.id);
+  }
+
+  function setKeeper(group, materialId) {
+    const previousKeeper = keeperForGroup(group);
+    setKeeperByGroup((prev) => ({ ...prev, [group.id]: materialId }));
+    setSelectedByGroup((prev) => {
+      const next = new Set(prev[group.id] || group.materials.filter((material) => material.id !== materialId).map((material) => material.id));
+      next.delete(materialId);
+      if (previousKeeper && previousKeeper !== materialId) next.add(previousKeeper);
+      return { ...prev, [group.id]: next };
+    });
+  }
+
+  async function archiveIds(ids, label = "materiales") {
+    const clean = [...new Set(ids.filter(Boolean))];
+    if (!clean.length) return;
+    if (!window.confirm(`¿Archivar ${clean.length} ${label}? Quedan ocultos del catálogo activo, pero no se borran de la base.`)) return;
+    setBusy(`archive-${clean.join(":")}`);
+    try {
+      await archivarMateriales(clean);
+      await onChanged?.();
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function dismissGroup(group) {
+    const ids = group.materials.map((material) => material.id).filter(Boolean);
+    if (ids.length < 2 || busy) return;
+    setBusy(`dismiss-${group.id}`);
+    setDecisionErr(null);
+    try {
+      await marcarMaterialesNoDuplicados(ids, {
+        groupKey: group.id,
+        reason: `${group.reason || "posible duplicado"} (${group.score || 0})`,
+      });
+      const keys = duplicateGroupPairKeys(group);
+      setDismissedPairs((prev) => {
+        const next = new Set(prev);
+        keys.forEach((key) => next.add(key));
+        return next;
+      });
+      setDismissed((prev) => {
+        const next = new Set(prev);
+        next.add(group.id);
+        return next;
+      });
+    } catch (error) {
+      setDecisionErr(error);
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function mergeGroup(group) {
+    const keeperId = keeperForGroup(group);
+    const duplicateIds = selectedIdsForGroup(group);
+    if (!duplicateIds.length) return;
+    const payload = mergedDuplicatePayload(group, { keeperId, duplicateIds, proveedores });
+    if (!payload.duplicates.length) return;
+    const names = payload.duplicates.map((material) => `- ${material.descripcion}`).join("\n");
+    if (!window.confirm(`¿Fusionar este grupo?\n\nConservar:\n${payload.keeper.descripcion}\n\nArchivar después de fusionar:\n${names}`)) return;
+    setBusy(`merge-${group.id}`);
+    try {
+      await guardarMaterial(payload.material, payload.cantidades, { revisado: true });
+      await setMaterialAreas(payload.keeper.id, payload.areas);
+      await setProveedoresMaterial(payload.keeper.id, payload.proveedoresExtra);
+      await archivarMateriales(payload.duplicates.map((material) => material.id));
+      await onChanged?.();
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function copyForAI() {
+    await copyTextToClipboard(buildAiReviewText(visibles, cleanupCandidates, categorias));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1600);
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+      <div style={{ border: `1px solid ${C.cyanB}`, background: C.cyanL, borderRadius: 16, padding: 14, display: "grid", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 750, color: C.t0 }}>Posibles duplicados</div>
+            <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>
+              No se borra ni fusiona nada solo. Primero revisás el grupo, después fusionás o archivás con confirmación.
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.cyanB}`, background: C.bg, borderRadius: 999, padding: "5px 10px" }}>{groups.length} grupos</span>
+            <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.cyanB}`, background: C.bg, borderRadius: 999, padding: "5px 10px" }}>{totalItems} items</span>
+            <span style={{ fontFamily: C.mono, fontSize: 12, color: C.t0, border: `1px solid ${C.cyanB}`, background: C.bg, borderRadius: 999, padding: "5px 10px" }}>{cleanupCandidates.length} raros</span>
+            <button type="button" onClick={copyForAI} style={{ ...BTN, padding: "5px 10px", color: C.violet, border: "1px solid rgba(139,92,246,0.35)", background: "rgba(139,92,246,0.1)" }} title="Copia los grupos visibles para revisarlos con IA">
+              <Copy size={13} /> {copied ? "Copiado" : "Copiar para IA"}
+            </button>
+          </div>
+        </div>
+        <div style={{ position: "relative" }}>
+          <Search size={15} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: C.t2 }} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar dentro de duplicados..." style={{ ...INP, width: "100%", maxWidth: 520, height: 38, paddingLeft: 36, background: C.bg }} />
+        </div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {[
+            ["todos", `Todos (${groups.length})`],
+            ["alta", `Alta confianza (${highConfidence})`],
+            ["media", `Media+ (${mediumConfidence})`],
+            ["revisar", `Dudosos (${groups.length - mediumConfidence})`],
+            ["codigo", "Codigo / descripcion"],
+          ].map(([key, label]) => (
+            <button key={key} type="button" onClick={() => setFiltro(key)} style={{ ...BTN, padding: "6px 10px", background: filtro === key ? C.bg : "transparent", border: `1px solid ${filtro === key ? C.cyanB : C.b0}`, color: filtro === key ? C.cyan : C.t1 }}>
+              {label}
+            </button>
+          ))}
+        </div>
+        {decisionErr && <ErrorBox error={decisionErr} onRetry={() => setDecisionErr(null)} />}
+      </div>
+
+      {cleanupCandidates.length > 0 && (
+        <section style={{ border: `1px solid ${C.redB || "rgba(239,68,68,0.35)"}`, background: "rgba(239,68,68,0.06)", borderRadius: 14, overflow: "hidden" }}>
+          <div style={{ padding: "11px 14px", borderBottom: `1px solid ${C.b0}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ color: C.t0, fontSize: 13.5, fontWeight: 750 }}>Cosas raras para revisar</div>
+              <div style={{ color: C.t2, fontSize: 11.5, marginTop: 2 }}>Items con texto roto, generico o demasiado pobre. Archivar requiere confirmacion.</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => archiveIds(cleanupCandidates.map((row) => row.material.id), "items raros")}
+              disabled={!!busy}
+              style={{ ...BTN, color: C.red, border: "1px solid rgba(239,68,68,0.28)", background: "rgba(239,68,68,0.08)", opacity: busy ? 0.6 : 1 }}
+            >
+              <Trash2 size={13} /> Archivar todos
+            </button>
+          </div>
+          <div style={{ display: "grid", maxHeight: 280, overflowY: "auto" }}>
+            {cleanupCandidates.map(({ material, reason }) => (
+              <div key={material.id} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 10, alignItems: "center", padding: "9px 12px", borderBottom: `1px solid ${C.b0}`, background: C.bg }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: C.t0, fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{material.descripcion || "(sin descripcion)"}</div>
+                  <div style={{ color: C.t2, fontSize: 11, marginTop: 2, display: "flex", gap: 7, flexWrap: "wrap" }}>
+                    <span>{reason}</span>
+                    <span>{categoriaNombre(categorias, material.categoria_id)}</span>
+                    {material.codigo && <span style={{ fontFamily: C.mono }}>{material.codigo}</span>}
+                  </div>
+                </div>
+                <button type="button" onClick={() => archiveIds([material.id], "item")} disabled={!!busy} style={{ ...BTN, color: C.red, padding: "6px 9px", opacity: busy ? 0.6 : 1 }} title="Archivar item">
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {visibles.map((group, idx) => {
+        const keeperId = keeperForGroup(group);
+        const duplicateIds = group.materials.filter((m) => m.id !== keeperId).map((m) => m.id);
+        const groupBusy = busy === `merge-${group.id}`;
+        return (
+        <section key={group.id} style={{ border: `1px solid ${C.b0}`, background: "var(--panel)", borderRadius: 14, overflow: "hidden" }}>
+          <div style={{ padding: "12px 14px", borderBottom: `1px solid ${C.b0}`, background: C.s0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 13.5, fontWeight: 750, color: C.t0 }}>Grupo {idx + 1} · {group.materials.length} parecidos</div>
+              <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>Elegí cuál conservar. El resto se fusiona (junta los datos) o se archiva.</div>
+            </div>
+            <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
+              <button type="button" onClick={() => mergeGroup(group)} disabled={!!busy} style={{ ...BTN_GREEN, padding: "6px 10px", opacity: groupBusy ? 0.65 : 1 }} title="Junta cantidades, sectores, precio, proveedores y variantes en el conservado y archiva el resto">
+                <Save size={13} /> {groupBusy ? "Procesando..." : "Fusionar en el conservado"}
+              </button>
+              <button type="button" onClick={() => archiveIds(duplicateIds, "duplicados")} disabled={!!busy} style={{ ...BTN, padding: "6px 10px", color: C.red, border: "1px solid rgba(239,68,68,0.28)", background: "rgba(239,68,68,0.06)" }}>
+                <Trash2 size={13} /> Archivar los otros
+              </button>
+              <button type="button" onClick={() => dismissGroup(group)} disabled={!!busy} style={{ ...BTN, padding: "6px 10px", color: C.t2, opacity: busy === `dismiss-${group.id}` ? 0.65 : 1 }} title="Guardar en la base que este grupo no es duplicado">
+                {busy === `dismiss-${group.id}` ? "Guardando..." : "No son duplicados"}
+              </button>
+            </div>
+          </div>
+          <div style={{ padding: 10, display: "grid", gap: 8 }}>
+            {group.materials.map((material) => {
+              const keep = material.id === keeperId;
+              return (
+                <div key={material.id} style={{ border: keep ? `1px solid ${C.greenB}` : `1px solid ${C.b0}`, borderRadius: 12, background: keep ? C.greenL : C.bg, padding: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: keep ? C.green : C.t1, fontWeight: 700, cursor: busy ? "default" : "pointer" }}>
+                      <input type="radio" name={`keeper-${group.id}`} checked={keep} disabled={!!busy} onChange={() => setKeeper(group, material.id)} />
+                      {keep ? "Se conserva ✓" : "Conservar este"}
+                    </label>
+                    {!keep && <span style={{ fontSize: 10.5, color: C.t2 }}>se fusiona / archiva</span>}
+                    <span style={{ fontSize: 11.5, color: C.t2 }}>{categoriaNombre(categorias, material.categoria_id)}</span>
+                    {material.codigo && <span style={{ fontFamily: C.mono, fontSize: 11, color: C.t2 }}>Cod. {material.codigo}</span>}
+                    {materialVariants(material).length > 0 && <span style={{ fontSize: 11, color: C.violet, border: "1px solid rgba(139,92,246,0.28)", background: "rgba(139,92,246,0.09)", borderRadius: 999, padding: "2px 7px" }}>Variantes: {materialVariants(material).join(" / ")}</span>}
+                    <PriceBadge material={material} />
+                  </div>
+                  <MaterialFila material={material} categorias={categorias} ums={ums} proveedores={proveedores} onChanged={onChanged} />
+                </div>
+              );
+            })}
+          </div>
+        </section>
+        );
+      })}
+
+      {!visibles.length && (
+        <div style={{ padding: 30, textAlign: "center", color: C.t2, border: `1px dashed ${C.b0}`, borderRadius: 14, fontSize: 13 }}>
+          No hay posibles duplicados con esa busqueda.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MatrizTab({ categorias, materiales, proveedores, obras = [], onChanged }) {
+  const [sel, setSel] = useState(""); // "" = todos los sectores
+  const [modo, setModo] = useState("lista");
+  const [catalogQ, setCatalogQ] = useState("");
+  const [showCatTools, setShowCatTools] = useState(false);
+  const [showPrecios, setShowPrecios] = useState(false);
+  const [altaOpen, setAltaOpen] = useState(false);
+  const [catForm, setCatForm] = useState({ root: "", sub: "" });
+  const [catBusy, setCatBusy] = useState("");
+  const [catError, setCatError] = useState("");
+  
+  const materialesCatalogo = useMemo(() => materiales ?? [], [materiales]);
+  
+  const ums = useMemo(
+    () => buildUnidadOptions(materialesCatalogo),
+    [materialesCatalogo],
+  );
+  const raices = useMemo(() => categorias.filter(esRaiz), [categorias]);
+  const selCat = categorias.find((c) => c.id === sel);
+  const parentActivo = selCat ? (selCat.parent_id ? categorias.find((c) => c.id === selCat.parent_id) : selCat) : null;
+  const parentParaSub = parentActivo || raices[0] || null;
+
+  const countDe = useCallback((id) => {
+    const scope = id ? idsScope(categorias, id) : null;
+    return (materialesCatalogo ?? []).filter(materialActivo).filter((m) => !scope || materialEnScope(m, scope)).length;
+  }, [materialesCatalogo, categorias]);
+  const sectorOptions = useMemo(() => raices.map((root) => ({
+    root,
+    subs: hijosDe(categorias, root.id),
+  })), [raices, categorias]);
+  // La detección de duplicados compara pares de productos (O(n²)). No debe
+  // ejecutarse al abrir la lista diaria: se calcula solamente cuando el usuario
+  // entra de forma explícita al modo Duplicados.
+  const duplicateGroups = useMemo(
+    () => (modo === "duplicados" ? findDuplicateGroups(materialesCatalogo ?? [], categorias, sel) : []),
+    [modo, materialesCatalogo, categorias, sel],
+  );
+  const cleanupCandidates = useMemo(
+    () => (modo === "duplicados" ? findCleanupCandidates(materialesCatalogo ?? [], categorias, sel) : []),
+    [modo, materialesCatalogo, categorias, sel],
+  );
+  const catalogStats = useMemo(() => {
+    const activos = (materialesCatalogo ?? []).filter(materialActivo);
+    const scope = sel ? idsScope(categorias, sel) : null;
+    const scoped = activos.filter((m) => !scope || materialEnScope(m, scope));
+    return scoped.reduce((acc, material) => {
+      acc.items += 1;
+      if (!priceInfo(material).amount) acc.sinPrecio += 1;
+      if (reviewInfoForMaterial(material).flag) acc.revisar += 1;
+      if (material.es_consumible) acc.consumibles += 1;
+      return acc;
+    }, { items: 0, sinPrecio: 0, revisar: 0, consumibles: 0 });
+  }, [materialesCatalogo, categorias, sel]);
+
+  const actionStyle = (active, color = C.blue, bg = C.blueL, border = C.blueB) => ({
+    ...BTN,
+    height: 42,
+    padding: "0 13px",
+    borderRadius: 11,
+    background: active ? bg : C.s0,
+    border: `1px solid ${active ? border : C.b0}`,
+    color: active ? color : C.t1,
+    fontWeight: 700,
+    boxShadow: active ? "0 10px 24px -20px rgba(15,23,42,0.75)" : "none",
+  });
+
+  const StatPill = ({ label, value, color = C.blue }) => (
+    <span style={{
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 7,
+      minHeight: 28,
+      border: `1px solid ${C.b0}`,
+      background: C.bg,
+      borderRadius: 999,
+      padding: "4px 9px",
+      color: C.t2,
+      fontSize: 11.5,
+      fontWeight: 650,
+      whiteSpace: "nowrap",
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: 999, background: color, flexShrink: 0 }} />
+      <span style={{ color: C.t1 }}>{label}</span>
+      <span style={{ color, fontFamily: C.mono, fontWeight: 700 }}>{value}</span>
+    </span>
+  );
+
+  async function crearCategoriaRaiz() {
+    const nombre = catForm.root.trim();
+    if (!nombre) return;
+    setCatBusy("root");
+    setCatError("");
+    try {
+      const created = await crearCategoria(nombre, { parentId: null });
+      setCatForm((f) => ({ ...f, root: "" }));
+      setSel(created.id);
+      await onChanged?.();
+    } catch (e) {
+      setCatError(e?.message || "No se pudo crear la categoria.");
+    } finally {
+      setCatBusy("");
+    }
+  }
+
+  async function crearSubcategoriaActiva() {
+    const nombre = catForm.sub.trim();
+    if (!nombre || !parentParaSub) return;
+    setCatBusy("sub");
+    setCatError("");
+    try {
+      const created = await crearCategoria(nombre, { parentId: parentParaSub.id });
+      setCatForm((f) => ({ ...f, sub: "" }));
+      setSel(created.id);
+      await onChanged?.();
+    } catch (e) {
+      setCatError(e?.message || "No se pudo crear la subcategoria.");
+    } finally {
+      setCatBusy("");
+    }
+  }
+
+  return (
+    <div>
+      <div style={{ border: `1px solid ${C.b0}`, background: "color-mix(in srgb, var(--panel) 88%, transparent)", borderRadius: 18, padding: 12, marginBottom: 12, display: "grid", gap: 11, boxShadow: "0 18px 45px -36px rgba(15,23,42,0.75)", backdropFilter: "blur(12px)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", gap: 10, alignItems: "stretch" }}>
+          <div style={{ position: "relative", minWidth: 0 }}>
+            <Search size={19} style={{ position: "absolute", left: 15, top: "50%", transform: "translateY(-50%)", color: C.blue }} />
+            <input
+              autoFocus
+              value={catalogQ}
+              onChange={(e) => {
+                setCatalogQ(e.target.value);
+                if (modo !== "lista") setModo("lista");
+              }}
+              placeholder="Buscar en todo el catalogo: material, codigo, proveedor, rubro..."
+              style={{
+                ...INP,
+                width: "100%",
+                height: 52,
+                paddingLeft: 46,
+                paddingRight: catalogQ ? 44 : 14,
+                borderRadius: 13,
+                fontSize: 14.5,
+                background: C.bg,
+                border: `1px solid ${catalogQ ? C.blueB : C.b0}`,
+                boxShadow: catalogQ ? "0 0 0 3px rgba(59,130,246,0.10)" : "inset 0 1px 0 rgba(255,255,255,0.02)",
+              }}
+            />
+            {catalogQ && (
+              <button type="button" onClick={() => setCatalogQ("")} title="Limpiar busqueda" style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", width: 30, height: 30, borderRadius: 9, border: `1px solid ${C.b0}`, background: C.s1, color: C.t2, cursor: "pointer" }}>
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center", justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              onClick={() => {
+                setModo("lista");
+                setAltaOpen(true);
+              }}
+              style={{ ...BTN_PRIMARY, height: 42, padding: "0 14px", borderRadius: 11, boxShadow: "0 14px 28px -18px rgba(37,99,235,0.9)" }}
+              title="Crear un material nuevo en el catalogo completo"
+            >
+              <PackagePlus size={14} /> Crear item
+            </button>
+            <button type="button" onClick={() => setModo("lista")} style={actionStyle(modo === "lista", C.blue, C.blueL, C.blueB)}>
+              <FileText size={14} /> Lista
+            </button>
+            <button type="button" onClick={() => { setCatalogQ(""); setModo("duplicados"); }} style={actionStyle(modo === "duplicados", C.cyan, C.cyanL, C.cyanB)}>
+              <RefreshCw size={14} /> Duplicados {modo === "duplicados" ? <span style={{ fontFamily: C.mono, marginLeft: 2 }}>{duplicateGroups.length}</span> : null}
+            </button>
+            <button type="button" onClick={() => setShowCatTools((v) => !v)} style={actionStyle(showCatTools, C.violet, "var(--violet-soft)", `${C.violet}55`)}>
+              <Plus size={14} /> Organizar
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowPrecios(true)}
+              style={{ ...actionStyle(false), background: C.greenL, borderColor: C.greenB, color: C.green }}
+              title="Leer factura, remito, presupuesto, foto o PDF con IA y aplicar precios a materiales existentes"
+            >
+              <Upload size={14} /> Cargar precios
+            </button>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <select
+            value={sel}
+            onChange={(e) => {
+              setSel(e.target.value);
+              if (modo !== "lista") setModo("lista");
+            }}
+            style={{
+              ...INP,
+              width: 250,
+              maxWidth: "100%",
+              height: 34,
+              borderRadius: 999,
+              background: C.bg,
+              fontSize: 12,
+              fontWeight: 700,
+              color: sel ? C.t0 : C.t2,
+              paddingLeft: 12,
+            }}
+            title="Sector del catalogo"
+          >
+            <option value="" style={OPT_ST}>Sector: Todos ({countDe("")})</option>
+            {sectorOptions.map(({ root, subs: childOptions }) => (
+              <optgroup key={root.id} label={root.nombre}>
+                <option value={root.id} style={OPT_ST}>Todo {root.nombre} ({countDe(root.id)})</option>
+                {childOptions.map((sub) => (
+                  <option key={sub.id} value={sub.id} style={OPT_ST}>{sub.nombre} ({countDe(sub.id)})</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+          <StatPill label={sel ? selCat?.nombre || "Sector" : "Catalogo"} value={catalogStats.items} color={C.blue} />
+          <StatPill label="Sin precio" value={catalogStats.sinPrecio} color={catalogStats.sinPrecio ? C.cyan : C.green} />
+          <StatPill label="A revisar" value={catalogStats.revisar} color={catalogStats.revisar ? C.cyan : C.green} />
+          <StatPill label="Consumibles" value={catalogStats.consumibles} color={C.violet} />
+          <span style={{ marginLeft: "auto", fontSize: 11.5, color: C.t3, fontWeight: 650 }}>
+            {catalogQ ? "Busqueda activa" : "Busca primero; filtra despues si hace falta."}
+          </span>
+        </div>
+      </div>
+      {showCatTools && <div style={{ border: `1px solid ${C.b0}`, borderRadius: 16, background: C.s0, padding: 12, display: "grid", gap: 10, marginTop: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 750, color: C.t0 }}>Organizar catalogo</div>
+            <div style={{ fontSize: 11.5, color: C.t2, marginTop: 2 }}>Crear sectores y subsectores sin ensuciar la vista diaria.</div>
+          </div>
+          <button type="button" onClick={() => setShowCatTools(false)} style={{ ...BTN, padding: "5px 9px", color: C.t2 }}>
+            <X size={13} /> Cerrar
+          </button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 10 }}>
+        <div style={{ border: `1px solid ${C.b0}`, borderRadius: 13, background: C.bg, padding: 12, display: "grid", gap: 8 }}>
+          <div style={{ fontSize: 11, color: C.t2, fontWeight: 700, textTransform: "uppercase" }}>Nueva categoria</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input value={catForm.root} onChange={(e) => setCatForm((f) => ({ ...f, root: e.target.value }))} placeholder="Ej: Seguridad" style={{ ...INP, flex: 1, height: 38 }} />
+            <button type="button" onClick={crearCategoriaRaiz} disabled={!catForm.root.trim() || catBusy === "root"} style={{ ...BTN_GREEN, padding: "8px 12px", whiteSpace: "nowrap" }}>
+              + Categoria
+            </button>
+          </div>
+        </div>
+        <div style={{ border: `1px solid ${C.b0}`, borderRadius: 13, background: C.bg, padding: 12, display: "grid", gap: 8 }}>
+          <div style={{ fontSize: 11, color: C.t2, fontWeight: 700, textTransform: "uppercase" }}>
+            Nueva subcategoria {parentParaSub ? `en ${parentParaSub.nombre}` : ""}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input value={catForm.sub} onChange={(e) => setCatForm((f) => ({ ...f, sub: e.target.value }))} placeholder="Ej: Bombas de achique" style={{ ...INP, flex: 1, height: 38 }} />
+            <button type="button" onClick={crearSubcategoriaActiva} disabled={!catForm.sub.trim() || !parentParaSub || catBusy === "sub"} style={{ ...BTN, padding: "8px 12px", whiteSpace: "nowrap", color: C.blue, borderColor: C.blueB, background: C.blueL }}>
+              + Subcategoria
+            </button>
+          </div>
+        </div>
+        </div>
+      </div>}
+      {catError && <div style={{ marginTop: 8, fontSize: 12, color: C.red }}>{catError}</div>}
+      {showPrecios && (
+        <CargarPresupuestoModal
+          categorias={categorias}
+          materiales={materiales}
+          onChanged={onChanged}
+          onClose={() => setShowPrecios(false)}
+          soloPrecios
+        />
+      )}
+      <div style={{ marginTop: 16 }}>
+        {modo === "duplicados" ? (
+          <DuplicadosCatalogo groups={duplicateGroups} cleanupCandidates={cleanupCandidates} categorias={categorias} ums={ums} proveedores={proveedores} onChanged={onChanged} />
+        ) : (
+          <>
+            <AltaManual
+              categorias={categorias}
+              selectedId={sel || categorias[0]?.id || ""}
+              ums={ums}
+              proveedores={proveedores}
+              onCreated={async () => {
+                setAltaOpen(false);
+                await onChanged?.();
+              }}
+              open={altaOpen}
+              onOpenChange={setAltaOpen}
+              hideTrigger
+            />
+            <ListaMateriales
+              categorias={categorias}
+              materiales={materialesCatalogo}
+              selectedId={sel}
+              ums={ums}
+              proveedores={proveedores}
+              obras={obras}
+              onChanged={onChanged}
+              defaultSoloPendientes={false}
+              compact
+              externalQuery={catalogQ}
+              onExternalQueryChange={setCatalogQ}
+              hideSearch
+            />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function MaterialesScreen({ profile }) {
+  const { isMobile } = useResponsive();
+  // La solapa vive en la URL: sin esto no había forma de mandar a alguien a
+  // Condicionantes o a Proveedores -ni desde el buscador, ni con un link
+  // pegado en un mensaje-, había que decirle "entrá a Materiales y buscá".
+  const [searchParams, setSearchParams] = useSearchParams();
+  // La URL es la única fuente: así un link pegado abre la solapa correcta y no
+  // hay que sincronizar un estado local con el parámetro cada vez que cambia.
+  const tabPedida = searchParams.get("tab") || "";
+  const tab = TAB_KEYS.includes(tabPedida) ? tabPedida : "lineas";
+  // Técnica sólo manda pedidos a Compras; el aviso a pañol queda para el resto.
+  const soloPedirACompras = profile?.role === "tecnica";
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [categorias, setCategorias] = useState(null);
+  const [materiales, setMateriales] = useState(null);
+  const [batches, setBatches] = useState([]);
+  const [batchesLoaded, setBatchesLoaded] = useState(false);
+  const [proveedores, setProveedores] = useState([]);
+  const [comprobantes, setComprobantes] = useState([]);
+  const [comprobantesLoaded, setComprobantesLoaded] = useState(false);
+  const [obrasAvance, setObrasAvance] = useState([]);
+  const [opciones, setOpciones] = useState([]);
+  const [setupPendiente, setSetupPendiente] = useState(false);
+  const [error, setError] = useState(null);
+
+  const cargar = useCallback(async () => {
+    setError(null);
+    try {
+      const [data, obrasRows, ops, nextBatches, nextComprobantes] = await Promise.all([
+        fetchCatalogo({ force: true, includeExtras: false, includeDetails: true }),
+        fetchObrasAvance(),
+        fetchOpciones(),
+        batchesLoaded ? fetchBatches() : Promise.resolve(null),
+        comprobantesLoaded ? fetchComprobantes() : Promise.resolve(null),
+      ]);
+      setCategorias(data.categorias);
+      setMateriales(data.materiales);
+      setProveedores(data.proveedores ?? []);
+      if (nextBatches) setBatches(nextBatches);
+      if (nextComprobantes) setComprobantes(nextComprobantes);
+      setObrasAvance(obrasRows);
+      setOpciones(ops.opciones ?? []);
+      setSetupPendiente(false);
+    } catch (e) {
+      if (isMissingTable(e)) setSetupPendiente(true);
+      else setError(e);
+    }
+  }, [batchesLoaded, comprobantesLoaded]);
+
+  useEffect(() => {
+    let active = true;
+    let baseCatalogLoaded = false;
+    fetchOpciones().then((r) => { if (active) setOpciones(r.opciones ?? []); }).catch(() => {});
+    fetchObrasAvance().then((rows) => { if (active) setObrasAvance(rows); }).catch(() => {});
+    const applyCatalogo = (data) => {
+      if (!active) return;
+      baseCatalogLoaded = true;
+      setCategorias(data.categorias);
+      setMateriales(data.materiales);
+      setProveedores(data.proveedores ?? []);
+      setSetupPendiente(false);
+    };
+    fetchCatalogo({ includeExtras: false, includeDetails: false })
+      .then((baseData) => {
+        applyCatalogo(baseData);
+        return fetchCatalogo({ includeExtras: false, includeDetails: true });
+      })
+      .then(applyCatalogo)
+      .catch((e) => {
+        if (!active) return;
+        if (isMissingTable(e)) setSetupPendiente(true);
+        else if (!baseCatalogLoaded) setError(e);
+      });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    if ((tab === "importar" || tab === "avance") && !batchesLoaded) {
+      fetchBatches()
+        .then((rows) => {
+          if (!active) return;
+          setBatches(rows ?? []);
+          setBatchesLoaded(true);
+        })
+        .catch(() => {});
+    }
+    if (tab === "comprobantes" && !comprobantesLoaded) {
+      fetchComprobantes()
+        .then((rows) => {
+          if (!active) return;
+          setComprobantes(rows ?? []);
+          setComprobantesLoaded(true);
+        })
+        .catch(() => {});
+    }
+    return () => { active = false; };
+  }, [tab, batchesLoaded, comprobantesLoaded]);
+
+  const switchTab = useCallback((nextTab) => {
+    setMoreOpen(false);
+    if (nextTab === tab) return;
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", nextTab);
+    // `replace` para no llenar el historial: el botón de atrás tiene que salir
+    // de Materiales, no recorrer las once solapas que se miraron.
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, tab]);
+
+  const listo = categorias != null && materiales != null;
+
+  return (
+    <div className="materiales-root" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "flex", overflow: "hidden" }}>
+      <style>{`
+        :where(.materiales-root) button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+        .materiales-tabbar {
+          display: inline-flex;
+          gap: 4px;
+          padding: 5px;
+          border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+          border-radius: 999px;
+          background: color-mix(in srgb, var(--panel) 74%, transparent);
+          backdrop-filter: blur(14px);
+          -webkit-backdrop-filter: blur(14px);
+          box-shadow: 0 18px 42px -34px rgba(15,23,42,0.78);
+          max-width: 100%;
+          overflow: visible;
+          position: relative;
+          z-index: 70;
+        }
+        .materiales-tab {
+          position: relative;
+          min-height: 36px;
+          padding: 0 15px;
+          border: 0;
+          border-radius: 999px;
+          background: transparent;
+          color: var(--muted);
+          cursor: pointer;
+          font-family: inherit;
+          font-size: 13px;
+          font-weight: 700;
+          white-space: nowrap;
+          transition: color .3s ease, background .3s ease, box-shadow .3s ease, transform .3s ease;
+        }
+        .materiales-tab:hover {
+          background: color-mix(in srgb, var(--panel-2) 64%, transparent);
+          color: var(--text);
+          transform: translateY(-1px);
+        }
+        .materiales-tab.is-active {
+          color: var(--text);
+          background: linear-gradient(135deg, rgba(37,99,235,0.16), rgba(124,58,237,0.14));
+          box-shadow: 0 0 0 1px rgba(96,165,250,0.22), 0 0 9px rgba(59,130,246,0.22);
+        }
+        .materiales-tab.is-active::after {
+          content: "";
+          position: absolute;
+          left: 18px;
+          right: 18px;
+          bottom: 3px;
+          height: 2px;
+          border-radius: 999px;
+          background: linear-gradient(90deg, #2563eb, #7c3aed);
+          filter: drop-shadow(0 0 2px rgba(59,130,246,0.75));
+        }
+        .obra-linea-tag {
+          transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+        }
+        .obra-linea-tag:hover {
+          transform: translateY(-1px);
+          filter: saturate(1.04);
+          box-shadow: 0 18px 38px -28px rgba(37,99,235,0.85);
+        }
+        .materiales-page-body:has(.linea-workspace) { padding: 10px 24px 14px !important; }
+        /* Adentro de una línea el título de la página y el recorrido "Líneas >
+           Base matriz > Órdenes" no suman: las pestañas y la banda de la línea
+           ya dicen dónde se está. Son 40px más de lista. */
+        .materiales-page-body:has(.linea-workspace) .materiales-page-heading { display: none; }
+        .materiales-page-body:has(.linea-workspace) .materiales-page-tabs { margin-bottom: 8px !important; }
+        .materiales-page-body:has(.linea-workspace) .materiales-tabbar { padding: 3px; }
+        .materiales-page-body:has(.linea-workspace) .materiales-tab { min-height: 30px; padding: 0 12px; font-size: 12px; }
+        @media (max-width: 899px) {
+          .materiales-page-body:has(.linea-workspace) { padding: 10px 12px 18px !important; }
+          .materiales-page-body:has(.linea-workspace) .materiales-tab { min-height: 44px; }
+        }
+        .obra-linea-card {
+          transition: background .16s ease, border-color .16s ease;
+        }
+        .obra-linea-card:hover {
+          border-color: var(--blue-border);
+          background: var(--blue-soft);
+        }
+        .obra-linea-card .obra-linea-flecha {
+          transition: transform .16s ease, color .16s ease;
+        }
+        .obra-linea-card:hover .obra-linea-flecha {
+          transform: translateX(2px);
+          color: var(--blue);
+        }
+        .linea-data-row {
+          transition: background .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+        }
+        .linea-data-row:hover {
+          background: color-mix(in srgb, var(--panel) 82%, #2563eb 5%) !important;
+          border-color: rgba(96,165,250,.36) !important;
+          box-shadow: 0 14px 34px -30px rgba(37,99,235,.85);
+          transform: translateY(-1px);
+        }
+        .materiales-tab-content {
+          animation: tabContentIn .18s ease-out both;
+        }
+        .materiales-route-content {
+          animation: routeContentIn .16s ease-out both;
+          will-change: opacity, transform;
+        }
+        .materiales-list-transition {
+          animation: listContentIn .12s ease-out both;
+          will-change: opacity, transform;
+        }
+        @keyframes tabContentIn {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes routeContentIn {
+          from { opacity: 0; transform: translateY(5px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes listContentIn {
+          from { opacity: 0; transform: translateY(3px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .materiales-tab-loading {
+          min-height: 220px;
+          border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+          border-radius: 22px;
+          background: color-mix(in srgb, var(--panel) 78%, transparent);
+          backdrop-filter: blur(14px);
+          display: grid;
+          place-items: center;
+          color: var(--muted);
+          animation: tabContentIn .18s ease both;
+        }
+        .materiales-tab-spinner {
+          width: 28px;
+          height: 28px;
+          border-radius: 999px;
+          border: 2px solid rgba(96,165,250,0.18);
+          border-top-color: #2563eb;
+          animation: spin .75s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        /* El foco de los inputs ya está en index.css y no se repite acá. */
+        .linea-premium-card:hover {
+          transform: translateY(-4px);
+          box-shadow: var(--elev-2, 0 18px 36px -30px rgba(15,23,42,0.85));
+          border-color: var(--blue-border) !important;
+        }
+        .linea-premium-card:hover .linea-arrow {
+          transform: translateX(3px);
+          color: var(--blue);
+          background: var(--blue-soft);
+          border-color: var(--blue-border);
+        }
+        /* La barra es el costo, no un porcentaje: lo lleno es lo que ya tiene
+           precio y lo rayado lo que falta. Llega a su largo al aparecer la
+           tarjeta y después se queda quieta; nada que lata todo el día. */
+        .linea-barra > span:first-child {
+          transform-origin: left center;
+          animation: lineaBarra .55s cubic-bezier(.22,1,.36,1) both;
+        }
+        @keyframes lineaBarra { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+        .linea-barra-falta {
+          background-image: repeating-linear-gradient(
+            -45deg,
+            var(--border-2) 0 1px,
+            transparent 1px 6px
+          );
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .linea-premium-card:hover { transform: none; }
+          .linea-barra > span:first-child { animation: none; }
+        }
+      `}</style>
+
+
+      <div style={{ flex: 1, height: "100%", overflowY: "auto", minWidth: 0 }}>
+        <div className="materiales-page-body" style={{ padding: isMobile ? "16px 14px 50px 14px" : "26px 30px 60px" }}>
+          <div className="materiales-page-heading" style={{ marginBottom: 28 }}>
+            {/* --text y --dim: el degradé usaba --t0 y --t2, que no existen en la
+                paleta. El fondo quedaba vacío y el texto transparente, así que el
+                título no se veía pero seguía ocupando lugar. */}
+            <h1 style={{ fontSize: 32, fontWeight: 700, background: "linear-gradient(135deg, var(--text) 0%, var(--dim) 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", margin: 0, letterSpacing: "-0.5px" }}>Listas de compras</h1>
+            <div style={{ fontSize: 14, color: C.t2, marginTop: 6, display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontWeight: 600 }}>Líneas de producción</span>
+              <span style={{ opacity: 0.5 }}>›</span>
+              <span style={{ fontWeight: 600 }}>Base matriz</span>
+              <span style={{ opacity: 0.5 }}>›</span>
+              <span style={{ fontWeight: 600 }}>Órdenes de compra</span>
+            </div>
+          </div>
+
+          {setupPendiente ? (
+            <SetupPendienteMateriales onRetry={cargar} />
+          ) : error ? (
+            <ErrorBox error={error} onRetry={cargar} />
+          ) : !listo ? (
+            <Cargando />
+          ) : (
+            <>
+              {(() => {
+                const moreActive = TABS_MORE.find((t) => t.key === tab);
+                return (
+                  <div className="materiales-page-tabs" style={{ display: "flex", marginBottom: 22, minWidth: 0, overflow: "visible", position: "relative", zIndex: 70 }}>
+                    <div className="materiales-tabbar">
+                    {TABS_MAIN.map((t) => (
+                      <button key={t.key} type="button" onClick={() => switchTab(t.key)} className={`materiales-tab${tab === t.key ? " is-active" : ""}`}>{t.label}</button>
+                    ))}
+                    <div style={{ position: "relative" }}>
+                      <button type="button" onClick={() => setMoreOpen((o) => !o)} className={`materiales-tab${moreActive ? " is-active" : ""}`}>
+                        {moreActive ? moreActive.label : "Más"} ▾
+                      </button>
+                      {moreOpen && (
+                        <>
+                          <div onClick={() => setMoreOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
+                          <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 100, background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 14, padding: 6, minWidth: 220, boxShadow: "0 18px 42px -24px rgba(0,0,0,0.55)", backdropFilter: "blur(12px)" }}>
+                            {TABS_MORE.map((t) => (
+                              <button key={t.key} type="button" onClick={() => switchTab(t.key)}
+                                style={{ display: "flex", width: "100%", justifyContent: "flex-start", textAlign: "left", padding: "9px 12px", fontSize: 13, fontFamily: C.sans, fontWeight: 700, borderRadius: 10, cursor: "pointer", border: "none", background: tab === t.key ? C.s1 : "transparent", color: tab === t.key ? C.t0 : C.t1 }}>
+                                {t.label}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div key={tab} className="materiales-tab-content">
+                {tab === "lineas" && <LineasTab lineas={[]} obras={obrasAvance} categorias={categorias} materiales={materiales} proveedores={proveedores} opciones={opciones} onChanged={cargar} soloPedirACompras={soloPedirACompras} />}
+                {tab === "matriz" && <MatrizTab categorias={categorias} materiales={materiales} proveedores={proveedores} obras={obrasAvance} onChanged={cargar} />}
+                {tab === "planillas" && <PlanillaObrasPanel isMobile={isMobile} profile={profile} />}
+                {tab === "importar" && <ImportarTab batches={batches} onImported={cargar} />}
+                {tab === "bandeja" && <BandejaTab categorias={categorias} materiales={materiales} onChanged={cargar} />}
+                {tab === "comprobantes" && <ComprobantesTab categorias={categorias} materiales={materiales} proveedores={proveedores} comprobantes={comprobantes} onChanged={cargar} />}
+                {tab === "revision" && <RevisionTab categorias={categorias} materiales={materiales} proveedores={proveedores} onChanged={cargar} />}
+                {tab === "normalizacion" && <NormalizacionTab categorias={categorias} materiales={materiales} proveedores={proveedores} onChanged={cargar} />}
+                {tab === "condicionantes" && <MatrizCondicionantesTab materiales={materiales} categorias={categorias} onChanged={cargar} />}
+                {tab === "variantes" && <VariantesMarcasTab materiales={materiales} />}
+                {tab === "proveedores" && <ProveedoresTab proveedores={proveedores} onChanged={cargar} />}
+                {tab === "avance" && <AvanceTab categorias={categorias} materiales={materiales} batches={batches} obras={obrasAvance} />}
+                {tab === "costos" && <CostoObraPanel categorias={categorias} materiales={materiales} proveedores={proveedores} onChanged={cargar} />}
+                {tab === "resumen" && <ResumenTab categorias={categorias} materiales={materiales} />}
+                {tab === "lector" && <LectorTab materiales={materiales} categorias={categorias} onMaterialUpdate={(id, updates) => setMateriales(prev => prev?.map(m => m.id === id ? { ...m, ...updates } : m))} onCatalogChanged={cargar} />}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

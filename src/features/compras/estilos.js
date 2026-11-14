@@ -213,7 +213,9 @@ export const CSS_COMPRAS_MODULO = `
 .cmp-fila::before { content: ""; position: absolute; left: -1px; top: 10px; bottom: 10px; width: 3px; border-radius: 0 3px 3px 0; background: var(--marca, transparent); }
 .cmp-fila:hover { border-color: var(--border-2); background: var(--panel-solid-2); }
 .cmp-fila:active { transform: scale(.995); }
-.cmp-fila.cerrada { opacity: .62; }
+/* Recibido sigue siendo información operativa: no apagar el texto del pedido
+   completo, especialmente en modo oscuro. Sólo los cancelados pierden énfasis. */
+.cmp-fila.cancelada { opacity: .62; }
 .cmp-fila-ic { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; color: var(--t); background: var(--t-soft); border: 1px solid var(--t-borde); }
 .cmp-fila-main { min-width: 0; }
 .cmp-fila-l1 { display: flex; align-items: center; gap: 7px; min-width: 0; }
@@ -559,7 +561,7 @@ button.cmp-pasito:disabled { cursor: default; }
 .cmp-tarjeta::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--t); }
 .cmp-tarjeta:hover { border-color: var(--border-2); background: var(--panel-solid-2); transform: translateY(-2px); box-shadow: 0 10px 26px -12px var(--shadow); }
 .cmp-tarjeta:active { transform: translateY(0); }
-.cmp-tarjeta.cerrada { opacity: .62; }
+.cmp-tarjeta.cancelada { opacity: .62; }
 .cmp-tarjeta-cab { display: flex; align-items: center; gap: 7px; min-width: 0; }
 .cmp-tarjeta-tit { font-size: 14.5px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .cmp-tarjeta-desc { font-size: 12.5px; color: var(--dim); line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

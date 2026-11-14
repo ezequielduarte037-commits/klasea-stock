@@ -1,0 +1,1577 @@
+import { C } from "@/theme";
+// PostVentaScreen — tickets vinculados a obras (no a texto libre)
+// SINCRONIZACIÓN: Los clientes creados en ConfiguracionScreen aparecen
+// automáticamente aquí. Los que no tienen GPS muestran un aviso para completar la ubicación.
+import React, { useEffect, useState, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
+import {
+  MapPin, Crosshair, Pencil, Ticket, ExternalLink,
+  Phone, CheckCircle2, Link2, AlertTriangle, X as XIcon,
+  Circle, Navigation, Globe, Eye, Focus, FileText, Plus,
+} from "lucide-react";
+import { supabase } from "@/supabaseClient";
+import { plegarMenu } from "@/lib/menuLateral";
+import FichaBarco from "./FichaBarco";
+import { useResponsive } from "@/hooks/useResponsive";
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+
+
+/**
+ * Un color del tema con transparencia.
+ *
+ * La pantalla tenia ~120 colores escritos en hexadecimal, pensados solo para el
+ * modo oscuro: en claro quedaban ilegibles porque no salian del tema. Esto los
+ * deriva de las variables, asi que siguen al tema en los dos modos.
+ */
+const tinta = (color, alfa) => `color-mix(in srgb, ${color} ${Math.round(alfa * 100)}%, transparent)`;
+
+function overlayFondo(cel) {
+  return {
+    position: "fixed",
+    inset: 0,
+    zIndex: 9999,
+    background: tinta(C.bg, 0.86),
+    backdropFilter: "blur(24px)",
+    display: "flex",
+    alignItems: cel ? "flex-end" : "center",
+    justifyContent: "center",
+    padding: cel ? 0 : 16,
+    pointerEvents: "auto",
+  };
+}
+
+function overlayCaja(cel, { maxWidth = 540, padding, height, maxHeight } = {}) {
+  return {
+    background: "var(--panel-solid)",
+    border: `1px solid ${C.b1}`,
+    borderRadius: cel ? "16px 16px 0 0" : 18,
+    width: "100%",
+    maxWidth: cel ? "none" : maxWidth,
+    maxHeight: maxHeight ?? (cel ? "min(92dvh, 640px)" : "92vh"),
+    height: height || undefined,
+    overflowY: "auto",
+    padding: padding ?? (cel ? "16px 16px calc(16px + env(safe-area-inset-bottom, 0px))" : "28px 28px"),
+    WebkitOverflowScrolling: "touch",
+  };
+}
+
+/**
+ * Ver el lugar del barco en 3D.
+ *
+ * El 3D fotorrealista embebido -Google Photorealistic 3D Tiles, Cesium- pide
+ * una API key de Google con facturacion, y Mapbox pide token. Nada de eso es
+ * gratis, asi que en vez de embeberlo se abre el visor de Google en las
+ * coordenadas exactas: es el mismo 3D, en una pestaña aparte y sin costo.
+ *
+ *   Street View  la calle o el muelle, si hay cobertura. En marinas suele
+ *                haber sobre el acceso, no sobre el agua.
+ *   Earth        vista aerea inclinada, que si existe en todos lados.
+ */
+function verEnStreetView(lat, lng) {
+  window.open(`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`, "_blank", "noopener");
+}
+function verEnEarth3D(lat, lng) {
+  // 300d = altura de camara, 45t = inclinacion: entra mirando en diagonal.
+  window.open(`https://earth.google.com/web/@${lat},${lng},0a,300d,35y,0h,45t,0r`, "_blank", "noopener");
+}
+
+// ── ÍCONOS ───────────────────────────────────────────────────────────
+/**
+ * El marcador: una gota de mapa con la lancha adentro, y el codigo debajo.
+ *
+ * La gota resuelve algo que ninguna silueta suelta resuelve: su punta marca el
+ * lugar EXACTO, sin ambiguedad. La lancha blanca adentro dice de que se trata,
+ * y el color de la gota dice como esta.
+ *
+ * Lleva el codigo porque con diecisiete barcos amontonados entre Nordelta y San
+ * Fernando la pregunta no es "hay un barco aca" sino "cual es este". Aparece
+ * recien al acercarse: a la escala de todo el delta serian diecisiete carteles
+ * encimados que no se leen.
+ */
+const UMBRAL_CODIGO = 14;
+
+function makeIcon(color, pulse, codigo, conCodigo) {
+  const etiqueta = conCodigo && codigo
+    ? `<span class="barco-cod">${String(codigo).replace(/[<>&"]/g, "")}</span>`
+    : "";
+  return L.divIcon({
+    className: "icono-barco",
+    html: `<div class="barco-pin${pulse ? " barco-pin-alerta" : ""}" style="--tono:${color}">
+      ${pulse ? `<span class="barco-halo"></span>` : ""}
+      <svg viewBox="0 0 24 32" width="23" height="31" aria-hidden="true">
+        <path d="M12 31 C12 31 22.4 18.6 22.4 11.6 A10.4 10.4 0 0 0 1.6 11.6 C1.6 18.6 12 31 12 31 Z"
+              fill="${color}" stroke="rgba(0,0,0,.55)" stroke-width="1.3"/>
+        <path d="M5.9 12.7 h12.2 l-1.6 3.2 q-4.5 .95 -9 0 z" fill="#fff"/>
+        <path d="M8.9 12.7 l1.1 -2.8 h4 l1.3 2.8 z" fill="#fff" opacity=".88"/>
+        <rect x="11.4" y="6.5" width="1.2" height="3.4" rx=".6" fill="#fff" opacity=".75"/>
+      </svg>
+      ${etiqueta}
+    </div>`,
+    iconSize: [conCodigo ? 56 : 23, conCodigo ? 48 : 31],
+    iconAnchor: [conCodigo ? 28 : 11.5, 31],
+    popupAnchor: [0, -28],
+  });
+}
+
+// Los colores se leen del tema una sola vez: dentro del divIcon es HTML crudo,
+// no React, asi que una variable CSS no se resolveria.
+function tono(nombre, respaldo) {
+  if (typeof window === "undefined") return respaldo;
+  const v = getComputedStyle(document.documentElement).getPropertyValue(nombre).trim();
+  return v || respaldo;
+}
+const TONO_OK  = tono("--green", C.green);
+const TONO_ESP = tono("--cyan", "#06b6d4");
+const TONO_MAL = tono("--red", C.red);
+const ICON_NEW = makeIcon(tono("--blue", "#4a90e2"), false, null, false);
+
+function getIcon(tickets, codigo, conCodigo) {
+  const color = tickets?.some((t) => t.estado === "pendiente") ? TONO_MAL
+    : tickets?.some((t) => t.estado === "en_proceso") ? TONO_ESP
+      : TONO_OK;
+  return makeIcon(color, Boolean(tickets?.length), codigo, conCodigo);
+}
+
+// ── TOKENS ───────────────────────────────────────────────────────────
+// ── MAP HELPERS ───────────────────────────────────────────────────────
+function MapEventsHandler({ isSelecting, onLocationSelected }) {
+  useMapEvents({ click(e) { if(isSelecting) onLocationSelected(e.latlng.lat, e.latlng.lng); } });
+  return null;
+}
+/** Avisa el zoom hacia afuera: de el depende si se muestra el codigo. */
+function ZoomWatcher({ onZoom }) {
+  const map = useMap();
+  useMapEvents({ zoomend: () => onZoom(map.getZoom()) });
+  return null;
+}
+
+function MapResizer() {
+  const map = useMap();
+  useEffect(()=>{ setTimeout(()=>map.invalidateSize(),300); },[map]);
+  return null;
+}
+function LocationPreview({ lat, lng }) {
+  if (!lat || !lng) return null;
+  const la=parseFloat(lat), ln=parseFloat(lng), d=0.008;
+  const bbox=`${ln-d},${la-d},${ln+d},${la+d}`;
+  const src=`https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${la},${ln}`;
+  return (
+    <div style={{ borderRadius:10, overflow:"hidden", border:`1px solid ${tinta(C.green, 0.25)}`, marginTop:10, position:"relative" }}>
+      <iframe title="preview" src={src} width="100%" height="140" style={{ display:"block", border:"none", filter:"invert(0.88) hue-rotate(180deg) saturate(0.7) brightness(0.9)" }} loading="lazy" sandbox="allow-scripts allow-same-origin" />
+      <div style={{ position:"absolute", bottom:6, left:6, background:tinta(C.bg, 0.86), border:`1px solid ${tinta(C.green, 0.3)}`, borderRadius:6, padding:"3px 9px", fontFamily:C.mono, fontSize:11, color:C.green, backdropFilter:"blur(8px)", pointerEvents:"none" }}>
+        {la.toFixed(5)}, {ln.toFixed(5)}
+      </div>
+    </div>
+  );
+}
+
+// ── SELECTOR OBRA (linea → obras en cascada) ─────────────────────────
+function ObraSelector({ value, onChange, obras }) {
+  const INP = { width:"100%", boxSizing:"border-box", background:"var(--panel)", border:`1px solid ${C.b0}`, color:C.t0, padding:"9px 12px", borderRadius:9, fontSize:14, outline:"none", fontFamily:C.sans };
+  const LBL = { fontSize:10, letterSpacing:1.3, color:C.t1, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight: 600 };
+  const obraActual = obras.find(o=>o.id===value);
+  return (
+    <div style={{ padding:"14px 16px", borderRadius:10, background:tinta(C.blue, 0.04), border:`1px solid ${tinta(C.blue, 0.18)}`, marginBottom:14 }}>
+      <div style={{ fontSize:10, letterSpacing:1.3, color:"#4a7aaa", textTransform:"uppercase", marginBottom:12, fontWeight: 600 }}><Link2 size={11} style={{marginRight:5}}/> Obra vinculada</div>
+      <div>
+        <label style={LBL}>Código de obra</label>
+        {obras.length === 0 ? (
+          <div style={{ fontSize:12, color:"var(--dim)", fontStyle:"italic", padding:"8px 0" }}>No hay obras disponibles.</div>
+        ) : (
+          <select
+            style={{ ...INP, color: value ? C.blue : C.t2, borderColor: value ? tinta(C.blue, 0.4) : C.b0 }}
+            value={value}
+            onChange={e=>onChange(e.target.value)}
+          >
+            <option value="">— Sin asignar —</option>
+            {obras.map(o=>(
+              <option key={o.id} value={o.id}>{o.codigo}</option>
+            ))}
+          </select>
+        )}
+      </div>
+      {obraActual && (
+        <div style={{ marginTop:8, padding:"6px 10px", borderRadius:7, background:tinta(C.blue, 0.08), border:`1px solid ${tinta(C.blue, 0.2)}`, fontSize:12, color:C.blue }}>
+          <CheckCircle2 size={11} style={{marginRight:5,verticalAlign:"middle"}}/> Obra {obraActual.codigo}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── MODAL EDITAR BARCO ────────────────────────────────────────────────
+function EditModal({ barco, obras, onSave, onClose, autoFocusGps = false }) {
+  const { isMobile } = useResponsive();
+  const [form, setForm] = useState({
+    nombre_barco:       barco.nombre_barco      ?? "",
+    propietario:        barco.propietario        ?? "",
+    ubicacion_general:  barco.ubicacion_general  ?? "",
+    detalle_ubicacion:  barco.detalle_ubicacion  ?? "",
+    latitud:            String(barco.latitud     ?? ""),
+    longitud:           String(barco.longitud    ?? ""),
+    link_maps:          "",
+    obra_id:            barco.obra_id            ?? "",
+  });
+  const [saving,   setSaving]   = useState(false);
+  const [err,      setErr]      = useState("");
+  const [showPrev, setShowPrev] = useState(false);
+  const gpsRef = useRef(null);
+
+  // Auto-focus en el campo GPS si se abre desde "Completar ubicación"
+  useEffect(() => {
+    if (autoFocusGps && gpsRef.current) {
+      setTimeout(() => gpsRef.current?.focus(), 200);
+    }
+  }, [autoFocusGps]);
+
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  function handleMapsInput(e) {
+    const val = e.target.value;
+    let lat=form.latitud, lng=form.longitud;
+    const matchAt   = val.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    const matchBang = val.match(/3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+    const matchRaw  = val.match(/(-?\d+\.\d+)[,\s]+(-?\d+\.\d+)/);
+    if      (matchAt)                           { lat=matchAt[1];   lng=matchAt[2];   }
+    else if (matchBang)                         { lat=matchBang[1]; lng=matchBang[2]; }
+    else if (matchRaw && !val.includes("http")) { lat=matchRaw[1];  lng=matchRaw[2];  }
+    setForm(f=>({...f,link_maps:val,latitud:lat,longitud:lng}));
+    setShowPrev(true);
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSaving(true); setErr("");
+    const upd = {
+      nombre_barco:      form.nombre_barco.trim(),
+      propietario:       form.propietario.trim() || null,
+      ubicacion_general: form.ubicacion_general.trim() || null,
+      detalle_ubicacion: form.detalle_ubicacion.trim() || null,
+      obra_id:           form.obra_id || null,
+    };
+    // Solo actualizar coords si se ingresaron
+    if (form.latitud && form.longitud) {
+      upd.latitud  = parseFloat(String(form.latitud).replace(",","."));
+      upd.longitud = parseFloat(String(form.longitud).replace(",","."));
+    }
+    const { error } = await supabase.from("postventa_flota").update(upd).eq("id", barco.id);
+    if (error) { setErr(error.message); setSaving(false); return; }
+    onSave();
+  }
+
+  const INP = { width:"100%", boxSizing:"border-box", background:"var(--panel)", border:`1px solid ${C.b0}`, color:C.t0, padding:"10px 14px", borderRadius:9, fontSize:14, outline:"none", marginBottom:14, transition:"border-color 0.15s", fontFamily:C.sans };
+  const LBL = { fontSize:10, letterSpacing:1.3, color:C.t1, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight: 600 };
+  const hasCoords = form.latitud && form.longitud;
+
+  return (
+    <div style={overlayFondo(isMobile)}
+      onClick={e=>e.target===e.currentTarget && onClose()}>
+      <div style={overlayCaja(isMobile)}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:22 }}>
+          <div>
+            <div style={{ fontSize:16, color:C.t0, fontWeight:600 }}>Editar embarcación</div>
+            <div style={{ fontSize:12, color:C.t1, marginTop:4, fontFamily:C.mono }}>{barco.nombre_barco}</div>
+          </div>
+          <button onClick={onClose} style={{ background:"transparent", border:"none", color:C.t1, cursor:"pointer", fontSize:20, padding:"4px 8px" }}>×</button>
+        </div>
+
+        {/* Aviso GPS pendiente */}
+        {!barco.latitud && !barco.longitud && (
+          <div style={{ padding:"10px 14px", borderRadius:9, background:tinta(C.violet, 0.08), border:`1px solid ${tinta(C.violet, 0.3)}`, fontSize:13, color:C.violet, marginBottom:16, display:"flex", alignItems:"center", gap:8 }}>
+            <MapPin size={14} color={C.violet} style={{flexShrink:0}}/>
+            <span>Este barco fue creado desde Configuración. Completá la ubicación GPS para que aparezca en el mapa.</span>
+          </div>
+        )}
+
+        {err && <div style={{ padding:"10px 14px", borderRadius:9, background:tinta(C.red, 0.08), border:`1px solid ${tinta(C.red, 0.25)}`, fontSize:13, color:C.red, marginBottom:16 }}>{err}</div>}
+
+        <form onSubmit={handleSubmit}>
+          <div style={{ fontSize:10, letterSpacing:1.3, color:C.t1, textTransform:"uppercase", fontWeight: 600, marginBottom:12 }}>Datos</div>
+          <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:12, marginBottom:2 }}>
+            <div><label style={LBL}>Nombre *</label><input required style={INP} value={form.nombre_barco} onChange={e=>set("nombre_barco",e.target.value)} /></div>
+            <div><label style={LBL}>Propietario</label><input style={INP} value={form.propietario} onChange={e=>set("propietario",e.target.value)} /></div>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:12, marginBottom:14 }}>
+            <div><label style={LBL}>Lugar</label><input style={INP} value={form.ubicacion_general} onChange={e=>set("ubicacion_general",e.target.value)} /></div>
+            <div><label style={LBL}>Detalle</label><input style={INP} value={form.detalle_ubicacion} onChange={e=>set("detalle_ubicacion",e.target.value)} /></div>
+          </div>
+          <ObraSelector value={form.obra_id} onChange={v=>set("obra_id",v)} obras={obras} />
+
+          {/* Ubicación GPS — autoFocus si viene de "Completar GPS" */}
+          <div style={{ fontSize:10, letterSpacing:1.3, color:C.t1, textTransform:"uppercase", fontWeight: 600, marginBottom:12 }}>
+            Ubicación GPS {!barco.latitud ? <span style={{ color:C.violet, fontWeight:600 }}>— PENDIENTE</span> : "(actualizar)"}
+          </div>
+          <label style={LBL}>Pegar link o coordenadas de Google Maps</label>
+          <input
+            ref={gpsRef}
+            style={{ ...INP, borderColor: hasCoords ? tinta(C.green, 0.5) : tinta(C.violet, 0.4), background: hasCoords ? tinta(C.green, 0.04) : tinta(C.violet, 0.04), color: hasCoords ? C.green : C.t0 }}
+            placeholder="Ej: -34.4183, -58.5846  ó  link largo de Maps"
+            value={form.link_maps} onChange={handleMapsInput}
+          />
+          {hasCoords && form.link_maps && showPrev && <LocationPreview lat={form.latitud} lng={form.longitud} />}
+
+          <div style={{ display:"flex", gap:10, marginTop:16, flexDirection: isMobile ? "column-reverse" : "row" }}>
+            <button type="submit" disabled={saving} className="ui-btn ui-btn-primario" style={{ flex:1, cursor:saving?"not-allowed":"pointer" }}>
+              {saving ? "Guardando…" : "Guardar cambios"}
+            </button>
+            <button type="button" onClick={onClose} className="ui-btn" style={{ color:C.t1 }}>Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── POPUP DE TICKET EN EL MAPA ────────────────────────────────────────
+function TicketPopupContent({ barco, tickets, onVerTodos }) {
+  const { isMobile } = useResponsive();
+  const pendientes = tickets.filter(t=>t.estado==="pendiente");
+  const enProceso  = tickets.filter(t=>t.estado==="en_proceso");
+  const top        = [...pendientes,...enProceso][0];
+  return (
+    <div style={{ padding: isMobile ? "12px 14px" : "16px 18px", minWidth: isMobile ? 0 : 230, maxWidth: "100%", fontFamily:C.sans }}>
+      <div style={{ fontSize:15, color:"#dde2ea", fontWeight:600, marginBottom:4 }}>{barco.nombre_barco}</div>
+      {barco.obras && (
+        <div style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"2px 8px", borderRadius:5, background:tinta(C.blue, 0.12), border:`1px solid ${tinta(C.blue, 0.25)}`, marginBottom:8 }}>
+          <span style={{ fontFamily:C.mono, fontSize:11, color:C.blue, fontWeight:600 }}>Obra {barco.obras.codigo}</span>
+          
+        </div>
+      )}
+      <div style={{ fontSize:12, color:"#566070", marginBottom:10 }}>{barco.propietario} · {barco.ubicacion_general}</div>
+      {tickets.length > 0 ? (
+        <>
+          <div style={{ display:"flex", gap:8, marginBottom:12, flexWrap:"wrap" }}>
+            {pendientes.length > 0 && (
+              <span style={{ padding:"3px 10px", borderRadius:99, background:tinta(C.red, 0.15), border:`1px solid ${tinta(C.red, 0.35)}`, color:C.red, fontSize:11, fontWeight:600 }}>
+                <Circle size={7} color={C.red} fill={C.red} style={{marginRight:4}}/> {pendientes.length} pendiente{pendientes.length>1?"s":""}
+              </span>
+            )}
+            {enProceso.length > 0 && (
+              <span style={{ padding:"3px 10px", borderRadius:99, background:tinta(C.violet, 0.15), border:`1px solid ${tinta(C.violet, 0.35)}`, color:C.violet, fontSize:11, fontWeight:600 }}>
+                <Circle size={7} color={C.violet} fill={C.violet} style={{marginRight:4}}/> {enProceso.length} en proceso
+              </span>
+            )}
+          </div>
+          {top && (
+            <div style={{ padding:"10px 12px", borderRadius:8, background:"var(--panel)", border:"1px solid var(--border)", marginBottom:10 }}>
+              <div style={{ fontSize:10, color:"#566070", letterSpacing:1.3, textTransform:"uppercase", marginBottom:4 }}>{top.area}</div>
+              <div style={{ fontSize:13, color:"#a8b4c0", lineHeight:1.5 }}>{top.descripcion?.slice(0,80)}{top.descripcion?.length>80?"…":""}</div>
+              {top.telefono && <div style={{ fontSize:11, color:"#566070", marginTop:6, display:"flex", alignItems:"center", gap:4 }}><Phone size={9}/> {top.telefono}</div>}
+            </div>
+          )}
+          <button type="button" onClick={onVerTodos} className="ui-btn" style={{ width:"100%", background:tinta(C.red, 0.1), border:`1px solid ${tinta(C.red, 0.25)}`, color:C.red }}>
+            Ver todos los tickets ({tickets.length})
+          </button>
+        </>
+      ) : (
+        <div style={{ fontSize:12, color:"#3a4050", display:"flex", alignItems:"center", gap:6 }}>
+          <span style={{ width:7, height:7, borderRadius:"50%", background:C.green, boxShadow:`0 0 6px ${C.green}` }} />
+          Sin tickets activos
+        </div>
+      )}
+      <div style={{ paddingTop:10, marginTop:10, borderTop:"1px solid var(--panel-2)" }}>
+        <div style={{ fontSize:10, color:"#3a4050", fontFamily:"monospace" }}>{barco.latitud?.toFixed(5)}, {barco.longitud?.toFixed(5)}</div>
+      </div>
+    </div>
+  );
+}
+
+// ── PANEL DE TICKETS (side drawer) ───────────────────────────────────
+function TicketDrawer({ barco, tickets, onClose, onUpdateStatus }) {
+  const { isMobile } = useResponsive();
+  const [updating,      setUpdating]      = useState(null);
+  const [filtroEst,     setFiltroEst]     = useState("activos");
+  const [seguimientoId, setSeguimientoId] = useState(null);
+  const [seguimientoTx, setSeguimientoTx] = useState("");
+  const [savingSeg,     setSavingSeg]     = useState(false);
+  const [lightbox,      setLightbox]      = useState(null); // { url, tipo: "img"|"vid" }
+  const [imgErrors,     setImgErrors]     = useState({});   // { "ticketId-index": true }
+
+  const ESTADO = {
+    pendiente:   { color:C.red, bg:tinta(C.red, 0.1),  label:"Pendiente"   },
+    en_proceso:  { color:C.violet, bg:tinta(C.violet, 0.1), label:"En Proceso"  },
+    solucionado: { color:C.green, bg:tinta(C.green, 0.1), label:"Solucionado" },
+  };
+
+  const abrirSeguimiento = (t) => { setSeguimientoId(t.id); setSeguimientoTx(t.seguimiento ?? ""); };
+
+  const guardarSeguimiento = async () => {
+    if (!seguimientoId) return;
+    setSavingSeg(true);
+    const val = seguimientoTx.trim() || null;
+    await supabase.from("tickets").update({ seguimiento: val }).eq("id", seguimientoId);
+    onUpdateStatus(seguimientoId, null, val);
+    setSeguimientoId(null);
+    setSeguimientoTx("");
+    setSavingSeg(false);
+  };
+
+  const cambiarEstado = async (ticketId, nuevoEstado) => {
+    setUpdating(ticketId);
+    await supabase.from("tickets").update({ estado: nuevoEstado }).eq("id", ticketId);
+    onUpdateStatus(ticketId, nuevoEstado);
+    setUpdating(null);
+  };
+
+  const ticketsFiltrados = tickets.filter(t => {
+    if (filtroEst === "activos")     return t.estado === "pendiente" || t.estado === "en_proceso";
+    if (filtroEst === "solucionado") return t.estado === "solucionado";
+    return true;
+  });
+
+  const cntActivos = tickets.filter(t => t.estado === "pendiente" || t.estado === "en_proceso").length;
+  const cntSol     = tickets.filter(t => t.estado === "solucionado").length;
+
+  const shortId = id => String(id).slice(-6).toUpperCase();
+
+  const fmtDate = d => {
+    if (!d) return "";
+    const dt = new Date(d);
+    return dt.toLocaleDateString("es-AR", { day:"2-digit", month:"short" }) + " · " + dt.toLocaleTimeString("es-AR", { hour:"2-digit", minute:"2-digit" });
+  };
+
+  // ── Adjuntos renderer ────────────────────────────────────────────
+  const renderAdjuntos = (t) => {
+    const adjuntos = Array.isArray(t.adjuntos) ? t.adjuntos : [];
+    if (adjuntos.length === 0) return null;
+
+    return (
+      <div>
+        <div style={{ fontSize:10, color:C.t2, letterSpacing:1.3, textTransform:"uppercase", marginBottom:10, display:"flex", alignItems:"center", gap:5 }}>
+          📎 {adjuntos.length} archivo{adjuntos.length > 1 ? "s" : ""} adjunto{adjuntos.length > 1 ? "s" : ""}
+        </div>
+        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {adjuntos.map((url, i) => {
+            const cleanUrl  = url.split("?")[0].toLowerCase();
+            const isVideo   = /\.(mp4|mov|webm|avi|mkv)$/.test(cleanUrl);
+            const couldBeImg = !isVideo; // intentamos mostrar imagen para todo lo no-video
+            const errKey    = `${t.id}-${i}`;
+            const hasErr    = imgErrors[errKey];
+            // Nombre corto del archivo para mostrar
+            const fileName  = decodeURIComponent(url.split("/").pop().split("?")[0]).slice(0, 40);
+
+            if (isVideo) return (
+              <div key={i} style={{ borderRadius:10, border:`1px solid ${C.b1}`, overflow:"hidden", background:"var(--panel)" }}>
+                <video
+                  controls
+                  style={{ width:"100%", display:"block", maxHeight:260, background:"#000", borderRadius:10 }}
+                  onError={() => setImgErrors(p => ({ ...p, [errKey]: true }))}
+                >
+                  <source src={url}/>
+                </video>
+                <div style={{ padding:"8px 12px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <span style={{ fontSize:11, color:C.t2, fontFamily:C.mono }}>▶ {fileName}</span>
+                  <a href={url} target="_blank" rel="noopener noreferrer"
+                    style={{ fontSize:11, color:C.primary, textDecoration:"none", fontWeight:600 }}>
+                    Descargar ↗
+                  </a>
+                </div>
+              </div>
+            );
+
+            // Imagen (o cualquier archivo que intenta mostrarse como imagen)
+            if (couldBeImg && !hasErr) return (
+              <div key={i} style={{ borderRadius:10, border:`1px solid ${C.b1}`, overflow:"hidden", background:"var(--panel)", cursor:"zoom-in" }}
+                onClick={() => setLightbox({ url, tipo:"img" })}>
+                <img
+                  src={url}
+                  alt={`Adjunto ${i+1}`}
+                  style={{ width:"100%", display:"block", maxHeight:320, objectFit:"contain", background:"var(--panel-2)" }}
+                  onError={() => setImgErrors(p => ({ ...p, [errKey]: true }))}
+                />
+                <div style={{ padding:"8px 12px", display:"flex", justifyContent:"space-between", alignItems:"center", borderTop:`1px solid ${C.b0}` }}>
+                  <span style={{ fontSize:11, color:C.t2, fontFamily:C.mono, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:"70%" }}>
+                    🖼 {fileName}
+                  </span>
+                  <div style={{ display:"flex", gap:8, flexShrink:0 }}>
+                    <span style={{ fontSize:11, color:C.t2 }}>🔍 ver</span>
+                    <a href={url} target="_blank" rel="noopener noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      style={{ fontSize:11, color:C.primary, textDecoration:"none", fontWeight:600 }}>
+                      Abrir ↗
+                    </a>
+                  </div>
+                </div>
+              </div>
+            );
+
+            // Fallback total — archivo no renderizable o error de imagen
+            return (
+              <div key={i} style={{ borderRadius:10, border:`1px solid ${tinta(C.violet, 0.3)}`, background:tinta(C.violet, 0.05), padding:"12px 16px", display:"flex", alignItems:"center", gap:12 }}>
+                <span style={{ fontSize:24, flexShrink:0 }}>📎</span>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:12, color:C.t1, fontFamily:C.mono, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", marginBottom:4 }}>
+                    {fileName || `Archivo ${i+1}`}
+                  </div>
+                  <div style={{ fontSize:11, color:C.violet }}>
+                    {hasErr ? "No se pudo previsualizar — abrí el link directo" : "Archivo adjunto"}
+                  </div>
+                </div>
+                <a href={url} target="_blank" rel="noopener noreferrer"
+                  style={{ flexShrink:0, padding:"7px 14px", borderRadius:8, background:tinta(C.blue, 0.15), border:`1px solid ${tinta(C.blue, 0.4)}`, color:C.blue, fontSize:12, fontWeight:600, textDecoration:"none" }}>
+                  Abrir ↗
+                </a>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      {/* ── DRAWER ── */}
+      <div
+        style={overlayFondo(isMobile)}
+        onClick={e => e.target === e.currentTarget && onClose()}>
+        <div style={{
+          ...overlayCaja(isMobile, { maxWidth: 680, padding: 0, height: isMobile ? "min(92dvh, 100%)" : "min(88vh, 880px)", maxHeight: isMobile ? "min(92dvh, 100%)" : "92vh" }),
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}>
+
+          {/* Header sticky */}
+          <div style={{ padding: isMobile ? "14px 16px 12px" : "20px 24px 14px", borderBottom:`1px solid ${C.b0}`, flexShrink:0, background:"var(--panel-solid)" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:14 }}>
+              <div>
+                <div style={{ fontSize:17, color:C.t0, fontWeight:600, marginBottom:5 }}>{barco.nombre_barco}</div>
+                <div style={{ display:"flex", gap:7, alignItems:"center", flexWrap:"wrap" }}>
+                  {barco.obras && (
+                    <span style={{ fontFamily:C.mono, fontSize:11, padding:"2px 8px", borderRadius:5, background:tinta(C.blue, 0.12), border:`1px solid ${tinta(C.blue, 0.25)}`, color:C.blue }}>
+                      Obra {barco.obras.codigo}
+                    </span>
+                  )}
+                  {barco.propietario && <span style={{ fontSize:12, color:C.t1 }}>{barco.propietario}</span>}
+                  {barco.ubicacion_general && <span style={{ fontSize:12, color:C.t2 }}>· {barco.ubicacion_general}</span>}
+                </div>
+              </div>
+              <button type="button" onClick={onClose} aria-label="Cerrar" className="ui-btn ui-btn-icono"
+                style={{ flexShrink:0 }}>
+                ×
+              </button>
+            </div>
+
+            {/* Filtros */}
+            <div className="pv-filtros" style={{ display:"flex", gap:5, overflowX:"auto", flexWrap:"nowrap" }}>
+              {[
+                { key:"activos",     label:`Activos`,      cnt:cntActivos,        color:C.violet },
+                { key:"solucionado", label:`Solucionados`, cnt:cntSol,            color:C.green },
+                { key:"todos",       label:`Todos`,        cnt:tickets.length,    color:C.blue },
+              ].map(f => (
+                <button key={f.key} onClick={() => setFiltroEst(f.key)}
+                  style={{ padding:"5px 11px", borderRadius:7, fontSize:11, cursor:"pointer", fontWeight: filtroEst===f.key ? 600 : 400, minHeight: 38, flexShrink: 0,
+                    background: filtroEst===f.key ? `${f.color}18` : "transparent",
+                    border: `1px solid ${filtroEst===f.key ? f.color+"55" : C.b0}`,
+                    color: filtroEst===f.key ? f.color : C.t2, transition:"all 0.15s", display:"flex", gap:5, alignItems:"center" }}>
+                  {f.label}
+                  <span style={{ fontFamily:C.mono, fontSize:10, background:"var(--panel-2)", padding:"0 5px", borderRadius:4 }}>{f.cnt}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Ticket list */}
+          <div style={{ flex:1, overflowY:"auto", padding: isMobile ? "12px 14px calc(14px + env(safe-area-inset-bottom, 0px))" : "14px 20px" }}>
+            {ticketsFiltrados.length === 0 ? (
+              <div style={{ fontSize:13, color:C.t2, textAlign:"center", padding:"36px 0", fontStyle:"italic" }}>
+                Sin tickets en esta categoría
+              </div>
+            ) : ticketsFiltrados.map(t => {
+              const est = ESTADO[t.estado] || ESTADO.pendiente;
+              const hasAdjuntos = Array.isArray(t.adjuntos) && t.adjuntos.length > 0;
+              const hasMeta = t.ubicacion_barco || t.telefono;
+              return (
+                <div key={t.id} style={{
+                  borderRadius:12,
+                  border:`1px solid ${C.b0}`,
+                  borderLeft:`3px solid ${est.color}`,
+                  background:"rgba(255,255,255,0.02)",
+                  marginBottom:10,
+                }}>
+
+                  {/* ── HEADER ── */}
+                  <div style={{ padding:"14px 16px 12px", borderBottom:`1px solid var(--panel)` }}>
+                    {/* Top row: status + ID + date */}
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
+                      <div style={{ display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>
+                        <span style={{ padding:"3px 10px", borderRadius:99, background:est.bg, border:`1px solid ${est.color}44`, color:est.color, fontSize:10, fontWeight:600, letterSpacing:0.5 }}>
+                          {est.label}
+                        </span>
+                        {hasAdjuntos && (
+                          <span style={{ padding:"2px 8px", borderRadius:99, background:"var(--panel-2)", border:`1px solid var(--border)`, color:C.t1, fontSize:10, fontFamily:C.mono }}>
+                            📎 {t.adjuntos.length} foto{t.adjuntos.length > 1 ? "s" : ""}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ textAlign:"right", flexShrink:0, marginLeft:10 }}>
+                        <div style={{ color:C.t2, fontSize:10, fontFamily:C.mono, letterSpacing:1 }}>#{shortId(t.id)}</div>
+                        {t.fecha_creacion && (
+                          <div style={{ color:C.t2, fontSize:10, fontFamily:C.mono, marginTop:2 }}>{fmtDate(t.fecha_creacion)}</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Area + descripción */}
+                    <div style={{ color:C.t0, fontWeight:600, fontSize:14, marginBottom:5 }}>{t.area}</div>
+                    <p style={{ color:C.t1, fontSize:13, margin:0, lineHeight:1.7 }}>{t.descripcion}</p>
+                  </div>
+
+                  {/* ── META (tel + ubicación) ── */}
+                  {hasMeta && (
+                    <div style={{ padding:"10px 16px", borderBottom:`1px solid var(--panel)`, display:"flex", gap:10, flexWrap:"wrap", alignItems:"center", background:"rgba(255,255,255,0.01)" }}>
+                      {t.telefono && (
+                        <a href={`https://wa.me/${t.telefono?.replace(/\D/g,"")}`} target="_blank" rel="noopener noreferrer"
+                          style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"5px 12px", borderRadius:8, background:"rgba(37,211,102,0.1)", border:"1px solid rgba(37,211,102,0.35)", color:"#25d366", fontSize:11, fontWeight:600, textDecoration:"none", fontFamily:C.mono }}
+                          onClick={e => e.stopPropagation()}>
+                          <Phone size={11}/> {t.telefono}
+                        </a>
+                      )}
+                      {t.ubicacion_barco && (
+                        <span style={{ fontSize:12, color:C.t2, display:"flex", alignItems:"center", gap:4 }}>
+                          <MapPin size={10}/>{t.ubicacion_barco}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── ADJUNTOS / FOTOS ── */}
+                  {hasAdjuntos && (
+                    <div style={{ padding:"12px 16px", borderBottom:`1px solid var(--panel)` }}>
+                      {renderAdjuntos(t)}
+                    </div>
+                  )}
+
+                  {/* ── SEGUIMIENTO ── */}
+                  <div style={{ padding:"12px 16px", borderBottom:`1px solid var(--panel)` }}>
+                    {seguimientoId === t.id ? (
+                      <div>
+                        <textarea autoFocus value={seguimientoTx} onChange={e => setSeguimientoTx(e.target.value)}
+                          placeholder="Escribí el seguimiento visible para el cliente…"
+                          style={{ width:"100%", boxSizing:"border-box", background:tinta(C.blue, 0.06), border:`1px solid ${tinta(C.blue, 0.35)}`, color:C.t0, padding:"10px 12px", borderRadius:8, fontSize:13, lineHeight:1.6, minHeight:80, resize:"vertical", outline:"none", fontFamily:C.sans }} />
+                        <div style={{ display:"flex", gap:6, marginTop:8 }}>
+                          <button onClick={guardarSeguimiento} disabled={savingSeg}
+                            style={{ flex:1, padding:"8px", borderRadius:8, background:tinta(C.blue, 0.2), border:`1px solid ${tinta(C.blue, 0.4)}`, color:C.blue, fontSize:12, fontWeight:600, cursor:"pointer" }}>
+                            {savingSeg ? "Guardando…" : "✓ Guardar"}
+                          </button>
+                          <button onClick={() => setSeguimientoId(null)}
+                            style={{ padding:"8px 14px", borderRadius:8, background:"transparent", border:`1px solid ${C.b0}`, color:C.t2, fontSize:12, cursor:"pointer" }}>
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    ) : t.seguimiento ? (
+                      <div style={{ padding:"10px 12px", borderRadius:8, background:tinta(C.blue, 0.07), border:`1px solid ${tinta(C.blue, 0.2)}` }}>
+                        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+                          <span style={{ fontSize:10, color:"#4a7aaa", letterSpacing:1.3, textTransform:"uppercase", fontWeight:600 }}>Respuesta técnica</span>
+                          <button onClick={() => abrirSeguimiento(t)} style={{ background:"transparent", border:"none", color:"#4a7aaa", cursor:"pointer", fontSize:11, padding:0 }}>✎ editar</button>
+                        </div>
+                        <p style={{ fontSize:13, color:"#7aabdc", lineHeight:1.7, margin:0 }}>{t.seguimiento}</p>
+                      </div>
+                    ) : (
+                      <button onClick={() => abrirSeguimiento(t)}
+                        style={{ width:"100%", padding:"8px", borderRadius:8, background:"transparent", border:`1px dashed var(--border)`, color:C.t2, fontSize:11, cursor:"pointer", textAlign:"center", transition:"border-color .15s, color .15s" }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = C.b2; e.currentTarget.style.color = C.t1; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = C.t2; }}>
+                        + Agregar respuesta técnica
+                      </button>
+                    )}
+                  </div>
+
+                  {/* ── CAMBIAR ESTADO ── */}
+                  <div style={{ padding: isMobile ? "10px 12px" : "10px 16px", display:"flex", gap:6, flexWrap: isMobile ? "wrap" : "nowrap" }}>
+                    {["pendiente","en_proceso","solucionado"].map(s => {
+                      const col = ESTADO[s].color;
+                      const active = t.estado === s;
+                      return (
+                        <button key={s} disabled={active || updating === t.id}
+                          onClick={() => cambiarEstado(t.id, s)}
+                          style={{ flex:1, minWidth: isMobile ? "calc(50% - 4px)" : 0, minHeight: 38, padding:"8px 4px", borderRadius:8, border:`1px solid ${active ? col+"66" : C.b0}`, background:active ? `${col}20` : "transparent", color:active ? col : C.t2, fontSize:11, cursor:active ? "default" : "pointer", fontWeight:active ? 600 : 400, transition:"all 0.15s" }}>
+                          {s === "pendiente" ? "Pendiente" : s === "en_proceso" ? "En proceso" : "Solucionado"}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* ── LIGHTBOX ── */}
+      {lightbox && (
+        <div
+          onClick={() => setLightbox(null)}
+          style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.97)", zIndex:99999, display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
+          <button onClick={() => setLightbox(null)}
+            style={{ position:"absolute", top:18, right:18, background:"var(--panel-2)", border:`1px solid ${C.b1}`, color:C.t1, padding:"7px 14px", cursor:"pointer", fontSize:12, borderRadius:8, display:"flex", gap:6, alignItems:"center" }}>
+            ✕ Cerrar
+          </button>
+          <a href={lightbox.url} target="_blank" rel="noopener noreferrer"
+            onClick={e => e.stopPropagation()}
+            style={{ position:"absolute", top:18, left:18, background:"var(--panel-2)", border:`1px solid ${C.b1}`, color:C.t1, padding:"7px 14px", cursor:"pointer", fontSize:12, borderRadius:8, textDecoration:"none" }}>
+            ↗ Abrir original
+          </a>
+          {lightbox.tipo === "img"
+            ? <img src={lightbox.url} loading="lazy" alt="" style={{ maxWidth:"92vw", maxHeight:"88vh", objectFit:"contain", borderRadius:8, boxShadow:"0 0 80px rgba(0,0,0,0.8)" }} />
+            : <video src={lightbox.url} controls autoPlay style={{ maxWidth:"92vw", maxHeight:"88vh", borderRadius:8 }} />
+          }
+        </div>
+      )}
+    </>
+  );
+}
+
+// ── SCREEN PRINCIPAL ──────────────────────────────────────────────────
+export default function PostVentaScreen() {
+  const { isMobile } = useResponsive();
+  const [vistaCel,     setVistaCel]     = useState("lista");
+  const [flota,        setFlota]        = useState([]);
+  const [ticketMap,    setTicketMap]    = useState({});
+  const [obras,        setObras]        = useState([]);
+  const [loading,      setLoading]      = useState(true);
+  // El buscador global puede mandar acá apuntando a un barco entregado: se
+  // entra con el nombre ya escrito en el filtro.
+  const [searchParams] = useSearchParams();
+  const [filtro,       setFiltro]       = useState(() => searchParams.get("q") || "");
+  const [soloActivos,  setSoloActivos]  = useState(false);
+  // false = mostrar todos | true = solo los sin GPS
+  const [soloSinGps,   setSoloSinGps]   = useState(false);
+  const [showModal,    setShowModal]    = useState(false);
+  const [isSelecting,  setIsSelecting]  = useState(false);
+  // editBarco: { barco, autoFocusGps? }
+  const [editBarco,    setEditBarco]    = useState(null);
+  const [drawerBarco,  setDrawerBarco]  = useState(null);
+  const [showLocPrev,  setShowLocPrev]  = useState(false);
+  const [mapaRef,      setMapaRef]      = useState(null);
+  const mapCenter = [-34.4193, -58.5512];
+  /**
+   * Dos fondos, los dos sin API key.
+   *
+   *   mapa      OpenStreetMap. Claro de origen, se invierte por CSS en oscuro.
+   *   satelite  Esri World Imagery. En una marina es lo unico que sirve: se ven
+   *             los amarres, los peines y el barco en su lugar.
+   *
+   * El satelite NO se invierte: una foto aerea invertida es ilegible.
+   */
+  const [baseMapa, setBaseMapa] = useState("mapa");
+  const [zoom, setZoom] = useState(13);
+  // La barra del sistema se pliega: en una pantalla que es un mapa, 280px de
+  // menu son 280px menos de agua. Se recuerda entre visitas.
+  // Lo ultimo que se movio, para poder volver atras. Un arrastre sin salida es
+  // una forma comoda de perder la ubicacion de un barco sin enterarse.
+  const [ultimoMovido, setUltimoMovido] = useState(null);
+  const [barraPlegada, setBarraPlegada] = useState(() => {
+    try { return localStorage.getItem("postventa:barra") === "plegada"; } catch { return false; }
+  });
+  const plegarBarra = (v) => {
+    setBarraPlegada(v);
+    try { localStorage.setItem("postventa:barra", v ? "plegada" : "abierta"); } catch { /* modo privado */ }
+  };
+  // Antes escondía el menú propio de la pantalla. Ahora el menú es uno solo
+  // para toda la app: se pliega a íconos mientras se mira el mapa.
+  useEffect(() => {
+    if (isMobile || !barraPlegada) return undefined;
+    plegarMenu(true);
+    return () => plegarMenu(null);
+  }, [barraPlegada, isMobile]);
+  useEffect(() => {
+    if (!isMobile || vistaCel !== "mapa" || !mapaRef) return undefined;
+    const t = window.setTimeout(() => mapaRef.invalidateSize?.(), 80);
+    return () => window.clearTimeout(t);
+  }, [isMobile, vistaCel, mapaRef]);
+  const [form, setForm] = useState({ nombre_barco:"", propietario:"", ubicacion_general:"", detalle_ubicacion:"", latitud:"", longitud:"", link_maps:"", obra_id:"" });
+
+  // ── Carga ─────────────────────────────────────────────────────────
+  const cargarFlota = async () => {
+    setLoading(true);
+    const { data: flotaData, error: flotaErr } = await supabase
+      .from("postventa_flota")
+      .select("*")
+      .order("nombre_barco");
+    if (flotaErr) {
+      console.error("postventa_flota error:", flotaErr.message);
+      setFlota([]); setLoading(false); return;
+    }
+    const flotaBase = flotaData ?? [];
+
+    // Enriquecer con obra: primero por obra_id directo, luego por cliente_id → clientes.obra_id
+    let flotaFinal = flotaBase;
+    try {
+      const { data: flotaJoin } = await supabase
+        .from("postventa_flota")
+        .select("id, obra_id, obras(id, codigo), cliente_id, clientes(obra_id, obras(id, codigo))")
+        .or("obra_id.not.is.null,cliente_id.not.is.null");
+      if (flotaJoin) {
+        const enrichMap = {};
+        flotaJoin.forEach(b => {
+          // Obra directa tiene prioridad; si no, la del cliente vinculado
+          enrichMap[b.id] = b.obras ?? b.clientes?.obras ?? null;
+        });
+        flotaFinal = flotaBase.map(b => ({ ...b, obras: enrichMap[b.id] ?? null }));
+      }
+    } catch(e) { console.warn("join obras:", e.message); }
+    setFlota(flotaFinal);
+
+    // Todos los tickets (activos + solucionados)
+    const { data: tData } = await supabase
+      .from("tickets")
+      .select("*")
+      .order("fecha_creacion", { ascending: false });
+
+    const map = {};
+    const addMap = (key, ticket) => {
+      if (!key) return;
+      if (!map[key]) map[key] = [];
+      if (!map[key].find(x => x.id === ticket.id)) map[key].push(ticket);
+    };
+    (tData ?? []).forEach(t => {
+      // 1. Por cliente_id del ticket → matchea con postventa_flota.cliente_id
+      if (t.cliente_id) addMap(`cli_${t.cliente_id}`, t);
+      // 2. Por nombre del barco (fallback para registros sin cliente_id vinculado)
+      const barcoName = t.nombre_barco_ticket?.trim().toLowerCase();
+      if (barcoName) addMap(`nombre_${barcoName}`, t);
+    });
+    setTicketMap(map);
+
+    // Obras — tabla real: id, codigo, activo (sin numero ni linea_proceso_id)
+    try {
+      const { data: rObras } = await supabase
+        .from("obras")
+        .select("id, codigo")
+        .eq("activo", true)
+        .order("codigo");
+      setObras((rObras ?? []).map(o => ({ id: o.id, codigo: o.codigo })));
+    } catch(e) {
+      console.error("Error cargando obras:", e);
+      setObras([]);
+    }
+
+    setLoading(false);
+  };
+  useEffect(()=>{ cargarFlota(); }, []);
+
+  const getTickets = (barco) => {
+    const results = new Map();
+    const add = (arr) => (arr ?? []).forEach(t => results.set(t.id, t));
+
+    // 1. Por cliente_id del barco (postventa_flota.cliente_id → ticket.cliente_id)
+    if (barco.cliente_id) add(ticketMap[`cli_${barco.cliente_id}`]);
+    // 2. Por nombre del barco (fallback — cuando cliente_id es null en postventa_flota)
+    const barcoName = barco.nombre_barco?.trim().toLowerCase();
+    if (barcoName) add(ticketMap[`nombre_${barcoName}`]);
+
+    return [...results.values()];
+  };
+
+  function handleMapsInput(e) {
+    const val=e.target.value;
+    let lat=form.latitud, lng=form.longitud;
+    const matchAt   = val.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    const matchBang = val.match(/3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+    const matchRaw  = val.match(/(-?\d+\.\d+)[,\s]+(-?\d+\.\d+)/);
+    if      (matchAt)                           { lat=matchAt[1];   lng=matchAt[2];   }
+    else if (matchBang)                         { lat=matchBang[1]; lng=matchBang[2]; }
+    else if (matchRaw && !val.includes("http")) { lat=matchRaw[1];  lng=matchRaw[2];  }
+    setForm(f=>({...f,link_maps:val,latitud:lat,longitud:lng}));
+    setShowLocPrev(true);
+    if (lat && lng && mapaRef) mapaRef.flyTo([parseFloat(lat),parseFloat(lng)],16,{duration:1.5});
+  }
+
+  /**
+   * Guarda la posicion nueva despues de arrastrar el barco.
+   *
+   * Se guarda al soltar, sin confirmar: pedir confirmacion en cada ajuste de
+   * dos metros haria el arrastre inservible. Lo que si queda es un "deshacer"
+   * a la vista, que cubre el caso real -moverlo sin querer- sin estorbar.
+   */
+  async function moverBarco(barco, lat, lng) {
+    const antes = { id: barco.id, nombre: barco.nombre_barco, lat: barco.latitud, lng: barco.longitud };
+    const nuevaLat = Number(lat.toFixed(6));
+    const nuevaLng = Number(lng.toFixed(6));
+    setFlota((prev) => prev.map((b) => (b.id === barco.id ? { ...b, latitud: nuevaLat, longitud: nuevaLng } : b)));
+    const { error } = await supabase
+      .from("postventa_flota")
+      .update({ latitud: nuevaLat, longitud: nuevaLng })
+      .eq("id", barco.id);
+    if (error) {
+      // Si no guardo, el pin vuelve solo: dejarlo movido en pantalla seria
+      // mostrar algo que la base no tiene.
+      setFlota((prev) => prev.map((b) => (b.id === barco.id ? { ...b, latitud: antes.lat, longitud: antes.lng } : b)));
+      alert("No se pudo guardar la ubicación: " + error.message);
+      return;
+    }
+    setUltimoMovido(antes);
+  }
+
+  async function deshacerMovimiento() {
+    if (!ultimoMovido) return;
+    const { id, lat, lng } = ultimoMovido;
+    setFlota((prev) => prev.map((b) => (b.id === id ? { ...b, latitud: lat, longitud: lng } : b)));
+    await supabase.from("postventa_flota").update({ latitud: lat, longitud: lng }).eq("id", id);
+    setUltimoMovido(null);
+  }
+
+  function handleLocationSelected(lat, lng) {
+    setIsSelecting(false);
+    setForm(prev=>({...prev,latitud:lat.toFixed(6),longitud:lng.toFixed(6),link_maps:""}));
+    setShowLocPrev(true);
+    setShowModal(true);
+    if (mapaRef) mapaRef.flyTo([lat,lng],16,{duration:1.2});
+  }
+
+  async function registrarBarco(e) {
+    e.preventDefault();
+    if (!form.latitud || !form.longitud) { alert("Falta la ubicación."); return; }
+    const { error } = await supabase.from("postventa_flota").insert([{
+      nombre_barco:      form.nombre_barco,
+      propietario:       form.propietario,
+      ubicacion_general: form.ubicacion_general,
+      detalle_ubicacion: form.detalle_ubicacion,
+      latitud:           parseFloat(String(form.latitud).replace(",",".")),
+      longitud:          parseFloat(String(form.longitud).replace(",",".")),
+      obra_id: form.obra_id && obras.some(o => o.id === form.obra_id)
+  ? form.obra_id
+  : null,
+    }]);
+    if (error) { alert("Error al registrar: "+error.message); return; }
+    setShowModal(false); setShowLocPrev(false);
+    setForm({ nombre_barco:"", propietario:"", ubicacion_general:"", detalle_ubicacion:"", latitud:"", longitud:"", link_maps:"", obra_id:"" });
+    cargarFlota();
+  }
+
+  async function eliminarBarco(e, id, nombre) {
+    e.stopPropagation();
+    if (!window.confirm(`¿Eliminás "${nombre}"?`)) return;
+    const { error } = await supabase.from("postventa_flota").delete().eq("id",id);
+    if (!error) setFlota(prev=>prev.filter(b=>b.id!==id));
+  }
+
+  function centrarMapa(lat, lng) {
+    if (isMobile) setVistaCel("mapa");
+    window.setTimeout(() => {
+      if (mapaRef && lat && lng) mapaRef.flyTo([lat, lng], 16, { duration: 1.2, easeLinearity: 0.25 });
+    }, isMobile ? 90 : 0);
+  }
+
+  function compartirWhatsApp(e, b) {
+    e.stopPropagation();
+    const tickets = getTickets(b);
+    const ticketInfo = tickets.length > 0
+      ? `\n\n*Tickets activos: ${tickets.length}*\n${tickets.map(t=>`• ${t.area}: ${t.descripcion?.slice(0,50)}…`).join("\n")}`
+      : "";
+    const obraInfo = b.obras ? `\n*Obra:* ${b.obras.codigo}` : "";
+    const mapUrl = b.latitud ? `https://www.google.com/maps?q=${b.latitud},${b.longitud}` : "(sin ubicación)";
+    const msj = `*Embarcación:* ${b.nombre_barco}\n*Propietario:* ${b.propietario||'-'}${obraInfo}\n*Lugar:* ${b.ubicacion_general||'-'}${ticketInfo}\n\n*Ubicación:*\n${mapUrl}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(msj)}`,"_blank");
+  }
+
+  const updateTicketStatus = (ticketId, nuevoEstado, nuevoSeguimiento) => {
+    setTicketMap(prev => {
+      const next = {...prev};
+      Object.keys(next).forEach(k => {
+        next[k] = next[k].map(t => {
+          if (t.id !== ticketId) return t;
+          const upd = {...t};
+          if (nuevoEstado    !== null && nuevoEstado    !== undefined) upd.estado      = nuevoEstado;
+          if (nuevoSeguimiento !== undefined) upd.seguimiento = nuevoSeguimiento;
+          return upd;
+        });
+      });
+      return next;
+    });
+  };
+
+  // Deduplicar por id antes de contar para evitar x2 (tickets con cli_X y nombre_X)
+  const totalTicketsPendientes = (() => {
+    const seen = new Set();
+    Object.values(ticketMap).forEach(ts => ts.forEach(t => { if (t.estado === "pendiente") seen.add(t.id); }));
+    return seen.size;
+  })();
+  const sinGpsCount = flota.filter(b => !b.latitud || !b.longitud).length;
+
+  // Enfocar: el mapa muestra sólo ese barco.
+  const [soloBarco, setSoloBarco] = useState(null);
+  const [fichaBarco, setFichaBarco] = useState(null);
+
+  const barcosFiltrados = flota.filter(b => {
+    const q = filtro.toLowerCase();
+    const matchText    = !q || b.nombre_barco?.toLowerCase().includes(q) || b.propietario?.toLowerCase().includes(q) || b.ubicacion_general?.toLowerCase().includes(q) || b.obras?.codigo?.toLowerCase().includes(q);
+    const matchActivos = !soloActivos || getTickets(b).length > 0;
+    const matchSinGps  = !soloSinGps  || (!b.latitud || !b.longitud);
+    return matchText && matchActivos && matchSinGps;
+  });
+
+  // ── ESTILOS ───────────────────────────────────────────────────────
+  const S = {
+    page:         { position:"absolute", inset:0, background:C.bg, color:C.t0, fontFamily:C.sans, overflow:"hidden" },
+    mapLayer:     { position:"absolute", inset:0, zIndex:0 },
+    uiLayer:      { position:"absolute", inset:0, zIndex:10, display:"flex", flexDirection: isMobile ? "column" : "row", pointerEvents:"none" },
+    // Sin ancho fijo: el sidebar decide el suyo (280 abierto, 64 plegado).
+    mainUI:       { flex:1, position:"relative", pointerEvents:"none", minHeight:0, display: isMobile ? "flex" : undefined, flexDirection: isMobile ? "column" : undefined },
+    stage:        isMobile
+      ? { flex:1, minHeight:0, position:"relative", display:"flex", flexDirection:"column" }
+      : { position:"absolute", inset:0 },
+    topbar:       { position: isMobile ? "relative" : "absolute", top:0, left:0, right:0, minHeight: isMobile ? 0 : 56, background: isMobile ? "var(--panel-solid)" : "linear-gradient(180deg, var(--topbar) 0%, transparent 100%)", display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, padding: isMobile ? "8px 12px 6px" : "10px 20px", pointerEvents:"auto", flexWrap:"wrap", zIndex: 12, borderBottom: isMobile ? `1px solid ${C.b0}` : "none", flexShrink: 0 },
+    // Dos tamaños de acción: con nombre y sólo icono.
+    accionPrimaria: { display:"inline-flex", alignItems:"center", gap:5, padding: isMobile ? "8px 12px" : "5px 11px", minHeight: isMobile ? 38 : undefined, borderRadius:8, border:`1px solid ${C.b0}`, fontSize:12, fontWeight:650, cursor:"pointer", fontFamily:C.sans, lineHeight:1.2 },
+    accionIcono:    { display:"grid", placeItems:"center", width: isMobile ? 38 : 26, height: isMobile ? 38 : 24, borderRadius:6, border:"none", background:"transparent", color:C.t1, cursor:"pointer", padding:0 },
+    glassPanel:   isMobile
+      ? { position:"relative", flex:1, minHeight:0, width:"auto", background:"var(--panel-solid)", display:"flex", flexDirection:"column", pointerEvents:"auto", zIndex:11 }
+      : { position:"absolute", top:72, left:20, bottom:20, width:368, background:"var(--panel-solid)", backdropFilter:"var(--glass-filter)", WebkitBackdropFilter:"var(--glass-filter)", border:`1px solid ${C.border}`, borderRadius:14, display:"flex", flexDirection:"column", pointerEvents:"auto", boxShadow:"0 18px 44px rgba(15,23,42,.28)" },
+    card:         { padding:"12px 20px", borderBottom:`1px solid var(--panel)`, cursor:"pointer", transition:"background 0.15s", background:"transparent" },
+    searchInput:  { width:"100%", background:"var(--panel)", border:`1px solid ${C.b0}`, color:C.t0, padding:"10px 14px 10px 38px", borderRadius:10, fontSize:14, outline:"none", transition:"border-color 0.2s", boxSizing:"border-box", minHeight: isMobile ? 44 : undefined },
+    input:        { width:"100%", boxSizing:"border-box", background:"var(--panel)", border:`1px solid ${C.b0}`, color:C.t0, padding:"10px 14px", borderRadius:9, fontSize:14, outline:"none", marginBottom:14, transition:"border-color 0.15s" },
+    label:        { fontSize:10, letterSpacing:1.3, color:C.t1, display:"block", marginBottom:6, textTransform:"uppercase", fontWeight: 600 },
+    modalOverlay: overlayFondo(isMobile),
+    modalBox:     overlayCaja(isMobile),
+  };
+
+  const hasNewCoords = form.latitud && form.longitud;
+
+  return (
+    <div className={isMobile ? "postventa postventa-cel" : "postventa"} style={S.page}>
+      <style>{`
+        /* Los tipos salen del tema del sistema. Antes esta pantalla se bajaba
+           dos familias propias por @import, que bloquea el render y ademas la
+           hacia ver distinta al resto de la app. */
+
+        /* OpenStreetMap sirve tiles claros. El tema por defecto es oscuro, asi
+           que se invierten: la rotacion de tono devuelve el agua a azul en vez
+           de dejarla naranja. Los pines viven en otra capa y no se tocan. */
+        /* Leaflet pinta el contenedor de #ddd por defecto y ese gris claro
+           asoma donde todavia no hay tiles: contra una UI oscura queda un
+           bloque blanco enorme. Va el fondo del tema. */
+        .leaflet-container { background: var(--bg) !important; }
+        .mapa-osm .leaflet-tile-pane { filter: invert(1) hue-rotate(180deg) brightness(.94) contrast(.92) saturate(.65); }
+        html[data-theme="light"] .mapa-osm .leaflet-tile-pane { filter: none; }
+        .leaflet-control-attribution { background: var(--panel-solid) !important; color: var(--dim) !important; font-size: 10px !important; }
+        .leaflet-control-attribution a { color: var(--blue) !important; }
+        /* Los barcos flotan. Dieciocho elementos, dos pixeles de recorrido y
+           tres segundos: se percibe vivo sin marear ni costar nada. El desfase
+           por pin evita que suban todos juntos, que se veria mecanico. */
+        .barco-pin { position:relative; width:34px; height:22px; display:flex; align-items:center; justify-content:center;
+                     filter: drop-shadow(0 2px 4px rgba(0,0,0,.55)); animation: barco-flota 3.4s ease-in-out infinite; }
+        .leaflet-marker-icon:nth-child(3n)   .barco-pin { animation-delay: -1.1s; }
+        .leaflet-marker-icon:nth-child(3n+1) .barco-pin { animation-delay: -2.2s; }
+        .barco-pin { flex-direction: column; gap: 2px; }
+        .barco-pin svg { position:relative; z-index:2; overflow:visible; }
+        /* Fondo propio y opaco: sobre una foto satelital un texto sin caja no
+           se lee, y el color del barco ya lo pone el borde. */
+        .barco-cod { position:relative; z-index:2; display:block; padding:1px 5px; border-radius:5px;
+                     background:rgba(9,14,20,.86); border:1px solid var(--tono);
+                     color:#fff; font-family:${C.mono}; font-size:9.5px; font-weight:600;
+                     letter-spacing:.2px; white-space:nowrap; line-height:1.5;
+                     box-shadow:0 2px 5px rgba(0,0,0,.45); }
+        .barco-halo { position:absolute; left:50%; top:11px; width:30px; height:30px; margin:-15px 0 0 -15px;
+                      border-radius:50%; border:2px solid var(--tono); opacity:.55;
+                      animation: pin-pulse 2.2s ease-out infinite; }
+        .icono-barco { transition: transform .18s ease; }
+        .icono-barco { cursor: grab; }
+        .icono-barco:hover { transform: scale(1.22); z-index: 1000 !important; }
+        .leaflet-marker-draggable.leaflet-drag-target, .icono-barco:active { cursor: grabbing; }
+        /* Mientras se arrastra deja de flotar: el vaiven pelea con el puntero. */
+        .leaflet-drag-target .barco-pin { animation: none; }
+        @keyframes barco-flota { 0%,100%{transform:translateY(0) rotate(-.6deg)} 50%{transform:translateY(-2px) rotate(.6deg)} }
+        @keyframes pin-pulse { 0%{transform:scale(0.5);opacity:0.55} 100%{transform:scale(1.7);opacity:0} }
+        @media (prefers-reduced-motion: reduce) {
+          .barco-pin, .barco-halo { animation: none !important; }
+        }
+        .boat-card { transition: background .15s ease, border-color .15s ease; }
+        .boat-card { transition: background .15s ease, box-shadow .18s ease; }
+        .boat-card:hover { background:var(--panel-2) !important; box-shadow: inset 2px 0 0 ${C.blue}; }
+        .flota-accion, .flota-seg { transition: border-color .14s ease, color .14s ease, background .14s ease; }
+        .flota-accion:hover, .flota-seg:hover { border-color: ${C.blueB} !important; color: ${C.blue} !important; }
+        .boat-card:focus-visible { outline:2px solid var(--blue); outline-offset:-2px }
+        /* Borrar se atenúa hasta pasar por la tarjeta. */
+        .boat-borrar { opacity:.35; transition:opacity .15s ease, color .15s ease }
+        .boat-card:hover .boat-borrar { opacity:1 }
+        .boat-borrar:hover { color:var(--red) !important }
+        .postventa button { transition: border-color .15s ease, background .15s ease, color .15s ease; }
+        .postventa button:focus-visible, .postventa input:focus-visible, .postventa select:focus-visible { outline:2px solid var(--blue); outline-offset:2px }
+        .postventa .chip { transition: border-color .15s ease, background .15s ease; }
+        .postventa .chip:hover { border-color: var(--border-3) }
+        .leaflet-popup-content-wrapper { background:rgba(6,10,20,0.96) !important;backdrop-filter:blur(20px);color:#dde2ea;border:1px solid rgba(255,255,255,0.14) !important;border-radius:14px !important;box-shadow:0 16px 48px rgba(0,0,0,0.9) !important;padding:0 !important }
+        .leaflet-popup-content { margin:0 !important }
+        .leaflet-popup-tip-container { display:none }
+        .leaflet-container a.leaflet-popup-close-button { color:rgba(255,255,255,0.3) !important;top:14px !important;right:14px !important;font-size:18px !important;z-index:10 }
+        .postventa .pv-filtros { scrollbar-width: none; }
+        .postventa .pv-filtros::-webkit-scrollbar { display: none; }
+        .postventa-cel { overflow-x: hidden; }
+        .postventa-cel .boat-borrar { opacity: 1; }
+        .postventa-cel .boat-card { padding: 12px 14px; }
+        .postventa-cel .leaflet-popup { max-width: min(300px, calc(100vw - 32px)) !important; }
+        .postventa-cel .leaflet-popup-content-wrapper { max-width: 100%; }
+        .postventa-cel .leaflet-popup-content { max-width: 100%; }
+        ${isSelecting ? ".leaflet-container { cursor:crosshair !important }" : ""}
+      `}</style>
+
+      {/* MAPA */}
+      <div style={S.mapLayer} className={baseMapa === "mapa" ? "mapa-osm" : "mapa-satelite"}>
+        <MapContainer center={mapCenter} zoom={13} style={{ width:"100%", height:"100%" }} ref={setMapaRef} zoomControl={false}>
+          <MapResizer />
+          <ZoomWatcher onZoom={setZoom} />
+          <MapEventsHandler isSelecting={isSelecting} onLocationSelected={handleLocationSelected} />
+          {/*
+            CARTO dejo de servir sus tiles sin cuenta: siguen respondiendo 200
+            pero con "API KEY REQUIRED" estampado sobre el mapa, que es lo que se
+            veia. OpenStreetMap es el unico proveedor libre sin ambiguedad de
+            licencia; pide atribucion y nada mas.
+
+            Sus tiles son claros, asi que en modo oscuro se los invierte por CSS
+            -ver .leaflet-tile en el bloque de estilos- en vez de pagar un
+            proveedor de tiles oscuros.
+          */}
+          {baseMapa === "satelite" ? (
+            <TileLayer
+              key="satelite"
+              url="https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              attribution="Imágenes: Esri, Maxar, Earthstar Geographics"
+              maxZoom={19}
+            />
+          ) : (
+            <TileLayer
+              key="mapa"
+              url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              maxZoom={19}
+            />
+          )}
+          {/* Solo pinear los barcos que tienen coords */}
+          {barcosFiltrados
+            .filter(b => b.latitud && b.longitud)
+            .filter(b => !soloBarco || b.id === soloBarco)
+            .map(barco => (
+            <Marker
+              key={barco.id}
+              position={[barco.latitud, barco.longitud]}
+              icon={getIcon(getTickets(barco), barco.nombre_barco, zoom >= UMBRAL_CODIGO)}
+              draggable={!isMobile}
+              autoPan
+              eventHandlers={{
+                dragend: (e) => {
+                  const { lat, lng } = e.target.getLatLng();
+                  moverBarco(barco, lat, lng);
+                },
+              }}
+            >
+              <Popup>
+                <TicketPopupContent
+                  barco={barco}
+                  tickets={getTickets(barco)}
+                  onVerTodos={()=>setDrawerBarco({ barco, tickets:getTickets(barco) })}
+                />
+              </Popup>
+            </Marker>
+          ))}
+          {hasNewCoords && showModal && (
+            <Marker position={[parseFloat(form.latitud), parseFloat(form.longitud)]} icon={ICON_NEW} />
+          )}
+        </MapContainer>
+      </div>
+
+      {/* UI LAYER */}
+      <div style={S.uiLayer}>
+        <div style={S.mainUI}>
+          {/* Avisa que el mapa está filtrado y da la salida. */}
+          {!isSelecting && (
+            <div style={S.topbar}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", minWidth:0, flex:1 }}>
+                <span style={{ fontWeight:650, fontSize: isMobile ? 15 : 16, letterSpacing:0.5, color:C.t0 }}>Post Venta</span>
+                {!isMobile && <span style={{ fontSize:12, color:C.t1, letterSpacing:1.3, textTransform:"uppercase" }}>· Flota</span>}
+                <div style={{ padding:"2px 10px", borderRadius:99, background:tinta(C.green, 0.1), border:`1px solid ${tinta(C.green, 0.25)}`, fontSize:12, fontFamily:C.mono, color:C.green, fontWeight: 600 }}>
+                  {barcosFiltrados.length}
+                </div>
+                {totalTicketsPendientes > 0 && (
+                  <div style={{ padding:"2px 10px", borderRadius:99, background:tinta(C.red, 0.15), border:`1px solid ${tinta(C.red, 0.35)}`, fontSize:12, fontFamily:C.mono, color:C.red, fontWeight:600 }}>
+                    <Circle size={7} color={C.red} fill={C.red} style={{marginRight:4}}/> {totalTicketsPendientes}{isMobile ? "" : ` pendiente${totalTicketsPendientes>1?"s":""}`}
+                  </div>
+                )}
+                {sinGpsCount > 0 && !isMobile && (
+                  <div
+                    onClick={() => setSoloSinGps(s => !s)}
+                    style={{ padding:"2px 10px", borderRadius:99, background: soloSinGps ? tinta(C.violet, 0.2) : tinta(C.violet, 0.08), border: soloSinGps ? `1px solid ${tinta(C.violet, 0.6)}` : `1px solid ${tinta(C.violet, 0.3)}`, fontSize:12, fontFamily:C.mono, color:C.violet, fontWeight: 600, cursor:"pointer", pointerEvents:"auto" }}
+                    title="Barcos sin ubicación GPS — clic para filtrar"
+                  >
+                    <MapPin size={9} style={{marginRight:3}}/> {sinGpsCount} sin GPS
+                  </div>
+                )}
+              </div>
+              <div style={{ display:"flex", alignItems:"center", gap:8, flexShrink:0 }}>
+                {!isMobile && (
+                  <button
+                    type="button"
+                    onClick={() => plegarBarra(!barraPlegada)}
+                    className="flota-seg"
+                    title={barraPlegada ? "Mostrar el menú del sistema" : "Ocultar el menú y ganar mapa"}
+                    aria-label={barraPlegada ? "Mostrar el menú" : "Ocultar el menú"}
+                    style={{ border:`1px solid ${C.b0}`, background:"var(--panel)", color:C.t1, borderRadius:9, padding:"7px 10px", cursor:"pointer", fontFamily:C.sans, fontSize:13, fontWeight:650, lineHeight:1 }}
+                  >
+                    {barraPlegada ? "☰" : "⟨"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={isMobile ? "ui-btn ui-btn-primario ui-btn-icono" : "ui-btn ui-btn-primario"}
+                  onClick={()=>{ setForm({nombre_barco:"",propietario:"",ubicacion_general:"",detalle_ubicacion:"",latitud:"",longitud:"",link_maps:"",obra_id:""}); setShowLocPrev(false); setShowModal(true); }}
+                  aria-label="Nueva embarcación"
+                >
+                  <Plus size={16} />{isMobile ? "" : " Nueva embarcación"}
+                </button>
+              </div>
+              {isMobile && (
+                <div className="ui-tabs" style={{ width:"100%", flexBasis:"100%" }} role="tablist" aria-label="Vista">
+                  <button type="button" className="ui-tab" role="tab" aria-selected={vistaCel==="mapa"} onClick={()=>setVistaCel("mapa")} style={{ flex:1 }}>Mapa</button>
+                  <button type="button" className="ui-tab" role="tab" aria-selected={vistaCel==="lista"} onClick={()=>setVistaCel("lista")} style={{ flex:1 }}>Flota</button>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div style={S.stage}>
+          {soloBarco && (!isMobile || vistaCel === "mapa") && (() => {
+            const aislado = flota.find(b => b.id === soloBarco);
+            return (
+              <div style={{ position:"absolute", top: isMobile ? 8 : 76, left:12, right:12, zIndex:900, pointerEvents:"auto", display:"flex", alignItems:"center", gap:10, padding:"7px 9px 7px 14px", borderRadius:12, background:"var(--panel-solid)", border:`1px solid ${tinta(C.violet, 0.45)}`, maxWidth: isMobile ? "none" : 460, margin: isMobile ? 0 : "0 auto" }}>
+                <Focus size={13} color={C.violet} />
+                <span style={{ fontSize:12.5, color:C.t0, fontWeight:600, minWidth:0, flex:1 }}>
+                  Enfocado en <b style={{ color:C.violet }}>{aislado?.nombre_barco || "un barco"}</b>
+                </span>
+                <button type="button" onClick={()=>setSoloBarco(null)}
+                  className="ui-btn"
+                  style={{ minHeight: 38, padding:"0 12px", fontSize:11.5 }}>
+                  Quitar
+                </button>
+              </div>
+            );
+          })()}
+          {isSelecting && (
+            <div
+              style={{ position:"absolute", top: isMobile ? 8 : 76, left:12, right:12, background:C.green, color:"var(--inverse-text)", padding:"12px 16px", borderRadius:12, fontWeight:600, fontSize:14, pointerEvents:"auto", display:"flex", alignItems:"center", gap:10, zIndex:30, cursor:"pointer", flexWrap:"wrap" }}
+              onClick={()=>{ setIsSelecting(false); setShowModal(true); }}
+            >
+              <div style={{ width:8, height:8, borderRadius:"50%", background:"currentColor", opacity:0.5, flexShrink:0 }} />
+              <span style={{ flex:1, minWidth:0, lineHeight:1.35 }}>Tocá el mapa en la ubicación exacta del barco</span>
+              <span style={{ opacity:0.7, fontSize:12 }}>cancelar</span>
+            </div>
+          )}
+
+          {!isSelecting && (!isMobile || vistaCel === "lista") && (
+            <div style={S.glassPanel}>
+              {/* Barra de búsqueda y filtros */}
+              <div style={{ padding: isMobile ? "12px 14px 10px" : "14px 20px 12px", borderBottom:`1px solid ${C.b0}`, flexShrink:0 }}>
+                <div style={{ position:"relative", marginBottom:10 }}>
+                  <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", fontSize:14, color:C.t1, pointerEvents:"none" }}>⌕</span>
+                  <input type="text" placeholder="Buscar barco, propietario, obra…" style={S.searchInput} value={filtro} onChange={e=>setFiltro(e.target.value)} />
+                </div>
+                <div className="pv-filtros" style={{ display:"flex", gap:6, flexWrap:"nowrap", overflowX:"auto" }}>
+                  <button type="button" onClick={()=>setSoloActivos(a=>!a)} style={{ display:"flex", alignItems:"center", gap:7, padding:"5px 12px", minHeight:38, flexShrink:0, borderRadius:8, border:soloActivos?`1px solid ${tinta(C.red, 0.5)}`:`1px solid ${C.b0}`, background:soloActivos?tinta(C.red, 0.12):"transparent", color:soloActivos?C.red:C.t1, fontSize:12, fontWeight: 600, cursor:"pointer", transition:"all 0.15s" }}>
+                    <span style={{ width:7, height:7, borderRadius:"50%", background:soloActivos?C.red:C.t2 }} />
+                    Con tickets
+                  </button>
+                  {sinGpsCount > 0 && (
+                    <button type="button" onClick={()=>setSoloSinGps(s=>!s)} style={{ display:"flex", alignItems:"center", gap:7, padding:"5px 12px", minHeight:38, flexShrink:0, borderRadius:8, border:soloSinGps?`1px solid ${tinta(C.violet, 0.5)}`:`1px solid ${C.b0}`, background:soloSinGps?tinta(C.violet, 0.12):"transparent", color:soloSinGps?C.violet:C.t1, fontSize:12, fontWeight: 600, cursor:"pointer", transition:"all 0.15s" }}>
+                      <MapPin size={9} style={{marginRight:3}}/> Sin ubicación · {sinGpsCount}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Lista de barcos */}
+              <div style={{ flex:1, overflowY:"auto" }}>
+                {loading ? (
+                  <div style={{ padding:"50px 20px", color:C.t2, fontSize:12, textAlign:"center", letterSpacing:1.3, textTransform:"uppercase", fontFamily:C.mono }}>Sincronizando…</div>
+                ) : barcosFiltrados.length === 0 ? (
+                  <div style={{ padding:"50px 20px", textAlign:"center" }}>
+                    <div style={{ fontSize:12, color:C.t2, letterSpacing:1.3, textTransform:"uppercase", fontFamily:C.mono }}>Sin registros</div>
+                    {(filtro||soloActivos||soloSinGps) && <button onClick={()=>{ setFiltro(""); setSoloActivos(false); setSoloSinGps(false); }} style={{ marginTop:10, background:"transparent", border:`1px solid ${C.b0}`, color:C.t1, padding:"5px 14px", borderRadius:8, cursor:"pointer", fontSize:12 }}>Limpiar filtros</button>}
+                  </div>
+                ) : barcosFiltrados.map(b => {
+                  const bTickets  = getTickets(b);
+                  const pendCount = bTickets.filter(t=>t.estado==="pendiente").length;
+                  const procCount = bTickets.filter(t=>t.estado==="en_proceso").length;
+                  const solCount  = bTickets.filter(t=>t.estado==="solucionado").length;
+                  const sinGps    = !b.latitud || !b.longitud;
+                  const enfocado  = soloBarco === b.id;
+                  return (
+                    <div key={b.id} style={{ ...S.card, borderLeft: sinGps ? `2px solid ${tinta(C.violet, 0.4)}` : "2px solid transparent" }} className="boat-card" onClick={()=>!sinGps && centrarMapa(b.latitud,b.longitud)}>
+                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:4 }}>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                            <span style={{ fontSize:14, color:C.t0, fontWeight:600, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                              {b.nombre_barco}
+                            </span>
+                            {sinGps && (
+                              <span style={{ fontSize:10, padding:"1px 6px", borderRadius:4, background:tinta(C.violet, 0.15), border:`1px solid ${tinta(C.violet, 0.3)}`, color:C.violet, flexShrink:0 }}>sin ubicación</span>
+                            )}
+                          </div>
+                          <div style={{ fontSize:12, color:C.t2, marginTop:1 }}>{b.propietario || "—"}</div>
+                        </div>
+                        <div style={{ display:"flex", gap:5, flexShrink:0, marginLeft:8 }}>
+                          {pendCount > 0 && <span style={{ padding:"2px 8px", borderRadius:99, background:tinta(C.red, 0.15), border:`1px solid ${tinta(C.red, 0.35)}`, color:C.red, fontSize:10, fontWeight:600 }} title={`${pendCount} pendiente${pendCount === 1 ? "" : "s"}`}>{pendCount}</span>}
+                          {procCount > 0 && <span style={{ padding:"2px 8px", borderRadius:99, background:tinta(C.violet, 0.15), border:`1px solid ${tinta(C.violet, 0.35)}`, color:C.violet, fontSize:10, fontWeight:600 }} title={`${procCount} en proceso`}>{procCount}</span>}
+                          {solCount  > 0 && <span style={{ padding:"2px 8px", borderRadius:99, background:tinta(C.green, 0.15), border:`1px solid ${tinta(C.green, 0.35)}`, color:C.green, fontSize:10, fontWeight:600 }} title={`${solCount} solucionado${solCount === 1 ? "" : "s"}`}>✓{solCount}</span>}
+                          <button type="button" onClick={e=>eliminarBarco(e,b.id,b.nombre_barco)} className="boat-borrar" style={{ background:"transparent", border:"none", color:C.t2, cursor:"pointer", padding: isMobile ? 8 : 3, marginLeft:4, display:"flex", minHeight: isMobile ? 38 : undefined, minWidth: isMobile ? 38 : undefined, alignItems:"center", justifyContent:"center" }} title="Eliminar" aria-label="Eliminar"><XIcon size={13}/></button>
+                        </div>
+                      </div>
+
+                      {/* Obra vinculada — obra directa, o heredada del cliente */}
+                      {(b.obras || b.obra_id || b.cliente_id) ? (
+                        <div style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"1px 7px", borderRadius:5, background:tinta(C.blue, 0.08), border:`1px solid ${tinta(C.blue, 0.2)}`, marginBottom:6 }}>
+                          <span style={{ fontFamily:C.mono, fontSize:11, color:C.blue, fontWeight:600 }}>
+                            {b.obras ? `Obra ${b.obras.codigo}` : "Obra vinculada"}
+                          </span>
+                        </div>
+                      ) : (
+                        <div style={{ display:"inline-flex", padding:"1px 7px", borderRadius:5, background:"var(--panel)", border:"1px solid var(--panel-2)", marginBottom:6 }}>
+                          <span style={{ fontSize:10, color:C.border2 }}>Sin obra vinculada</span>
+                        </div>
+                      )}
+
+                      <div style={{ marginBottom:8 }}>
+                        {b.ubicacion_general
+                          ? <span style={{ fontSize:13, color:C.muted }}>{b.ubicacion_general}{b.detalle_ubicacion && <span style={{ fontSize:12, color:C.t1 }}> · {b.detalle_ubicacion}</span>}</span>
+                          : <span style={{ fontSize:12, color:C.border2, }}>Sin ubicación</span>
+                        }
+                      </div>
+
+                      {/* Acciones en dos niveles: las de uso diario con su
+                          nombre, el resto agrupadas como iconos. */}
+                      <div style={{ display:"flex", gap:6, alignItems:"center", flexWrap:"wrap" }}>
+                        {!sinGps && (
+                          <button
+                            title={enfocado ? "Ver toda la flota" : "Ver sólo este barco"}
+                            style={{ ...S.accionPrimaria, background: enfocado ? tinta(C.violet, 0.16) : "var(--panel)", borderColor: enfocado ? tinta(C.violet, 0.45) : C.b0, color: enfocado ? C.violet : C.t1 }}
+                            onClick={e=>{ e.stopPropagation(); setSoloBarco(enfocado ? null : b.id); if (!enfocado) centrarMapa(b.latitud, b.longitud); }}>
+                            <Focus size={12}/> {enfocado ? "Enfocado" : "Enfocar"}
+                          </button>
+                        )}
+
+                        <button
+                          title="Ficha del barco"
+                          style={{ ...S.accionPrimaria, background:tinta(C.green, 0.1), borderColor:tinta(C.green, 0.3), color:C.green }}
+                          onClick={e=>{ e.stopPropagation(); setFichaBarco(b); }}>
+                          <FileText size={12}/> Ficha
+                        </button>
+
+                        <button
+                          title="Editar"
+                          style={{ ...S.accionPrimaria, background:tinta(C.blue, 0.08), borderColor:tinta(C.blue, 0.25), color:C.blue }}
+                          onClick={e=>{ e.stopPropagation(); setEditBarco({ barco: b, autoFocusGps: false }); }}>
+                          <Pencil size={12}/> Editar
+                        </button>
+
+                        {sinGps && (
+                          <button
+                            title="Cargar ubicación"
+                            style={{ ...S.accionPrimaria, background:tinta(C.violet, 0.12), borderColor:tinta(C.violet, 0.4), color:C.violet }}
+                            onClick={e=>{ e.stopPropagation(); setEditBarco({ barco: b, autoFocusGps: true }); }}>
+                            <MapPin size={12}/> Ubicación
+                          </button>
+                        )}
+
+                        {bTickets.length > 0 && (
+                          <button
+                            title="Tickets"
+                            style={{ ...S.accionPrimaria, background:tinta(C.red, 0.08), borderColor:tinta(C.red, 0.25), color:C.red }}
+                            onClick={e=>{ e.stopPropagation(); setDrawerBarco({barco:b,tickets:bTickets}); }}>
+                            <Ticket size={12}/> {bTickets.length}
+                          </button>
+                        )}
+
+                        <span style={{ flex:1 }} />
+
+                        <div style={{ display:"flex", gap:1, border:`1px solid ${C.b0}`, borderRadius:8, padding:2, background:"var(--panel)" }}>
+                          {!sinGps && (
+                            <>
+                              <button className="flota-accion" style={S.accionIcono} title="Centrar en el mapa"
+                                onClick={e=>{ e.stopPropagation(); centrarMapa(b.latitud,b.longitud); }}><Crosshair size={12}/></button>
+                              <button className="flota-accion" style={S.accionIcono} title="Ver en 3D"
+                                onClick={e=>{ e.stopPropagation(); verEnEarth3D(b.latitud, b.longitud); }}><Globe size={12}/></button>
+                              <button className="flota-accion" style={S.accionIcono} title="Street View"
+                                onClick={e=>{ e.stopPropagation(); verEnStreetView(b.latitud, b.longitud); }}><Eye size={12}/></button>
+                            </>
+                          )}
+                          <button className="flota-accion" style={S.accionIcono} title="Compartir por WhatsApp"
+                            onClick={e=>compartirWhatsApp(e,b)}><ExternalLink size={12}/></button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Leyenda */}
+              <div style={{ padding: isMobile ? "10px 14px calc(10px + env(safe-area-inset-bottom, 0px))" : "12px 20px", borderTop:`1px solid ${C.b0}`, display:"flex", gap:14, flexShrink:0, flexWrap:"wrap" }}>
+                {[
+                  {color:C.green,  label:"Sin tickets"},
+                  {color:C.cyan,   label:"En proceso"},
+                  {color:C.red,    label:"Pendiente"},
+                  {color:C.violet, label:"Sin ubicación", border:true},
+                ].map(l=>(
+                  <div key={l.label} style={{ display:"flex", alignItems:"center", gap:5 }}>
+                    {l.border
+                      ? <span style={{ width:7, height:7, borderRadius:2, border:`1px solid ${l.color}`, background:"transparent" }} />
+                      : <span style={{ width:7, height:7, borderRadius:"50%", background:l.color, boxShadow:`0 0 5px ${l.color}88` }} />
+                    }
+                    <span style={{ fontSize:11, color:C.t2 }}>{l.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          </div>
+        </div>
+      </div>
+
+      {/* Fondo del mapa — control flotante, como en cualquier mapa */}
+      {(!isMobile || vistaCel === "mapa" || isSelecting) && (
+        <div style={{
+          // Escritorio: arriba a la derecha. En el celular, abajo, para no
+          // tapar la barra de pestañas ni la campana del sistema.
+          position:"absolute",
+          right: isMobile ? 12 : 18,
+          top: isMobile ? undefined : 72,
+          bottom: isMobile ? "calc(16px + env(safe-area-inset-bottom, 0px))" : undefined,
+          zIndex:20, pointerEvents:"auto",
+          display:"inline-flex", padding:3, gap:3, borderRadius:11,
+          border:`1px solid ${C.b1}`, background:"var(--topbar-soft)",
+          backdropFilter:"var(--glass-filter)", WebkitBackdropFilter:"var(--glass-filter)",
+          boxShadow:"0 8px 24px rgba(0,0,0,.35)",
+        }}>
+          {[{ v:"mapa", t:"Mapa" }, { v:"satelite", t:"Satélite" }].map((o) => (
+            <button
+              key={o.v}
+              type="button"
+              onClick={() => setBaseMapa(o.v)}
+              className="flota-seg"
+              aria-pressed={baseMapa === o.v}
+              style={{
+                border:"none", borderRadius:8, padding: isMobile ? "8px 14px" : "6px 13px", minHeight: isMobile ? 38 : undefined, cursor:"pointer", fontFamily:C.sans,
+                fontSize:12.5, fontWeight: baseMapa === o.v ? 650 : 600,
+                background: baseMapa === o.v ? C.blueL : "transparent",
+                color: baseMapa === o.v ? C.blue : C.t1,
+              }}
+            >{o.t}</button>
+          ))}
+        </div>
+      )}
+
+      {/* Deshacer el ultimo arrastre */}
+      {ultimoMovido && (
+        <div style={{
+          position:"absolute",
+          left: isMobile ? 12 : "50%",
+          right: isMobile ? 12 : "auto",
+          bottom: isMobile ? "calc(64px + env(safe-area-inset-bottom, 0px))" : 26,
+          transform: isMobile ? "none" : "translateX(-50%)",
+          zIndex:30, pointerEvents:"auto",
+          display:"flex", alignItems:"center", gap:12,
+          background:"var(--topbar-soft)", border:`1px solid ${C.b1}`, borderRadius:11, padding:"9px 12px 9px 15px",
+          backdropFilter:"var(--glass-filter)", WebkitBackdropFilter:"var(--glass-filter)",
+          boxShadow:"0 10px 30px rgba(0,0,0,.4)", maxWidth: isMobile ? "none" : "min(92vw, 460px)",
+        }}>
+          <span style={{ color:C.t0, fontSize:12.5, fontWeight:650, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+            <strong style={{ fontWeight:700 }}>{ultimoMovido.nombre}</strong> quedó en su nueva posición
+          </span>
+          <button
+            type="button"
+            onClick={deshacerMovimiento}
+            className="ui-btn"
+            style={{ flexShrink:0 }}
+          >Deshacer</button>
+          <button
+            type="button"
+            onClick={() => setUltimoMovido(null)}
+            className="ui-btn ui-btn-icono"
+            aria-label="Cerrar"
+          >×</button>
+        </div>
+      )}
+
+      {/* Modal nueva embarcación */}
+      {showModal && (
+        <div style={S.modalOverlay} onClick={e=>e.target===e.currentTarget && setShowModal(false)}>
+          <div style={S.modalBox}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:26 }}>
+              <div><div style={{ fontSize:17, color:C.t0, fontWeight:600 }}>Nueva embarcación</div><div style={{ fontSize:12, color:C.t1, marginTop:4 }}>Completá los datos y la ubicación</div></div>
+              <button type="button" onClick={()=>setShowModal(false)} className="ui-btn ui-btn-icono" aria-label="Cerrar">×</button>
+            </div>
+            <div style={{ marginBottom:20 }}>
+              <div style={{ fontSize:10, letterSpacing:1.3, color:C.t1, textTransform:"uppercase", fontWeight: 600, marginBottom:10 }}>Ubicación GPS</div>
+              <div style={{ padding:"14px 16px", borderRadius:12, marginBottom:10, border:hasNewCoords&&form.link_maps?`1px solid ${tinta(C.green, 0.3)}`:`1px solid ${C.b0}`, background:hasNewCoords&&form.link_maps?tinta(C.green, 0.05):"rgba(255,255,255,0.02)" }}>
+                <label style={{ ...S.label, marginBottom:8, color:C.blue }}>Opción A · Pegar link o coordenadas de Google Maps</label>
+                <input style={{ ...S.input, marginBottom:0, borderColor:"rgba(74,144,226,0.3)", background:"rgba(74,144,226,0.04)", color:hasNewCoords?C.green:C.t0 }} placeholder="Ej: -34.4183, -58.5846  ó  link largo de Maps" value={form.link_maps} onChange={handleMapsInput} />
+                {hasNewCoords && form.link_maps && showLocPrev && <LocationPreview lat={form.latitud} lng={form.longitud} />}
+              </div>
+              <div style={{ display:"flex", alignItems:"center", gap:10, margin:"4px 0 8px" }}>
+                <div style={{ flex:1, height:1, background:C.b0 }} /><span style={{ fontSize:10, color:C.t2, letterSpacing:1.3, textTransform:"uppercase" }}>o</span><div style={{ flex:1, height:1, background:C.b0 }} />
+              </div>
+              <button type="button" style={{ width:"100%", background:"var(--panel)", border:`1px solid ${C.b1}`, color:C.t0, padding:"12px 16px", borderRadius:10, fontSize:14, fontWeight:600, cursor:"pointer", marginBottom:14, textAlign:"left", display:"flex", alignItems:"center", gap:10 }}
+                onClick={()=>{ setShowModal(false); setIsSelecting(true); if (isMobile) setVistaCel("mapa"); }}>
+                <div style={{ width:28, height:28, borderRadius:8, background:"var(--panel-2)", border:`1px solid ${C.b0}`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><Crosshair size={14}/></div>
+                <div><div style={{ fontSize:13, fontWeight:600, color:C.t0 }}>Opción B · Marcar en el mapa</div><div style={{ fontSize:12, color:C.t1, marginTop:2 }}>Hacé clic directo en el lugar exacto</div></div>
+              </button>
+            </div>
+            <div style={{ borderTop:`1px solid ${C.b0}`, paddingTop:20 }}>
+              <div style={{ fontSize:10, letterSpacing:1.3, color:C.t1, textTransform:"uppercase", fontWeight: 600, marginBottom:14 }}>Datos de la embarcación</div>
+              <form onSubmit={registrarBarco}>
+                <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:12 }}>
+                  <div><label style={S.label}>Nombre *</label><input required style={S.input} placeholder="K37 Margarita" value={form.nombre_barco} onChange={e=>setForm({...form,nombre_barco:e.target.value})} /></div>
+                  <div><label style={S.label}>Propietario</label><input style={S.input} placeholder="Nombre completo" value={form.propietario} onChange={e=>setForm({...form,propietario:e.target.value})} /></div>
+                </div>
+                <div style={{ display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap:12 }}>
+                  <div><label style={S.label}>Lugar *</label><input required style={S.input} placeholder="Marina del Norte" value={form.ubicacion_general} onChange={e=>setForm({...form,ubicacion_general:e.target.value})} /></div>
+                  <div><label style={S.label}>Detalle</label><input style={S.input} placeholder="Lote 45" value={form.detalle_ubicacion} onChange={e=>setForm({...form,detalle_ubicacion:e.target.value})} /></div>
+                </div>
+                <ObraSelector
+                  value={form.obra_id}
+                  onChange={v=>setForm(f=>({...f,obra_id:v}))}
+                  obras={obras}
+                />
+                <div style={{ display:"flex", gap:10, marginTop:4, flexDirection: isMobile ? "column-reverse" : "row" }}>
+                  <button type="submit" className="ui-btn ui-btn-primario" style={{ flex:1 }}>Guardar</button>
+                  <button type="button" onClick={()=>setShowModal(false)} className="ui-btn">Cancelar</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {fichaBarco && (
+        <FichaBarco
+          barco={fichaBarco}
+          onCerrar={() => setFichaBarco(null)}
+          onCambio={(actualizado) => {
+            setFlota(f => f.map(b => (b.id === actualizado.id ? { ...b, ...actualizado } : b)));
+            setFichaBarco(actualizado);
+          }}
+        />
+      )}
+
+      {editBarco && (
+        <EditModal
+          barco={editBarco.barco}
+          obras={obras}
+          autoFocusGps={editBarco.autoFocusGps}
+          onSave={()=>{ setEditBarco(null); cargarFlota(); }}
+          onClose={()=>setEditBarco(null)}
+        />
+      )}
+      {drawerBarco && (
+        <TicketDrawer
+          barco={drawerBarco.barco}
+          tickets={getTickets(drawerBarco.barco)}
+          onClose={()=>setDrawerBarco(null)}
+          onUpdateStatus={updateTicketStatus}
+        />
+      )}
+    </div>
+  );
+}

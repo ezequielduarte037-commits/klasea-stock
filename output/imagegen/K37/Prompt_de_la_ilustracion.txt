@@ -1,0 +1,9 @@
+K37 - Ilustración de portada
+
+Método: herramienta integrada de generación de imágenes (image_gen), en modo de edición con referencia. No se utilizó la API ni el modo CLI.
+Referencia: fotografía de portada del manual original. La ilustración es editorial y no un plano técnico ni una fotografía de la configuración FB entregada.
+Archivo final: K37_ilustracion_portada.png
+
+Prompt utilizado:
+
+Use case: style-transfer. Asset: wide editorial illustration for the cover of a premium yacht owner's manual. Edit target: supplied photograph of the K37 boat. Create an elegant finely detailed architectural yacht illustration based strictly on this visible vessel, retaining its actual visible silhouette, grey soft top, window geometry, dark navy hull with silver stripe, circular portholes, railings, and proportions. Clearly a refined illustration, not a product photograph. Boat fully within frame, same side perspective bow right. Replace busy marina background with a minimal midnight navy blue background #102B3A and a few elegant faint water contour lines. Remove people, background buildings, other boats, ropes and dangling fenders. Do not invent engines or unseen technical equipment. Restrained silver, off-white and slate blue line work and subtle shaded surfaces. Luxurious technical editorial style, generous empty margin around vessel, landscape 3:2. No text, no logo, no watermark. This is a decorative interpretation of the source, not a technical plan.

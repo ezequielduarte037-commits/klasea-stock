@@ -1,0 +1,51 @@
+{
+  "items": [
+    {
+      "id": "a0d22bab-53e7-4e93-aa4c-571a16beab39",
+      "notes": "Imagen de precios Audio 52-25 informada por Ezequiel 02/11/2026. Código 010-02138-00. Precio por unidad: ARS 1194250; cantidad 1; importe cotizado ARS 1194250. Se conserva el importe del renglón de la imagen; no se agregan impuestos no indicados.",
+      "material_id": "2caad168-3b46-46ba-9752-d4d226496c0d"
+    },
+    {
+      "id": "dcf71b3b-e0cd-44ca-8371-d10c69556059",
+      "notes": "Imagen de precios Audio 52-25 informada por Ezequiel 02/11/2026. Código 010-03067-00. Precio por juego: ARS 769775.21; cantidad 3; importe cotizado ARS 2309325.62. Se conserva el importe del renglón de la imagen; no se agregan impuestos no indicados.",
+      "material_id": "d1a9db29-e1e9-45fe-82f4-d1dccdef7192"
+    },
+    {
+      "id": "0c57d9f0-d6c0-4c30-8fc7-aee1ec2c659f",
+      "notes": "Imagen de precios Audio 52-25 informada por Ezequiel 02/11/2026. Código 010-03268-00. Precio por juego: ARS 1543093.39; cantidad 1; importe cotizado ARS 1543093.39. Se conserva el importe del renglón de la imagen; no se agregan impuestos no indicados.",
+      "material_id": "88ba4542-9b18-4fa9-b34f-d84fb4ca7b2c"
+    },
+    {
+      "id": "8ad12dbf-9463-42bc-bfe4-05bdd09371f0",
+      "notes": "Imagen de precios Audio 52-25 informada por Ezequiel 02/11/2026. Código 010-03264-00. Precio por unidad: ARS 675324.79; cantidad 1; importe cotizado ARS 675324.79. Se conserva el importe del renglón de la imagen; no se agregan impuestos no indicados.",
+      "material_id": "818c1b90-7d9a-440e-8742-7ba5f052bfb9"
+    },
+    {
+      "id": "c8ecb392-9500-41c1-9dc4-bac5c0c49842",
+      "notes": "Imagen de precios Audio 52-25 informada por Ezequiel 02/11/2026. Código 010-13715-00. Precio por juego: ARS 612750.41; cantidad 1; importe cotizado ARS 612750.41. Se conserva el importe del renglón de la imagen; no se agregan impuestos no indicados.",
+      "material_id": "e08a669f-398b-438f-9fdb-9479e0ea36c7"
+    }
+  ],
+  "mats": [
+    {
+      "id": "2caad168-3b46-46ba-9752-d4d226496c0d",
+      "notas": "Imagen de precios Audio 52-25 informada por Ezequiel 02/11/2026. Código 010-02138-00. Precio por unidad: ARS 1194250; cantidad 1; importe cotizado ARS 1194250. Se conserva el importe del renglón de la imagen; no se agregan impuestos no indicados."
+    },
+    {
+      "id": "818c1b90-7d9a-440e-8742-7ba5f052bfb9",
+      "notas": "Imagen de precios Audio 52-25 informada por Ezequiel 02/11/2026. Código 010-03264-00. Precio por unidad: ARS 675324.79; cantidad 1; importe cotizado ARS 675324.79. Se conserva el importe del renglón de la imagen; no se agregan impuestos no indicados."
+    },
+    {
+      "id": "88ba4542-9b18-4fa9-b34f-d84fb4ca7b2c",
+      "notas": "Imagen de precios Audio 52-25 informada por Ezequiel 02/11/2026. Código 010-03268-00. Precio por juego: ARS 1543093.39; cantidad 1; importe cotizado ARS 1543093.39. Se conserva el importe del renglón de la imagen; no se agregan impuestos no indicados."
+    },
+    {
+      "id": "d1a9db29-e1e9-45fe-82f4-d1dccdef7192",
+      "notas": "Imagen de precios Audio 52-25 informada por Ezequiel 02/11/2026. Código 010-03067-00. Precio por juego: ARS 769775.21; cantidad 3; importe cotizado ARS 2309325.62. Se conserva el importe del renglón de la imagen; no se agregan impuestos no indicados."
+    },
+    {
+      "id": "e08a669f-398b-438f-9fdb-9479e0ea36c7",
+      "notas": "Imagen de precios Audio 52-25 informada por Ezequiel 02/11/2026. Código 010-13715-00. Precio por juego: ARS 612750.41; cantidad 1; importe cotizado ARS 612750.41. Se conserva el importe del renglón de la imagen; no se agregan impuestos no indicados."
+    }
+  ]
+}

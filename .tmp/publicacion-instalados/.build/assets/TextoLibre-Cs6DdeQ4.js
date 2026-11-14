@@ -1,0 +1,1 @@
+import{a as x,j as p}from"./three-BfqajQ8s.js";function d({valor:n,onCambio:u,multilinea:s=!1,onFocus:r,onBlur:e,...i}){var l;const[o,a]=x.useState(null),v=s?"textarea":"input";return p.jsx(v,{...i,value:(l=o!=null?o:n)!=null?l:"",onFocus:t=>{a(t.target.value),r==null||r(t)},onChange:t=>{a(t.target.value),u(t.target.value)},onBlur:t=>{a(null),e==null||e(t)}})}export{d as T};

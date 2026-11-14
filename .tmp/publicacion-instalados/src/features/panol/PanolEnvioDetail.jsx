@@ -1,0 +1,2260 @@
+import { C } from "@/theme";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Bot,
+  ClipboardCheck,
+  Clock3,
+  LoaderCircle,
+  MapPin,
+  MessageSquare,
+  PackageCheck,
+  PackageOpen,
+  Pencil,
+  Printer,
+  ScanLine,
+  Search,
+  Send,
+  Settings2,
+  Trash2,
+  X,
+} from "lucide-react";
+import { useResponsive } from "@/hooks/useResponsive";
+import { useToast } from "@/components/ui/Toast";
+import PageHeader from "@/components/ui/PageHeader";
+import Cargando from "@/components/ui/Cargando";
+import { supabase } from "@/supabaseClient";
+import {
+  fetchEnvio, fetchEventos, guardarUbicacionMaterial, marcarItems, setEstadoEnvio, comentarEnvio, deleteEnvio, actualizarTituloEnvio,
+  fetchLinkedPurchaseRequestForEnvio, ITEM_ESTADOS, ITEM_ESTADO_META, ENVIO_ESTADO_META, resumenItems,
+  fetchObrasEgreso, reasignarObraDeItemEnvio,
+} from "@/features/panol/panolApi";
+import { notifyWaUpdate } from "@/features/compras/purchaseRequestsApi";
+import BarcodeScanner from "@/features/panol/BarcodeScanner";
+import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
+import { materialBarcodeList, materialBarcodeText } from "@/features/materiales/materialBarcodes";
+import { UbicacionChip } from "@/features/panol/UbicacionPicker";
+import { parseUbicacion } from "@/features/panol/ubicacionUtils";
+import { applyPanolReferenceLayout } from "@/features/panol/panolLayout";
+import { leerPresupuestoConIA } from "@/features/materiales/api";
+import { materialMatchIsStrong, materialMatchScore } from "@/features/panol/materialMatch";
+import { assertRemitoExtraction } from "@/features/panol/remitoDocument";
+import { numeroDeTexto } from "@/features/panol/remitosScannerApi";
+import { archiveScannerFile, scanReceiptFromDevice } from "@/features/panol/scannerBridge";
+import AntesDeEscanearModal from "@/features/panol/AntesDeEscanearModal";
+
+// Recepción simplificada: el pañolero solo marca recibido o parcial (pendiente
+// queda para revertir). Los estados problema viejos ya no se ofrecen en la UI.
+const RECEP_ESTADOS = ["pendiente", "recibido", "parcial"];
+const EMPTY_ITEMS = [];
+
+function fmtTs(ts) {
+  if (!ts) return "-";
+  return new Date(ts).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+
+function money(value, currency = "ARS") {
+  if (value === null || value === undefined || value === "") return "";
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "";
+  return `${currency || "ARS"} ${n.toLocaleString("es-AR", { maximumFractionDigits: 2 })}`;
+}
+
+function escHtml(s) {
+  return String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+function itemSearchText(item) {
+  return [
+    item.descripcion,
+    item.codigo,
+    item.codigo_barra,
+    item.material?.codigo_barra,
+    materialBarcodeText(item.material),
+    item.material?.ubicacion,
+    item.material?.ubicacion_obs,
+    item.cantidad,
+    item.unidad,
+    item.nota,
+    item.estado,
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function parseReceivedQty(value) {
+  const raw = String(value ?? "").trim().replace(",", ".");
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function beep(frequency = 800, duration = 100) {
+  try {
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = frequency;
+    gain.gain.value = 0.1;
+    osc.start();
+    setTimeout(() => { osc.stop(); ctx.close(); }, duration);
+  } catch {
+    // audio no disponible
+  }
+}
+
+function normalizeBarcode(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function qtyForScan(value) {
+  const match = String(value ?? "").replace(",", ".").match(/\d+(?:\.\d+)?/);
+  if (!match) return null;
+  const n = Number(match[0]);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function barcodesOfItem(item) {
+  const out = new Set();
+  const push = (value) => {
+    const key = normalizeBarcode(value);
+    if (key) out.add(key);
+  };
+  push(item?.codigo_barra);
+  push(item?.material?.codigo_barra);
+  for (const row of materialBarcodeList(item?.material)) push(row.codigo);
+  return [...out];
+}
+
+function firstBarcodeOfItem(item) {
+  return barcodesOfItem(item)[0] || "";
+}
+
+function getItemMaterialId(item) {
+  return item?.material_id || item?.material?.id || null;
+}
+
+function locationFromItem(item) {
+  return {
+    ubicacion: item?.ubicacion || item?.material?.ubicacion || "",
+    ubicacion_obs: item?.ubicacion_obs || item?.material?.ubicacion_obs || "",
+    touched: false,
+  };
+}
+
+function scanReceiptForItem(item) {
+  const ordered = qtyForScan(item?.cantidad);
+  const received = qtyForScan(item?.cantidad_recibida) ?? (item?.estado === "recibido" ? ordered ?? 1 : 0);
+  if (!ordered || ordered <= 1) {
+    return {
+      estado: "recibido",
+      cantidadRecibida: item?.cantidad || "1",
+      label: "Recibido completo",
+    };
+  }
+
+  const next = Math.min(ordered, received + 1);
+  return {
+    estado: next >= ordered ? "recibido" : "parcial",
+    cantidadRecibida: String(next),
+    label: next >= ordered ? `Recibido completo (${next}/${ordered})` : `Parcial (${next}/${ordered})`,
+  };
+}
+
+function isScanComplete(item) {
+  if (item?.estado !== "recibido") return false;
+  const ordered = qtyForScan(item?.cantidad);
+  if (!ordered || ordered <= 1) return true;
+  const received = qtyForScan(item?.cantidad_recibida) ?? ordered;
+  return received >= ordered;
+}
+
+function StatusChip({ estado, compact = false }) {
+  const meta = ITEM_ESTADO_META[estado] ?? ITEM_ESTADO_META.pendiente;
+  const tono = {
+    pendiente: { color: C.dim, bg: C.panel2, border: C.border },
+    recibido: { color: C.green, bg: C.greenL, border: C.greenB },
+    parcial: { color: C.violet, bg: C.violetL, border: C.violetB },
+    sin_info: { color: C.blue, bg: C.blueL, border: C.blueB },
+    falta_stock: { color: C.cyan, bg: C.cyanL, border: C.cyanB },
+    rechazado: { color: C.red, bg: C.redL, border: C.redB },
+  }[estado] || { color: meta.color, bg: meta.bg, border: meta.border };
+  return (
+    <span className="ui-chip" style={{
+      color: tono.color,
+      background: tono.bg,
+      borderColor: tono.border,
+      padding: compact ? "3px 8px" : "5px 10px",
+      fontSize: compact ? 10.5 : 11,
+      letterSpacing: "0.06em",
+      textTransform: "uppercase",
+    }}>
+      <span style={{ width: 5, height: 5, borderRadius: "50%", background: tono.color }} />
+      {meta.label}
+    </span>
+  );
+}
+
+function EnvioStatusChip({ estado }) {
+  const meta = ENVIO_ESTADO_META[estado] ?? { label: estado, color: C.dim };
+  const tono = {
+    borrador: { color: C.dim, bg: C.panel2, border: C.border },
+    enviado: { color: C.cyan, bg: C.cyanL, border: C.cyanB },
+    en_preparacion: { color: C.blue, bg: C.blueL, border: C.blueB },
+    parcial: { color: C.violet, bg: C.violetL, border: C.violetB },
+    recibido: { color: C.green, bg: C.greenL, border: C.greenB },
+    cerrado: { color: C.dim, bg: C.panel2, border: C.border },
+    cancelado: { color: C.red, bg: C.redL, border: C.redB },
+  }[estado] || { color: meta.color || C.dim, bg: C.panel2, border: C.border };
+  return (
+    <span className="ui-chip" style={{
+      color: tono.color,
+      background: tono.bg,
+      borderColor: tono.border,
+      letterSpacing: "0.06em",
+      textTransform: "uppercase",
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: "50%", background: tono.color }} />
+      {meta.label}
+    </span>
+  );
+}
+
+function ProgressBar({ resumen }) {
+  if (!resumen?.total) {
+    return <div style={{ height: 9, borderRadius: 999, background: C.panel2, border: `1px solid ${C.border}` }} />;
+  }
+  const segments = [
+    "recibido",
+    "parcial",
+    "falta_stock",
+    "sin_info",
+    "rechazado",
+    "pendiente",
+  ];
+  return (
+    <div style={{
+      height: 9,
+      borderRadius: 999,
+      background: C.panel2,
+      overflow: "hidden",
+      display: "flex",
+      border: `1px solid ${C.border}`,
+    }}>
+      {segments.map((estado) => {
+        const n = resumen.by?.[estado] || 0;
+        if (!n) return null;
+        const meta = ITEM_ESTADO_META[estado] ?? ITEM_ESTADO_META.pendiente;
+        return (
+          <div
+            key={estado}
+            title={`${meta.label}: ${n}`}
+            style={{ width: `${(n / resumen.total) * 100}%`, minWidth: n ? 3 : 0, background: ({ pendiente: C.dim, recibido: C.green, parcial: C.violet, sin_info: C.blue, falta_stock: C.cyan, rechazado: C.red }[estado] || meta.color) }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function HeaderStat({ icon: IconComponent, label, value, color }) {
+  const tono = color === C.green ? { bg: C.greenL, border: C.greenB }
+    : color === C.violet ? { bg: C.violetL, border: C.violetB }
+    : color === C.red ? { bg: C.redL, border: C.redB }
+    : color === C.blue ? { bg: C.blueL, border: C.blueB }
+    : { bg: C.panel2, border: C.border };
+  const icon = IconComponent ? <IconComponent size={14} /> : null;
+  return (
+    <div style={{
+      border: `1px solid ${C.border}`,
+      background: C.panelSolid,
+      borderRadius: 11,
+      padding: "9px 11px",
+      display: "flex",
+      alignItems: "center",
+      gap: 9,
+      minWidth: 0,
+    }}>
+      <div style={{
+        width: 26,
+        height: 26,
+        borderRadius: 8,
+        display: "grid",
+        placeItems: "center",
+        background: tono.bg,
+        color,
+        border: `1px solid ${tono.border}`,
+        flexShrink: 0,
+      }}>
+        {icon}
+      </div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ color, fontFamily: C.mono, fontWeight: 700, fontSize: 17, lineHeight: 1 }}>{value}</div>
+        <div style={{ color: C.dim, fontSize: 11, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase", marginTop: 3 }}>{label}</div>
+      </div>
+    </div>
+  );
+}
+
+function FilterButton({ active, children, onClick }) {
+  return (
+    <button
+      type="button"
+      className="ui-chip"
+      onClick={onClick}
+      style={{
+        minHeight: 34,
+        cursor: "pointer",
+        borderColor: active ? C.blueB : C.border,
+        background: active ? C.blueL : "transparent",
+        color: active ? C.blue : C.muted,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function ActionButton({ estado, children, onClick, disabled }) {
+  const meta = ITEM_ESTADO_META[estado] ?? ITEM_ESTADO_META.pendiente;
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      style={{
+        border: `1px solid ${meta.border}`,
+        background: meta.bg,
+        color: meta.color,
+        borderRadius: 8,
+        cursor: disabled ? "default" : "pointer",
+        padding: "6px 10px",
+        fontSize: 12,
+        fontWeight: 700,
+        fontFamily: C.sans,
+        opacity: disabled ? 0.55 : 1,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {children || meta.label}
+    </button>
+  );
+}
+
+// Lectura del remito dentro de Recepcion. El pañolero tiene el papel en la mano
+// y el aviso en pantalla: la IA lee el remito y propone que renglon del aviso
+// tacha cada linea. No marca nada solo — se revisa y se confirma, porque un
+// falso positivo mete stock que no llego.
+function RemitoIaPanel({ resultado, onToggle, onCantidad, onConfirmar, onCerrar, guardando, isMobile }) {
+  const { propuestas = [], sinMatch = [], total = 0 } = resultado || {};
+  const elegidas = propuestas.filter((p) => p.marcar);
+  const parciales = elegidas.filter((p) => !p.completo).length;
+  const dudosas = propuestas.filter((p) => p.score < 88).length;
+
+  return (
+    <div style={{
+      border: `1px solid ${C.violetB}`,
+      background: C.violetL,
+      borderRadius: 12,
+      margin: isMobile ? "0 12px 10px" : "0 18px 10px",
+      overflow: "hidden",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", borderBottom: `1px solid ${C.violetB}`, flexWrap: "wrap" }}>
+        <Bot size={16} style={{ color: C.violet, flexShrink: 0 }} />
+        <span style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>
+          La IA leyó {total} línea{total === 1 ? "" : "s"} del remito
+        </span>
+        <span style={{ color: C.muted, fontSize: 12, fontWeight: 650 }}>
+          · {propuestas.length} cruzan con este aviso
+          {sinMatch.length > 0 && ` · ${sinMatch.length} sin coincidencia`}
+        </span>
+        <button type="button" onClick={onCerrar} title="Descartar la lectura"
+          style={{ marginLeft: "auto", border: "none", background: "transparent", color: C.dim, cursor: "pointer", padding: 4, display: "grid", placeItems: "center" }}>
+          <X size={15} />
+        </button>
+      </div>
+
+      {propuestas.length === 0 ? (
+        <div style={{ padding: "14px 12px", color: C.muted, fontSize: 12.5 }}>
+          Ninguna línea del remito se parece a lo que falta recibir en este aviso. Revisá que sea el remito correcto.
+        </div>
+      ) : (
+        <>
+        {dudosas > 0 && (
+          <div style={{ padding: "8px 12px", borderTop: `1px solid ${C.violetB}`, color: C.muted, fontSize: 11.5 }}>
+            Vienen tildadas las {propuestas.length - dudosas} que coinciden claro.{" "}
+            <strong style={{ color: C.text }}>Las otras {dudosas} tildalas vos</strong> si de verdad llegaron: el parecido no alcanza para darlas por buenas.
+          </div>
+        )}
+        <div style={{ maxHeight: 300, overflowY: "auto" }}>
+          {propuestas.map((p) => (
+            <label key={p.item.id} style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "24px 1fr" : "24px 1fr 132px",
+              gap: 9,
+              alignItems: "center",
+              padding: "9px 12px",
+              borderTop: `1px solid ${C.violetB}`,
+              cursor: "pointer",
+            }}>
+              <input type="checkbox" checked={p.marcar} onChange={() => onToggle(p.item.id)} style={{ accentColor: C.violet }} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ color: C.text, fontSize: 12.5, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {p.item.descripcion}
+                </div>
+                {/* Que leyo la IA, para poder desconfiar de una coincidencia floja. */}
+                <div style={{ color: C.dim, fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  remito: {p.linea.descripcion}
+                  {p.score < 88 && <span style={{ color: C.violet, fontWeight: 700 }}> · parecido flojo, revisá</span>}
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 5, justifySelf: isMobile ? "start" : "end", gridColumn: isMobile ? "2" : undefined }}>
+                <input
+                  value={p.cantidad}
+                  onChange={(e) => onCantidad(p.item.id, e.target.value)}
+                  inputMode="decimal"
+                  onClick={(e) => e.preventDefault()}
+                  style={{ width: 62, background: C.panelSolid, border: `1px solid ${p.completo ? C.border : C.violetB}`, color: C.text, borderRadius: 7, padding: "5px 8px", fontSize: 12.5, fontFamily: C.mono, outline: "none", textAlign: "right" }}
+                />
+                <span style={{ color: C.dim, fontSize: 11, whiteSpace: "nowrap" }}>
+                  / {p.item.cantidad} {p.item.unidad || ""}
+                </span>
+              </div>
+            </label>
+          ))}
+        </div>
+        </>
+      )}
+
+      {sinMatch.length > 0 && (
+        <div style={{ padding: "9px 12px", borderTop: `1px solid ${C.violetB}`, color: C.muted, fontSize: 11.5 }}>
+          <strong style={{ color: C.text }}>Sin coincidencia:</strong>{" "}
+          {sinMatch.map((l) => l.descripcion).slice(0, 6).join(" · ")}
+          {sinMatch.length > 6 && ` y ${sinMatch.length - 6} más`}
+          {". "}Si de verdad llegaron, cargalos por Pañol → Ingresar.
+        </div>
+      )}
+
+      {propuestas.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "10px 12px", borderTop: `1px solid ${C.violetB}`, flexWrap: "wrap" }}>
+          <button type="button" onClick={onConfirmar} disabled={guardando || !elegidas.length}
+            style={{ border: "none", background: elegidas.length ? C.violet : C.panelSolid, color: elegidas.length ? "#fff" : C.dim, borderRadius: 9, padding: "8px 14px", cursor: elegidas.length && !guardando ? "pointer" : "default", fontSize: 12.5, fontWeight: 700, fontFamily: C.sans }}>
+            {guardando ? "Marcando…" : `Recibir ${elegidas.length} ítem${elegidas.length === 1 ? "" : "s"}`}
+          </button>
+          {parciales > 0 && (
+            <span style={{ color: C.muted, fontSize: 11.5 }}>
+              {parciales} entra{parciales === 1 ? "" : "n"} como parcial: el remito trae menos de lo pedido.
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ScanReceiptPanel({
+  value,
+  onChange,
+  onSubmit,
+  onOpenCamera,
+  inputRef,
+  result,
+  busy,
+  isMobile,
+  readyCount,
+}) {
+  const color = result ? (result.ok ? C.green : C.red) : C.blue;
+  const bg = result ? (result.ok ? "var(--green-soft)" : "var(--red-soft)") : "var(--blue-soft)";
+  const border = result ? (result.ok ? C.greenB : C.redB) : C.blueB;
+  return (
+    <div style={{
+      borderBottom: `1px solid ${C.border}`,
+      background: C.topbarSoft,
+      padding: isMobile ? "10px 12px" : "10px 18px",
+      display: "grid",
+      gap: 8,
+      flexShrink: 0,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: "1 1 260px" }}>
+          <div style={{ width: 31, height: 31, borderRadius: 9, display: "grid", placeItems: "center", color, background: bg, border: `1px solid ${border}`, flexShrink: 0 }}>
+            <ScanLine size={16} />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>Recepcion por escaneo</div>
+            <div style={{ color: C.dim, fontSize: 11 }}>
+              {readyCount ? `${readyCount} item${readyCount === 1 ? "" : "s"} con codigo de barras · lector PC/USB listo` : "Sin items vinculados a codigo de barras"}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0, 1fr) auto auto" : "minmax(280px, 420px) auto auto", gap: 8, flex: isMobile ? "1 1 100%" : "0 1 auto", minWidth: isMobile ? "100%" : 0 }}>
+          <input
+            ref={inputRef}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === "Tab") {
+                e.preventDefault();
+                onSubmit();
+              }
+            }}
+            disabled={busy}
+            placeholder="Escaneá codigo de barras..."
+            autoComplete="off"
+            inputMode="text"
+            style={{
+              minWidth: 0,
+              width: "100%",
+              boxSizing: "border-box",
+              background: C.panelSolid,
+              border: `1px solid ${result ? border : C.border}`,
+              color: C.text,
+              padding: "9px 11px",
+              borderRadius: 9,
+              outline: "none",
+              fontSize: 13,
+              fontFamily: C.mono,
+              boxShadow: result ? `0 0 0 2px ${color}18` : "none",
+            }}
+          />
+          <button
+            type="button"
+            onClick={onSubmit}
+            disabled={busy || !String(value || "").trim()}
+            style={{
+              border: `1px solid ${C.greenB}`,
+              background: String(value || "").trim() ? "var(--green-soft)" : C.panel2,
+              color: String(value || "").trim() ? C.green : C.dim,
+              borderRadius: 9,
+              padding: "9px 12px",
+              cursor: busy || !String(value || "").trim() ? "default" : "pointer",
+              fontSize: 12,
+              fontWeight: 700,
+              fontFamily: C.sans,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {busy ? "Marcando..." : "Recibir"}
+          </button>
+          <button
+            type="button"
+            onClick={onOpenCamera}
+            disabled={busy}
+            title="Escanear con camara"
+            style={{ border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.blue, borderRadius: 9, padding: "9px 11px", cursor: busy ? "default" : "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, fontFamily: C.sans }}
+          >
+            <ScanLine size={15} /> {!isMobile && "Camara"}
+          </button>
+        </div>
+      </div>
+
+      {result && (
+        <div style={{ border: `1px solid ${border}`, background: bg, color, borderRadius: 9, padding: "8px 10px", fontSize: 12.5, fontWeight: 650 }}>
+          {result.msg}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SideLabel({ label, value }) {
+  return (
+    <div style={{ display: "grid", gap: 3 }}>
+      <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, letterSpacing: 1.1, textTransform: "uppercase" }}>{label}</span>
+      <span style={{ color: C.text, fontSize: 13, fontWeight: 650, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{value || "-"}</span>
+    </div>
+  );
+}
+
+export default function PanolEnvioDetail({ envioId, initialMaterialId = "", initialItemId = "", profile, canReceive, isManager, onBack }) {
+  const { isMobile } = useResponsive();
+  const toast = useToast();
+  const canSeePrices = !!profile?.is_admin || profile?.role === "admin";
+
+  const [envio, setEnvio] = useState(null);
+  const [eventos, setEventos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [sel, setSel] = useState(new Set());
+  const [remitoLeyendo, setRemitoLeyendo] = useState(false);
+  const [remitoEscaneando, setRemitoEscaneando] = useState(false);
+  const [preguntandoEscaneo, setPreguntandoEscaneo] = useState(false);
+  // Solo para el modal de escaneo: la obra del aviso que se esta recibiendo.
+  const obraDelAviso = useMemo(
+    () => (envio?.obra?.id ? { id: envio.obra.id, codigo: envio.obra.codigo, linea_nombre: envio.obra.linea_nombre } : null),
+    [envio?.obra?.id, envio?.obra?.codigo, envio?.obra?.linea_nombre],
+  );
+  const [remitoScanSource, setRemitoScanSource] = useState("glass");
+  // Solo se cargan si el usuario puede corregir la obra; para el pañolero es
+  // una consulta al pedo.
+  const [obras, setObras] = useState([]);
+  const [remitoIa, setRemitoIa] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [editandoTitulo, setEditandoTitulo] = useState(false);
+  const [tituloEditado, setTituloEditado] = useState("");
+  const [guardandoTitulo, setGuardandoTitulo] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [itemQ, setItemQ] = useState("");
+  const [itemEstado, setItemEstado] = useState("todos");
+  const [partialModal, setPartialModal] = useState(null);
+  const scanInputRef = useRef(null);
+  const [scanCode, setScanCode] = useState("");
+  const [scanBusy, setScanBusy] = useState(false);
+  const [scanResult, setScanResult] = useState(null);
+  const [scanFlashId, setScanFlashId] = useState(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [estanterias, setEstanterias] = useState([]);
+  const [itemLocations, setItemLocations] = useState({});
+  const initialFocusHandled = useRef("");
+
+  const focusScanInput = useCallback(() => {
+    setTimeout(() => scanInputRef.current?.focus(), 60);
+  }, []);
+
+  const cargar = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [e, ev] = await Promise.all([fetchEnvio(envioId), fetchEventos(envioId)]);
+      const nextEnvio = canSeePrices ? e : {
+        ...e,
+        items: (e.items || []).map((item) => {
+          const clean = { ...item };
+          delete clean.precio_unitario;
+          delete clean.moneda;
+          return clean;
+        }),
+      };
+      setEnvio(nextEnvio);
+      setItemLocations(Object.fromEntries((nextEnvio.items || []).map((item) => [item.id, locationFromItem(item)])));
+      setEventos(ev);
+      return e;
+    } catch (err) {
+      toast.error(err.message || "No se pudo cargar el pedido.");
+    } finally {
+      setLoading(false);
+    }
+  }, [envioId, toast, canSeePrices]);
+
+  useEffect(() => { cargar(); }, [cargar]);
+
+  useEffect(() => {
+    let alive = true;
+    supabase
+      .from("panol_estanterias")
+      .select("codigo,niveles_cm")
+      .eq("activo", true)
+      .order("codigo")
+      .then(({ data, error }) => {
+        if (!alive || error) return;
+        setEstanterias(applyPanolReferenceLayout(data ?? []));
+      })
+      .catch(() => {
+        if (alive) setEstanterias([]);
+      });
+    return () => { alive = false; };
+  }, []);
+
+  const items = envio?.items || EMPTY_ITEMS;
+  // La obra va en cada renglón siempre, no solo cuando el aviso se reparte: la
+  // del encabezado es la del envío -en uno repartido, la del primer renglón- y
+  // leerla ahi hacia pensar que todo el pedido era para ese barco.
+  const resumen = useMemo(() => resumenItems(items), [items]);
+  const cerrado = envio && ["cerrado", "cancelado"].includes(envio.estado);
+  const scanEnabled = !!canReceive && !cerrado && !loading && showAdvanced && !editandoTitulo;
+
+  async function guardarTitulo(event) {
+    event.preventDefault();
+    if (guardandoTitulo || !envio || !canReceive) return;
+    const titulo = tituloEditado.trim();
+    if (!titulo) {
+      toast.warning("Completá el título del aviso.");
+      return;
+    }
+    if (titulo === envio.titulo) {
+      setEditandoTitulo(false);
+      return;
+    }
+    setGuardandoTitulo(true);
+    try {
+      const actualizado = await actualizarTituloEnvio(envio.id, titulo);
+      setEnvio((actual) => ({ ...actual, titulo: actualizado }));
+      setEditandoTitulo(false);
+      toast.success("Título actualizado.");
+      await cargar();
+    } catch (err) {
+      toast.error(err.message || "No se pudo guardar el título.");
+    } finally {
+      setGuardandoTitulo(false);
+    }
+  }
+
+  const filteredItems = useMemo(() => {
+    const term = itemQ.trim().toLowerCase();
+    return items.filter((item) => {
+      if (itemEstado !== "todos" && item.estado !== itemEstado) return false;
+      if (!term) return true;
+      return itemSearchText(item).includes(term);
+    });
+  }, [items, itemQ, itemEstado]);
+
+  const visibleIds = useMemo(() => filteredItems.map((item) => item.id), [filteredItems]);
+  const selectedVisible = useMemo(() => visibleIds.filter((id) => sel.has(id)).length, [visibleIds, sel]);
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisible === visibleIds.length;
+  const scanReadyCount = useMemo(() => items.filter((item) => barcodesOfItem(item).length).length, [items]);
+
+  useEffect(() => {
+    if (!items.length || (!initialItemId && !initialMaterialId)) return;
+    const focusKey = `${envioId}:${initialItemId}:${initialMaterialId}`;
+    if (initialFocusHandled.current === focusKey) return;
+    const target = items.find((item) => item.id === initialItemId)
+      || items.find((item) => getItemMaterialId(item) === initialMaterialId || item.requisito_material_id === initialMaterialId);
+    if (!target) return;
+    initialFocusHandled.current = focusKey;
+    setItemEstado("todos");
+    setItemQ("");
+    setSel(new Set([target.id]));
+    window.requestAnimationFrame(() => {
+      document.getElementById(`panol-envio-item-${target.id}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
+  }, [envioId, initialItemId, initialMaterialId, items]);
+
+  function updateItemLocation(itemId, patch) {
+    setItemLocations((prev) => ({
+      ...prev,
+      [itemId]: {
+        ...(prev[itemId] || locationFromItem(items.find((item) => item.id === itemId))),
+        ...patch,
+        touched: patch.touched ?? true,
+      },
+    }));
+  }
+
+  async function rememberReceiptLocations(ids) {
+    const itemById = new Map(items.map((item) => [item.id, item]));
+    const updates = [];
+    for (const id of ids) {
+      const item = itemById.get(id);
+      const materialId = getItemMaterialId(item);
+      const loc = itemLocations[id] || locationFromItem(item);
+      if (!item || !materialId || !loc?.touched) continue;
+      updates.push(guardarUbicacionMaterial(materialId, {
+        ubicacion: loc.ubicacion || null,
+        ubicacionObs: loc.ubicacion_obs || null,
+      }));
+    }
+    if (updates.length) await Promise.all(updates);
+    return updates.length;
+  }
+
+  async function guardarUbicacionItem(itemId) {
+    const item = items.find((row) => row.id === itemId);
+    if (!getItemMaterialId(item)) {
+      toast.warning("Este item no esta vinculado al catalogo, no se puede recordar la ubicacion.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const saved = await rememberReceiptLocations([itemId]);
+      if (saved) toast.success("Ubicacion guardada para proximos ingresos.");
+      await cargar();
+    } catch (err) {
+      toast.error(err.message || "No se pudo guardar la ubicacion.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  useEffect(() => {
+    if (scanEnabled) focusScanInput();
+  }, [scanEnabled, envioId, focusScanInput]);
+
+  function findItemForScan(code) {
+    const cleanCode = normalizeBarcode(code);
+    const matches = items.filter((item) => barcodesOfItem(item).includes(cleanCode));
+    return {
+      matches,
+      item: matches.find((item) => !isScanComplete(item)) || null,
+    };
+  }
+
+  async function processScan(rawCode) {
+    const cleanCode = normalizeBarcode(rawCode);
+    if (!cleanCode || scanBusy) return;
+    setScanCode("");
+    setScanBusy(true);
+
+    try {
+      const { matches, item } = findItemForScan(cleanCode);
+      if (!matches.length) {
+        const msgText = scanReadyCount
+          ? `Codigo ${cleanCode} no pertenece a este envio.`
+          : "Este envio no tiene items vinculados a codigo de barras.";
+        setScanResult({ ok: false, code: cleanCode, msg: msgText });
+        beep(300, 200);
+        toast.warning(msgText);
+        return;
+      }
+
+      if (!item) {
+        const msgText = `${matches[0].descripcion} ya estaba recibido.`;
+        setScanResult({ ok: false, code: cleanCode, msg: msgText });
+        beep(520, 160);
+        toast.warning(msgText);
+        return;
+      }
+
+      const receipt = scanReceiptForItem(item);
+      await rememberReceiptLocations([item.id]);
+      await marcarItems([item.id], receipt.estado, { cantidadRecibida: receipt.cantidadRecibida });
+      await cargar();
+      setItemQ("");
+      setItemEstado("todos");
+      setScanResult({ ok: true, code: cleanCode, msg: `${item.descripcion} - ${receipt.label}` });
+      setScanFlashId(item.id);
+      setTimeout(() => setScanFlashId((current) => (current === item.id ? null : current)), 1400);
+      beep(900, 80);
+    } catch (err) {
+      const msgText = err.message || "No se pudo registrar el escaneo.";
+      setScanResult({ ok: false, code: cleanCode, msg: msgText });
+      beep(300, 200);
+      toast.error(msgText);
+    } finally {
+      setScanBusy(false);
+      focusScanInput();
+    }
+  }
+
+  // Lee el remito y propone que renglon del aviso tacha cada linea. Los ids ya
+  // usados se descartan para que dos lineas parecidas del remito no caigan sobre
+  // el mismo renglon y una quede sin recibir.
+  async function leerRemitoDeRecepcion(file, { proveedor = "" } = {}) {
+    if (!file) return false;
+    setRemitoLeyendo(true);
+    setRemitoIa(null);
+    try {
+      const data = await leerPresupuestoConIA({ file, tipoEsperado: "remito", proveedor });
+      assertRemitoExtraction(data);
+      const lineas = (data?.items || data?.lineas || [])
+        .map((it) => ({
+          descripcion: String(it.descripcion || it.description || it.nombre || "").trim(),
+          codigo: String(it.codigo || it.code || "").trim(),
+          cantidad: it.cantidad ?? it.quantity ?? "",
+        }))
+        .filter((it) => it.descripcion);
+      if (!lineas.length) {
+        toast.warning("La IA no detecto items en el remito.");
+        return false;
+      }
+      const pendientes = (envio?.items || []).filter((it) => it.estado !== "recibido");
+      if (!pendientes.length) {
+        toast.warning("Este aviso ya no tiene nada pendiente de recibir.");
+        return false;
+      }
+      const usados = new Set();
+      const propuestas = [];
+      const sinMatch = [];
+      for (const linea of lineas) {
+        const mejor = pendientes
+          .filter((it) => !usados.has(it.id))
+          .map((it) => ({ item: it, score: materialMatchScore(it, linea) }))
+          .filter((row) => row.score >= 62)
+          .sort((a, b) => b.score - a.score)[0];
+        if (!mejor) { sinMatch.push(linea); continue; }
+        usados.add(mejor.item.id);
+        // La cantidad del remito llega como la escribio el proveedor ("1.200",
+        // "20,00 UN"). Un replace de la primera coma convertia "1.234,56" en
+        // NaN, o sea que la cantidad leida se perdia justo cuando venia bien
+        // escrita. numeroDeTexto mira el ultimo separador, que es el decimal.
+        const pedido = numeroDeTexto(mejor.item.cantidad) || 0;
+        const leido = numeroDeTexto(linea.cantidad) || 0;
+        // Si el remito no trae cantidad legible se asume que llego todo lo pedido:
+        // es lo mas comun y el pañolero igual lo ve y lo puede corregir.
+        const cantidad = leido > 0 ? leido : pedido;
+        propuestas.push({
+          item: mejor.item,
+          linea,
+          score: mejor.score,
+          cantidad: String(cantidad || ""),
+          completo: !(pedido > 0) || cantidad >= pedido,
+          // Solo viene tildado lo que coincide fuerte. Probado contra el remito
+          // real del Baron: de 36 cruces, 13 eran flojas y algunas erradas
+          // -CABO RETORCIDO caia en DEFENSAS-. Recibir algo que no llego es
+          // peor que un click de mas, asi que lo dudoso lo tilda una persona.
+          marcar: materialMatchIsStrong(mejor.score),
+        });
+      }
+      propuestas.sort((a, b) => b.score - a.score);
+      setRemitoIa({ propuestas, sinMatch, total: lineas.length });
+      if (!propuestas.length) toast.warning("Ninguna linea del remito coincide con lo que falta recibir.");
+      return true;
+    } catch (err) {
+      toast.error(err.message || "No se pudo leer el remito.");
+      return false;
+    } finally {
+      setRemitoLeyendo(false);
+    }
+  }
+
+  // En recepcion ya sabemos para que barco es -es el aviso que se esta
+  // recibiendo-, asi que el modal viene con la obra puesta y en el caso normal
+  // alcanza con confirmar.
+  function escanearRemitoDeRecepcion() {
+    if (remitoEscaneando || remitoLeyendo) return;
+    setPreguntandoEscaneo(true);
+  }
+
+  async function escanearRemitoCon({ carpeta, proveedor, source }) {
+    setPreguntandoEscaneo(false);
+    setRemitoEscaneando(true);
+    setRemitoIa(null);
+    try {
+      const { row, file } = await scanReceiptFromDevice(source || remitoScanSource, { carpeta });
+      const valido = await leerRemitoDeRecepcion(file, { proveedor });
+      if (valido) {
+        await archiveScannerFile(row.id);
+        toast.success("Remito escaneado y cruzado con este aviso. Revisá los ítems antes de confirmar.");
+      }
+    } catch (err) {
+      toast.error(err.message || "No se pudo escanear el remito.");
+    } finally {
+      setRemitoEscaneando(false);
+    }
+  }
+
+  function recalcularPropuesta(id, cantidad) {
+    setRemitoIa((prev) => {
+      if (!prev) return prev;
+      return { ...prev, propuestas: prev.propuestas.map((row) => {
+        if (row.item.id !== id) return row;
+        const pedido = Number(String(row.item.cantidad ?? "").replace(",", ".")) || 0;
+        const n = Number(String(cantidad).replace(",", ".")) || 0;
+        return { ...row, cantidad, completo: !(pedido > 0) || n >= pedido };
+      }) };
+    });
+  }
+
+  async function confirmarRemitoIa() {
+    const elegidas = (remitoIa?.propuestas || []).filter((row) => row.marcar);
+    if (!elegidas.length) return;
+    const completos = elegidas.filter((row) => row.completo).map((row) => row.item.id);
+    const parciales = elegidas
+      .filter((row) => !row.completo)
+      .map((row) => ({ id: row.item.id, cantidadRecibida: String(row.cantidad ?? "").trim() }));
+    if (completos.length) await aplicar("recibido", completos);
+    if (parciales.length) await aplicarParciales(parciales);
+    setRemitoIa(null);
+  }
+
+  // Corregir a que obra va un renglon. Pasa cuando el aviso se armo mal: el
+  // material esta bien pero apuntado al barco equivocado, y si se recibe asi
+  // queda imputado a la obra que no era.
+  async function cambiarObraDeItem(item, obraId) {
+    if (!item?.obra_snapshot_item_id) {
+      toast.warning("Este renglón no está vinculado a un requerimiento de obra, no se puede cambiar.");
+      return;
+    }
+    const destino = obras.find((o) => o.id === obraId);
+    setSaving(true);
+    try {
+      await reasignarObraDeItemEnvio(item.obra_snapshot_item_id, obraId || null);
+      await cargar();
+      toast.success(destino ? `"${item.descripcion}" ahora va a ${destino.codigo}.` : `"${item.descripcion}" quedó sin obra.`);
+    } catch (err) {
+      toast.error(err.message || "No se pudo cambiar la obra.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function submitScan() {
+    processScan(scanCode);
+  }
+
+  useKeyboardWedge({
+    enabled: scanEnabled && !scannerOpen && !partialModal,
+    onScan: processScan,
+  });
+
+  useEffect(() => {
+    if (!isManager) return undefined;
+    let alive = true;
+    fetchObrasEgreso()
+      .then((rows) => { if (alive) setObras(rows || []); })
+      .catch(() => { if (alive) setObras([]); });
+    return () => { alive = false; };
+  }, [isManager]);
+
+  function toggle(id) {
+    setSel((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  function toggleVisible() {
+    setSel((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) visibleIds.forEach((id) => next.delete(id));
+      else visibleIds.forEach((id) => next.add(id));
+      return next;
+    });
+  }
+
+  function pedirParcial(ids) {
+    const cleanIds = [...new Set(ids)].filter(Boolean);
+    if (!cleanIds.length) return;
+    setPartialModal({ ids: cleanIds });
+  }
+
+  // Recibir renglon por renglon con 40 items es inviable, y la seleccion
+  // multiple queda escondida atras de un checkbox que nadie ve. Este boton hace
+  // lo mismo que apretar "Recibir" en cada uno: los deja en stock del pañol.
+  async function ingresarTodoAPanol() {
+    // Solo lo pendiente. Un renglon en parcial ya lo marco alguien a mano
+    // -"llegaron 2 de 4"- y darlo por completo le borraria ese dato; lo mismo
+    // con los estados problema. Ademas asi el numero del boton es exactamente
+    // lo que se va a recibir.
+    const pendientes = items.filter((item) => item.estado === "pendiente");
+    if (!pendientes.length) return;
+    const n = pendientes.length;
+    const ok = window.confirm(
+      `Ingresar ${n} ítem${n === 1 ? "" : "s"} al pañol de ${envio?.sede || "la sede"}.\n\n`
+      + `Quedan como recibidos y pasan a ser stock disponible: se van a poder egresar.\n\n`
+      + `Si de algo llegó menos de lo pedido, cerrá esto y cargá ese renglón con "Parcial / escaneo".\n\n¿Ingresar todo?`,
+    );
+    if (!ok) return;
+    await aplicar("recibido", pendientes.map((item) => item.id));
+  }
+
+  async function aplicar(estado, ids, opts = {}) {
+    if (!ids.length) return;
+    if (estado === "parcial" && !String(opts.cantidadRecibida ?? "").trim()) {
+      pedirParcial(ids);
+      return;
+    }
+    setSaving(true);
+    try {
+      const linkedBefore = estado === "recibido" && envio?.purchase_request_id
+        ? await fetchLinkedPurchaseRequestForEnvio(envio.id).catch(() => null)
+        : null;
+      if (estado === "recibido" || estado === "parcial") {
+        await rememberReceiptLocations(ids);
+      }
+      await marcarItems(ids, estado, opts);
+      await cargar();
+      if (linkedBefore && linkedBefore.status !== "recibido") {
+        const linkedAfter = await fetchLinkedPurchaseRequestForEnvio(envio.id).catch(() => null);
+        if (linkedAfter?.status === "recibido") {
+          notifyWaUpdate({
+            requestId: linkedAfter.id,
+            eventType: "received",
+            actorId: profile?.id,
+            payload: {
+              quantity: linkedAfter.received_quantity || "",
+              notes: linkedAfter.receipt_notes || "Recepcionado por Pañol.",
+              actorName: profile?.username || "Pañol",
+            },
+          });
+        }
+      }
+      setSel(new Set());
+      if (estado === "recibido" || estado === "parcial") {
+        const n = ids.length;
+        toast.success(n === 1
+          ? `Recibido. Ya es stock en ${envio?.sede || "Pañol"}.`
+          : `${n} ítems recibidos. Ya son stock en ${envio?.sede || "Pañol"}.`);
+      }
+    } catch (err) {
+      toast.error(err.message || "No se pudo actualizar.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function aplicarParciales(rows) {
+    const cleanRows = rows
+      .map((row) => ({ id: row.id, cantidadRecibida: String(row.cantidadRecibida ?? "").trim() }))
+      .filter((row) => row.id && parseReceivedQty(row.cantidadRecibida) !== null);
+    if (!cleanRows.length) return;
+
+    setSaving(true);
+    try {
+      await rememberReceiptLocations(cleanRows.map((row) => row.id));
+      for (const row of cleanRows) {
+        await marcarItems([row.id], "parcial", { cantidadRecibida: row.cantidadRecibida });
+      }
+      await cargar();
+      setSel(new Set());
+      setPartialModal(null);
+      toast.success(cleanRows.length === 1 ? "Recepcion parcial guardada." : "Recepciones parciales guardadas.");
+    } catch (err) {
+      toast.error(err.message || "No se pudo guardar la recepcion parcial.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function guardarNota(item, nota) {
+    if ((item.nota ?? "") === nota) return;
+    try {
+      await marcarItems([item.id], item.estado, { nota });
+      await cargar();
+    } catch (err) {
+      toast.error(err.message || "No se pudo guardar la nota.");
+    }
+  }
+
+  async function enviarMsg() {
+    const t = msg.trim();
+    if (!t) return;
+    try {
+      await comentarEnvio(envioId, t);
+      setMsg("");
+      setEventos(await fetchEventos(envioId));
+    } catch (err) {
+      toast.error(err.message || "No se pudo enviar el mensaje.");
+    }
+  }
+
+  async function cambiarEstadoEnvio(estado) {
+    const txt = estado === "cancelado" ? "cancelar" : estado === "cerrado" ? "cerrar" : "reactivar";
+    if (estado === "cancelado") {
+      // Es el unico que deja el pedido fuera de circulacion, asi que el aviso
+      // dice que pasa y como se vuelve, en vez de un "seguro?" generico.
+      const ok = window.confirm(
+        "Cancelar este pedido lo saca de la lista de pañol.\n\n"
+        + "No se borra nada: los ítems quedan como están y se puede reactivar después.\n\n"
+        + "¿Cancelar igual?",
+      );
+      if (!ok) return;
+    } else if (!window.confirm(`Seguro que queres ${txt} este pedido?`)) {
+      return;
+    }
+    try {
+      await setEstadoEnvio(envioId, estado);
+      await cargar();
+      toast.success(estado === "enviado" ? "Pedido reactivado. Volvió a la lista de pañol." : `Pedido ${estado}.`);
+    } catch (err) {
+      toast.error(err.message || "No se pudo cambiar el estado.");
+    }
+  }
+
+  function imprimirEnvio() {
+    if (!envio) return;
+    const items = envio.items || [];
+    const meta = () => [
+      envio.obra?.codigo ? `Obra ${envio.obra.codigo}` : null,
+      `Pañol ${envio.sede || ""}`.trim(),
+      envio.destino ? `Destino: ${envio.destino}` : null,
+      `Prioridad: ${envio.prioridad || "media"}`,
+      `Estado: ${(ENVIO_ESTADO_META[envio.estado]?.label) || envio.estado}`,
+    ].filter(Boolean);
+    const filas = items.map((it, i) => {
+      const em = ITEM_ESTADO_META[it.estado] || ITEM_ESTADO_META.pendiente;
+      const precio = canSeePrices && it.precio_unitario != null && it.precio_unitario !== "" ? money(it.precio_unitario, it.moneda) : "";
+      return `<tr>
+        <td class="n">${i + 1}</td>
+        <td>${escHtml(it.descripcion)}${it.codigo ? `<div class="cod">${escHtml(it.codigo)}</div>` : ""}${precio ? `<div class="cod">${escHtml(precio)}</div>` : ""}</td>
+        <td class="c">${escHtml(it.cantidad || "")} ${escHtml(it.unidad || "")}</td>
+        <td class="c rec">${it.cantidad_recibida != null && it.cantidad_recibida !== "" ? escHtml(it.cantidad_recibida) : ""}</td>
+        <td class="c">${escHtml(em.label)}</td>
+        <td>${escHtml(it.nota || "")}</td>
+      </tr>`;
+    }).join("");
+    const html = `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${escHtml(envio.titulo || "Pedido a Pañol")}</title>
+    <style>
+      *{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:24px;font-size:12px}
+      .head{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:6px}
+      .brand{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#555}
+      h1{font-size:18px;margin:2px 0 0}
+      .meta{display:flex;flex-wrap:wrap;gap:6px 16px;color:#333;margin:8px 0 12px;font-size:12px}
+      table{width:100%;border-collapse:collapse} th,td{border:1px solid #ccc;padding:5px 7px;text-align:left;vertical-align:top}
+      th{background:#f1f1f1;font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+      td.c{text-align:center;white-space:nowrap} td.n{text-align:center;color:#888;width:26px}
+      td.rec{font-weight:bold} .cod{color:#777;font-size:10px;margin-top:2px}
+      .foot{margin-top:14px;color:#777;font-size:10px;display:flex;justify-content:space-between}
+      @media print{body{margin:12mm}}
+    </style></head><body>
+      <div class="head">
+        <div><div class="brand">Astillero Klase A · Pedido a Pañol</div><h1>${escHtml(envio.titulo || "Pedido a Pañol")}</h1></div>
+        <div style="text-align:right;color:#555">${new Date(envio.created_at || Date.now()).toLocaleDateString("es-AR")}</div>
+      </div>
+      <div class="meta">${meta(envio).map((m) => `<span>${escHtml(m)}</span>`).join("")}</div>
+      ${envio.observaciones ? `<div style="margin:0 0 10px;color:#333">Obs.: ${escHtml(envio.observaciones)}</div>` : ""}
+      <table><thead><tr><th>#</th><th>Descripción</th><th>Pedido</th><th>Recibido</th><th>Estado</th><th>Nota</th></tr></thead><tbody>${filas || `<tr><td colspan="6" style="text-align:center;color:#999;padding:18px">Sin ítems</td></tr>`}</tbody></table>
+      <div class="foot"><span>${items.length} ítem${items.length === 1 ? "" : "s"}</span><span>Impreso ${new Date().toLocaleString("es-AR")}</span></div>
+      <script>window.onload=function(){window.print()}</script>
+    </body></html>`;
+    const w = window.open("", "_blank");
+    if (w) { w.document.write(html); w.document.close(); }
+    else toast.error("Habilitá las ventanas emergentes para imprimir.");
+  }
+
+  async function borrarEnvio() {
+    if (!envio || !isManager) return;
+    const ok = window.confirm(`Borrar definitivamente "${envio.titulo}"?\n\nEsto elimina el pedido a pañol, sus items y el historial. No queda cancelado ni archivado.`);
+    if (!ok) return;
+    try {
+      await deleteEnvio(envio.id);
+      toast.success("Pedido a pañol borrado.");
+      onBack?.();
+    } catch (err) {
+      toast.error(err.message || "No se pudo borrar el pedido.");
+    }
+  }
+
+  const bulkIds = [...sel];
+  const partialItems = partialModal
+    ? items.filter((item) => partialModal.ids.includes(item.id))
+    : EMPTY_ITEMS;
+  const statusFilters = [
+    ["todos", `Todos (${items.length})`],
+    ...ITEM_ESTADOS.map((estado) => [estado, `${ITEM_ESTADO_META[estado].label} (${resumen.by?.[estado] || 0})`]),
+  ];
+
+  return (
+    <>
+      {preguntandoEscaneo ? (
+        <AntesDeEscanearModal
+          titulo="¿Qué remito vas a escanear?"
+          onCerrar={() => setPreguntandoEscaneo(false)}
+          onConfirmar={escanearRemitoCon}
+          obraSugerida={obraDelAviso}
+          origenInicial={remitoScanSource}
+          permiteSoloArchivar={false}
+        />
+      ) : null}
+      <PageHeader
+        icon={PackageOpen}
+        eyebrow="Recepción"
+        title={envio?.titulo ?? "Pedido"}
+        subtitle={envio
+          ? `${envio.obra?.codigo ? `Obra ${envio.obra.codigo} · ` : ""}${envio.sede}${envio.destino ? ` · ${envio.destino}` : ""}${envio.origen === "compra" ? " · desde compras" : ""}`
+          : undefined}
+        actions={(
+          <>
+            <button type="button" className="ui-btn" onClick={onBack}>
+              <ArrowLeft size={15} />
+              {!isMobile && "Volver"}
+            </button>
+            {envio && <EnvioStatusChip estado={envio.estado} />}
+            {envio && canReceive && (
+              <button type="button" className="ui-btn" disabled={editandoTitulo || guardandoTitulo || loading} onClick={() => {
+                setTituloEditado(envio.titulo);
+                setEditandoTitulo(true);
+              }}>
+                <Pencil size={14} /> Editar título
+              </button>
+            )}
+            {envio && canReceive && !cerrado && resumen.pendientes > 0 && (
+              <button
+                type="button"
+                className="ui-btn"
+                onClick={ingresarTodoAPanol}
+                disabled={saving}
+                title="Marca todo lo pendiente como recibido y lo deja como stock del pañol"
+                style={{ background: saving ? undefined : C.green, borderColor: "transparent", color: saving ? undefined : "var(--inverse-text)" }}
+              >
+                <PackageCheck size={15} />
+                {saving ? "Ingresando…" : `Ingresar todo a pañol (${resumen.pendientes})`}
+              </button>
+            )}
+            {envio && (
+              <button type="button" className="ui-btn" onClick={imprimirEnvio} title="Imprimir remito del pedido">
+                <Printer size={14} />
+                {!isMobile && "Imprimir"}
+              </button>
+            )}
+            {isManager && envio?.estado === "cancelado" && (
+              <button type="button" className="ui-btn ui-btn-suave" onClick={() => cambiarEstadoEnvio("enviado")} title="Vuelve el pedido a la lista de pañol, con sus ítems como estaban">
+                Reactivar
+              </button>
+            )}
+            {isManager && !cerrado && (
+              <>
+                <button type="button" className="ui-btn" onClick={() => cambiarEstadoEnvio("cerrado")} style={{ color: C.green, background: C.greenL, borderColor: C.greenB }}>
+                  Cerrar
+                </button>
+                <button type="button" className="ui-btn ui-btn-peligro" onClick={() => cambiarEstadoEnvio("cancelado")}>
+                  Cancelar
+                </button>
+              </>
+            )}
+            {isManager && (
+              <button type="button" className="ui-btn ui-btn-peligro" onClick={borrarEnvio} title="Borrar definitivamente">
+                <Trash2 size={13} />
+                {!isMobile && "Borrar"}
+              </button>
+            )}
+          </>
+        )}
+      >
+        {editandoTitulo && (
+          <form onSubmit={guardarTitulo} onKeyDown={(event) => {
+            if (event.key === "Escape" && !guardandoTitulo) {
+              event.stopPropagation();
+              setEditandoTitulo(false);
+            }
+          }} style={{ display: "flex", alignItems: "end", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+            <label style={{ display: "grid", gap: 5, flex: "1 1 240px", minWidth: 0, color: C.muted, fontSize: 12 }}>
+              Título del aviso
+              <input
+                autoFocus
+                required
+                value={tituloEditado}
+                onChange={(event) => setTituloEditado(event.target.value)}
+                disabled={guardandoTitulo}
+                style={{ width: "100%", boxSizing: "border-box", border: `1px solid ${C.border}`, borderRadius: 8, background: C.panelSolid, color: C.text, fontFamily: C.sans, fontSize: 14, padding: "9px 11px" }}
+              />
+            </label>
+            <button type="submit" className="ui-btn ui-btn-primario" disabled={guardandoTitulo || !tituloEditado.trim()}>
+              {guardandoTitulo ? "Guardando…" : "Guardar"}
+            </button>
+            <button type="button" className="ui-btn" disabled={guardandoTitulo} onClick={() => setEditandoTitulo(false)}>Cancelar</button>
+          </form>
+        )}
+        {envio && (
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, minmax(150px, 1fr))", gap: 9 }}>
+            {/* "Recibidos" no decia si eso ya era stock o seguia en el limbo. */}
+            <HeaderStat icon={ClipboardCheck} label={resumen.recibidos > 0 ? `Ya son stock en ${envio?.sede || "Pañol"}` : "Recibidos"} value={`${resumen.recibidos}/${resumen.total}`} color={C.green} />
+            <HeaderStat icon={Clock3} label="Pendientes" value={resumen.pendientes} color={C.violet} />
+            <HeaderStat icon={AlertTriangle} label="Problemas" value={resumen.problemas} color={C.red} />
+            <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 11, padding: "10px 12px", display: "grid", alignContent: "center", gap: 7 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.dim, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em" }}>
+                <span>Avance</span>
+                <span style={{ color: C.text, fontFamily: C.mono }}>{resumen.pctRecibido}%</span>
+              </div>
+              <ProgressBar resumen={resumen} />
+            </div>
+          </div>
+        )}
+      </PageHeader>
+
+      {canReceive && !cerrado && sel.size > 0 && (
+        <div style={{
+          background: "var(--blue-soft)",
+          borderBottom: `1px solid ${C.blueB}`,
+          padding: isMobile ? "9px 12px" : "9px 18px",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          flexWrap: "wrap",
+          flexShrink: 0,
+        }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: C.blue, marginRight: 4 }}>
+            <ClipboardCheck size={15} />
+            {sel.size} seleccionado{sel.size === 1 ? "" : "s"}
+          </span>
+          <ActionButton estado="recibido" disabled={saving} onClick={() => aplicar("recibido", bulkIds)}>
+            Confirmar ingreso ({bulkIds.length})
+          </ActionButton>
+          {showAdvanced && (
+            <ActionButton estado="parcial" disabled={saving} onClick={() => pedirParcial(bulkIds)}>
+              Ingreso parcial
+            </ActionButton>
+          )}
+          <button
+            type="button"
+            onClick={() => setSel(new Set())}
+            style={{ marginLeft: "auto", background: "transparent", border: "none", color: C.dim, cursor: "pointer", padding: 5, display: "grid", placeItems: "center" }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
+      {scanEnabled && (
+        <ScanReceiptPanel
+          value={scanCode}
+          onChange={setScanCode}
+          onSubmit={submitScan}
+          onOpenCamera={() => setScannerOpen(true)}
+          inputRef={scanInputRef}
+          result={scanResult}
+          busy={scanBusy}
+          isMobile={isMobile}
+          readyCount={scanReadyCount}
+        />
+      )}
+
+      {remitoIa && (
+        <RemitoIaPanel
+          resultado={remitoIa}
+          guardando={saving}
+          isMobile={isMobile}
+          onToggle={(id) => setRemitoIa((prev) => (prev ? { ...prev, propuestas: prev.propuestas.map((row) => (row.item.id === id ? { ...row, marcar: !row.marcar } : row)) } : prev))}
+          onCantidad={recalcularPropuesta}
+          onConfirmar={confirmarRemitoIa}
+          onCerrar={() => setRemitoIa(null)}
+        />
+      )}
+
+      <div style={{
+        flex: 1,
+        minHeight: 0,
+        overflow: "hidden",
+        display: "grid",
+        gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) 340px",
+      }}>
+        <div style={{
+          overflowY: "auto",
+          borderRight: isMobile ? "none" : `1px solid ${C.border}`,
+          minHeight: 0,
+          background: C.bg,
+        }}>
+          {loading ? (
+            <div style={{ padding: 40 }}><Cargando llenar texto="Cargando pedido…" /></div>
+          ) : (
+            <>
+              <div style={{
+                position: "sticky",
+                top: 0,
+                zIndex: 4,
+                background: C.topbarSoft,
+                backdropFilter: "var(--glass-filter)",
+                WebkitBackdropFilter: "var(--glass-filter)",
+                borderBottom: `1px solid ${C.border}`,
+                padding: isMobile ? 12 : "12px 18px",
+                display: "grid",
+                gap: 10,
+              }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  {canReceive && !cerrado && (
+                    <label style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 7,
+                      border: `1px solid ${C.border}`,
+                      background: C.panelSolid,
+                      color: C.muted,
+                      borderRadius: 9,
+                      padding: "7px 10px",
+                      cursor: filteredItems.length ? "pointer" : "default",
+                      fontSize: 12,
+                      fontWeight: 650,
+                      whiteSpace: "nowrap",
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        onChange={toggleVisible}
+                        disabled={!filteredItems.length}
+                        style={{ accentColor: C.blue }}
+                      />
+                      {isMobile ? "Visibles" : `Seleccionar visibles (${filteredItems.length})`}
+                    </label>
+                  )}
+
+                  <div style={{ position: "relative", flex: "1 1 240px", minWidth: isMobile ? "100%" : 240 }}>
+                    <Search size={15} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: C.dim }} />
+                    <input
+                      value={itemQ}
+                      onChange={(e) => setItemQ(e.target.value)}
+                      placeholder="Buscar item, codigo, nota..."
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        background: C.panelSolid,
+                        border: `1px solid ${C.border}`,
+                        color: C.text,
+                        padding: "8px 32px",
+                        borderRadius: 9,
+                        fontSize: 13,
+                        fontFamily: C.sans,
+                        outline: "none",
+                      }}
+                    />
+                    {itemQ && (
+                      <button type="button" onClick={() => setItemQ("")} style={{ position: "absolute", right: 7, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: C.dim, cursor: "pointer", padding: 4 }}>
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                  {canReceive && !cerrado && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (showAdvanced) setItemEstado("todos");
+                        setShowAdvanced((current) => !current);
+                      }}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${showAdvanced ? C.violetB : C.border}`, background: showAdvanced ? C.violetL : C.panelSolid, color: showAdvanced ? C.violet : C.dim, borderRadius: 9, padding: "7px 10px", cursor: "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap" }}
+                    >
+                      <Settings2 size={14} /> {showAdvanced ? "Ocultar opciones" : "Parcial / escaneo"}
+                    </button>
+                  )}
+                  {/* El pañolero tiene el remito de papel en la mano: que la IA lo
+                      lea aca evita ir a Ingresar y cargar todo de nuevo, que es lo
+                      que terminaba duplicando el material. */}
+                  {canReceive && !cerrado && (
+                    <div style={{ display: "inline-flex", alignItems: "stretch", border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 9, overflow: "hidden" }}>
+                      <select
+                        value={remitoScanSource}
+                        onChange={(e) => setRemitoScanSource(e.target.value)}
+                        disabled={remitoEscaneando || remitoLeyendo}
+                        title="Origen del escaneo"
+                        aria-label="Origen del escaneo del remito"
+                        style={{ border: "none", borderRight: `1px solid ${C.violetB}`, background: C.panelSolid, color: C.muted, padding: "7px 8px", fontSize: 11.5, fontWeight: 650, fontFamily: C.sans, outline: "none" }}
+                      >
+                        <option value="glass">Vidrio</option>
+                        <option value="feeder">Alimentador</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={escanearRemitoDeRecepcion}
+                        disabled={remitoEscaneando || remitoLeyendo}
+                        style={{ display: "inline-flex", alignItems: "center", gap: 6, border: "none", background: "transparent", color: remitoEscaneando ? C.dim : C.violet, padding: "7px 10px", cursor: remitoEscaneando || remitoLeyendo ? "default" : "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap" }}
+                      >
+                        {remitoEscaneando ? <LoaderCircle size={14} className="spin" /> : <ScanLine size={14} />}
+                        {remitoEscaneando ? "Escaneando…" : "Escanear remito"}
+                      </button>
+                    </div>
+                  )}
+                  {canReceive && !cerrado && (
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.border}`, background: C.panelSolid, color: remitoLeyendo ? C.dim : C.muted, borderRadius: 9, padding: "7px 10px", cursor: remitoLeyendo || remitoEscaneando ? "default" : "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap" }}>
+                      <Bot size={14} />
+                      {remitoLeyendo ? "Leyendo…" : "Subir remito"}
+                      <input
+                        type="file"
+                        accept="image/*,.pdf,application/pdf"
+                        disabled={remitoLeyendo || remitoEscaneando}
+                        onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; leerRemitoDeRecepcion(file); }}
+                        style={{ display: "none" }}
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {showAdvanced && (
+                  <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 1 }}>
+                    {statusFilters.map(([estado, label]) => (
+                      <FilterButton key={estado} active={itemEstado === estado} onClick={() => setItemEstado(estado)}>{label}</FilterButton>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {!isMobile && (
+                <div style={{
+                  display: "grid",
+                  // Siete columnas cuando se puede editar (casillero + acciones) y
+                  // cinco cuando es de lectura. Antes esto dependia de
+                  // showAdvanced pero la fila dibujaba las mismas celdas igual, y
+                  // el encabezado quedaba corrido respecto de los datos.
+                  gridTemplateColumns: canReceive && !cerrado ? "34px minmax(260px, 1.4fr) 96px 110px 120px minmax(150px, 0.9fr) 150px" : "minmax(260px, 1.4fr) 96px 110px 120px minmax(150px, 0.9fr)",
+                  gap: 10,
+                  alignItems: "center",
+                  padding: "10px 18px",
+                  borderBottom: `1px solid ${C.border}`,
+                  color: C.dim,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: 1.1,
+                  textTransform: "uppercase",
+                  background: C.bg,
+                }}>
+                  {canReceive && !cerrado && <span />}
+                  <span>Item</span>
+                  <span>Cantidad</span>
+                  <span>Codigo / barra</span>
+                  <span>Estado</span>
+                  <span>Nota</span>
+                  {canReceive && !cerrado && <span>{showAdvanced ? "Acción especial" : "Acciones"}</span>}
+                </div>
+              )}
+
+              <div style={{ display: "grid", gap: isMobile ? 8 : 0, padding: isMobile ? 12 : 0 }}>
+                {filteredItems.length === 0 ? (
+                  <div style={{ margin: 18, border: `1px dashed ${C.border2}`, background: C.panel, borderRadius: 12, padding: 26, textAlign: "center", color: C.dim, fontSize: 13 }}>
+                    No hay items para ese filtro.
+                  </div>
+                ) : filteredItems.map((item) => (
+                  isMobile ? (
+                    <MobileItemCard
+                      key={item.id}
+                      item={item}
+                      location={itemLocations[item.id]}
+                      estanterias={estanterias}
+                      selected={sel.has(item.id)}
+                      flash={scanFlashId === item.id}
+                      canEdit={canReceive && !cerrado}
+                      showAdvanced={showAdvanced}
+                      saving={saving}
+                      onToggle={() => toggle(item.id)}
+                      onApply={(estado, opts) => aplicar(estado, [item.id], opts)}
+                      onSaveNote={(nota) => guardarNota(item, nota)}
+                      onLocationChange={(patch) => updateItemLocation(item.id, patch)}
+                      onSaveLocation={() => guardarUbicacionItem(item.id)}
+                    />
+                  ) : (
+                    <DesktopItemRow
+                      key={item.id}
+                      item={item}
+                      location={itemLocations[item.id]}
+                      estanterias={estanterias}
+                      selected={sel.has(item.id)}
+                      flash={scanFlashId === item.id}
+                      canEdit={canReceive && !cerrado}
+                      canSeePrices={canSeePrices}
+                      obras={obras}
+                      puedeCambiarObra={isManager && !cerrado}
+                      onCambiarObra={(obraId) => cambiarObraDeItem(item, obraId)}
+                      saving={saving}
+                      onToggle={() => toggle(item.id)}
+                      onApply={(estado, opts) => aplicar(estado, [item.id], opts)}
+                      onSaveNote={(nota) => guardarNota(item, nota)}
+                      onLocationChange={(patch) => updateItemLocation(item.id, patch)}
+                      onSaveLocation={() => guardarUbicacionItem(item.id)}
+                    />
+                  )
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        <aside style={{
+          overflowY: "auto",
+          minHeight: 0,
+          padding: isMobile ? 12 : 16,
+          background: C.panel,
+          display: "grid",
+          alignContent: "start",
+          gap: 12,
+        }}>
+          <section style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: 13, display: "grid", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <PackageOpen size={16} style={{ color: C.blue }} />
+              <div style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>Datos del pedido</div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <SideLabel label="Sede" value={envio?.sede} />
+              <SideLabel label="Fecha" value={fmtTs(envio?.created_at)} />
+              <SideLabel label="Origen" value={envio?.origen === "compra" ? "Compras" : envio?.origen || "Manual"} />
+              <SideLabel label="Prioridad" value={envio?.prioridad || "media"} />
+            </div>
+            {(envio?.observaciones || envio?.destino || envio?.obra?.codigo) && (
+              <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10, display: "grid", gap: 8 }}>
+                {envio?.obra?.codigo && <SideLabel label="Obra" value={envio.obra.codigo} />}
+                {envio?.destino && <SideLabel label="Destino" value={envio.destino} />}
+                {envio?.observaciones && <SideLabel label="Observaciones" value={envio.observaciones} />}
+              </div>
+            )}
+          </section>
+
+          <section style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: 13, display: "grid", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <MessageSquare size={16} style={{ color: C.green }} />
+              <div style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>Mensaje a compras / pañol</div>
+            </div>
+            <textarea
+              value={msg}
+              onChange={(e) => setMsg(e.target.value)}
+              placeholder="Escribir una novedad, faltante o aclaracion..."
+              rows={3}
+              style={{
+                width: "100%",
+                resize: "vertical",
+                boxSizing: "border-box",
+                background: C.panelSolid2,
+                border: `1px solid ${C.border}`,
+                color: C.text,
+                borderRadius: 9,
+                padding: 10,
+                fontSize: 13,
+                fontFamily: C.sans,
+                outline: "none",
+              }}
+            />
+            <button
+              type="button"
+              onClick={enviarMsg}
+              disabled={!msg.trim()}
+              style={{
+                justifySelf: "end",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 7,
+                border: `1px solid ${msg.trim() ? C.blueB : C.border}`,
+                background: msg.trim() ? "var(--blue-soft)" : C.panel2,
+                color: msg.trim() ? C.blue : C.dim,
+                borderRadius: 9,
+                padding: "8px 12px",
+                cursor: msg.trim() ? "pointer" : "default",
+                fontSize: 13,
+                fontWeight: 700,
+                fontFamily: C.sans,
+              }}
+            >
+              <Send size={14} />
+              Enviar
+            </button>
+          </section>
+
+          <section style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: 13 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+              <Clock3 size={16} style={{ color: C.violet }} />
+              <div style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>Historial</div>
+              <span style={{ marginLeft: "auto", color: C.dim, fontSize: 11, fontFamily: C.mono }}>{eventos.length}</span>
+            </div>
+            {eventos.length === 0 ? (
+              <div style={{ fontSize: 12, color: C.dim }}>Sin movimientos ni mensajes.</div>
+            ) : (
+              <div style={{ display: "grid", gap: 10 }}>
+                {eventos.map((ev) => <TimelineEvent key={ev.id} ev={ev} />)}
+              </div>
+            )}
+          </section>
+        </aside>
+      </div>
+
+      {partialModal && (
+        <PartialReceiptModal
+          key={partialModal.ids.join("-")}
+          items={partialItems}
+          saving={saving}
+          onClose={() => setPartialModal(null)}
+          onSave={aplicarParciales}
+        />
+      )}
+
+      <BarcodeScanner
+        open={scannerOpen}
+        onClose={() => { setScannerOpen(false); focusScanInput(); }}
+        onScan={(code) => {
+          setScannerOpen(false);
+          processScan(code);
+        }}
+      />
+    </>
+  );
+}
+
+function ReceiptLocationEditor({ item, location, estanterias = [], saving = false, compact = false, onChange, onSave }) {
+  const effective = location || locationFromItem(item);
+  const parsed = parseUbicacion(effective.ubicacion);
+  const cod = parsed.afuera ? "AFUERA" : parsed.cod;
+  const nivel = parsed.nivel ? String(parsed.nivel) : "";
+  const selectedShelf = estanterias.find((est) => est.codigo === cod) || null;
+  const nivelesCount = Array.isArray(selectedShelf?.niveles_cm) ? selectedShelf.niveles_cm.length : 0;
+  const materialId = getItemMaterialId(item);
+  const hasCatalogDefault = !!item?.material?.ubicacion;
+  const changed = !!effective.touched;
+  const helper = !materialId
+    ? "Vincula el item al catalogo para recordar la ubicacion."
+    : changed
+      ? "Se guarda como ubicacion habitual al recibir o con Guardar."
+      : hasCatalogDefault
+        ? "Ubicacion habitual del catalogo."
+        : "Elegila una vez y queda recordada para proximos ingresos.";
+  const field = {
+    background: C.panelSolid,
+    border: `1px solid ${C.border}`,
+    color: C.text,
+    borderRadius: 8,
+    padding: "7px 9px",
+    fontSize: 12,
+    fontFamily: C.sans,
+    outline: "none",
+    minWidth: 0,
+  };
+  const setLocation = (nextCod, nextNivel = nivel, nextObs = effective.ubicacion_obs) => {
+    const value = !nextCod ? "" : nextCod === "AFUERA" ? "AFUERA" : (nextNivel ? `${nextCod}-${nextNivel}` : nextCod);
+    onChange?.({ ubicacion: value, ubicacion_obs: nextObs, touched: true });
+  };
+
+  return (
+    <div style={{ display: "grid", gap: 6 }}>
+      <div style={{
+        display: "grid",
+        gridTemplateColumns: compact ? "1fr" : "78px minmax(130px, 0.5fr) minmax(105px, 0.35fr) minmax(180px, 1fr) auto",
+        gap: 7,
+        alignItems: "center",
+      }}>
+        <span style={{ color: C.dim, fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.07em", display: "inline-flex", alignItems: "center", gap: 5 }}>
+          <MapPin size={11} /> Ubic.
+        </span>
+        <select value={cod} onChange={(e) => setLocation(e.target.value, "")} disabled={saving} style={{ ...field, cursor: saving ? "default" : "pointer" }}>
+          <option value="">Sin ubicar</option>
+          <option value="AFUERA">Afuera del panol</option>
+          {estanterias.map((est) => <option key={est.codigo} value={est.codigo}>{est.codigo}</option>)}
+        </select>
+        {cod && cod !== "AFUERA" && nivelesCount > 0 ? (
+          <select value={nivel} onChange={(e) => setLocation(cod, e.target.value)} disabled={saving} style={{ ...field, cursor: saving ? "default" : "pointer" }}>
+            <option value="">Estante</option>
+            {Array.from({ length: nivelesCount }, (_, i) => (
+              <option key={i + 1} value={String(i + 1)}>{i + 1} estante</option>
+            ))}
+          </select>
+        ) : (
+          <span style={{ display: compact ? "none" : "block" }} />
+        )}
+        <input
+          value={effective.ubicacion_obs || ""}
+          onChange={(e) => onChange?.({ ubicacion: effective.ubicacion || "", ubicacion_obs: e.target.value, touched: true })}
+          disabled={saving}
+          placeholder={cod === "AFUERA" ? "Donde queda fisicamente" : "Obs. de ubicacion"}
+          style={field}
+        />
+        <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: compact ? "flex-start" : "flex-end", flexWrap: "wrap", minWidth: 0 }}>
+          <UbicacionChip ubicacion={effective.ubicacion} obs={effective.ubicacion_obs} />
+          {changed && materialId && (
+            <button
+              type="button"
+              onClick={onSave}
+              disabled={saving}
+              style={{
+                border: `1px solid ${C.greenB}`,
+                background: "var(--green-soft)",
+                color: C.green,
+                borderRadius: 8,
+                padding: "7px 9px",
+                cursor: saving ? "default" : "pointer",
+                fontSize: 11,
+                fontWeight: 700,
+                fontFamily: C.sans,
+                whiteSpace: "nowrap",
+              }}
+            >
+              Guardar
+            </button>
+          )}
+        </div>
+      </div>
+      <div style={{ marginLeft: compact ? 0 : 78, color: changed ? C.green : C.dim, fontSize: 11, fontWeight: changed ? 650 : 500 }}>
+        {helper}
+      </div>
+    </div>
+  );
+}
+
+// La obra del renglón: chip para el pañolero, desplegable para el admin —que es
+// quien puede corregir un aviso mal armado—. Solo mientras está pendiente: una
+// vez recibido el stock ya se imputó y moverlo aca dejaria las dos cosas
+// contando distinto.
+function ObraDeItem({ item, obras, editable, disabled, onChange }) {
+  if (editable) {
+    return (
+      <select
+        value={item.obra_id || ""}
+        disabled={disabled}
+        title="Cambiar a qué obra va este renglón"
+        onChange={(e) => onChange?.(e.target.value)}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          flexShrink: 0, maxWidth: 128, border: `1px solid ${item.obra_codigo ? C.blueB : C.border}`,
+          background: item.obra_codigo ? "var(--blue-soft)" : C.panelSolid,
+          color: item.obra_codigo ? C.blue : C.dim,
+          borderRadius: 999, padding: "2px 6px", fontSize: 10.5, fontWeight: 700,
+          fontFamily: C.sans, cursor: disabled ? "default" : "pointer", outline: "none",
+        }}
+      >
+        <option value="">Sin obra</option>
+        {obras.map((o) => <option key={o.id} value={o.id}>{o.codigo}</option>)}
+      </select>
+    );
+  }
+  if (!item.obra_codigo) return null;
+  return (
+    <span style={{ flexShrink: 0, border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.blue, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap" }}>
+      {item.obra_codigo}
+    </span>
+  );
+}
+
+function DesktopItemRow({ item, location, estanterias, selected, flash, canEdit, canSeePrices, obras = [], puedeCambiarObra = false, onCambiarObra, saving, onToggle, onApply, onSaveNote, onLocationChange, onSaveLocation }) {
+  const meta = ITEM_ESTADO_META[item.estado] ?? ITEM_ESTADO_META.pendiente;
+  const barcode = firstBarcodeOfItem(item);
+  const effectiveLocation = location || locationFromItem(item);
+  return (
+    <div id={`panol-envio-item-${item.id}`} style={{
+      display: "grid",
+      gridTemplateColumns: canEdit ? "34px minmax(260px, 1.4fr) 96px 110px 120px minmax(150px, 0.9fr) 150px" : "minmax(260px, 1.4fr) 96px 110px 120px minmax(150px, 0.9fr)",
+      gap: 10,
+      alignItems: "center",
+      padding: "9px 18px",
+      minHeight: 58,
+      borderBottom: `1px solid ${C.border}`,
+      background: flash ? "var(--green-soft)" : selected ? "var(--blue-soft)" : C.bg,
+      borderLeft: `3px solid ${flash ? C.green : selected ? C.blue : meta.color}`,
+    }}>
+      {canEdit && (
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={onToggle}
+          style={{ accentColor: C.blue, justifySelf: "center" }}
+        />
+      )}
+
+      <div style={{ minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+          <span style={{ color: C.text, fontSize: 13, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {item.descripcion}
+          </span>
+          {/* A qué obra va ESTE renglón. El encabezado muestra la del aviso, que
+              en uno repartido es solo la del primero: sin esto los renglones se
+              ven idénticos y no se sabe para qué barco es cada uno. */}
+          <ObraDeItem
+            item={item}
+            obras={obras}
+            editable={puedeCambiarObra && item.estado === "pendiente"}
+            disabled={saving}
+            onChange={onCambiarObra}
+          />
+        </div>
+        {canSeePrices && item.precio_unitario !== null && item.precio_unitario !== undefined && (
+          <div style={{ color: C.green, fontSize: 11, marginTop: 3, fontFamily: C.mono }}>
+            {money(item.precio_unitario, item.moneda)}
+          </div>
+        )}
+      </div>
+
+      <div style={{ color: C.text, fontSize: 12, fontWeight: 650 }}>
+        {item.cantidad || "-"} <span style={{ color: C.dim, fontWeight: 600 }}>{item.unidad || ""}</span>
+      </div>
+
+      <div style={{ display: "grid", gap: 2, minWidth: 0 }}>
+        <span style={{ color: item.codigo ? C.blue : C.dim, fontFamily: C.mono, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {item.codigo || "-"}
+        </span>
+        {barcode && (
+          <span title={`Codigo de barras: ${barcodesOfItem(item).join(" / ")}`} style={{ color: C.green, fontFamily: C.mono, fontSize: 10.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            CB {barcode}
+          </span>
+        )}
+      </div>
+
+      <div style={{ display: "grid", gap: 4, justifyItems: "start" }}>
+        <StatusChip estado={item.estado} compact />
+        <PartialQtyHint item={item} />
+      </div>
+
+      {canEdit ? (
+        <input
+          key={`${item.id}-${item.nota ?? ""}`}
+          defaultValue={item.nota ?? ""}
+          placeholder="Nota"
+          onBlur={(e) => onSaveNote(e.target.value.trim())}
+          style={{
+            width: "100%",
+            minWidth: 0,
+            boxSizing: "border-box",
+            background: C.panelSolid,
+            border: `1px solid ${C.border}`,
+            color: C.text,
+            padding: "7px 8px",
+            borderRadius: 8,
+            fontSize: 12,
+            fontFamily: C.sans,
+            outline: "none",
+          }}
+        />
+      ) : (
+        <div style={{ color: C.dim, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {item.nota || "-"}
+        </div>
+      )}
+
+      {canEdit && (
+        <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+          {item.estado !== "recibido" && (
+            <ActionButton estado="recibido" disabled={saving} onClick={() => onApply("recibido")}>
+              Recibir
+            </ActionButton>
+          )}
+          <select
+            value={item.estado}
+            onChange={(e) => onApply(e.target.value)}
+            disabled={saving}
+            title="Cambiar estado"
+            style={{
+              minWidth: 0,
+              flex: 1,
+              background: C.panelSolid,
+              border: `1px solid ${C.border}`,
+              color: C.muted,
+              padding: "7px 8px",
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 650,
+              fontFamily: C.sans,
+              cursor: saving ? "default" : "pointer",
+            }}
+          >
+            {RECEP_ESTADOS.map((estado) => <option key={estado} value={estado}>{ITEM_ESTADO_META[estado].label}</option>)}
+          </select>
+          {item.estado === "parcial" && (
+            <input
+              type="number"
+              min="0"
+              key={`${item.id}-cant-${item.cantidad_recibida ?? ""}`}
+              defaultValue={item.cantidad_recibida ?? ""}
+              placeholder="Llegaron"
+              title="¿Cuántos llegaron?"
+              onBlur={(e) => onApply("parcial", { cantidadRecibida: e.target.value.trim() })}
+              style={{ width: 76, boxSizing: "border-box", background: C.panelSolid, border: `1px solid ${ITEM_ESTADO_META.parcial.border}`, color: C.text, padding: "7px 8px", borderRadius: 8, fontSize: 12, fontFamily: C.mono, outline: "none" }}
+            />
+          )}
+        </div>
+      )}
+
+      {(canEdit || effectiveLocation.ubicacion) && (
+        <div style={{
+          gridColumn: canEdit ? "2 / -1" : "1 / -1",
+          borderTop: `1px dashed ${C.border}`,
+          paddingTop: 8,
+          marginTop: -1,
+        }}>
+          {canEdit ? (
+            <ReceiptLocationEditor
+              item={item}
+              location={effectiveLocation}
+              estanterias={estanterias}
+              saving={saving}
+              onChange={onLocationChange}
+              onSave={onSaveLocation}
+            />
+          ) : (
+            <UbicacionChip ubicacion={effectiveLocation.ubicacion} obs={effectiveLocation.ubicacion_obs} size="md" />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MobileItemCard({ item, location, estanterias, selected, flash, canEdit, showAdvanced, saving, onToggle, onApply, onSaveNote, onLocationChange, onSaveLocation }) {
+  const meta = ITEM_ESTADO_META[item.estado] ?? ITEM_ESTADO_META.pendiente;
+  const barcode = firstBarcodeOfItem(item);
+  const effectiveLocation = location || locationFromItem(item);
+  return (
+    <div id={`panol-envio-item-${item.id}`} style={{
+      border: `1px solid ${flash ? C.greenB : selected ? C.blueB : C.border}`,
+      borderLeft: `4px solid ${flash ? C.green : selected ? C.blue : meta.color}`,
+      borderRadius: 12,
+      background: flash ? "var(--green-soft)" : selected ? "var(--blue-soft)" : C.panelSolid,
+      padding: 12,
+      display: "grid",
+      gap: 10,
+    }}>
+      <div style={{ display: "flex", gap: 9, alignItems: "flex-start" }}>
+        {canEdit && <input type="checkbox" checked={selected} onChange={onToggle} style={{ accentColor: C.blue, marginTop: 3 }} />}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ color: C.text, fontSize: 14, fontWeight: 700, lineHeight: 1.2 }}>{item.descripcion}</div>
+          <div style={{ color: C.dim, fontSize: 12, marginTop: 4 }}>
+            {item.cantidad || "-"} {item.unidad || ""}{item.codigo ? ` · ${item.codigo}` : ""}
+            {barcode ? ` · CB ${barcode}` : ""}
+          </div>
+        </div>
+        <StatusChip estado={item.estado} compact />
+      </div>
+
+      {canEdit ? (
+        <>
+          <input
+            key={`${item.id}-${item.nota ?? ""}`}
+            defaultValue={item.nota ?? ""}
+            placeholder="Nota"
+            onBlur={(e) => onSaveNote(e.target.value.trim())}
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              background: C.panelSolid2,
+              border: `1px solid ${C.border}`,
+              color: C.text,
+              padding: "8px 9px",
+              borderRadius: 8,
+              fontSize: 13,
+              fontFamily: C.sans,
+              outline: "none",
+            }}
+          />
+          {showAdvanced && <div style={{ display: "flex", gap: 7 }}>
+            {item.estado !== "recibido" && <ActionButton estado="recibido" disabled={saving} onClick={() => onApply("recibido")}>Recibir</ActionButton>}
+            <select
+              value={item.estado}
+              onChange={(e) => onApply(e.target.value)}
+              disabled={saving}
+              style={{
+                flex: 1,
+                background: C.panelSolid2,
+                border: `1px solid ${C.border}`,
+                color: C.text,
+                padding: "8px 9px",
+                borderRadius: 8,
+                fontSize: 13,
+                fontFamily: C.sans,
+              }}
+            >
+              {RECEP_ESTADOS.map((estado) => <option key={estado} value={estado}>{ITEM_ESTADO_META[estado].label}</option>)}
+            </select>
+          </div>}
+          {showAdvanced && item.estado === "parcial" && (
+            <input
+              type="number"
+              min="0"
+              key={`${item.id}-cant-${item.cantidad_recibida ?? ""}`}
+              defaultValue={item.cantidad_recibida ?? ""}
+              placeholder="¿Cuántos llegaron?"
+              onBlur={(e) => onApply("parcial", { cantidadRecibida: e.target.value.trim() })}
+              style={{ width: "100%", boxSizing: "border-box", background: C.panelSolid2, border: `1px solid ${ITEM_ESTADO_META.parcial.border}`, color: C.text, padding: "8px 9px", borderRadius: 8, fontSize: 13, fontFamily: C.mono, outline: "none" }}
+            />
+          )}
+          <ReceiptLocationEditor
+            item={item}
+            location={effectiveLocation}
+            estanterias={estanterias}
+            saving={saving}
+            compact
+            onChange={onLocationChange}
+            onSave={onSaveLocation}
+          />
+        </>
+      ) : (
+        <>
+          {item.nota && <div style={{ color: C.dim, fontSize: 12 }}>Nota: {item.nota}</div>}
+          {effectiveLocation.ubicacion && <UbicacionChip ubicacion={effectiveLocation.ubicacion} obs={effectiveLocation.ubicacion_obs} size="md" />}
+        </>
+      )}
+    </div>
+  );
+}
+
+function PartialQtyHint({ item }) {
+  if (item.estado !== "parcial") return null;
+  const received = String(item.cantidad_recibida ?? "").trim();
+  return (
+    <span style={{
+      color: received ? ITEM_ESTADO_META.parcial.color : C.red,
+      background: received ? ITEM_ESTADO_META.parcial.bg : "var(--red-soft)",
+      border: `1px solid ${received ? ITEM_ESTADO_META.parcial.border : C.redB}`,
+      borderRadius: 7,
+      padding: "2px 6px",
+      fontSize: 10,
+      fontWeight: 700,
+      fontFamily: C.mono,
+      whiteSpace: "nowrap",
+    }}>
+      {received ? `Llegaron ${received}${item.cantidad ? ` / ${item.cantidad}` : ""}` : "Falta cantidad"}
+    </span>
+  );
+}
+
+function PartialReceiptModal({ items, saving, onClose, onSave }) {
+  const [values, setValues] = useState(() => Object.fromEntries(
+    items.map((item) => [item.id, String(item.cantidad_recibida ?? "")]),
+  ));
+
+  function update(id, value) {
+    setValues((prev) => ({ ...prev, [id]: value }));
+  }
+
+  const rows = items.map((item) => ({
+    id: item.id,
+    cantidadRecibida: String(values[item.id] ?? "").trim(),
+  }));
+  const invalid = rows.some((row) => parseReceivedQty(row.cantidadRecibida) === null);
+
+  return (
+    <div
+      onClick={(e) => { if (e.target === e.currentTarget && !saving) onClose(); }}
+      style={{ position: "fixed", inset: 0, zIndex: 9999, background: "var(--overlay-strong)", display: "grid", placeItems: "center", padding: 16 }}
+    >
+      <div style={{ width: "min(720px, 100%)", maxHeight: "88vh", overflow: "hidden", display: "grid", gridTemplateRows: "auto 1fr auto", border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 14, boxShadow: `0 20px 70px ${C.shadow || "rgba(0,0,0,0.35)"}` }}>
+        <div style={{ padding: 16, borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, display: "grid", placeItems: "center", background: ITEM_ESTADO_META.parcial.bg, color: ITEM_ESTADO_META.parcial.color, border: `1px solid ${ITEM_ESTADO_META.parcial.border}` }}>
+            <PackageOpen size={17} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 16, fontWeight: 700 }}>Recepcion parcial</div>
+            <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>
+              Carga cuanto llego de cada item. Este dato es obligatorio para marcar parcial.
+            </div>
+          </div>
+          <button type="button" onClick={onClose} disabled={saving} style={{ border: "none", background: "transparent", color: C.dim, cursor: saving ? "default" : "pointer", padding: 5 }}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div style={{ overflowY: "auto", padding: 16, display: "grid", gap: 9 }}>
+          {items.map((item) => {
+            const value = values[item.id] ?? "";
+            const bad = value.trim() && parseReceivedQty(value) === null;
+            return (
+              <div key={item.id} style={{ display: "grid", gridTemplateColumns: "minmax(220px,1fr) 120px 150px", gap: 10, alignItems: "center", border: `1px solid ${bad ? C.redB : C.border}`, background: bad ? "var(--red-soft)" : C.panel, borderRadius: 11, padding: 11 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: C.text, fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.descripcion}</div>
+                  <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>{item.codigo || "Sin codigo"}</div>
+                </div>
+                <div style={{ color: C.muted, fontSize: 12, fontWeight: 650 }}>
+                  Pedido: <span style={{ color: C.text, fontFamily: C.mono }}>{item.cantidad || "-"}</span> {item.unidad || ""}
+                </div>
+                <input
+                  autoFocus={items.length === 1}
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={value}
+                  onChange={(e) => update(item.id, e.target.value)}
+                  placeholder="Llegaron"
+                  style={{ width: "100%", boxSizing: "border-box", background: C.panelSolid, border: `1px solid ${bad ? C.red : ITEM_ESTADO_META.parcial.border}`, color: C.text, padding: "9px 10px", borderRadius: 9, fontSize: 14, fontFamily: C.mono, fontWeight: 700, outline: "none" }}
+                />
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{ padding: 14, borderTop: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ color: invalid ? C.red : C.dim, fontSize: 12, fontWeight: 650, marginRight: "auto" }}>
+            {invalid ? "Completá una cantidad válida para todos los items." : `${items.length} item${items.length === 1 ? "" : "s"} listo${items.length === 1 ? "" : "s"}.`}
+          </div>
+          <button type="button" onClick={onClose} disabled={saving} style={{ border: `1px solid ${C.border}`, background: "transparent", color: C.dim, borderRadius: 9, padding: "8px 12px", cursor: saving ? "default" : "pointer", fontSize: 13, fontWeight: 650, fontFamily: C.sans }}>
+            Cancelar
+          </button>
+          <button type="button" onClick={() => onSave(rows)} disabled={saving || invalid} style={{ border: `1px solid ${ITEM_ESTADO_META.parcial.border}`, background: ITEM_ESTADO_META.parcial.bg, color: ITEM_ESTADO_META.parcial.color, borderRadius: 9, padding: "8px 13px", cursor: saving || invalid ? "default" : "pointer", fontSize: 13, fontWeight: 700, fontFamily: C.sans, opacity: saving || invalid ? 0.55 : 1 }}>
+            {saving ? "Guardando..." : "Guardar parcial"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TimelineEvent({ ev }) {
+  if (ev.tipo === "comentario") {
+    return (
+      <div style={{ background: C.panelSolid2, border: `1px solid ${C.border}`, borderRadius: 10, padding: "9px 10px" }}>
+        <div style={{ color: C.text, fontSize: 13, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{ev.nota}</div>
+        <div style={{ color: C.dim, fontSize: 10, fontFamily: C.mono, marginTop: 5 }}>
+          {ev.actor?.username ? `${ev.actor.username} · ` : ""}{fmtTs(ev.created_at)}
+        </div>
+      </div>
+    );
+  }
+
+  const color = ITEM_ESTADO_META[ev.estado_nuevo]?.color ?? C.blue;
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "11px 1fr", gap: 8 }}>
+      <div style={{ width: 8, height: 8, borderRadius: "50%", background: color, marginTop: 5 }} />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ color: C.muted, fontSize: 12 }}>
+          {ev.tipo === "item_estado"
+            ? <>{ITEM_ESTADO_META[ev.estado_anterior]?.label ?? ev.estado_anterior}{" -> "}<strong style={{ color: C.text }}>{ITEM_ESTADO_META[ev.estado_nuevo]?.label ?? ev.estado_nuevo}</strong></>
+            : ev.tipo === "creado" ? "Pedido creado"
+            : ev.tipo === "estado" ? <>Pedido{" -> "}<strong style={{ color: C.text }}>{ENVIO_ESTADO_META[ev.estado_nuevo]?.label ?? ev.estado_nuevo}</strong></>
+            : ev.tipo === "titulo" ? "Título del aviso actualizado"
+            : ev.tipo}
+        </div>
+        {ev.nota && <div style={{ color: C.dim, fontSize: 11, marginTop: 2, wordBreak: "break-word" }}>{ev.nota}</div>}
+        <div style={{ color: C.dim, fontSize: 10, fontFamily: C.mono, marginTop: 2 }}>
+          {ev.actor?.username ? `${ev.actor.username} · ` : ""}{fmtTs(ev.created_at)}
+        </div>
+      </div>
+    </div>
+  );
+}

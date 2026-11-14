@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { rowDelta } from "./panolMovimientos.js";
-import { buildProductGroups, necesitaReponer, nombreDeMovimiento, rowEgresoKind, rowInHistory, rowIsAsignacionStock, rowIsMovimientoEspejo, rowIsReasignacionRetirada, rowIsReasignacionSinObra, stockParaMinimo } from "./stockGrupos.js";
+import { buildProductGroups, necesitaReponer, nombreDeMovimiento, rowEgresoKind, rowInHistory, rowIsAsignacionStock, rowIsMovimientoEspejo, rowIsReasignacionRetirada, rowIsReasignacionSinObra, rowRecepcionOriginal, stockParaMinimo } from "./stockGrupos.js";
 
 // Forma real del par registrado al liberar el faro del 52-24 el 21/10.
 const salida = {
@@ -100,6 +100,24 @@ test("lo entregado a su obra no pide reposición", () => {
   ]);
   assert.equal(group.total, 0);
   assert.equal(necesitaReponer(group), false);
+});
+
+test("el remito 62753 recibido y retirado para la misma obra conserva la recepción y se lee como egreso", () => {
+  const fecha = "2026-08-24T12:53:23Z";
+  const row = ingreso({
+    obra_id: "55-2", egreso_destino_obra_id: "55-2", estado: "egresado",
+    recepcion_cantidad_recibida: "1", recepcion_updated_at: fecha,
+    egreso_at: "2026-09-24T15:49:32Z", cantidad_egresada: 1,
+  });
+  assert.equal(rowEgresoKind(row), "egreso");
+  assert.equal(rowDelta(row), 0);
+  assert.deepEqual(rowRecepcionOriginal(row), { fecha, cantidad: 1 });
+  assert.equal(rowRecepcionOriginal({ ...row, recepcion_cantidad_recibida: null }), null);
+  assert.equal(rowRecepcionOriginal({ ...row, source: "historial_retiro_parcial" }), null);
+
+  const reasignado = { ...row, obra_origen_id: "55-1" };
+  assert.equal(rowIsReasignacionRetirada(reasignado), true);
+  assert.equal(rowEgresoKind(reasignado), "reasignacion_egreso");
 });
 
 test("con mínimo, se compara sólo el stock libre", () => {

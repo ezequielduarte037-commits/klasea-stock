@@ -5,7 +5,7 @@ import Cargando from "@/components/ui/Cargando";
 import { supabase } from "@/supabaseClient";
 import { enLotesDeIds, guardarUbicacionMaterial, registrarCambioUbicacionMaterial } from "./panolApi";
 import { parseUbicacion } from "./ubicacionUtils";
-import { fmtDate, rowDelta, rowIsAnulado, rowMovementAt } from "@/features/panol/panolMovimientos";
+import { fmtDate, rowDelta, rowIsAnulado, rowIsInstalled, rowMovementAt } from "@/features/panol/panolMovimientos";
 
 // Mapa digital del pañol (Chubut 2120) — plano a escala real (1965×950 cm).
 // Buscás un producto y se ilumina la estantería donde vive; click → ficha con la
@@ -1199,7 +1199,7 @@ function EstanteriaPanel({ est, mats, stockByMaterialId = {}, onClose, onMatClic
 
 // ── Modal de Detalle de Material (Radiografía) ──
 function movimientoQty(row) {
-  const n = Number(row.cantidad_egresada || row.cantidad || 0);
+  const n = Number(rowIsInstalled(row) ? row.cantidad : row.cantidad_egresada || row.cantidad || 0);
   return Number.isFinite(n) ? Math.abs(n) : 0;
 }
 
@@ -1207,8 +1207,10 @@ function movimientoMeta(row) {
   const source = String(row.source || "").toLowerCase();
   const anulado = rowIsAnulado(row);
   const isTransfer = source.includes("transferencia");
+  const instalado = rowIsInstalled(row);
   const isOut = row.estado === "egresado" || source.startsWith("egreso") || source.startsWith("transferencia_egreso");
-  if (anulado) return { label: "Anulado", color: C.dim, bg: C.panel, border: C.border, icon: Ban, sign: isOut ? "-" : "+" };
+  if (anulado) return { label: "Anulado", color: C.dim, bg: C.panel, border: C.border, icon: Ban, sign: instalado ? "" : isOut ? "−" : "+" };
+  if (instalado) return { label: "Instalado", color: C.teal, bg: C.tealL, border: C.tealB, icon: Check, sign: "" };
   if (isTransfer) return { label: "Transferencia", color: C.violet, bg: "rgba(124,58,237,0.10)", border: "rgba(124,58,237,0.26)", icon: Move, sign: isOut ? "-" : "+" };
   if (isOut) return { label: "Egreso", color: C.red, bg: C.redL, border: C.redB, icon: ArrowUpRight, sign: "-" };
   if (row.estado === "problema") return { label: "Problema", color: C.violet, bg: C.violetL, border: C.violetB, icon: AlertTriangle, sign: "" };
@@ -1221,7 +1223,7 @@ function MovimientoTimelineRow({ row }) {
   const anulado = rowIsAnulado(row);
   const obra = row.obra;
   const detalle = [
-    row.retirado_por ? `Retira: ${row.retirado_por}` : "",
+    !rowIsInstalled(row) && row.retirado_por ? `Retira: ${row.retirado_por}` : "",
     row.egreso_nota || row.notas || "",
   ].filter(Boolean).join(" · ");
   return (

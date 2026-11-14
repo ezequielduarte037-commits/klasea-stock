@@ -165,7 +165,7 @@ export function FilaPedido({ request, sinLeer = false, motivo, onAbrir, i = 0, m
   return (
     <button
       type="button"
-      className={`cmp-fila${cerrado ? " cerrada" : ""}`}
+      className={`cmp-fila${cerrado ? " cerrada" : ""}${request.status === "cancelado" ? " cancelada" : ""}`}
       style={{ "--i": Math.min(i, 14), "--marca": motivo ? `var(--${MARCA[motivo.tono] || "border"})` : "transparent" }}
       onClick={onAbrir}
       onMouseEnter={onVistazo ? (ev) => onVistazo(request, ev.currentTarget) : undefined}
@@ -210,7 +210,7 @@ export function TarjetaPedido({ request, sinLeer = false, motivo, onAbrir, i = 0
   return (
     <button
       type="button"
-      className={`cmp-tarjeta${cerrado ? " cerrada" : ""}`}
+      className={`cmp-tarjeta${cerrado ? " cerrada" : ""}${request.status === "cancelado" ? " cancelada" : ""}`}
       data-tono={e.tono}
       style={{ "--i": Math.min(i, 18) }}
       onClick={onAbrir}

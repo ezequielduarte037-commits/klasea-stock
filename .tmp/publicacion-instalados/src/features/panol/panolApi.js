@@ -1,0 +1,2898 @@
+import { supabase } from "@/supabaseClient";
+import { materialMatchScore } from "@/features/panol/materialMatch";
+import { rowDelta, rowMovementAt } from "@/features/panol/panolMovimientos";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// API del módulo Pedidos / Recepción a Pañol.
+// Toda escritura pasa por RPCs `security definer` (panol_crear_envio,
+// panol_marcar_items, panol_set_estado) para mantener atómicos: items + eventos
+// (historial) + recálculo del estado de cabecera. Ver migración del módulo.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const SEDES_PANOL = ["Pampa", "Chubut"];
+
+// Normaliza sedes historicas como "Chubut 2120" o "Stock Pampa".
+export function canonicalPanolSede(value) {
+  const text = String(value || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  if (text.includes("chubut")) return "Chubut";
+  if (text.includes("pampa")) return "Pampa";
+  return "";
+}
+
+export const ENVIO_ESTADOS = ["borrador", "enviado", "en_preparacion", "parcial", "recibido", "cerrado", "cancelado"];
+export const ITEM_ESTADOS = ["pendiente", "recibido", "parcial", "sin_info", "falta_stock", "rechazado"];
+
+// Estados de ítem que cuentan como "aviso operativo" (Pañol detectó un problema).
+export const ITEM_ESTADOS_PROBLEMA = ["sin_info", "falta_stock", "rechazado"];
+
+export const ITEM_ESTADO_META = {
+  pendiente:   { label: "Pendiente",   color: "#9ca3af", bg: "rgba(156,163,175,0.12)", border: "rgba(156,163,175,0.30)" },
+  recibido:    { label: "Recibido",    color: "#34d399", bg: "rgba(16,185,129,0.12)",  border: "rgba(16,185,129,0.30)" },
+  parcial:     { label: "Parcial",     color: "#a78bfa", bg: "rgba(139,92,246,0.12)",  border: "rgba(139,92,246,0.30)" },
+  sin_info:    { label: "Sin info",    color: "#60a5fa", bg: "rgba(59,130,246,0.12)",  border: "rgba(59,130,246,0.30)" },
+  falta_stock: { label: "Falta stock", color: "#67e8f9", bg: "rgba(34,211,238,0.12)",  border: "rgba(34,211,238,0.30)" },
+  rechazado:   { label: "Rechazado",   color: "#f87171", bg: "rgba(239,68,68,0.12)",   border: "rgba(239,68,68,0.30)" },
+};
+
+export const ENVIO_ESTADO_META = {
+  borrador:       { label: "Borrador",       color: "#9ca3af" },
+  enviado:        { label: "Enviado",        color: "#67e8f9" },
+  en_preparacion: { label: "En preparación", color: "#60a5fa" },
+  parcial:        { label: "Parcial",        color: "#a78bfa" },
+  recibido:       { label: "Recibido",       color: "#34d399" },
+  cerrado:        { label: "Cerrado",        color: "#6b7280" },
+  cancelado:      { label: "Cancelado",      color: "#f87171" },
+};
+
+function isMissingColumn(error) {
+  if (!error) return false;
+  const msg = String(error.message ?? "").toLowerCase();
+  return error.code === "42703" || msg.includes("could not find") || msg.includes("column");
+}
+
+function isMissingTable(error) {
+  if (!error) return false;
+  const msg = String(error.message ?? "").toLowerCase();
+  return error.code === "42P01" || msg.includes("does not exist") || msg.includes("schema cache") || msg.includes("not found");
+}
+
+function isUuidLike(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || "").trim());
+}
+
+function numericValue(value, fallback = 0) {
+  const n = Number(String(value ?? "").replace(",", "."));
+  return Number.isFinite(n) ? n : fallback;
+}
+
+async function fetchProfilesMap(ids = []) {
+  const cleanIds = [...new Set(ids.filter(isUuidLike))];
+  const byId = new Map();
+  if (!cleanIds.length) return byId;
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id,username")
+      .in("id", cleanIds);
+    if (error) throw error;
+    for (const profile of data ?? []) byId.set(profile.id, profile);
+  } catch {
+    byId.clear();
+  }
+  return byId;
+}
+
+function transferMovementKey(row, mode = "out") {
+  const materialKey = row.material_id || [
+    String(row.codigo || "").trim().toLowerCase(),
+    normalizeSearch(row.descripcion || ""),
+  ].filter(Boolean).join(":");
+  const origin = mode === "in" ? row.obra_origen_id : row.obra_id;
+  const destination = mode === "in" ? row.obra_id : row.egreso_destino_obra_id;
+  const amount = numericValue(mode === "in" ? row.cantidad : row.cantidad_egresada || row.cantidad, 0);
+  return [
+    materialKey || "material",
+    origin || "stock",
+    destination || "stock",
+    String(row.stock_sede || "").trim().toLowerCase(),
+    Number(Math.round(amount * 1000) / 1000),
+  ].join("|");
+}
+
+export function retiradoPorEsNombreCompleto(value = "") {
+  const words = String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .split(" ")
+    .map((word) => word.replace(/[^A-Za-zÀ-ÿ]/g, ""))
+    .filter((word) => word.length >= 2);
+  return words.length >= 2;
+}
+
+export function retiradoPorNombreCompletoError(value = "") {
+  if (retiradoPorEsNombreCompleto(value)) return "";
+  return "Completá nombre y apellido de la persona que retira.";
+}
+
+function normalizeSearch(value = "") {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w\s.-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function materialVariantImageUrl(material, variantName = "") {
+  const selected = normalizeSearch(variantName);
+  const variants = material?.variantes_precios;
+  if (!selected || !variants || typeof variants !== "object" || Array.isArray(variants)) return "";
+  const match = Object.entries(variants).find(([name]) => normalizeSearch(name) === selected);
+  return String(match?.[1]?.imagen_url || match?.[1]?.imagenUrl || "").trim();
+}
+
+// Conectores/palabras que no aportan a la b\u00fasqueda (los cargan distinto entre \u00edtems).
+const SEARCH_STOPWORDS = new Set(["de", "del", "la", "el", "los", "las", "con", "para", "por", "y", "o", "a", "en", "un", "una", "que", "al", "sin"]);
+
+// Match por palabras: cada palabra "\u00fatil" del t\u00e9rmino debe estar en el texto (en
+// cualquier orden). As\u00ed "caja de" encuentra "caja ducha 800 gph". T\u00e9rminos muy cortos
+// (ej. un c\u00f3digo) caen a substring simple.
+function canonicalObraLine(value = "") {
+  const raw = String(value || "").trim().toUpperCase();
+  if (!raw) return "";
+  const numeric = raw.match(/^K?(\d+)$/);
+  if (numeric) return numeric[1];
+  return raw.replace(/\s+/g, " ");
+}
+
+function modeloFromObraCodigo(codigo = "") {
+  const prefix = String(codigo || "").trim().toUpperCase().split("-")[0] || "";
+  return canonicalObraLine(prefix);
+}
+
+function withDerivedModelo(obra = {}) {
+  return {
+    ...obra,
+    modelo: canonicalObraLine(obra.modelo || obra.linea_nombre) || modeloFromObraCodigo(obra.codigo),
+  };
+}
+
+function toNullableNumber(value = "") {
+  if (value === "" || value == null) return null;
+  const n = Number(String(value).replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+
+async function fetchPaged(table, select, { order = "id", limit = 1000 } = {}) {
+  const out = [];
+  for (let from = 0; ; from += limit) {
+    const { data, error } = await supabase
+      .from(table)
+      .select(select)
+      .order(order)
+      .range(from, from + limit - 1);
+    if (error) throw error;
+    out.push(...(data ?? []));
+    if (!data || data.length < limit) break;
+  }
+  return out;
+}
+
+// Un filtro .in() viaja en la URL, y la URL tiene un techo: medido contra la
+// base, 500 ids (18 KB) todavia pasan y 700 (25 KB) ya dan 400. Con mas de mil
+// materiales en el catalogo, pedir todos de una tira Bad Request. Se parte en
+// lotes con margen de sobra para que el catalogo pueda seguir creciendo.
+export const MAX_IDS_EN_FILTRO = 200;
+
+/** Corre fn(lote) por cada tanda de ids y devuelve todas las filas juntas. */
+export async function enLotesDeIds(ids, fn) {
+  const unicos = [...new Set((ids ?? []).filter(Boolean))];
+  const filas = [];
+  for (let desde = 0; desde < unicos.length; desde += MAX_IDS_EN_FILTRO) {
+    filas.push(...(await fn(unicos.slice(desde, desde + MAX_IDS_EN_FILTRO)) ?? []));
+  }
+  return filas;
+}
+
+async function fetchBarcodeRowsForMaterialIds(materialIds = []) {
+  const ids = [...new Set(materialIds.filter(Boolean))];
+  if (!ids.length) return new Map();
+  try {
+    const byMaterial = new Map();
+    const chunks = [];
+    for (let from = 0; from < ids.length; from += MAX_IDS_EN_FILTRO) chunks.push(ids.slice(from, from + MAX_IDS_EN_FILTRO));
+    const results = await Promise.all(chunks.map(async (chunk) => {
+      const { data, error } = await supabase
+        .from("panol_material_codigos_barra")
+        .select("id,material_id,codigo,etiqueta,activo")
+        .in("material_id", chunk)
+        .eq("activo", true);
+      return { data: data ?? [], error };
+    }));
+    const failed = results.find((result) => result.error);
+    if (failed) throw failed.error;
+    for (const result of results) {
+      const { data } = result;
+      for (const row of data ?? []) {
+        const list = byMaterial.get(row.material_id) ?? [];
+        list.push(row);
+        byMaterial.set(row.material_id, list);
+      }
+    }
+    return byMaterial;
+  } catch (error) {
+    if (isMissingTable(error) || isMissingColumn(error)) return new Map();
+    throw error;
+  }
+}
+
+// Resumen de estados de los ítems de un envío (para KPIs y chips de la bandeja).
+export function resumenItems(items = []) {
+  const total = items.length;
+  const by = {};
+  for (const e of ITEM_ESTADOS) by[e] = 0;
+  for (const it of items) by[it.estado] = (by[it.estado] ?? 0) + 1;
+  const recibidos = by.recibido ?? 0;
+  const problemas = ITEM_ESTADOS_PROBLEMA.reduce((s, e) => s + (by[e] ?? 0), 0);
+  const pendientes = by.pendiente ?? 0;
+  return { total, by, recibidos, problemas, pendientes, pctRecibido: total ? Math.round((recibidos / total) * 100) : 0 };
+}
+
+// ─── Lecturas ─────────────────────────────────────────────────────────────────
+export async function fetchEnvios({ sede = null, estados = null } = {}) {
+  let q = supabase
+    .from("panol_envios")
+    .select("*, obra:produccion_obras(id,codigo), items:panol_envio_items(id,estado)")
+    .order("created_at", { ascending: false });
+  if (sede) q = q.eq("sede", sede);
+  if (estados?.length) q = q.in("estado", estados);
+  const { data, error } = await q;
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function fetchEnvio(id) {
+  const { data, error } = await supabase
+    .from("panol_envios")
+    .select("*, obra:produccion_obras(id,codigo), items:panol_envio_items(*)")
+    .eq("id", id)
+    .single();
+  if (error) throw error;
+  return hydrateEnvioItemObras(await hydrateEnvioItemMaterials(data));
+}
+
+// Un aviso puede repartirse entre varias obras: cada renglón apunta al
+// requerimiento de la suya. Sin esto, en la recepción los renglones se ven
+// iguales y no hay forma de saber cuál va a qué obra —ni cuál recibir si llega
+// uno solo—. Es una consulta más y sólo cuando hay renglones con obra.
+async function hydrateEnvioItemObras(envio) {
+  const items = envio?.items || [];
+  const snapshotIds = [...new Set(items.map((item) => item.obra_snapshot_item_id).filter(Boolean))];
+  if (!snapshotIds.length) return envio;
+
+  try {
+    const { data, error } = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .select("id, obra_id, obra:produccion_obras!panol_obra_materiales_snapshot_obra_id_fkey(id,codigo)")
+      .in("id", snapshotIds);
+    if (error) throw error;
+    const porSnapshot = new Map((data ?? []).map((row) => [row.id, row]));
+    return {
+      ...envio,
+      items: items.map((item) => {
+        const fila = item.obra_snapshot_item_id ? porSnapshot.get(item.obra_snapshot_item_id) : null;
+        return fila
+          ? { ...item, obra_id: fila.obra_id, obra_codigo: fila.obra?.codigo || "" }
+          : item;
+      }),
+    };
+  } catch {
+    // Si falla, el aviso se abre igual: la obra por renglón es información
+    // extra, no un requisito para recibir.
+    return envio;
+  }
+}
+
+async function hydrateEnvioItemMaterials(envio) {
+  const items = envio?.items || [];
+  const materialIds = [...new Set(items.map((item) => item.material_id).filter(Boolean))];
+  if (!materialIds.length) return envio;
+
+  let materiales = [];
+  try {
+    const { data, error } = await supabase
+      .from("panol_materiales")
+      .select("id,codigo_barra,codigo,descripcion,unidad_medida,ubicacion,ubicacion_obs")
+      .in("id", materialIds);
+    if (error) throw error;
+    materiales = data ?? [];
+  } catch (error) {
+    if (!isMissingColumn(error)) return envio;
+    const { data, error: fallbackError } = await supabase
+      .from("panol_materiales")
+      .select("id,codigo,descripcion,unidad_medida")
+      .in("id", materialIds);
+    if (fallbackError) return envio;
+    materiales = data ?? [];
+  }
+
+  const materialById = new Map(materiales.map((material) => [material.id, material]));
+  const codigosByMaterial = await fetchBarcodeRowsForMaterialIds(materialIds);
+  return {
+    ...envio,
+    items: items.map((item) => {
+      const material = item.material || materialById.get(item.material_id) || null;
+      const codigos = material ? codigosByMaterial.get(material.id) ?? [] : [];
+      const hydratedMaterial = material ? { ...material, codigos_barra: codigos } : null;
+      return {
+        ...item,
+        material: hydratedMaterial,
+        codigo_barra: item.codigo_barra ?? hydratedMaterial?.codigo_barra ?? codigos[0]?.codigo ?? null,
+      };
+    }),
+  };
+}
+
+export async function fetchEventos(envioId) {
+  const { data, error } = await supabase
+    .from("panol_envio_eventos")
+    .select("*, actor:profiles(id,username)")
+    .eq("envio_id", envioId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+// Envíos vinculados a un pedido de compras (para el panel "Estado en Pañol").
+export async function fetchEnviosDePedido(purchaseRequestId) {
+  const { data, error } = await supabase
+    .from("panol_envios")
+    .select("*, items:panol_envio_items(id,estado)")
+    .eq("purchase_request_id", purchaseRequestId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function fetchEnviosRegistro({ limit = 80 } = {}) {
+  const { data, error } = await supabase
+    .from("panol_envios")
+    .select(`
+      *,
+      obra:produccion_obras(id,codigo),
+      items:panol_envio_items(*),
+      eventos:panol_envio_eventos(*, actor:profiles(id,username))
+    `)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []).map((envio) => ({
+    ...envio,
+    items: envio.items ?? [],
+    eventos: [...(envio.eventos ?? [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
+  }));
+}
+
+export async function fetchLinkedPurchaseRequestForEnvio(envioId) {
+  if (!envioId) return null;
+  const { data, error } = await supabase
+    .rpc("panol_get_linked_purchase_request", { p_envio: envioId })
+    .maybeSingle();
+  if (error) throw error;
+  return data ?? null;
+}
+
+const materialesEgresoEnVuelo = new Map();
+
+// Varias vistas de Pañol se montan juntas y necesitan el mismo ledger. Compartir
+// únicamente la promesa en curso evita consultas duplicadas sin cachear saldos:
+// una lectura posterior a un ingreso/egreso siempre vuelve a Supabase.
+/**
+ * Los ids de todo material marcado como consumible.
+ *
+ * Los consumibles tienen su propio apartado, con su stock y sus movimientos.
+ * En el stock maestro y en el historial general no van: ahí sólo va lo que se
+ * compra para los barcos.
+ *
+ * Los dos lados usan este mismo conjunto para que sean exactamente
+ * complementarios. Si cada pantalla decidiera por su cuenta -una mirando
+ * `source`, otra mirando `tipo`- habría movimientos que aparecen en las dos o
+ * en ninguna.
+ *
+ * Sin filtrar por `activo`: un consumible dado de baja sigue siendo un
+ * consumible y sus movimientos viejos tienen que quedar en su apartado.
+ */
+export async function fetchConsumibleIds() {
+  const { data, error } = await supabase
+    .from("panol_materiales")
+    .select("id")
+    .eq("es_consumible", true);
+  if (error) throw error;
+  return new Set((data || []).map((row) => row.id).filter(Boolean));
+}
+
+/** Saca del historial general lo que pertenece al apartado de consumibles. */
+export function sinConsumibles(rows = [], consumibleIds) {
+  if (!consumibleIds?.size) return rows;
+  return rows.filter((row) => !row.material_id || !consumibleIds.has(row.material_id));
+}
+
+export async function fetchMaterialesEgreso({ sede = null, estados = ["en_panol", "recibido", "parcial", "problema"] } = {}) {
+  const key = JSON.stringify([
+    canonicalPanolSede(sede) || "todas",
+    [...new Set(estados || [])].sort(),
+  ]);
+  const existing = materialesEgresoEnVuelo.get(key);
+  if (existing) return existing;
+
+  const request = fetchMaterialesEgresoSinCache({ sede, estados })
+    .finally(() => materialesEgresoEnVuelo.delete(key));
+  materialesEgresoEnVuelo.set(key, request);
+  return request;
+}
+
+async function fetchMaterialesEgresoSinCache({ sede = null, estados = ["en_panol", "recibido", "parcial", "problema"] } = {}) {
+  let data;
+  let error;
+  const runSelect = (select) => supabase
+    .from("panol_obra_materiales_snapshot")
+    .select(select)
+    .in("estado", estados)
+    .order("updated_at", { ascending: false });
+
+  // `marcado_por` del renglon del aviso es QUIEN LO RECIBIO, que es el unico
+  // dato fiable de quien hizo el movimiento en el pañol: el envio se arma en
+  // tecnica y `recibido_por` del envio esta vacio en toda la base. Hay dos FK
+  // entre estas tablas, asi que hay que nombrar la que va.
+  const CON_RECEPTOR = "*, panol_envio:panol_envios(id,titulo,sede,destino,created_at,created_by,recibido_por), panol_envio_item:panol_envio_items!panol_obra_materiales_snapshot_panol_envio_item_id_fkey(id,marcado_por,marcado_at)";
+  ({ data, error } = await runSelect(CON_RECEPTOR));
+  if (error) {
+    // Si el embed no resuelve, el stock se muestra igual: se pierde el nombre
+    // del que recibio, no las existencias.
+    ({ data, error } = await runSelect("*, panol_envio:panol_envios(id,titulo,sede,destino,created_at,created_by,recibido_por)"));
+  }
+  if (error && isMissingColumn(error)) {
+    ({ data, error } = await runSelect("*"));
+  }
+  if (error) throw error;
+  const rows = data ?? [];
+  // Obras y actores no dependen de la metadata del material. Arrancan junto con
+  // ella para no sumar dos esperas completas al final de la hidratación.
+  const obraIds = [...new Set(rows.map((row) => row.obra_id).filter(Boolean))];
+  const obrasPromise = obraIds.length ? fetchObrasEgreso().catch(() => []) : Promise.resolve([]);
+  const egresoActorPromise = fetchProfilesMap([
+    ...rows.map((row) => row.egreso_por),
+    ...rows.map((row) => row.created_by),
+    ...rows.map((row) => row.panol_envio?.recibido_por),
+    ...rows.map((row) => row.panol_envio?.created_by),
+    ...rows.map((row) => row.panol_envio_item?.marcado_por),
+  ]);
+  // Se necesitan ambas identidades: `requisito_material_id` es el ítem de la
+  // matriz (ej. "TV 32") y `material_id` es la opción concreta asignada
+  // (ej. Samsung). Si sólo hidratamos el segundo, el stock pierde el contexto
+  // necesario para mostrar la opción elegida en cada obra.
+  const materialIds = [...new Set(rows.flatMap((row) => [row.material_id, row.requisito_material_id]).filter(Boolean))];
+  const materialById = new Map();
+  const categoriaById = new Map();
+  const opcionLegacyByPair = new Map();
+  if (materialIds.length) {
+    let materiales = [];
+    const fetchMaterialMetadata = async (select, ids = materialIds) => {
+      const batches = [];
+      // PostgREST puede rechazar o truncar filtros `in` demasiado grandes. El
+      // stock maestro hoy supera ampliamente los 1.000 materiales, así que la
+      // metadata se busca por lotes. Las tandas son independientes, por eso se
+      // ejecutan en paralelo: antes cada una agregaba otra latencia de red.
+      for (let from = 0; from < ids.length; from += 400) batches.push(ids.slice(from, from + 400));
+      const results = await Promise.all(batches.map(async (batchIds) => {
+        const { data: batch, error: batchError } = await supabase
+          .from("panol_materiales")
+          .select(select)
+          .in("id", batchIds);
+        return { data: batch ?? [], error: batchError };
+      }));
+      const failed = results.find((result) => result.error);
+      if (failed) return { data: null, error: failed.error };
+      return { data: results.flatMap((result) => result.data), error: null };
+    };
+    try {
+      // Escalera de selects de más completo a más viejo: la pantalla tiene que
+      // seguir funcionando en un entorno donde las migraciones nuevas todavía
+      // no se aplicaron, mostrando menos en vez de romper.
+      let res = await fetchMaterialMetadata("id,descripcion,codigo,unidad_medida,activo,es_requisito,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes,variantes_precios,stock_minimo,imagen_url,notas,verificacion_estado,verificado_at,verificacion_nota,verificacion_problemas");
+      if (res.error && isMissingColumn(res.error)) {
+        res = await fetchMaterialMetadata(
+          // `es_requisito` es parte de la identidad operativa del material, no
+          // metadata opcional. Antes se perdia en este fallback cuando faltaba
+          // alguna columna de verificacion; el carrito parecia un producto
+          // normal y el RPC recien lo rechazaba al confirmar.
+          "id,descripcion,codigo,unidad_medida,activo,es_requisito,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes,variantes_precios,stock_minimo,imagen_url,notas",
+        );
+      }
+      if (res.error && isMissingColumn(res.error)) {
+        res = await fetchMaterialMetadata("id,es_requisito,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes,stock_minimo");
+      }
+      if (res.error && isMissingColumn(res.error)) {
+        res = await fetchMaterialMetadata("id,es_requisito,proveedor,categoria_id,codigo_barra,ubicacion,ubicacion_obs,variantes");
+      }
+      if (res.error) throw res.error;
+      materiales = res.data ?? [];
+    } catch (metaError) {
+      if (!isMissingColumn(metaError)) {
+        materiales = [];
+      } else {
+        try {
+          const res = await fetchMaterialMetadata("id,es_requisito,proveedor");
+          if (!res.error) materiales = res.data ?? [];
+        } catch {
+          materiales = [];
+        }
+      }
+    }
+    // Todos los selects normales ya incluyen `es_requisito`. Sólo hacemos la
+    // consulta mínima de respaldo si una fila realmente llegó sin identidad;
+    // antes se repetía el catálogo completo en cada carga aunque no hiciera falta.
+    const currentById = new Map(materiales.map((material) => [material.id, material]));
+    const identityMissingIds = materialIds.filter((id) => {
+      const material = currentById.get(id);
+      return !material || !Object.prototype.hasOwnProperty.call(material, "es_requisito");
+    });
+    if (identityMissingIds.length) {
+      try {
+        const { data: identityRows, error: identityError } = await fetchMaterialMetadata("id,es_requisito", identityMissingIds);
+        if (!identityError) {
+          for (const identity of identityRows ?? []) {
+            currentById.set(identity.id, { ...(currentById.get(identity.id) ?? {}), ...identity });
+          }
+          materiales = [...currentById.values()];
+        }
+      } catch {
+        // El RPC seguirá siendo la última protección si la conexión falla.
+      }
+    }
+    for (const mat of materiales) materialById.set(mat.id, { ...mat, codigos_barra: [] });
+    const requisitoIds = materiales.filter((mat) => mat.es_requisito).map((mat) => mat.id);
+    const categoriaIds = [...new Set(materiales.map((mat) => mat.categoria_id).filter(Boolean))];
+
+    const codigosPromise = fetchBarcodeRowsForMaterialIds(materialIds);
+    const compatiblesPromise = (async () => {
+      if (!requisitoIds.length) return;
+      try {
+        const { data: links, error: linksError } = await supabase
+          .from("panol_requisito_productos")
+          .select("requisito_material_id,producto_material_id,variante_legacy")
+          .in("requisito_material_id", requisitoIds)
+          .eq("activo", true);
+        if (linksError) throw linksError;
+
+        const productoIds = [...new Set((links ?? []).map((link) => link.producto_material_id).filter(Boolean))];
+        let productos = [];
+        if (productoIds.length) {
+          const { data: productoRows, error: productosError } = await supabase
+            .from("panol_materiales")
+            .select("id,descripcion,codigo,unidad_medida,proveedor,activo,es_requisito")
+            .in("id", productoIds)
+            .eq("activo", true);
+          if (productosError) throw productosError;
+          productos = productoRows ?? [];
+        }
+        const productoById = new Map(productos.map((producto) => [producto.id, producto]));
+        const compatiblesByRequisito = new Map();
+        for (const link of links ?? []) {
+          const producto = productoById.get(link.producto_material_id);
+          if (!producto || producto.es_requisito) continue;
+          if (String(link.variante_legacy || "").trim()) {
+            opcionLegacyByPair.set(
+              `${link.requisito_material_id}:${link.producto_material_id}`,
+              String(link.variante_legacy).trim(),
+            );
+          }
+          const list = compatiblesByRequisito.get(link.requisito_material_id) ?? [];
+          list.push({
+            id: producto.id,
+            descripcion: producto.descripcion || "Producto sin nombre",
+            codigo: producto.codigo || "",
+            unidad_medida: producto.unidad_medida || "unidad",
+            proveedor: producto.proveedor || "",
+            variante_legacy: link.variante_legacy || "",
+          });
+          compatiblesByRequisito.set(link.requisito_material_id, list);
+        }
+        for (const requisitoId of requisitoIds) {
+          const meta = materialById.get(requisitoId);
+          if (!meta) continue;
+          materialById.set(requisitoId, {
+            ...meta,
+            productos_compatibles: (compatiblesByRequisito.get(requisitoId) ?? [])
+              .sort((a, b) => a.descripcion.localeCompare(b.descripcion, "es", { numeric: true })),
+          });
+        }
+      } catch (compatiblesError) {
+        // La compatibilidad es necesaria sólo para requisitos históricos.
+        // Si el esquema viejo no la tiene, el resto del stock debe seguir cargando.
+        if (!isMissingTable(compatiblesError) && !isMissingColumn(compatiblesError)) throw compatiblesError;
+      }
+    })();
+    const categoriasPromise = (async () => {
+      if (!categoriaIds.length) return;
+      try {
+        const { data: categorias, error: catError } = await supabase
+          .from("panol_categorias")
+          .select("id,nombre")
+          .in("id", categoriaIds);
+        if (!catError) {
+          for (const cat of categorias ?? []) categoriaById.set(cat.id, cat.nombre);
+        }
+      } catch {
+        // La categoria es informativa para filtros; si falla, el stock sigue cargando.
+      }
+    })();
+
+    // Códigos, compatibilidades y categorías dependen sólo de la metadata base.
+    // Ninguno necesita esperar al otro, así que comparten la misma ventana de red.
+    const [codigosByMaterial] = await Promise.all([codigosPromise, compatiblesPromise, categoriasPromise]);
+    for (const mat of materiales) {
+      materialById.set(mat.id, { ...materialById.get(mat.id), codigos_barra: codigosByMaterial.get(mat.id) ?? [] });
+    }
+  }
+  let obrasById = new Map();
+  if (obraIds.length) {
+    const obras = await obrasPromise;
+    obrasById = new Map(obras.filter((obra) => obraIds.includes(obra.id)).map((obra) => [obra.id, obra]));
+  }
+  const requestIds = [...new Set(rows.map((row) => row.purchase_request_id).filter(Boolean))];
+  const requestById = new Map();
+  if (requestIds.length) {
+    try {
+      const { data: requests, error: requestError } = await supabase
+        .from("purchase_requests")
+        .select("id,title,description,es_adicional,project_id,destino")
+        .in("id", requestIds);
+      if (requestError) throw requestError;
+      for (const request of requests ?? []) requestById.set(request.id, request);
+    } catch (requestError) {
+      if (!isMissingColumn(requestError)) {
+        // El detalle del pedido es informativo; el stock no debe caer por esto.
+        requestById.clear();
+      } else {
+        try {
+          const { data: requests } = await supabase
+            .from("purchase_requests")
+            .select("id,title,description,project_id,destino")
+            .in("id", requestIds);
+          for (const request of requests ?? []) requestById.set(request.id, { ...request, es_adicional: false });
+        } catch {
+          requestById.clear();
+        }
+      }
+    }
+  }
+  const egresoActorById = await egresoActorPromise;
+  const transferActorByKey = new Map();
+  for (const row of rows) {
+    if (row.source !== "transferencia_egreso" || !isUuidLike(row.egreso_por)) continue;
+    const actor = egresoActorById.get(row.egreso_por) || null;
+    if (actor) transferActorByKey.set(transferMovementKey(row, "out"), actor);
+  }
+  const hydrated = rows.map((row) => {
+    const meta = materialById.get(row.material_id) || null;
+    const requisitoMeta = materialById.get(row.requisito_material_id) || null;
+    const tieneProductoConcreto = !!(
+      row.material_id
+      && row.requisito_material_id
+      && row.material_id !== row.requisito_material_id
+    );
+    const opcionLegacy = String(row.variante || "").trim();
+    const productoDescripcion = String(meta?.descripcion || row.descripcion || "").trim();
+    const requisitoDescripcion = String(requisitoMeta?.descripcion || "").trim();
+    const opcionVinculada = opcionLegacyByPair.get(`${row.requisito_material_id}:${row.material_id}`) || "";
+    const opcionDesdeDescripcion = requisitoDescripcion
+      && productoDescripcion.toLocaleLowerCase("es").startsWith(requisitoDescripcion.toLocaleLowerCase("es"))
+      ? productoDescripcion
+        .slice(requisitoDescripcion.length)
+        .replace(/^[\s·\-–—:|/]+/, "")
+        .trim()
+      : "";
+    const opcionAsignada = tieneProductoConcreto
+      ? (opcionVinculada || opcionDesdeDescripcion || productoDescripcion)
+      : (opcionLegacy && opcionLegacy.toLowerCase() !== "standard" ? opcionLegacy : "");
+    const imagenVariante = materialVariantImageUrl(meta, opcionAsignada || opcionLegacy);
+    const request = row.purchase_request_id ? requestById.get(row.purchase_request_id) || null : null;
+    const categoriaId = row.categoria_id || meta?.categoria_id || null;
+    const directActor = isUuidLike(row.egreso_por) ? egresoActorById.get(row.egreso_por) || null : null;
+    const transferActor = row.source === "transferencia_ingreso" ? transferActorByKey.get(transferMovementKey(row, "in")) || null : null;
+    // El que apreto "Recibir" en este renglon. Es el movimiento de verdad:
+    // el material entro al pañol cuando esta persona lo dio por recibido.
+    const recepcionActor = isUuidLike(row.panol_envio_item?.marcado_por)
+      ? egresoActorById.get(row.panol_envio_item.marcado_por) || null
+      : null;
+    const envioReceivedActor = isUuidLike(row.panol_envio?.recibido_por) ? egresoActorById.get(row.panol_envio.recibido_por) || null : null;
+    const envioCreatedActor = isUuidLike(row.panol_envio?.created_by) ? egresoActorById.get(row.panol_envio.created_by) || null : null;
+    // Quién hizo ESTE movimiento. Sólo el actor directo o el de la transferencia
+    // son eso; los del envío son otra cosa —quién lo armó y quién lo recibió— y
+    // usarlos de reemplazo hacía que la pantalla atribuyera movimientos a gente
+    // que no los hizo: como los envíos los crea casi siempre la misma persona,
+    // aparecía "haciendo" egresos de todo el pañol.
+    //
+    // Cuando el dato no está, se dice que no está. Un nombre inventado es peor
+    // que un campo vacío: obliga a desconfiar también de los que sí son ciertos.
+    // egreso_por sólo significa algo si la fila ES una salida. Hay filas de
+    // ingreso —source 'matriz', estado 'pendiente'— que lo traen cargado igual,
+    // arrastrado de otro lado, y usarlo ahí hacía que un ingreso figurara hecho
+    // por alguien que no lo tocó.
+    //
+    // Se conserva quién RECIBIÓ el envío: en un ingreso esa persona sí es la que
+    // hizo el movimiento. Lo que se saca es quién lo CREÓ, que es otra cosa —
+    // armar un envío desde técnica no es moverlo en el pañol.
+    const esSalida = row.estado === "egresado"
+      || String(row.source || "").startsWith("egreso")
+      || String(row.source || "").startsWith("transferencia_egreso");
+    // Para un ingreso el autor es quien creó el renglón. Va último porque las
+    // otras fuentes son más específicas, pero es la única que existe en los
+    // ingresos generados desde Materiales.
+    const creadorActor = isUuidLike(row.created_by) ? egresoActorById.get(row.created_by) || null : null;
+    // El receptor va antes que el creador: un ingreso lo hace el que lo recibe
+    // en el pañol, no el que armo el aviso desde tecnica. Sin esto todos los
+    // ingresos figuraban a nombre de quien carga los avisos.
+    const egresoActor = (esSalida ? directActor : null) || transferActor || recepcionActor || envioReceivedActor || creadorActor;
+    const envioActor = envioCreatedActor;
+    return {
+      ...row,
+      obra: row.obra_id ? obrasById.get(row.obra_id) || null : null,
+      egreso_actor: egresoActor,
+      // El texto crudo de egreso_por (cuentas viejas cargadas a mano) también se
+      // limita a las salidas, por lo mismo.
+      egreso_por_nombre: egresoActor?.username
+        || (esSalida && !isUuidLike(row.egreso_por) ? row.egreso_por || "" : ""),
+      // El dato del envío se conserva, pero etiquetado como lo que es. Sirve
+      // para rastrear de dónde salió el material sin fingir que esa persona
+      // hizo el movimiento.
+      envio_actor_nombre: envioActor?.username || "",
+      request,
+      requisito_descripcion: requisitoMeta?.descripcion || "",
+      // El nombre vivo del catálogo. `descripcion` a secas es la copia que se
+      // congeló cuando se registró el movimiento: sirve para saber cómo se
+      // llamaba ese día, pero si se muestra como nombre actual, renombrar el
+      // producto en la ficha no se ve en ningún lado.
+      descripcion_catalogo: productoDescripcion,
+      opcion_asignada: opcionAsignada,
+      opcion_producto_descripcion: tieneProductoConcreto ? productoDescripcion : "",
+      opcion_material_id: tieneProductoConcreto ? row.material_id : null,
+      es_adicional: row.es_adicional ?? request?.es_adicional ?? false,
+      proveedor: row.proveedor || meta?.proveedor || "",
+      codigo_barra: row.codigo_barra || meta?.codigo_barra || meta?.codigos_barra?.[0]?.codigo || "",
+      codigos_barra: meta?.codigos_barra || [],
+      variantes: Array.isArray(meta?.variantes) ? meta.variantes : [],
+      ubicacion: meta?.ubicacion || null,
+      ubicacion_obs: meta?.ubicacion_obs || null,
+      stock_minimo: meta?.stock_minimo ?? null,
+      imagen_url: imagenVariante || meta?.imagen_url || null,
+      notas: meta?.notas || null,
+      es_requisito: meta?.es_requisito === true,
+      productos_compatibles: Array.isArray(meta?.productos_compatibles) ? meta.productos_compatibles : [],
+      // Revisión del maestro. Si la migración todavía no corrió, meta no las
+      // trae y todo queda "pendiente", que es la lectura correcta.
+      verificacion_estado: meta?.verificacion_estado || "pendiente",
+      verificado_at: meta?.verificado_at || null,
+      verificacion_nota: meta?.verificacion_nota || null,
+      verificacion_problemas: meta?.verificacion_problemas || [],
+      categoria_id: categoriaId,
+      categoria_nombre: row.categoria_nombre || (categoriaId ? categoriaById.get(categoriaId) : "") || "",
+    };
+  });
+  const sedeCanonica = canonicalPanolSede(sede);
+  return sedeCanonica
+    ? hydrated.filter((row) => canonicalPanolSede(row.panol_envio?.sede || row.stock_sede) === sedeCanonica)
+    : hydrated;
+}
+
+const CATALOG_MINI_SELECT_FULL =
+  "id,categoria_id,codigo,codigo_barra,descripcion,alias,proveedor,notas,imagen_url,unidad_medida,precio_unitario,moneda,activo,es_requisito,es_consumible,ubicacion,ubicacion_obs,variantes,variantes_precios";
+const CATALOG_MINI_SELECT_STOCK =
+  `${CATALOG_MINI_SELECT_FULL},stock_minimo`;
+const CATALOG_MINI_SELECT_NOVARPRE =
+  "id,categoria_id,codigo,codigo_barra,descripcion,alias,proveedor,notas,imagen_url,unidad_medida,precio_unitario,moneda,activo,es_requisito,es_consumible,ubicacion,ubicacion_obs,variantes";
+const CATALOG_MINI_SELECT_MIN =
+  "id,categoria_id,codigo,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo";
+
+// El catálogo entero (para pantallas que sí lo necesitan). Con fallback por columnas faltantes.
+async function fetchPanolCatalogAllRows() {
+  for (const select of [CATALOG_MINI_SELECT_STOCK, CATALOG_MINI_SELECT_FULL, CATALOG_MINI_SELECT_NOVARPRE, CATALOG_MINI_SELECT_MIN]) {
+    try {
+      return await fetchPaged("panol_materiales", select, { order: "descripcion", limit: 1000 });
+    } catch (error) {
+      if (!isMissingColumn(error)) return [];
+    }
+  }
+  return [];
+}
+
+// Escapa el término para meterlo en un ILIKE dentro de un .or() (comas/paréntesis/comodines rompen el parseo).
+function escapeIlikeTerm(value = "") {
+  return String(value).replace(/[%_,()]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+// Búsqueda SERVER-SIDE: la base filtra por el token más selectivo y devuelve solo candidatos.
+// Esto es lo que evita bajar todo el catálogo en cada búsqueda (clave con internet lenta de pañol).
+// Devuelve null si no se pudo (para caer al catálogo completo sin romper).
+async function fetchPanolCatalogSearchRows(term) {
+  const tokens = term.split(" ").filter((t) => t.length >= 2 && !SEARCH_STOPWORDS.has(t));
+  // El token más largo suele ser el más discriminante (evita traer medio catálogo).
+  const picks = [...tokens]
+    .sort((a, b) => b.length - a.length)
+    .slice(0, 4)
+    .map(escapeIlikeTerm)
+    .filter(Boolean);
+  const fields = ["descripcion", "alias", "notas", "codigo", "codigo_barra"];
+  const clauses = fields.flatMap((field) => picks.map((pick) => `${field}.ilike.%${pick}%`));
+  const searchOr = clauses.join(",");
+  if (!picks.length) return null;
+  const attempts = [
+    { select: CATALOG_MINI_SELECT_STOCK, or: searchOr },
+    { select: CATALOG_MINI_SELECT_FULL, or: searchOr },
+    { select: CATALOG_MINI_SELECT_NOVARPRE, or: searchOr },
+    { select: CATALOG_MINI_SELECT_MIN, or: clauses.filter((clause) => !clause.startsWith("notas.") && !clause.startsWith("alias.")).join(",") },
+  ];
+  for (const attempt of attempts) {
+    try {
+      const { data, error } = await supabase
+        .from("panol_materiales")
+        .select(attempt.select)
+        .or(attempt.or)
+        .limit(400);
+      if (error) throw error;
+      return data ?? [];
+    } catch (error) {
+      if (!isMissingColumn(error)) return null;
+    }
+  }
+  return null;
+}
+
+export async function fetchPanolCatalogMini({ q = "", limit = 80, includeAdditionalBarcodes = true } = {}) {
+  const term = normalizeSearch(q);
+
+  let rows = null;
+  if (term) rows = await fetchPanolCatalogSearchRows(term);
+  if (rows == null) rows = await fetchPanolCatalogAllRows(); // sin término, o si la búsqueda server-side falló
+
+  const codigosByMaterial = includeAdditionalBarcodes
+    ? await fetchBarcodeRowsForMaterialIds(rows.map((row) => row.id))
+    : new Map();
+  const withCodes = rows.map((row) => ({ ...row, codigos_barra: codigosByMaterial.get(row.id) ?? [] }));
+  const active = withCodes.filter((row) => row.activo !== false);
+  let filtered = term
+    ? active.filter((row) => materialMatchScore(row, term) >= 42)
+    : active;
+
+  // Si la base no encuentra "flaps" porque existe "flap", o "parabrisas"
+  // porque quedo escrito "para brisas", hacemos una segunda pasada completa.
+  if (term && !filtered.length && rows.length < 5000) {
+    const allRows = await fetchPanolCatalogAllRows();
+    const allCodes = includeAdditionalBarcodes
+      ? await fetchBarcodeRowsForMaterialIds(allRows.map((row) => row.id))
+      : new Map();
+    const allWithCodes = allRows.map((row) => ({ ...row, codigos_barra: allCodes.get(row.id) ?? [] }));
+    filtered = allWithCodes
+      .filter((row) => row.activo !== false)
+      .filter((row) => materialMatchScore(row, term) >= 42);
+  }
+  const ranked = term
+    ? filtered
+      .map((row) => ({ row, score: materialMatchScore(row, term) }))
+      .sort((a, b) => b.score - a.score || String(a.row.descripcion || "").localeCompare(String(b.row.descripcion || ""), "es", { numeric: true }))
+    : filtered.map((row) => ({ row, score: 0 }));
+
+  return ranked
+    .slice(0, limit)
+    .map(({ row, score }) => ({
+      id: row.id,
+      categoria_id: row.categoria_id || null,
+      codigo: row.codigo || "",
+      codigo_barra: row.codigo_barra || row.codigos_barra?.[0]?.codigo || "",
+      codigos_barra: row.codigos_barra || [],
+      descripcion: row.descripcion || "",
+      activo: row.activo !== false,
+      es_requisito: row.es_requisito === true,
+      // Los consumibles siempre estuvieron en este catalogo; lo que faltaba
+      // era saber cuales lo son al leer un remito.
+      es_consumible: row.es_consumible === true,
+      proveedor: row.proveedor || "",
+      alias: row.alias || "",
+      notas: row.notas || "",
+      observaciones: row.observaciones || "",
+      unidad: row.unidad_medida || "unidad",
+      precio_unitario: row.precio_unitario ?? "",
+      moneda: row.moneda || "ARS",
+      ubicacion: row.ubicacion || null,
+      ubicacion_obs: row.ubicacion_obs || null,
+      imagen_url: row.imagen_url || null,
+      variantes: Array.isArray(row.variantes) ? row.variantes : [],
+      variantes_precios: row.variantes_precios ?? {},
+      stock_minimo: row.stock_minimo ?? null,
+      _score: score,
+    }));
+}
+
+export async function actualizarStockMinimoPanol(materialId, stockMinimo) {
+  if (!materialId) throw new Error("El material no está vinculado al catálogo.");
+  const value = stockMinimo === null || stockMinimo === ""
+    ? null
+    : Number(String(stockMinimo).replace(",", "."));
+  if (value !== null && (!Number.isFinite(value) || value < 0)) {
+    throw new Error("El stock mínimo debe ser un número mayor o igual a cero.");
+  }
+  const { data, error } = await supabase.rpc("panol_set_stock_minimo", {
+    p_material_id: materialId,
+    p_stock_minimo: value,
+  });
+  if (error) throw error;
+  invalidatePanolCatalogFullCache();
+  return data;
+}
+
+// Cache de sesión del catálogo completo. El ingreso manual (EnviarAPanolModal en modo
+// remito) necesita TODO el catálogo local para escanear códigos, detectar duplicados y
+// auto-vincular; y esa pantalla se remonta seguido (cada guardado/borrador). Sin cache
+// rebajaba ~todos los materiales cada vez → era la espera de ~30s que se repetía.
+let _panolCatalogFullCache = null;
+let _panolCatalogLiteCache = null;
+let _panolCatalogFullAt = 0;
+let _panolCatalogLiteAt = 0;
+const PANOL_CATALOG_FULL_TTL_MS = 3 * 60 * 1000;
+
+export async function fetchPanolCatalogFull({ force = false, includeAdditionalBarcodes = true } = {}) {
+  const cached = includeAdditionalBarcodes ? _panolCatalogFullCache : _panolCatalogLiteCache;
+  const cachedAt = includeAdditionalBarcodes ? _panolCatalogFullAt : _panolCatalogLiteAt;
+  if (!force && cached && Date.now() - cachedAt < PANOL_CATALOG_FULL_TTL_MS) {
+    return cached;
+  }
+  const rows = await fetchPanolCatalogMini({ q: "", limit: 5000, includeAdditionalBarcodes });
+  if (includeAdditionalBarcodes) {
+    _panolCatalogFullCache = rows;
+    _panolCatalogFullAt = Date.now();
+  } else {
+    _panolCatalogLiteCache = rows;
+    _panolCatalogLiteAt = Date.now();
+  }
+  return rows;
+}
+
+/**
+ * Busca productos físicos para resolver un ingreso de Pañol y adjunta las
+ * líneas de matriz en las que cada resultado está usado. Las filas requisito
+ * también aparecen como referencia, pero no se pueden asignar al stock: una
+ * matriz describe una necesidad y el movimiento siempre debe apuntar a un
+ * producto concreto.
+ */
+export async function buscarCatalogoParaEstandarizacion(query, { limit = 60 } = {}) {
+  const term = normalizeSearch(query);
+  if (term.length < 2) return [];
+
+  const catalogo = await fetchPanolCatalogMini({ q: term, limit, includeAdditionalBarcodes: false });
+  const ids = catalogo.map((row) => row.id).filter(Boolean);
+  if (!ids.length) return [];
+
+  const buscarEnMatriz = async (column) => {
+    try {
+      return await enLotesDeIds(ids, async (lote) => {
+        const { data, error } = await supabase
+          .from("panol_material_modelo")
+          .select(column === "producto_predeterminado_id"
+            ? "material_id,modelo,cantidad,variante,producto_predeterminado_id"
+            : "material_id,modelo,cantidad,variante")
+          .in(column, lote);
+        if (error) throw error;
+        return data ?? [];
+      });
+    } catch (error) {
+      // La columna de producto predeterminado llegó después que la matriz. Si
+      // falta en una instalación vieja, la búsqueda de catálogo sigue sirviendo.
+      if (isMissingColumn(error) || isMissingTable(error)) return [];
+      throw error;
+    }
+  };
+
+  const [comoRequisito, comoProducto] = await Promise.all([
+    buscarEnMatriz("material_id"),
+    buscarEnMatriz("producto_predeterminado_id"),
+  ]);
+  const matricesPorMaterial = new Map();
+  const materialPorId = new Map(catalogo.map((material) => [material.id, material]));
+  const agregarMatriz = (materialId, row, rol) => {
+    if (!materialId || String(row.variante || "standard") !== "standard") return;
+    const list = matricesPorMaterial.get(materialId) ?? [];
+    const key = `${row.material_id}:${row.modelo}:${rol}`;
+    if (!list.some((entry) => entry.key === key)) {
+      list.push({
+        key,
+        modelo: String(row.modelo || "").replace(/^K/i, ""),
+        cantidad: numericValue(row.cantidad, 1),
+        rol,
+      });
+    }
+    matricesPorMaterial.set(materialId, list);
+  };
+  for (const row of comoRequisito) {
+    agregarMatriz(row.material_id, row, materialPorId.get(row.material_id)?.es_requisito === true ? "requisito" : "producto");
+  }
+  for (const row of comoProducto) agregarMatriz(row.producto_predeterminado_id, row, "producto");
+
+  return catalogo.map((material) => ({
+    ...material,
+    matrices: (matricesPorMaterial.get(material.id) ?? [])
+      .sort((a, b) => a.modelo.localeCompare(b.modelo, "es", { numeric: true })),
+  }));
+}
+
+// Llamar tras crear/editar un material para que el próximo fetch traiga los cambios.
+// Lectura puntual para la ficha del Catálogo Maestro. Mantenerla separada del
+// catálogo evita bajar e hidratar todo el ledger sólo para mostrar el impacto de
+// un producto. No calcula ni modifica stock: devuelve los movimientos vinculados
+// para presentar un saldo de solo lectura y una vista previa de impacto.
+export async function fetchPanolCatalogMaterialImpact(materialId) {
+  if (!materialId) return [];
+  const select = "id,obra_id,obra_origen_id,egreso_destino_obra_id,material_id,requisito_material_id,descripcion,codigo,estado,recepcion_estado,cantidad,cantidad_egresada,recepcion_cantidad_recibida,source,stock_sede,stock_nota,notas,recepcion_nota,egreso_nota,retirado_por,sector_destino,purchase_request_id,purchase_request_item_id,panol_envio_id,panol_envio_item_id,egreso_at,egreso_por,created_by,updated_at,created_at";
+  let { data, error } = await supabase
+    .from("panol_obra_materiales_snapshot")
+    .select(select)
+    .or(`material_id.eq.${materialId},requisito_material_id.eq.${materialId}`)
+    .order("updated_at", { ascending: false })
+    .limit(5000);
+
+  if (error && isMissingColumn(error)) {
+    const retry = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .select("id,obra_id,material_id,descripcion,codigo,estado,recepcion_estado,cantidad,cantidad_egresada,source,stock_sede,purchase_request_id,panol_envio_id,egreso_at,egreso_por,created_by,updated_at,created_at")
+      .eq("material_id", materialId)
+      .order("updated_at", { ascending: false })
+      .limit(5000);
+    data = retry.data;
+    error = retry.error;
+  }
+  if (error) throw error;
+
+  const ledgerRows = data ?? [];
+  let transitItems = [];
+  try {
+    const transit = await supabase
+      .from("panol_envio_items")
+      .select("id,envio_id,material_id,requisito_material_id,descripcion,codigo,cantidad,cantidad_recibida,unidad,estado,updated_at,created_at,envio:panol_envios!inner(id,obra_id,purchase_request_id,titulo,sede,destino,origen,estado,created_by,recibido_por,created_at,recibido_at)")
+      .or(`material_id.eq.${materialId},requisito_material_id.eq.${materialId}`)
+      .eq("estado", "pendiente")
+      .in("envio.estado", ["enviado", "parcial"])
+      .limit(200);
+    if (transit.error) {
+      if (!isMissingTable(transit.error) && !isMissingColumn(transit.error)) throw transit.error;
+    } else {
+      transitItems = (transit.data ?? []).filter((item) => numericValue(item.cantidad, 0) - numericValue(item.cantidad_recibida, 0) > 0.0001);
+    }
+  } catch (transitError) {
+    if (!isMissingTable(transitError) && !isMissingColumn(transitError)) throw transitError;
+  }
+
+  const requestIds = [...new Set([
+    ...ledgerRows.map((row) => row.purchase_request_id),
+    ...transitItems.map((item) => item.envio?.purchase_request_id),
+  ].filter(Boolean))];
+  const envioIds = [...new Set(ledgerRows.map((row) => row.panol_envio_id).filter(Boolean))];
+  const obraIds = [...new Set([
+    ...ledgerRows.flatMap((row) => [row.obra_id, row.obra_origen_id, row.egreso_destino_obra_id]),
+    ...transitItems.map((item) => item.envio?.obra_id),
+  ].filter(Boolean))];
+
+  const [requestsResult, enviosResult, obrasResult] = await Promise.all([
+    requestIds.length
+      ? supabase.from("purchase_requests").select("id,title,description,status,project_id,destino,created_at").in("id", requestIds)
+      : Promise.resolve({ data: [], error: null }),
+    envioIds.length
+      ? supabase.from("panol_envios").select("id,obra_id,purchase_request_id,titulo,sede,destino,origen,estado,created_by,recibido_por,created_at,recibido_at").in("id", envioIds)
+      : Promise.resolve({ data: [], error: null }),
+    obraIds.length
+      ? supabase.from("produccion_obras").select("id,codigo,linea_nombre,estado").in("id", obraIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  const ignorable = (result) => result?.error && !isMissingTable(result.error) && !isMissingColumn(result.error);
+  if (ignorable(requestsResult)) throw requestsResult.error;
+  if (ignorable(enviosResult)) throw enviosResult.error;
+  if (ignorable(obrasResult)) throw obrasResult.error;
+
+  const requestById = new Map((requestsResult.data ?? []).map((row) => [row.id, row]));
+  const envioById = new Map((enviosResult.data ?? []).map((row) => [row.id, row]));
+  const obraById = new Map((obrasResult.data ?? []).map((row) => [row.id, row]));
+  const allEnvios = [
+    ...(enviosResult.data ?? []),
+    ...transitItems.map((item) => item.envio).filter(Boolean),
+  ];
+  const profileById = await fetchProfilesMap([
+    ...ledgerRows.flatMap((row) => [row.created_by, row.egreso_por]),
+    ...allEnvios.flatMap((envio) => [envio.created_by, envio.recibido_por]),
+  ]);
+
+  const decorateEnvio = (envio) => envio ? {
+    ...envio,
+    created_by_nombre: profileById.get(envio.created_by)?.username || "",
+    recibido_por_nombre: profileById.get(envio.recibido_por)?.username || "",
+  } : null;
+
+  const hydratedLedger = ledgerRows.map((row) => ({
+    ...row,
+    request: requestById.get(row.purchase_request_id) || null,
+    panol_envio: decorateEnvio(envioById.get(row.panol_envio_id) || null),
+    obra: obraById.get(row.obra_id) || null,
+    obra_origen: obraById.get(row.obra_origen_id) || null,
+    egreso_destino_obra: obraById.get(row.egreso_destino_obra_id) || null,
+    created_by_nombre: profileById.get(row.created_by)?.username || (!isUuidLike(row.created_by) ? row.created_by || "" : ""),
+    egreso_por_nombre: profileById.get(row.egreso_por)?.username || (!isUuidLike(row.egreso_por) ? row.egreso_por || "" : ""),
+  }));
+
+  const hydratedTransit = transitItems.map((item) => {
+    const envio = decorateEnvio(item.envio);
+    return {
+      id: `transit:${item.id}`,
+      material_id: item.material_id || item.requisito_material_id || materialId,
+      requisito_material_id: item.requisito_material_id || null,
+      descripcion: item.descripcion || "Material por recibir",
+      codigo: item.codigo || "",
+      cantidad: numericValue(item.cantidad, 0) - numericValue(item.cantidad_recibida, 0),
+      cantidad_egresada: 0,
+      unidad: item.unidad || "unidad",
+      obra_id: envio?.obra_id || null,
+      obra: obraById.get(envio?.obra_id) || null,
+      stock_sede: envio?.sede || null,
+      estado: "en_panol",
+      recepcion_estado: "pendiente",
+      source: "panol_envio_pendiente",
+      reliable_transit: true,
+      panol_envio_id: item.envio_id,
+      panol_envio_item_id: item.id,
+      panol_envio: envio,
+      request: requestById.get(envio?.purchase_request_id) || null,
+      updated_at: item.updated_at || item.created_at || envio?.created_at || null,
+      created_at: item.created_at || envio?.created_at || null,
+    };
+  });
+
+  return [...hydratedLedger, ...hydratedTransit];
+}
+
+// "En camino" sólo existe cuando hay un aviso de Pañol verificable: envío en
+// estado enviado/parcial + ítem pendiente. No se infiere desde textos ni desde
+// estados ambiguos del snapshot.
+export async function fetchPanolInTransitInventory() {
+  const { data, error } = await supabase
+    .from("panol_envio_items")
+    .select("id,envio_id,material_id,requisito_material_id,descripcion,codigo,cantidad,cantidad_recibida,unidad,estado,updated_at,created_at,envio:panol_envios!inner(id,obra_id,sede,destino,estado,created_at)")
+    .eq("estado", "pendiente")
+    .in("envio.estado", ["enviado", "parcial"])
+    .limit(1000);
+  if (error) {
+    if (isMissingTable(error) || isMissingColumn(error)) return [];
+    throw error;
+  }
+  const items = (data ?? []).filter((item) => numericValue(item.cantidad, 0) - numericValue(item.cantidad_recibida, 0) > 0.0001);
+  const materialIds = [...new Set(items.flatMap((item) => [item.material_id, item.requisito_material_id]).filter(Boolean))];
+  const materialById = new Map();
+  for (let from = 0; from < materialIds.length; from += 300) {
+    const { data: materials, error: materialsError } = await supabase
+      .from("panol_materiales")
+      .select("id,categoria_id,codigo,codigo_barra,descripcion,proveedor,unidad_medida,stock_minimo,ubicacion,ubicacion_obs,imagen_url,notas,es_requisito")
+      .in("id", materialIds.slice(from, from + 300));
+    if (materialsError) throw materialsError;
+    (materials ?? []).forEach((material) => materialById.set(material.id, material));
+  }
+  return items.map((item) => {
+    const material = materialById.get(item.material_id) || materialById.get(item.requisito_material_id) || null;
+    const remaining = numericValue(item.cantidad, 0) - numericValue(item.cantidad_recibida, 0);
+    return {
+      id: `transit:${item.id}`,
+      material_id: item.material_id || item.requisito_material_id || null,
+      requisito_material_id: item.requisito_material_id || null,
+      descripcion: material?.descripcion || item.descripcion || "Material por recibir",
+      codigo: material?.codigo || item.codigo || "",
+      codigo_barra: material?.codigo_barra || "",
+      cantidad: remaining,
+      cantidad_egresada: 0,
+      unidad: material?.unidad_medida || item.unidad || "unidad",
+      proveedor: material?.proveedor || "",
+      categoria_id: material?.categoria_id || null,
+      stock_minimo: material?.stock_minimo ?? null,
+      ubicacion: material?.ubicacion || null,
+      ubicacion_obs: material?.ubicacion_obs || null,
+      imagen_url: material?.imagen_url || null,
+      notas: material?.notas || null,
+      es_requisito: material?.es_requisito === true,
+      obra_id: item.envio?.obra_id || null,
+      stock_sede: item.envio?.sede || null,
+      panol_envio: item.envio || null,
+      estado: "en_panol",
+      recepcion_estado: "pendiente",
+      source: "panol_envio_pendiente",
+      reliable_transit: true,
+      updated_at: item.updated_at || item.created_at || item.envio?.created_at || null,
+      created_at: item.created_at || item.envio?.created_at || null,
+    };
+  });
+}
+
+// Sólo fichas con política de reposición. Esto evita volver a descargar el
+// catálogo completo dentro del stock maestro.
+// Sólo ítems de barco. Los consumibles tienen su propio stock (vista
+// `consumibles_stock`) y se reponen desde Consumibles: en el ledger de pañol
+// figuran en cero y caían en "Reponer" aunque tuvieran stock.
+export async function fetchPanolReplenishmentCatalog() {
+  const { data, error } = await supabase
+    .from("panol_materiales")
+    .select("id,categoria_id,codigo,codigo_barra,descripcion,proveedor,unidad_medida,stock_minimo,ubicacion,ubicacion_obs,imagen_url,notas,activo,es_consumible")
+    .eq("activo", true)
+    .not("stock_minimo", "is", null)
+    .order("descripcion")
+    .limit(5000);
+  if (error) {
+    if (isMissingColumn(error)) return [];
+    throw error;
+  }
+  return (data ?? [])
+    .filter((material) => material.es_consumible !== true)
+    .map((material) => ({ ...material, unidad: material.unidad_medida || "unidad" }));
+}
+
+export function invalidatePanolCatalogFullCache() {
+  _panolCatalogFullCache = null;
+  _panolCatalogLiteCache = null;
+  _panolCatalogFullAt = 0;
+  _panolCatalogLiteAt = 0;
+}
+
+const CATEGORIA_GENERICA_NOMBRE = "Sin categoría";
+const CATEGORIAS_GENERICAS = ["sin categoria", "varios", "otros", "general"];
+
+// Rubro donde caen los productos creados automáticamente al recepcionar.
+// Nunca clasificamos por posición: la primera categoría puede ser cualquier rubro
+// real (por ejemplo "Cintas y film") y el producto quedaría mal etiquetado.
+// Pero `panol_materiales.categoria_id` es NOT NULL, así que devolver null hacía
+// fallar el insert entero. Si no hay una categoría genérica, la creamos.
+async function ensurePanolCategoriaGenericaId() {
+  const { data, error } = await supabase
+    .from("panol_categorias")
+    .select("id,nombre,orden")
+    .order("orden", { ascending: true })
+    .order("nombre", { ascending: true })
+    .limit(200);
+  if (error) throw error;
+  const rows = data ?? [];
+  const preferred = rows.find((row) => CATEGORIAS_GENERICAS.includes(normalizeSearch(row.nombre)));
+  if (preferred?.id) return preferred.id;
+
+  const { data: created, error: createError } = await supabase
+    .from("panol_categorias")
+    .insert({ nombre: CATEGORIA_GENERICA_NOMBRE, orden: 999 })
+    .select("id")
+    .single();
+  if (createError) {
+    throw new Error(
+      `No hay un rubro "${CATEGORIA_GENERICA_NOMBRE}" en el catálogo y no se pudo crear (${createError.message}). `
+      + "Creá ese rubro en Materiales y volvé a intentar.",
+    );
+  }
+  return created.id;
+}
+
+export async function crearPanolCatalogMaterial({
+  descripcion,
+  codigo = "",
+  unidad = "unidad",
+  proveedor = "",
+  precio_unitario = null,
+  moneda = "ARS",
+  categoria_id = null,
+  ubicacion = null,
+  ubicacion_obs = null,
+  notas = null,
+  esConsumible = false,
+} = {}) {
+  const cleanDesc = String(descripcion || "").trim();
+  if (!cleanDesc) throw new Error("Cargá una descripción para crear el material.");
+  const categoriaId = categoria_id || await ensurePanolCategoriaGenericaId();
+  const patch = {
+    categoria_id: categoriaId,
+    codigo: String(codigo || "").trim().toUpperCase() || null,
+    descripcion: cleanDesc,
+    proveedor: String(proveedor || "").trim() || null,
+    unidad_medida: unidad || "unidad",
+    precio_unitario: toNullableNumber(precio_unitario),
+    moneda: moneda === "USD" ? "USD" : "ARS",
+    ubicacion: ubicacion || null,
+    ubicacion_obs: String(ubicacion_obs || "").trim() || null,
+    ...(esConsumible ? { es_consumible: true } : {}),
+    notas: String(notas || "").trim() || null,
+    origen: "remito",
+    revisado: false,
+    activo: true,
+  };
+  let { data, error } = await supabase
+    .from("panol_materiales")
+    .insert(patch)
+    .select("id,categoria_id,codigo,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo,ubicacion,ubicacion_obs")
+    .single();
+  if (error && isMissingColumn(error)) {
+    const fallbackPatch = { ...patch };
+    delete fallbackPatch.origen;
+    delete fallbackPatch.revisado;
+    delete fallbackPatch.ubicacion;
+    delete fallbackPatch.ubicacion_obs;
+    delete fallbackPatch.notas;
+    const retry = await supabase
+      .from("panol_materiales")
+      .insert(fallbackPatch)
+      .select("id,categoria_id,codigo,descripcion,proveedor,unidad_medida,precio_unitario,moneda,activo")
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
+  if (error) throw error;
+  return {
+    id: data.id,
+    categoria_id: data.categoria_id || null,
+    codigo: data.codigo || "",
+    descripcion: data.descripcion || cleanDesc,
+    proveedor: data.proveedor || "",
+    unidad: data.unidad_medida || unidad || "unidad",
+    precio_unitario: data.precio_unitario ?? "",
+    moneda: data.moneda || moneda || "ARS",
+    ubicacion: data.ubicacion || ubicacion || null,
+    ubicacion_obs: data.ubicacion_obs || ubicacion_obs || null,
+  };
+}
+
+const CATALOG_CREATION_ORIGINS = new Set(["remito", "conteo", "manual", "addon_obra", "egreso", "stock", "stock_general"]);
+
+export async function fetchPanolMaterialCreations({ limit = 300 } = {}) {
+  try {
+    const fetchPages = async (select) => {
+      const collected = [];
+      const pageSize = 500;
+      for (let from = 0; from < limit; from += pageSize) {
+        const { data: page, error: pageError } = await supabase
+          .from("panol_materiales")
+          .select(select)
+          .order("created_at", { ascending: false })
+          .range(from, Math.min(from + pageSize - 1, limit - 1));
+        if (pageError) return { data: null, error: pageError };
+        collected.push(...(page ?? []));
+        if (!page || page.length < pageSize) break;
+      }
+      return { data: collected, error: null };
+    };
+    let { data, error } = await fetchPages("id,categoria_id,proveedor_id,descripcion,alias,codigo,codigo_barra,proveedor,unidad_medida,precio_unitario,moneda,origen,notas,imagen_url,revisado,activo,es_requisito,created_at,batch_id,created_by");
+    if (error && isMissingColumn(error)) {
+      const retry = await fetchPages("id,categoria_id,proveedor_id,descripcion,alias,codigo,codigo_barra,proveedor,unidad_medida,precio_unitario,moneda,origen,notas,imagen_url,revisado,activo,es_requisito,created_at,batch_id");
+      data = retry.data;
+      error = retry.error;
+    }
+    if (error) return [];
+    const rows = (data ?? []).filter((row) => {
+      const origen = String(row.origen || "manual").toLowerCase();
+      return !row.batch_id && CATALOG_CREATION_ORIGINS.has(origen);
+    });
+    const profilesById = await fetchProfilesMap(rows.map((row) => row.created_by));
+    return rows.map((row) => ({
+      ...row,
+      created_by_actor: isUuidLike(row.created_by) ? profilesById.get(row.created_by) || null : null,
+      created_by_nombre: profilesById.get(row.created_by)?.username || "",
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Bandeja de productos nacidos en el circuito operativo de Pañol. Incluye su
+ * decisión actual por línea para que la UI pueda distinguir pendientes,
+ * estándares y compras puntuales sin reinterpretar el historial de stock.
+ */
+export async function fetchPanolNormalizationQueue({ limit = 2000 } = {}) {
+  const materiales = (await fetchPanolMaterialCreations({ limit }))
+    .filter((material) => material.activo !== false && material.es_requisito !== true);
+  const materialIds = materiales.map((material) => material.id).filter(Boolean);
+  if (!materialIds.length) return [];
+
+  const matrixPromise = enLotesDeIds(materialIds, async (ids) => {
+    const { data, error } = await supabase
+      .from("panol_material_modelo")
+      .select("id,material_id,modelo,cantidad,variante")
+      .in("material_id", ids);
+    if (error) throw error;
+    return data ?? [];
+  });
+  const normalizacionesPromise = enLotesDeIds(materialIds, async (ids) => {
+    let { data, error } = await supabase
+      .from("panol_material_normalizaciones")
+      .select("id,material_id,modelo,decision,cantidad,cantidad_verificada,motivo_no_estandar,observacion_no_estandar,evidencia_obra_id,evidencia_movimiento_id,revisado_at,revisado_por")
+      .in("material_id", ids);
+    if (error && isMissingColumn(error)) {
+      const retry = await supabase
+        .from("panol_material_normalizaciones")
+        .select("id,material_id,modelo,decision,cantidad,evidencia_obra_id,evidencia_movimiento_id,revisado_at,revisado_por")
+        .in("material_id", ids);
+      data = retry.data;
+      error = retry.error;
+    }
+    if (error) throw error;
+    return data ?? [];
+  }).catch((error) => {
+    // Compatibilidad mientras se despliega la migración por línea: la bandeja
+    // sigue abriendo y conserva las decisiones globales del primer corte.
+    if (isMissingTable(error)) return [];
+    throw error;
+  });
+  const proveedoresPromise = enLotesDeIds(materialIds, async (ids) => {
+    const { data, error } = await supabase
+      .from("panol_material_proveedores")
+      .select("material_id,proveedor_id,precio,moneda")
+      .in("material_id", ids);
+    if (error) throw error;
+    return data ?? [];
+  }).catch((error) => {
+    if (isMissingTable(error)) return [];
+    throw error;
+  });
+  const [matrixRows, normalizacionRows, proveedorRows] = await Promise.all([matrixPromise, normalizacionesPromise, proveedoresPromise]);
+  const modelosByMaterial = new Map();
+  for (const row of matrixRows) {
+    if (String(row.variante || "standard") !== "standard") continue;
+    const list = modelosByMaterial.get(row.material_id) ?? [];
+    list.push({ modelo: String(row.modelo || "").trim(), cantidad: numericValue(row.cantidad, 1) });
+    modelosByMaterial.set(row.material_id, list);
+  }
+  const normalizacionesByMaterial = new Map();
+  for (const row of normalizacionRows) {
+    const list = normalizacionesByMaterial.get(row.material_id) ?? [];
+    list.push({ ...row, modelo: String(row.modelo || "").trim().replace(/^K/i, "") });
+    normalizacionesByMaterial.set(row.material_id, list);
+  }
+  const proveedoresByMaterial = new Map();
+  for (const row of proveedorRows) {
+    const list = proveedoresByMaterial.get(row.material_id) ?? [];
+    list.push(row);
+    proveedoresByMaterial.set(row.material_id, list);
+  }
+  return materiales.map((material) => ({
+    ...material,
+    modelos_estandar: (modelosByMaterial.get(material.id) ?? [])
+      .filter((row) => row.modelo)
+      .sort((a, b) => a.modelo.localeCompare(b.modelo, "es", { numeric: true })),
+    normalizaciones: (normalizacionesByMaterial.get(material.id) ?? [])
+      .filter((row) => row.modelo)
+      .sort((a, b) => a.modelo.localeCompare(b.modelo, "es", { numeric: true })),
+    proveedores_lista: proveedoresByMaterial.get(material.id) ?? [],
+  }));
+}
+
+export async function guardarNormalizacionPorLinea({
+  materialId,
+  descripcion,
+  alias = "",
+  modelo,
+  decision,
+  cantidad = null,
+  evidenciaObraId = null,
+  evidenciaMovimientoId = null,
+  codigo = "",
+  codigoBarra = "",
+  unidadMedida = "",
+  categoriaId = null,
+  notas = "",
+  proveedores = [],
+  cantidadVerificada = false,
+  motivoNoEstandar = null,
+  observacionNoEstandar = null,
+} = {}) {
+  if (!materialId) throw new Error("Falta el producto a normalizar.");
+  const cleanDescription = String(descripcion || "").trim();
+  const cleanModel = String(modelo || "").trim().toUpperCase().replace(/^K/, "");
+  const cleanQuantity = numericValue(cantidad, 0);
+  if (!cleanDescription) throw new Error("El nombre del producto es obligatorio.");
+  if (!cleanModel) throw new Error("Elegí la línea que querés revisar.");
+  if (!["estandar", "puntual"].includes(decision)) throw new Error("Elegí si el producto es estándar o no es estándar.");
+  if (decision === "estandar" && cleanQuantity <= 0) throw new Error("Indicá la cantidad necesaria por barco.");
+  const cleanMotivo = String(motivoNoEstandar || "").trim();
+  const cleanObservacion = String(observacionNoEstandar || "").trim();
+  if (decision === "puntual" && (!["adicional", "condicionante", "compra_puntual", "otro"].includes(cleanMotivo) || !cleanObservacion)) {
+    throw new Error("Elegí el motivo y escribí una observación para el producto no estándar.");
+  }
+
+  const cleanProviders = (proveedores || []).map((row) => ({
+    proveedor_id: row.proveedor_id || null,
+    precio: numericValue(row.precio, 0) > 0 ? numericValue(row.precio, 0) : null,
+    moneda: String(row.moneda || "ARS").toUpperCase() === "USD" ? "USD" : "ARS",
+    denominacion_proveedor: String(row.denominacion_proveedor || "").trim() || null,
+    codigo_proveedor: String(row.codigo_proveedor || "").trim() || null,
+    componentes_pedido: Array.isArray(row.componentes_pedido) ? row.componentes_pedido : [],
+  })).filter((row) => row.proveedor_id);
+
+  const rpcArgs = {
+    p_material_id: materialId,
+    p_descripcion: cleanDescription,
+    p_alias: String(alias || "").trim() || null,
+    p_modelo: cleanModel,
+    p_decision: decision,
+    p_cantidad: decision === "estandar" ? cleanQuantity : null,
+    p_evidencia_obra_id: evidenciaObraId || null,
+    p_evidencia_movimiento_id: evidenciaMovimientoId || null,
+    p_codigo: String(codigo || "").trim() || null,
+    p_codigo_barra: String(codigoBarra || "").trim() || null,
+    p_unidad_medida: String(unidadMedida || "").trim() || null,
+    p_categoria_id: categoriaId || null,
+    p_notas: String(notas || "").trim() || null,
+    p_proveedores: cleanProviders,
+    p_cantidad_verificada: decision === "estandar" && cantidadVerificada === true,
+    p_motivo_no_estandar: decision === "puntual" ? cleanMotivo : null,
+    p_observacion_no_estandar: decision === "puntual" ? cleanObservacion : null,
+  };
+  let { data, error } = await supabase.rpc("panol_normalizar_material_clasificado_por_linea", rpcArgs);
+  if (error && decision === "estandar" && (error.code === "PGRST202" || /schema cache|could not find/i.test(error.message || ""))) {
+    const legacyArgs = { ...rpcArgs };
+    delete legacyArgs.p_motivo_no_estandar;
+    delete legacyArgs.p_observacion_no_estandar;
+    ({ data, error } = await supabase.rpc("panol_normalizar_material_detallado_por_linea", legacyArgs));
+  }
+  if (error) {
+    const message = String(error.message || "");
+    if (error.code === "PGRST202" || message.toLowerCase().includes("schema cache") || message.toLowerCase().includes("could not find")) {
+      throw new Error("Falta aplicar la migración de motivos de Estandarización.");
+    }
+    throw error;
+  }
+  return data ?? null;
+}
+
+export async function guardarNormalizacionIngreso({
+  materialId,
+  descripcion,
+  alias = "",
+  decision,
+  modelos = [],
+} = {}) {
+  if (!materialId) throw new Error("Falta el producto a normalizar.");
+  const cleanDescription = String(descripcion || "").trim();
+  if (!cleanDescription) throw new Error("El nombre del producto es obligatorio.");
+  if (!["estandar", "puntual"].includes(decision)) throw new Error("Elegí si el producto es estándar o puntual.");
+
+  const lineas = decision === "estandar"
+    ? (modelos || []).map((row) => ({
+      modelo: String(row.modelo || "").trim().toUpperCase().replace(/^K/, ""),
+      cantidad: numericValue(row.cantidad, 0),
+    })).filter((row) => row.modelo && row.cantidad > 0)
+    : [];
+  if (decision === "estandar" && !lineas.length) throw new Error("Seleccioná al menos una línea y una cantidad por barco.");
+
+  const { data, error } = await supabase.rpc("panol_normalizar_material_ingreso", {
+    p_material_id: materialId,
+    p_descripcion: cleanDescription,
+    p_alias: String(alias || "").trim() || null,
+    p_decision: decision,
+    p_modelos: lineas,
+  });
+  if (error) {
+    const message = String(error.message || "");
+    if (error.code === "PGRST202" || message.toLowerCase().includes("schema cache") || message.toLowerCase().includes("could not find")) {
+      throw new Error("Falta aplicar la migración de Estandarización de ingresos.");
+    }
+    throw error;
+  }
+  return data ?? null;
+}
+
+export async function guardarUbicacionMaterial(materialId, { ubicacion = null, ubicacionObs = null } = {}) {
+  if (!materialId) return null;
+  const patch = {
+    ubicacion: ubicacion || null,
+    ubicacion_obs: String(ubicacionObs || "").trim() || null,
+  };
+  const { error } = await supabase
+    .from("panol_materiales")
+    .update(patch)
+    .eq("id", materialId);
+  if (error) {
+    if (isMissingColumn(error)) throw new Error("Falta correr el SQL de ubicaciones del pañol.");
+    throw error;
+  }
+  return patch;
+}
+
+export async function registrarCambioUbicacionMaterial(material = null, {
+  ubicacionAnterior = null,
+  ubicacionNueva = null,
+  ubicacionObs = null,
+  sede = null,
+  obraId = null,
+  esAdicional = false,
+} = {}) {
+  const materialId = material?.id || null;
+  const desc = String(material?.descripcion || "").trim();
+  if (!materialId && !desc) return null;
+  const from = String(ubicacionAnterior || "").trim() || "sin ubicar";
+  const to = String(ubicacionNueva || "").trim() || "sin ubicar";
+  const obs = String(ubicacionObs || "").trim();
+  const nota = [`Ubicacion: ${from} -> ${to}`, obs ? `Obs: ${obs}` : ""].filter(Boolean).join(" · ");
+  const payload = {
+    obra_id: obraId || null,
+    material_id: materialId,
+    descripcion: desc || null,
+    codigo: String(material?.codigo || "").trim() || null,
+    cantidad: 0,
+    unidad: material?.unidad || material?.unidad_medida || "unidad",
+    proveedor: String(material?.proveedor || "").trim() || null,
+    tipo: "ajuste_ubicacion",
+    tipo_label: "Ajuste ubicacion",
+    notas: nota,
+    source: "ajuste_ubicacion",
+    estado: "en_panol",
+    recepcion_estado: "recibido",
+    recepcion_updated_at: new Date().toISOString(),
+    stock_sede: sede || null,
+    stock_nota: nota,
+    es_adicional: !!esAdicional,
+  };
+  const { data, error } = await supabase
+    .from("panol_obra_materiales_snapshot")
+    .insert(payload)
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data?.id || null;
+}
+
+export async function fetchFichasPanolPendientes() {
+  const materiales = [];
+  for (let from = 0; ; from += 500) {
+    const { data, error } = await supabase.from("panol_materiales")
+      .select("id,descripcion,codigo,unidad_medida,proveedor,revisado,activo,es_requisito,es_consumible,created_by,created_at")
+      .not("revisado", "is", true).not("es_consumible", "is", true)
+      .not("es_requisito", "is", true).eq("activo", true).order("created_at", { ascending: false }).order("id").range(from, from + 499);
+    if (error) throw error;
+    materiales.push(...(data || []));
+    if ((data || []).length < 500) break;
+  }
+  const ids = [...new Set(materiales.map((row) => row.created_by).filter(Boolean))];
+  const autores = new Map();
+  for (let from = 0; from < ids.length; from += 400) {
+    const { data, error } = await supabase.from("profiles").select("id,username,role").in("id", ids.slice(from, from + 400));
+    if (error) throw error;
+    for (const p of data || []) autores.set(p.id, p);
+  }
+  return materiales.filter((row) => autores.get(row.created_by)?.role === "panol")
+    .map((row) => ({ ...row, created_by_nombre: autores.get(row.created_by)?.username || "Pañol" }));
+}
+
+export async function confirmarFichaPanol(materialId) {
+  const { data, error } = await supabase.rpc("panol_confirmar_producto_catalogo", { p_material_id: materialId });
+  if (error) throw error;
+  invalidatePanolCatalogFullCache();
+  return data;
+}
+
+export async function vincularMovimientosAMaterial(snapshotIds = [], materialId) {
+  const ids = [...new Set((snapshotIds || []).filter(Boolean))];
+  if (!ids.length || !materialId) return 0;
+  const { error } = await supabase
+    .from("panol_obra_materiales_snapshot")
+    .update({ material_id: materialId })
+    .in("id", ids);
+  if (error) throw error;
+  return ids.length;
+}
+
+export async function crearPanolCatalogMaterialParaEgreso({
+  descripcion,
+  codigo = "",
+  unidad = "unidad",
+  proveedor = "",
+  precio_unitario = null,
+  moneda = "ARS",
+  categoria_id = null,
+} = {}) {
+  const cleanDesc = String(descripcion || "").trim();
+  if (!cleanDesc) throw new Error("Carga una descripcion para crear el material.");
+  const { data, error } = await supabase.rpc("panol_crear_catalog_material", {
+    p_descripcion: cleanDesc,
+    p_codigo: String(codigo || "").trim() || null,
+    p_unidad: unidad || "unidad",
+    p_proveedor: String(proveedor || "").trim() || null,
+    p_precio_unitario: toNullableNumber(precio_unitario),
+    p_moneda: moneda === "USD" ? "USD" : "ARS",
+    p_categoria_id: categoria_id || null,
+  });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return {
+    id: row?.id,
+    categoria_id: row?.categoria_id || null,
+    codigo: row?.codigo || "",
+    descripcion: row?.descripcion || cleanDesc,
+    proveedor: row?.proveedor || "",
+    unidad: row?.unidad || row?.unidad_medida || unidad || "unidad",
+    precio_unitario: row?.precio_unitario ?? "",
+    moneda: row?.moneda || moneda || "ARS",
+  };
+}
+
+function scorePedidoMaterial(item, material, query) {
+  if (material?.id && item.material_id === material.id) return 100;
+  // Usar el mismo matcher que el catálogo. Antes esta pantalla sólo
+  // comparaba substrings exactos y no encontraba "flap" vs. "flaps" ni
+  // "parabrisas" vs. "para brisas".
+  return materialMatchScore(
+    {
+      descripcion: item.description,
+      codigo: item.codigo,
+      notas: item.notes,
+      observaciones: item.notes,
+    },
+    {
+      descripcion: [material?.descripcion, query].filter(Boolean).join(" "),
+      alias: material?.alias,
+      notas: material?.notas,
+      codigo: material?.codigo,
+      codigo_barra: material?.codigo_barra,
+    },
+  );
+}
+
+async function fetchPedidoItemsForRecepcion() {
+  const fullSelect = `
+    id, request_id, description, quantity, unit, status, destination, material_id, requisito_material_id, especificaciones, catalog_source, notes, created_at,
+    request:purchase_requests(id,title,status,priority,project_id,created_at,description,es_adicional,project:produccion_obras(id,codigo,linea_nombre))
+  `;
+  const fallbackSelect = `
+    id, request_id, description, quantity, unit, status, material_id, notes, created_at,
+    request:purchase_requests(id,title,status,priority,project_id,created_at,description,project:produccion_obras(id,codigo))
+  `;
+  try {
+    return await fetchPaged("purchase_request_items", fullSelect, { order: "created_at", limit: 1000 });
+  } catch (error) {
+    if (!isMissingColumn(error)) throw error;
+    return await fetchPaged("purchase_request_items", fallbackSelect, { order: "created_at", limit: 1000 });
+  }
+}
+
+async function fetchPanolEnvioItemsForRecepcion({ sede = null } = {}) {
+  const fullSelect = `
+    id, envio_id, purchase_request_item_id, obra_snapshot_item_id, material_id, requisito_material_id, especificaciones, codigo, descripcion, cantidad, unidad, estado, nota, created_at, updated_at,
+    envio:panol_envios(id,titulo,sede,destino,origen,estado,obra_id,created_at)
+  `;
+  const fallbackSelect = `
+    id, envio_id, purchase_request_item_id, codigo, descripcion, cantidad, unidad, estado, nota, created_at, updated_at,
+    envio:panol_envios(id,titulo,sede,destino,origen,estado,obra_id,created_at)
+  `;
+  let rows;
+  try {
+    rows = await fetchPaged("panol_envio_items", fullSelect, { order: "created_at", limit: 1000 });
+  } catch (error) {
+    if (!isMissingColumn(error)) throw error;
+    rows = await fetchPaged("panol_envio_items", fallbackSelect, { order: "created_at", limit: 1000 });
+  }
+  return sede ? rows.filter((row) => row.envio?.sede === sede) : rows;
+}
+
+function scorePanolEnvioItem(item, material, query) {
+  return scorePedidoMaterial({
+    description: item.descripcion,
+    destination: item.envio?.destino,
+    material_id: null,
+    request: { title: item.envio?.titulo },
+  }, material, query);
+}
+
+async function buildPanolEnvioMatches({ material = null, q = "", sede = null, limit = 60, matchAll = false } = {}) {
+  const rows = await fetchPanolEnvioItemsForRecepcion({ sede });
+  const openRows = rows.filter((item) => {
+    if (["recibido", "rechazado"].includes(item.estado)) return false;
+    if (["recibido", "cerrado", "cancelado"].includes(item.envio?.estado)) return false;
+    return true;
+  });
+  const scored = (matchAll
+    ? openRows.map((item) => ({ item, score: 100 }))
+    : openRows
+        .map((item) => ({ item, score: scorePanolEnvioItem(item, material, q) }))
+        .filter((row) => row.score >= 60)
+        .sort((a, b) => b.score - a.score || String(b.item.created_at ?? "").localeCompare(String(a.item.created_at ?? "")))
+  ).slice(0, limit);
+
+  const snapshotIds = scored.map(({ item }) => item.obra_snapshot_item_id).filter(Boolean);
+  const snapshotById = new Map();
+  if (snapshotIds.length) {
+    try {
+      const { data, error } = await supabase
+        .from("panol_obra_materiales_snapshot")
+        .select("id,obra_id,estado,cantidad,unidad,material_id,requisito_material_id,especificaciones,es_adicional,variante")
+        .in("id", snapshotIds);
+      if (error) throw error;
+      for (const row of data ?? []) snapshotById.set(row.id, row);
+    } catch (error) {
+      if (!isMissingColumn(error)) {
+        // Si no hay snapshot, igual sugerimos el item de recepcion.
+      } else {
+        try {
+          const { data, error: fallbackError } = await supabase
+            .from("panol_obra_materiales_snapshot")
+            .select("id,obra_id,estado,cantidad,unidad,material_id,es_adicional")
+            .in("id", snapshotIds);
+          if (!fallbackError) {
+            for (const row of data ?? []) snapshotById.set(row.id, row);
+          }
+        } catch {
+          // Si no hay snapshot, igual sugerimos el item de recepcion.
+        }
+      }
+    }
+  }
+
+  const obraIds = [...new Set(scored.map(({ item }) => {
+    const snapshot = item.obra_snapshot_item_id ? snapshotById.get(item.obra_snapshot_item_id) : null;
+    return snapshot?.obra_id || item.envio?.obra_id || null;
+  }).filter(Boolean))];
+  let obrasById = new Map();
+  if (obraIds.length) {
+    try {
+      const obras = await fetchObrasEgreso();
+      obrasById = new Map(obras.filter((obra) => obraIds.includes(obra.id)).map((obra) => [obra.id, obra]));
+    } catch {
+      obrasById = new Map();
+    }
+  }
+
+  return scored.map(({ item, score }) => {
+    const snapshot = item.obra_snapshot_item_id ? snapshotById.get(item.obra_snapshot_item_id) : null;
+    const obraId = snapshot?.obra_id || item.envio?.obra_id || null;
+    const obra = obraId ? obrasById.get(obraId) || null : null;
+    return {
+      id: `recepcion:${item.id}`,
+      source: "recepcion",
+      source_label: "Recepcion",
+      panol_envio_item_id: item.id,
+      envio_id: item.envio_id,
+      request_id: item.envio_id,
+      request_title: item.envio?.titulo || "Pedido en recepcion",
+      request_status: item.envio?.estado || "",
+      priority: "",
+      description: item.descripcion || "",
+      quantity: item.cantidad || "",
+      unit: item.unidad || "unidad",
+      status: item.estado || "",
+      destination: item.envio?.destino || "",
+      material_id: snapshot?.material_id || null,
+      requisito_material_id: snapshot?.requisito_material_id || item.requisito_material_id || null,
+      especificaciones: snapshot?.especificaciones || item.especificaciones || {},
+      obra_id: obraId,
+      obra_codigo: obra?.codigo || item.envio?.destino || "Sin obra",
+      linea_nombre: obra?.linea_nombre || obra?.modelo || "",
+      obra_snapshot_item_id: item.obra_snapshot_item_id || null,
+      purchase_request_item_id: item.purchase_request_item_id || null,
+      snapshot_estado: snapshot?.estado || null,
+      es_adicional: snapshot?.es_adicional ?? false,
+      variante: snapshot?.variante || "",
+      created_at: item.created_at || item.updated_at || item.envio?.created_at || "",
+      score,
+    };
+  });
+}
+
+export async function fetchRecepcionPedidoMatches({ material = null, q = "", limit = 60, sede = null } = {}) {
+  const rows = await fetchPedidoItemsForRecepcion();
+  const openRows = rows.filter((item) => {
+    if (["recibido", "cancelado", "en_panol"].includes(item.status)) return false;
+    if (["recibido", "cancelado"].includes(item.request?.status)) return false;
+    return true;
+  });
+
+  const scored = openRows
+    .map((item) => ({ item, score: scorePedidoMaterial(item, material, q) }))
+    .filter((row) => row.score >= 60)
+    .sort((a, b) => b.score - a.score || String(b.item.created_at ?? "").localeCompare(String(a.item.created_at ?? "")));
+
+  const itemIds = scored.slice(0, limit).map(({ item }) => item.id).filter(Boolean);
+  const snapshotByItem = new Map();
+  if (itemIds.length) {
+    try {
+      const { data, error } = await supabase
+        .from("panol_obra_materiales_snapshot")
+        .select("id,purchase_request_item_id,obra_id,estado,cantidad,unidad,especificaciones,es_adicional,variante")
+        .in("purchase_request_item_id", itemIds);
+      if (error) throw error;
+      for (const row of data ?? []) snapshotByItem.set(row.purchase_request_item_id, row);
+    } catch (error) {
+      if (!isMissingColumn(error)) {
+        // Snapshot puede no existir todavia; el modal sigue funcionando con el item de compra.
+      } else {
+        try {
+          const { data, error: fallbackError } = await supabase
+            .from("panol_obra_materiales_snapshot")
+            .select("id,purchase_request_item_id,obra_id,estado,cantidad,unidad,es_adicional")
+            .in("purchase_request_item_id", itemIds);
+          if (!fallbackError) {
+            for (const row of data ?? []) snapshotByItem.set(row.purchase_request_item_id, row);
+          }
+        } catch {
+          // Snapshot puede no existir todavia; el modal sigue funcionando con el item de compra.
+        }
+      }
+    }
+  }
+
+  const compraMatches = scored.map(({ item, score }) => {
+    const snapshot = snapshotByItem.get(item.id);
+    const obra = item.request?.project || null;
+    return {
+      id: item.id,
+      source: "compra",
+      source_label: "Compras",
+      purchase_request_item_id: item.id,
+      request_id: item.request_id,
+      request_title: item.request?.title || "Pedido sin titulo",
+      request_status: item.request?.status || "",
+      priority: item.request?.priority || "",
+      description: item.description || "",
+      quantity: item.quantity || "",
+      unit: item.unit || "unidad",
+      status: item.status || "",
+      destination: item.destination || "",
+      material_id: item.material_id || null,
+      requisito_material_id: item.requisito_material_id || null,
+      especificaciones: snapshot?.especificaciones || item.especificaciones || {},
+      obra_id: snapshot?.obra_id || item.request?.project_id || null,
+      obra_codigo: obra?.codigo || item.destination || "Sin obra",
+      linea_nombre: obra?.linea_nombre || obra?.modelo || "",
+      obra_snapshot_item_id: snapshot?.id || null,
+      snapshot_estado: snapshot?.estado || null,
+      es_adicional: snapshot?.es_adicional ?? item.request?.es_adicional ?? false,
+      variante: snapshot?.variante || "",
+      request_detail: item.request?.description || "",
+      created_at: item.created_at || item.request?.created_at || "",
+      score,
+    };
+  });
+  const recepcionMatches = await buildPanolEnvioMatches({ material, q, sede, limit });
+  return [...recepcionMatches, ...compraMatches]
+    .sort((a, b) => b.score - a.score || String(b.created_at ?? "").localeCompare(String(a.created_at ?? "")))
+    .slice(0, limit);
+}
+
+// Avisos de recepción = SOLO los envíos que compras/técnica mandan a pañol
+// (panol_envios) que todavía no se recibieron. NO son los pedidos de compra crudos:
+// eso puede no estar comprado aún y no corresponde que el pañol lo vea.
+export async function fetchRecepcionAvisosAbiertos({ sede = null, limit = 1000 } = {}) {
+  return buildPanolEnvioMatches({ sede, matchAll: true, limit });
+}
+
+// Cambiar a que obra va un renglon de un aviso todavia pendiente. Se toca la
+// fila del requerimiento porque es la que el trigger de recepcion mira para
+// imputar: el obra_id del envio es solo el encabezado.
+export async function reasignarObraDeItemEnvio(snapshotItemId, obraId) {
+  if (!snapshotItemId) throw new Error("Ese renglón no está vinculado a un requerimiento de obra.");
+  const { error } = await supabase
+    .from("panol_obra_materiales_snapshot")
+    .update({ obra_id: obraId || null })
+    .eq("id", snapshotItemId);
+  if (error) throw error;
+}
+
+// Los proveedores no le dicen a las cosas como les decimos nosotros: "CADENA
+// CAL. GALV. HD 6MM 5-O" es nuestra "Cadena 6mm calibrada galvanizada". Cada vez
+// que alguien confirma esa equivalencia al cargar un remito, se guarda como
+// alias del material. El buscador ya lee alias, asi que la proxima el remito de
+// ese proveedor matchea solo, sin depender de que la IA acierte de nuevo.
+//
+// Es aditivo y acotado: no pisa lo que ya habia y corta a 8 alias por material
+// para que la descripcion no se vuelva una bolsa de palabras que empeore la
+// busqueda en vez de mejorarla.
+const MAX_ALIAS = 8;
+
+export async function recordarAliasDeProveedor(materialId, textoDelRemito) {
+  const nuevo = String(textoDelRemito || "").trim();
+  if (!materialId || nuevo.length < 4) return false;
+
+  const { data, error } = await supabase
+    .from("panol_materiales")
+    .select("alias,descripcion")
+    .eq("id", materialId)
+    .single();
+  if (error || !data) return false;
+
+  const norm = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+  // Si ya se llama igual que en el catalogo no hay nada que recordar.
+  if (norm(nuevo) === norm(data.descripcion)) return false;
+
+  const actuales = String(data.alias || "").split(",").map((x) => x.trim()).filter(Boolean);
+  if (actuales.some((x) => norm(x) === norm(nuevo))) return false;
+  if (actuales.length >= MAX_ALIAS) return false;
+
+  const { error: upErr } = await supabase
+    .from("panol_materiales")
+    .update({ alias: [...actuales, nuevo].join(", ") })
+    .eq("id", materialId);
+  return !upErr;
+}
+
+// Lo contrario de recordar. Cuando alguien corrige un renglon que estaba
+// vinculado al producto equivocado, ese texto tiene que DEJAR de ser alias del
+// producto viejo: si no, el error queda aprendido y el sistema lo vuelve a
+// sugerir en cada remito. Es la mitad que faltaba del aprendizaje.
+export async function olvidarAliasDeProveedor(materialId, textoDelRemito) {
+  const texto = String(textoDelRemito || "").trim();
+  if (!materialId || !texto) return false;
+
+  const { data, error } = await supabase
+    .from("panol_materiales")
+    .select("alias")
+    .eq("id", materialId)
+    .single();
+  if (error || !data?.alias) return false;
+
+  const norm = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+  const actuales = String(data.alias).split(",").map((x) => x.trim()).filter(Boolean);
+  const quedan = actuales.filter((x) => norm(x) !== norm(texto));
+  if (quedan.length === actuales.length) return false;
+
+  const { error: upErr } = await supabase
+    .from("panol_materiales")
+    .update({ alias: quedan.join(", ") || null })
+    .eq("id", materialId);
+  return !upErr;
+}
+
+let obrasEgresoEnVuelo = null;
+
+export async function fetchObrasEgreso() {
+  if (obrasEgresoEnVuelo) return obrasEgresoEnVuelo;
+  obrasEgresoEnVuelo = fetchObrasEgresoSinCache().finally(() => { obrasEgresoEnVuelo = null; });
+  return obrasEgresoEnVuelo;
+}
+
+async function fetchObrasEgresoSinCache() {
+  try {
+    const { data, error } = await supabase
+      .from("produccion_obras")
+      .select("id,codigo,estado,linea_nombre")
+      .order("codigo");
+    if (error) throw error;
+    return (data ?? []).map(withDerivedModelo);
+  } catch (error) {
+    if (!isMissingColumn(error)) throw error;
+    const { data, error: fallbackError } = await supabase
+      .from("produccion_obras")
+      .select("id,codigo,estado")
+      .order("codigo");
+    if (fallbackError) throw fallbackError;
+    return (data ?? []).map(withDerivedModelo);
+  }
+}
+
+export async function crearObraExterna({ codigo, modelo, descripcion = null } = {}) {
+  const cleanModel = String(modelo || "").trim().toUpperCase();
+  let cleanCode = String(codigo || "").trim().toUpperCase();
+  if (!cleanModel) throw new Error("Elegí Hunter o Antago.");
+  if (!cleanCode) throw new Error("Ingresá el código o identificación del barco.");
+  if (!cleanCode.startsWith(cleanModel)) cleanCode = `${cleanModel}-${cleanCode}`;
+
+  const { data, error } = await supabase.rpc("panol_crear_obra_externa", {
+    p_codigo: cleanCode,
+    p_modelo: cleanModel,
+    p_descripcion: String(descripcion || "").trim() || null,
+  });
+  if (error) throw error;
+  return withDerivedModelo((Array.isArray(data) ? data[0] : data) || {});
+}
+
+export async function ingresarStockGeneral({ material = null, cantidad, sede = null, nota = null, esAdicional = false, obraId = null, variante = null } = {}) {
+  const qty = Number(String(cantidad ?? "").replace(",", "."));
+  if (!material?.id && !String(material?.descripcion || "").trim()) throw new Error("Elegí un material.");
+  if (!Number.isFinite(qty) || qty <= 0) throw new Error("Cargá una cantidad válida.");
+  // Un ajuste hecho desde una obra debe quedar en esa obra. La RPC de stock
+  // general guarda siempre obra_id = null; el conteo físico sí admite obra_id.
+  if (obraId) {
+    return registrarConteoFisico({ material, cantidad: qty, sede, obraId, nota, movimiento: "ingreso", variante });
+  }
+  const base = {
+    p_material_id: material.id || null,
+    p_descripcion: String(material.descripcion || "").trim(),
+    p_codigo: String(material.codigo || "").trim() || null,
+    p_cantidad: qty,
+    p_unidad: material.unidad || material.unidad_medida || "unidad",
+    p_sede: sede || null,
+    p_nota: String(nota || "").trim() || null,
+    p_es_adicional: !!esAdicional,
+  };
+  const varClean = String(variante || "").trim() || null;
+  let { data, error } = await supabase.rpc("panol_ingresar_stock_general", varClean ? { ...base, p_variante: varClean } : base);
+  // La firma de producción no tiene p_variante. No se envía p_obra_id: tampoco
+  // forma parte de esa RPC y provocaba PGRST202 aun en el segundo intento.
+  if (varClean && error && (error.code === "PGRST202" || String(error.message || "").toLowerCase().includes("could not find the function"))) {
+    ({ data, error } = await supabase.rpc("panol_ingresar_stock_general", base));
+  }
+  if (error) throw error;
+  return data;
+}
+
+// ─── Escrituras (RPCs) ──────────────────────────────────────────────────────
+export async function registrarConteoFisico({ material = null, cantidad, sede = null, obraId = null, nota = null, movimiento = "ingreso", variante = null } = {}) {
+  const qty = Number(String(cantidad ?? "").replace(",", "."));
+  if (!material?.id && !String(material?.descripcion || "").trim()) throw new Error("Elegi un material.");
+  if (!Number.isFinite(qty) || qty <= 0) throw new Error("Carga una cantidad valida.");
+  const base = {
+    p_material_id: material.id || null,
+    p_descripcion: String(material.descripcion || "").trim(),
+    p_codigo: String(material.codigo || "").trim() || null,
+    p_cantidad: qty,
+    p_unidad: material.unidad || material.unidad_medida || "unidad",
+    p_sede: sede || null,
+    p_obra_id: obraId || null,
+    p_nota: String(nota || "").trim() || null,
+    p_movimiento: movimiento === "egreso" ? "egreso" : "ingreso",
+  };
+  const varClean = String(variante || "").trim() || null;
+  let { data, error } = await supabase.rpc("panol_registrar_conteo_fisico", { ...base, p_variante: varClean });
+  // Fallback si el RPC todavía no tiene p_variante (hasta correr el SQL nuevo).
+  if (error && (error.code === "PGRST202" || String(error.message || "").toLowerCase().includes("could not find the function"))) {
+    ({ data, error } = await supabase.rpc("panol_registrar_conteo_fisico", base));
+  }
+  if (error) throw error;
+  return data;
+}
+
+const EGRESO_PLAN_EPSILON = 0.0001;
+
+function egresoPlanNumber(value, fallback = 0) {
+  const number = Number(String(value ?? "").replace(",", "."));
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function egresoPlanVariant(value) {
+  return String(value || "").trim().toLocaleLowerCase("es");
+}
+
+// Vincula el egreso con las filas recibidas que originaron el stock. Las salidas
+// manuales historicas no apuntan a una entrada concreta, por eso primero se
+// consumen virtualmente contra las entradas mas antiguas y recien despues se
+// arma el lote que el RPC puede estampar como entregado.
+export function buildSnapshotEgresoPlan(sourceRows = [], requestedQuantity, variante = "") {
+  const requested = egresoPlanNumber(requestedQuantity, NaN);
+  if (!Number.isFinite(requested) || requested <= 0) return null;
+
+  const selectedVariant = egresoPlanVariant(variante);
+  const rows = [...new Map((sourceRows || [])
+    .filter((row) => row?.id)
+    .filter((row) => {
+      if (!selectedVariant) return true;
+      return egresoPlanVariant(row.opcion_asignada || row.variante) === selectedVariant;
+    })
+    .map((row) => [row.id, row])).values()];
+
+  const totalAvailable = rows.reduce((sum, row) => sum + rowDelta(row), 0);
+  if (requested > totalAvailable + EGRESO_PLAN_EPSILON) return null;
+
+  let historicalOutputs = rows.reduce((sum, row) => {
+    const delta = rowDelta(row);
+    return delta < 0 ? sum + Math.abs(delta) : sum;
+  }, 0);
+  let remaining = requested;
+  const allocations = [];
+  const positiveRows = rows
+    .filter((row) => rowDelta(row) > EGRESO_PLAN_EPSILON)
+    .sort((left, right) => {
+      const leftAt = new Date(rowMovementAt(left) || 0).getTime();
+      const rightAt = new Date(rowMovementAt(right) || 0).getTime();
+      return leftAt - rightAt || String(left.id).localeCompare(String(right.id));
+    });
+
+  for (const row of positiveRows) {
+    let available = rowDelta(row);
+    if (historicalOutputs > EGRESO_PLAN_EPSILON) {
+      const alreadyConsumed = Math.min(available, historicalOutputs);
+      available -= alreadyConsumed;
+      historicalOutputs -= alreadyConsumed;
+    }
+    if (available <= EGRESO_PLAN_EPSILON) continue;
+    const quantity = Math.min(available, remaining);
+    allocations.push({ id: row.id, cantidad: quantity });
+    remaining -= quantity;
+    if (remaining <= EGRESO_PLAN_EPSILON) break;
+  }
+
+  if (remaining > EGRESO_PLAN_EPSILON) return null;
+  return allocations;
+}
+
+export async function egresarProducto({
+  material = null,
+  descripcion = "",
+  codigo = "",
+  cantidad,
+  unidad = "unidad",
+  sede = null,
+  obraId = null,
+  destinoObraId = null,
+  nota = null,
+  retiradoPor = null,
+  sectorDestino = null,
+  esAdicional = false,
+  variante = null,
+  productoMaterialId = null,
+  sourceRows = [],
+} = {}) {
+  const qty = Number(String(cantidad ?? "").replace(",", "."));
+  const desc = String(descripcion || material?.descripcion || "").trim();
+  if (!material?.id && !desc) throw new Error("Elegi o crea un material.");
+  if (!Number.isFinite(qty) || qty <= 0) throw new Error("Carga una cantidad valida.");
+  // Mandarlo a la obra donde ya estaba no es una reasignación: sin destino, se
+  // registra como el egreso comun que realmente es.
+  const destinoDistinto = destinoObraId && destinoObraId !== obraId ? destinoObraId : null;
+  const base = {
+    p_material_id: material?.id || null,
+    p_descripcion: desc || null,
+    p_codigo: String(codigo || material?.codigo || "").trim() || null,
+    p_cantidad: qty,
+    p_unidad: unidad || material?.unidad || material?.unidad_medida || "unidad",
+    p_sede: sede || null,
+    p_obra_id: obraId || null,
+    p_destino_obra_id: destinoDistinto,
+    p_nota: String(nota || "").trim() || null,
+    p_retirado_por: String(retiradoPor || "").trim() || null,
+    p_sector_destino: String(sectorDestino || "").trim() || null,
+    p_es_adicional: !!esAdicional,
+  };
+  const varClean = String(variante || "").trim() || null;
+  const snapshotPlan = material?.es_requisito === true || productoMaterialId
+    ? null
+    : buildSnapshotEgresoPlan(sourceRows, qty, varClean);
+  if (snapshotPlan?.length) {
+    const cantidades = Object.fromEntries(snapshotPlan.map((row) => [row.id, row.cantidad]));
+    return egresarMaterialesObra(snapshotPlan.map((row) => row.id), {
+      nota,
+      retiradoPor,
+      sectorDestino,
+      destinoObraId,
+      cantidades,
+    });
+  }
+  let { data, error } = await supabase.rpc("panol_egresar_producto", {
+    ...base,
+    p_variante: varClean,
+    p_producto_material_id: productoMaterialId || null,
+  });
+  // Si el RPC todavía no tiene el parámetro p_variante, reintenta sin él (transición).
+  if (error && (error.code === "PGRST202" || String(error.message || "").toLowerCase().includes("could not find the function"))) {
+    ({ data, error } = await supabase.rpc("panol_egresar_producto", base));
+  }
+  if (error) throw error;
+  return data;
+}
+
+export async function egresarProductosCarrito({
+  items = [],
+  destinoObraId = null,
+  nota = null,
+  retiradoPor = null,
+  sectorDestino = null,
+} = {}) {
+  if (!Array.isArray(items) || !items.length) throw new Error("El carrito está vacío.");
+  const payload = items.map((item) => ({
+    material_id: item.material?.id || item.material_id || null,
+    producto_material_id: item.productoMaterialId || null,
+    descripcion: String(item.label || item.descripcion || item.material?.descripcion || "").trim(),
+    codigo: String(item.codigo || item.material?.codigo || "").trim() || null,
+    cantidad: Number(String(item.cantidad ?? "").replace(",", ".")),
+    unidad: item.unidad || item.material?.unidad || item.material?.unidad_medida || "unidad",
+    sede: item.sede || null,
+    obra_id: item.obraId || null,
+    es_adicional: !!item.esAdicional,
+    variante: String(item.variante || "").trim() || null,
+  }));
+  // La cantidad siempre tiene que ser un número: sin eso no hay egreso posible.
+  const sinCantidad = payload.findIndex((item) => !Number.isFinite(item.cantidad) || item.cantidad <= 0);
+  if (sinCantidad >= 0) {
+    const nombre = payload[sinCantidad].descripcion || "Un renglón del carrito";
+    throw new Error(`${nombre}: la cantidad no es válida.`);
+  }
+  // Si todo lo que sale ya pertenece a la obra de destino, el destino sobra:
+  // se registra como egreso a secas y no como reasignacion a si misma.
+  const destinoEsRedundante = destinoObraId
+    && items.length > 0
+    && items.every((item) => item.obraId && item.obraId === destinoObraId);
+  const destinoReal = destinoEsRedundante ? null : destinoObraId;
+  const snapshotPlans = items.map((item, index) => (
+    item.esRequisito || item.productoMaterialId
+      ? null
+      : buildSnapshotEgresoPlan(item.sourceRows, payload[index].cantidad, payload[index].variante)
+  ));
+  const directPlanAvailable = snapshotPlans.every((plan) => Array.isArray(plan) && plan.length > 0);
+  if (directPlanAvailable) {
+    const allocations = snapshotPlans.flat();
+    const ids = allocations.map((row) => row.id);
+    // Dos renglones no deben gastar la misma entrada en planes separados. Si
+    // ocurre, conserva el RPC atomico moderno para que valide el lote completo.
+    if (new Set(ids).size === ids.length) {
+      const cantidades = Object.fromEntries(allocations.map((row) => [row.id, row.cantidad]));
+      const count = await egresarMaterialesObra(ids, {
+        nota,
+        retiradoPor,
+        sectorDestino,
+        destinoObraId: destinoReal,
+        cantidades,
+      });
+      return { cantidad: count, snapshot_ids: ids };
+    }
+  }
+  // Recién acá hace falta el producto del catálogo: la RPC egresa por material,
+  // no por fila. El camino de arriba egresa por id de fila y no lo necesita —
+  // por eso la exigencia va después de haberlo intentado y no antes.
+  //
+  // El caso real: material asignado a una obra por transferencia, con la fila
+  // sin vincular al catálogo. Estaba fisicamente ahí y disponible, pero el
+  // carrito lo rechazaba con "renglón incompleto" sin decir cuál ni por qué.
+  const sinMaterial = payload.findIndex((item) => !item.material_id);
+  if (sinMaterial >= 0) {
+    const nombre = payload[sinMaterial].descripcion || "Un renglón del carrito";
+    throw new Error(
+      `${nombre} no está vinculado a un producto del catálogo y no se pudo egresar por su movimiento. ` +
+      "Abrí el producto y asignale uno concreto, o egresalo desde la ficha.",
+    );
+  }
+  const { data, error } = await supabase.rpc("panol_egresar_carrito", {
+    p_items: payload,
+    p_destino_obra_id: destinoReal || null,
+    p_nota: String(nota || "").trim() || null,
+    p_retirado_por: String(retiradoPor || "").trim() || null,
+    p_sector_destino: String(sectorDestino || "").trim() || null,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function registrarRetiroConsumible({
+  material = null,
+  cantidadGramos,
+  sede = null,
+  retiradoPor = null,
+  sectorDestino = null,
+  nota = null,
+} = {}) {
+  const gramos = Number(String(cantidadGramos ?? "").replace(",", "."));
+  const desc = String(material?.descripcion || "").trim();
+  if (!material?.id && !desc) throw new Error("Elegi un consumible.");
+  if (!Number.isFinite(gramos) || gramos <= 0) throw new Error("Carga un peso valido en gramos.");
+  const pesoTxt = `${Math.round(gramos * 1000) / 1000} g`;
+  const detalle = [`Retiro temporal de consumible por peso: ${pesoTxt}`, String(nota || "").trim()].filter(Boolean).join(" · ");
+  const payload = {
+    obra_id: null,
+    material_id: material?.id || null,
+    descripcion: desc,
+    codigo: String(material?.codigo || "").trim() || null,
+    cantidad: 0,
+    cantidad_egresada: 0,
+    unidad: material?.unidad || material?.unidad_medida || "unidad",
+    proveedor: String(material?.proveedor || "").trim() || null,
+    tipo: "consumible",
+    tipo_label: "Retiro consumible",
+    notas: detalle,
+    source: "consumible_retiro",
+    estado: "en_panol",
+    recepcion_estado: null,
+    recepcion_updated_at: new Date().toISOString(),
+    egreso_at: new Date().toISOString(),
+    egreso_nota: detalle,
+    retirado_por: String(retiradoPor || "").trim() || null,
+    sector_destino: String(sectorDestino || "").trim() || null,
+    stock_sede: sede || null,
+    stock_nota: `Peso retirado: ${pesoTxt}`,
+    es_adicional: false,
+  };
+  let { data, error } = await supabase
+    .from("panol_obra_materiales_snapshot")
+    .insert(payload)
+    .select("id")
+    .single();
+  if (error && isMissingColumn(error)) {
+    const fallback = { ...payload };
+    delete fallback.cantidad_egresada;
+    delete fallback.retirado_por;
+    delete fallback.sector_destino;
+    delete fallback.stock_sede;
+    delete fallback.stock_nota;
+    delete fallback.es_adicional;
+    const retry = await supabase
+      .from("panol_obra_materiales_snapshot")
+      .insert(fallback)
+      .select("id")
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
+  if (error) throw error;
+  return data;
+}
+
+export async function transferirProducto({
+  material = null,
+  descripcion = "",
+  codigo = "",
+  cantidad,
+  unidad = "unidad",
+  sede = null,
+  obraOrigenId = null,
+  obraDestinoId = null,
+  nota = null,
+  retiradoPor = null,
+  esAdicional = false,
+  variante = null,
+  productoMaterialId = null,
+} = {}) {
+  const qty = Number(String(cantidad ?? "").replace(",", "."));
+  const desc = String(descripcion || material?.descripcion || "").trim();
+  if (!obraDestinoId) throw new Error("Elegí una obra destino.");
+  if (!material?.id && !desc) throw new Error("Elegi o crea un material.");
+  if (!Number.isFinite(qty) || qty <= 0) throw new Error("Carga una cantidad valida.");
+  const base = {
+    p_material_id: material?.id || null,
+    p_descripcion: desc || null,
+    p_codigo: String(codigo || material?.codigo || "").trim() || null,
+    p_cantidad: qty,
+    p_unidad: unidad || material?.unidad || material?.unidad_medida || "unidad",
+    p_sede: sede || null,
+    p_obra_origen_id: obraOrigenId || null,
+    p_obra_destino_id: obraDestinoId,
+    p_nota: String(nota || "").trim() || null,
+    p_retirado_por: String(retiradoPor || "").trim() || null,
+    p_es_adicional: !!esAdicional,
+  };
+  const varClean = String(variante || "").trim() || null;
+  let { data, error } = await supabase.rpc("panol_transferir_producto", {
+    ...base,
+    p_variante: varClean,
+    p_producto_material_id: productoMaterialId || null,
+  });
+  if (error && (error.code === "PGRST202" || String(error.message || "").toLowerCase().includes("could not find the function"))) {
+    ({ data, error } = await supabase.rpc("panol_transferir_producto", base));
+  }
+  if (error) throw error;
+  return data;
+}
+
+// Libera stock asignado a una obra devolviéndolo a stock general (destino = null).
+// Reusa la RPC de transferencia; requiere que la RPC permita destino nulo.
+export async function liberarProductoAStock({
+  material = null,
+  descripcion = "",
+  codigo = "",
+  cantidad,
+  unidad = "unidad",
+  sede = null,
+  obraOrigenId = null,
+  nota = null,
+  retiradoPor = null,
+  esAdicional = false,
+} = {}) {
+  const qty = Number(String(cantidad ?? "").replace(",", "."));
+  const desc = String(descripcion || material?.descripcion || "").trim();
+  if (!obraOrigenId) throw new Error("No hay obra de origen para liberar.");
+  if (!material?.id && !desc) throw new Error("Elegi o crea un material.");
+  if (!Number.isFinite(qty) || qty <= 0) throw new Error("Carga una cantidad valida.");
+  const { data, error } = await supabase.rpc("panol_transferir_producto", {
+    p_material_id: material?.id || null,
+    p_descripcion: desc || null,
+    p_codigo: String(codigo || material?.codigo || "").trim() || null,
+    p_cantidad: qty,
+    p_unidad: unidad || material?.unidad || material?.unidad_medida || "unidad",
+    p_sede: sede || null,
+    p_obra_origen_id: obraOrigenId,
+    p_obra_destino_id: null,
+    p_nota: String(nota || "").trim() || null,
+    p_retirado_por: String(retiradoPor || "").trim() || null,
+    p_es_adicional: !!esAdicional,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function marcarMovimientoAnulado(snapshotId, nota = null) {
+  if (!snapshotId) return null;
+  const { data, error } = await supabase.rpc("panol_marcar_movimiento_anulado", {
+    p_snapshot_id: snapshotId,
+    p_nota: String(nota || "").trim() || null,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function crearEnvio({
+  titulo, sede, prioridad = "media", obraId = null, destino = null,
+  observaciones = null, origen = "manual", purchaseRequestId = null,
+  purchaseLogId = null, items = [],
+}) {
+  const { data, error } = await supabase.rpc("panol_crear_envio", {
+    p_titulo: titulo,
+    p_sede: sede,
+    p_prioridad: prioridad,
+    p_obra_id: obraId,
+    p_destino: destino,
+    p_observaciones: observaciones,
+    p_origen: origen,
+    p_purchase_request_id: purchaseRequestId,
+    p_items: items.map((it) => ({
+      descripcion: it.descripcion ?? it.description ?? "",
+      codigo: it.codigo ?? it.code ?? null,
+      cantidad: it.cantidad ?? it.quantity ?? null,
+      unidad: it.unidad ?? it.unit ?? "unidad",
+      obra_id: it.obra_id ?? it.obraId ?? null,
+      material_id: it.material_id ?? it.materialId ?? null,
+      requisito_material_id: it.requisito_material_id ?? it.requisitoMaterialId ?? null,
+      especificaciones:
+        it.especificaciones && typeof it.especificaciones === "object" && !Array.isArray(it.especificaciones)
+          ? it.especificaciones
+          : {},
+      proveedor: it.proveedor ?? null,
+      rubro: it.rubro ?? null,
+      tipo: it.tipo ?? null,
+      tipo_label: it.tipo_label ?? it.tipoLabel ?? null,
+      recepcion_estado: it.recepcion_estado ?? it.recepcionEstado ?? null,
+      purchase_request_item_id: it.purchase_request_item_id ?? it.purchaseRequestItemId ?? null,
+      obra_snapshot_item_id: it.obra_snapshot_item_id ?? it.obraSnapshotItemId ?? null,
+      variante: it.variante ?? it.variant ?? null,
+      precio_unitario: it.precio_unitario ?? it.precioUnitario ?? null,
+      moneda: it.moneda ?? null,
+      es_adicional: it.es_adicional ?? it.esAdicional ?? null,
+    })),
+  });
+  if (error) throw error;
+
+  // Vínculo envío ↔ compra cargada (purchase_log): permite que "Gasto por obra"
+  // cuente el costo una sola vez (lo aporta la compra, no el envío). Best-effort:
+  // si la columna todavía no existe (SQL sin correr), no rompe el flujo.
+  if (data && purchaseLogId) {
+    try {
+      const { error: linkErr } = await supabase
+        .from("panol_envios")
+        .update({ purchase_log_id: purchaseLogId })
+        .eq("id", data);
+      if (linkErr && import.meta.env?.DEV) {
+        console.warn("[panol] no se pudo vincular envío con compra:", linkErr.message);
+      }
+    } catch { /* columna purchase_log_id aún no creada — se ignora */ }
+  }
+
+  return data; // id del envío creado
+}
+
+export async function marcarItems(itemIds, estado, { nota = null, cantidadRecibida = null } = {}) {
+  const { error } = await supabase.rpc("panol_marcar_items", {
+    p_item_ids: itemIds,
+    p_estado: estado,
+    p_nota: nota,
+    p_cant_recibida: cantidadRecibida,
+  });
+  if (error) throw error;
+}
+
+export async function setEstadoEnvio(envioId, estado) {
+  const { error } = await supabase.rpc("panol_set_estado", { p_envio: envioId, p_estado: estado });
+  if (error) throw error;
+}
+
+export async function actualizarTituloEnvio(envioId, titulo) {
+  const texto = String(titulo ?? "").trim();
+  if (!texto) throw new Error("Completá el título del aviso.");
+  const { data, error } = await supabase.rpc("panol_actualizar_titulo_envio", {
+    p_envio: envioId,
+    p_titulo: texto,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function egresarMaterialesObra(ids = [], { nota = null, retiradoPor = null, sectorDestino = null, destinoObraId = null, cantidades = {} } = {}) {
+  const p_snapshot_ids = ids.filter(Boolean);
+  if (!p_snapshot_ids.length) return 0;
+  const { data, error } = await supabase.rpc("panol_egresar_obra_materiales", {
+    p_snapshot_ids,
+    p_nota: String(nota || "").trim() || null,
+    p_retirado_por: String(retiradoPor || "").trim() || null,
+    p_sector_destino: String(sectorDestino || "").trim() || null,
+    p_destino_obra_id: destinoObraId || null,
+    p_cantidades: cantidades || {},
+  });
+  if (error) throw error;
+  return data ?? p_snapshot_ids.length;
+}
+
+export async function deleteEnvio(envioId) {
+  const { error } = await supabase
+    .from("panol_envios")
+    .delete()
+    .eq("id", envioId);
+  if (error) throw error;
+}
+
+// Mensaje simple entre Pañol y Compras (queda en el historial del envío).
+export async function updateEnvioItemPrice(itemId, { precio_unitario = null, moneda = "ARS" } = {}) {
+  const raw = precio_unitario === "" || precio_unitario === undefined ? null : precio_unitario;
+  const price = raw === null ? null : Number(raw);
+  if (raw !== null && !Number.isFinite(price)) throw new Error("Precio invalido.");
+
+  const { error } = await supabase
+    .from("panol_envio_items")
+    .update({
+      precio_unitario: raw === null ? null : price,
+      moneda: raw === null ? null : (moneda === "USD" ? "USD" : "ARS"),
+    })
+    .eq("id", itemId);
+  if (error) throw error;
+}
+
+export async function comentarEnvio(envioId, texto) {
+  const t = String(texto || "").trim();
+  if (!t) return;
+  const { error } = await supabase.rpc("panol_comentar_envio", { p_envio: envioId, p_texto: t });
+  if (error) throw error;
+}
+
+// ─── Devoluciones ────────────────────────────────────────────────────────────
+// Material que salió del pañol, se probó y volvió fallado. Queda apartado —no
+// vuelve a stock— y Compras decide si se manda a reparar o se reclama la
+// reposición. La obra queda con la cantidad en reclamo hasta que vuelva sano.
+
+export const DEVOLUCION_MOTIVOS = [
+  ["defectuoso", "Vino defectuoso"],
+  ["roto", "Llegó roto"],
+  ["no_corresponde", "No es lo que se pidió"],
+  ["sobrante", "Sobró / no se usó"],
+  ["otro", "Otro"],
+];
+
+export const DEVOLUCION_ESTADOS = {
+  devuelto: { label: "Para decidir", abierto: true },
+  en_reparacion: { label: "En reparación", abierto: true },
+  esperando_reposicion: { label: "Esperando reposición", abierto: true },
+  reparado: { label: "Reparado", abierto: false },
+  repuesto: { label: "Repuesto", abierto: false },
+  nota_credito: { label: "Nota de crédito", abierto: false },
+  rechazado: { label: "Rechazado", abierto: false },
+  descartado: { label: "Descartado", abierto: false },
+};
+
+// Qué hace falta con lo devuelto. Lo elige quien la recibe: el pañolero sabe si
+// tiene arreglo o si hay que reclamar el reemplazo. Compras igual recibe el
+// aviso y es quien gestiona.
+export const DEVOLUCION_NECESITA = [
+  ["esperando_reposicion", "Necesita reposición"],
+  ["en_reparacion", "Se manda a arreglar"],
+  ["devuelto", "A definir con Compras"],
+];
+
+// De quién es la culpa. Es lo que separa un reclamo de una pérdida propia: si
+// lo rompimos nosotros el material igual se aparta y se registra, pero no se le
+// puede pedir nada al proveedor. Mezclarlos infla el total del reclamo y lo
+// vuelve inservible para llamar por teléfono.
+export const DEVOLUCION_RESPONSABLE = [
+  ["proveedor", "Vino fallado"],
+  ["nosotros", "Lo rompimos nosotros"],
+  ["sin_definir", "Todavía no se sabe"],
+];
+
+export const RESPONSABLE_META = {
+  proveedor: { label: "Vino fallado", corto: "Del proveedor", reclamable: true },
+  nosotros: { label: "Lo rompimos nosotros", corto: "Nuestra", reclamable: false },
+  sin_definir: { label: "Sin definir", corto: "Sin definir", reclamable: false },
+};
+
+// A dónde va cuando se manda a arreglar. No es lo mismo devolvérselo al que lo
+// vendió (garantía, no se paga) que llevarlo a un taller (se paga) o arreglarlo
+// acá (cuesta horas nuestras).
+export const DEVOLUCION_DESTINO_TIPO = [
+  ["proveedor", "Al proveedor que lo vendió"],
+  ["taller", "A un taller de afuera"],
+  ["interno", "Lo arreglamos acá"],
+];
+
+export const DESTINO_TIPO_META = {
+  proveedor: { label: "Al proveedor", ph: "Ej: Rincón del Herraje", ayuda: "Va por garantía: no debería costarnos nada." },
+  taller: { label: "Taller externo", ph: "Ej: Trimer", ayuda: "Nos lo van a cobrar. Anotá el costo cuando lo sepas." },
+  interno: { label: "Taller propio", ph: "Ej: Herrería / Gustavo", ayuda: "Lo arregla gente nuestra: cuesta horas, no plata." },
+};
+
+/** Registra una devolución: la abre en el estado que corresponda, deja la
+ *  cantidad en reclamo en la obra y avisa a Compras, todo en una transacción. */
+export async function registrarDevolucion({
+  snapshotId, cantidad, motivo = "defectuoso", detalle = null,
+  necesita = "devuelto", responsable = "sin_definir",
+}) {
+  if (!snapshotId) throw new Error("Falta el egreso de origen.");
+  const cant = Number(cantidad);
+  if (!Number.isFinite(cant) || cant <= 0) throw new Error("La cantidad devuelta tiene que ser mayor a cero.");
+  const { data, error } = await supabase.rpc("panol_registrar_devolucion", {
+    p_snapshot_id: snapshotId,
+    p_cantidad: cant,
+    p_motivo: motivo,
+    p_detalle: detalle,
+    p_necesita: necesita,
+    p_responsable: responsable,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function resolverDevolucion(id, estado, {
+  proveedorId = null, destino = null, notas = null,
+  destinoTipo = null, responsable = null, costoReparacion = null,
+} = {}) {
+  if (!id || !estado) throw new Error("Faltan datos para resolver la devolución.");
+  const costo = costoReparacion === null || costoReparacion === "" ? null : Number(costoReparacion);
+  const { error } = await supabase.rpc("panol_resolver_devolucion", {
+    p_devolucion_id: id,
+    p_estado: estado,
+    p_proveedor_id: proveedorId,
+    p_destino: destino,
+    p_notas: notas,
+    p_destino_tipo: destinoTipo,
+    p_responsable: responsable,
+    p_costo_reparacion: Number.isFinite(costo) ? costo : null,
+  });
+  if (error) throw error;
+}
+
+/** Notas de seguimiento de una devolución, de la más nueva a la más vieja. */
+export async function fetchDevolucionNotas(devolucionId) {
+  if (!devolucionId) return [];
+  const { data, error } = await supabase
+    .from("panol_devoluciones_notas")
+    .select("id, texto, estado_en_ese_momento, created_at, autor:autor_id(username)")
+    .eq("devolucion_id", devolucionId)
+    .order("created_at", { ascending: false });
+  if (error) {
+    if (isMissingTable(error)) return [];
+    throw error;
+  }
+  return (data ?? []).map((fila) => ({ ...fila, autor_nombre: fila.autor?.username || "" }));
+}
+
+export async function agregarNotaDevolucion(devolucionId, texto) {
+  if (!devolucionId) throw new Error("Falta la devolución.");
+  if (!String(texto || "").trim()) throw new Error("La nota no puede estar vacía.");
+  const { data, error } = await supabase.rpc("panol_devolucion_nota", {
+    p_devolucion_id: devolucionId,
+    p_texto: String(texto).trim(),
+  });
+  if (error) throw error;
+  return data;
+}
+
+/* ── Revisión del stock maestro ─────────────────────────────────────────── */
+
+// Los tres estados posibles de un producto en la revisión. "Pendiente" no es un
+// problema, es trabajo sin hacer: separarlos es lo que permite que el contador
+// de pendientes efectivamente baje.
+export const VERIFICACION_META = {
+  pendiente: { label: "Sin revisar", corto: "Sin revisar" },
+  ok: { label: "Revisado", corto: "Revisado" },
+  problema: { label: "Con problema", corto: "Problema" },
+};
+
+// Los problemas se tipifican y no se escriben libres. Un texto suelto obliga a
+// leer ítem por ítem para saber si hay que ir a buscar la pieza, corregir una
+// etiqueta o sacar una foto; y como cada uno lo escribe distinto, no se puede
+// contar. Al terminar la pasada la pregunta útil es "¿de qué tipo son?",
+// porque de ahí sale qué arreglar para que no vuelva a pasar.
+export const VERIFICACION_PROBLEMAS = [
+  ["ubicacion", "No está donde dice", "La ficha marca un lugar y la pieza está en otro."],
+  ["cantidad", "La cantidad no cierra", "Lo que hay en el estante no es lo que dice el sistema."],
+  ["descripcion", "No se entiende qué es", "El nombre no alcanza para reconocerlo con la pieza en la mano."],
+  ["codigo", "El código no coincide", "La etiqueta de la caja dice otra cosa, o no tiene."],
+  ["foto", "Falta la foto", "Sin imagen no se puede identificar desde la pantalla."],
+  ["duplicado", "Está cargado dos veces", "El mismo producto figura con dos fichas distintas."],
+  ["no_existe", "No se encontró", "Está en el sistema pero no aparece en el pañol."],
+  ["otro", "Otro", "Algo que no entra en los anteriores. Hay que explicarlo."],
+];
+
+export const PROBLEMA_LABEL = Object.fromEntries(
+  VERIFICACION_PROBLEMAS.map(([clave, label]) => [clave, label]),
+);
+
+/** Marca la revisión de un producto y de paso corrige sus datos. Un solo viaje:
+ *  si fueran dos, la mitad de las veces se corrige y no se marca. */
+export async function verificarMaterial(materialId, estado, {
+  nota = null, ubicacion = null, ubicacionObs = null, descripcion = null,
+  problemas = [], cantidadContada = null, cantidadSistema = null,
+} = {}) {
+  if (!materialId) throw new Error("Falta el producto.");
+  const lista = Array.isArray(problemas) ? problemas.filter(Boolean) : [];
+  if (estado === "problema" && !lista.length) {
+    throw new Error("Elegí al menos un tipo de problema.");
+  }
+  if (estado === "problema" && lista.includes("otro") && !String(nota || "").trim()) {
+    throw new Error('Si elegís "Otro" hay que escribir qué pasa.');
+  }
+  const num = (value) => {
+    if (value === null || value === undefined || value === "") return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  const base = {
+    p_material_id: materialId,
+    p_estado: estado,
+    p_nota: nota,
+    p_ubicacion: ubicacion,
+    p_ubicacion_obs: ubicacionObs,
+    p_descripcion: descripcion,
+  };
+  let { error } = await supabase.rpc("panol_verificar_material", {
+    ...base,
+    p_problemas: lista,
+    p_cantidad_contada: num(cantidadContada),
+    p_cantidad_sistema: num(cantidadSistema),
+  });
+  // Si la base todavía tiene la firma vieja (sin tipos de problema ni conteo),
+  // se reintenta con los seis parámetros originales. Sin esto, la llamada falla
+  // entera y no se guarda NADA —ni la ubicación ni la revisión—, que es
+  // indistinguible de "el botón no anda". Mismo patrón que egresarProducto.
+  const faltaLaFuncion = error
+    && (error.code === "PGRST202"
+      || String(error.message || "").toLowerCase().includes("could not find the function"));
+  if (faltaLaFuncion) {
+    ({ error } = await supabase.rpc("panol_verificar_material", base));
+  }
+  if (error) throw error;
+}
+
+/** Cuántos van y cuántos faltan. Se calcula en la base: contar en el navegador
+ *  daría sólo los productos que entraron en la página actual. */
+export async function fetchVerificacionAvance() {
+  const { data, error } = await supabase
+    .from("panol_verificacion_avance")
+    .select("*")
+    .maybeSingle();
+  if (error) {
+    if (isMissingTable(error)) return null;
+    throw error;
+  }
+  return data ?? null;
+}
+
+/** Historial de revisiones de un producto. */
+export async function fetchVerificacionesMaterial(materialId) {
+  if (!materialId) return [];
+  const { data, error } = await supabase
+    .from("panol_material_verificaciones")
+    .select("id, estado, nota, problemas, ubicacion, cantidad_contada, cantidad_sistema, created_at, autor:verificado_por(username)")
+    .eq("material_id", materialId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (error) {
+    if (isMissingTable(error) || isMissingColumn(error)) return [];
+    throw error;
+  }
+  return (data ?? []).map((fila) => ({ ...fila, autor_nombre: fila.autor?.username || "" }));
+}
+
+/** Panel de devoluciones. Trae días y valor ya calculados desde la vista. */
+export async function fetchDevoluciones({ soloAbiertas = true } = {}) {
+  let query = supabase
+    .from("panol_devoluciones_panel")
+    .select("*")
+    .order("devuelto_at", { ascending: false });
+  if (soloAbiertas) {
+    query = query.in("estado", ["devuelto", "en_reparacion", "esperando_reposicion"]);
+  }
+  const { data, error } = await query;
+  if (error) {
+    // Si la migración todavía no corrió, la pantalla muestra vacío en vez de romper.
+    if (isMissingTable(error)) return [];
+    throw error;
+  }
+  return data ?? [];
+}

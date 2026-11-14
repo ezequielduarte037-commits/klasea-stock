@@ -407,13 +407,22 @@ export function ObraItemDrawer({ row, view, obraLabel, tab, onTab, onClose, onPr
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose, isMobile, suspendEscape]);
   return createPortal(<aside ref={panelRef} role="dialog" aria-modal={isMobile || undefined} aria-labelledby="obra-detail-title" className="obra-workspace obra-drawer" style={{ ...obraThemeScope, position: "fixed", top: isMobile ? 0 : 56, right: 0, bottom: 0, width: isMobile ? "100%" : editing ? "min(820px, 82vw)" : "min(600px, 58vw)", boxSizing: "border-box", zIndex: 4000, background: C.panelSolid, borderLeft: `1px solid ${C.border}`, boxShadow: "-12px 0 40px color-mix(in srgb, var(--text) 8%, transparent)", display: "flex", flexDirection: "column", color: C.text, fontFamily: C.sans }}>
-    <div style={{ padding: "10px 18px 0", flexShrink: 0, borderBottom: `1px solid ${C.border}` }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}><span style={{ ...muted, fontSize: 10, letterSpacing: 1 }}>DETALLE DEL ÍTEM</span><div style={{ display: "flex", gap: 5 }}><button type="button" disabled={!onPrevious} onClick={onPrevious} aria-label="Ítem anterior" style={button}><ChevronLeft size={14} /></button><button type="button" disabled={!onNext} onClick={onNext} aria-label="Ítem siguiente" style={button}><ChevronRight size={14} /></button><button ref={closeRef} type="button" onClick={onClose} aria-label="Cerrar detalle" style={button}><X size={16} /></button></div></div>
+    <div style={{ padding: isMobile ? "max(10px, env(safe-area-inset-top)) 18px 0" : "10px 18px 0", flexShrink: 0, borderBottom: `1px solid ${C.border}` }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        {isMobile
+          ? <button ref={closeRef} type="button" onClick={onClose} style={{ ...button, minHeight: 44 }}><ChevronLeft size={16} />Volver a la lista</button>
+          : <span style={{ ...muted, fontSize: 10, letterSpacing: 1 }}>DETALLE DEL ÍTEM</span>}
+        <div style={{ display: "flex", gap: 5 }}>
+          <button type="button" disabled={!onPrevious} onClick={onPrevious} aria-label="Ítem anterior" style={button}><ChevronLeft size={14} /></button>
+          <button type="button" disabled={!onNext} onClick={onNext} aria-label="Ítem siguiente" style={button}><ChevronRight size={14} /></button>
+          {!isMobile && <button ref={closeRef} type="button" onClick={onClose} aria-label="Cerrar detalle" style={button}><X size={16} /></button>}
+        </div>
+      </div>
       <h2 id="obra-detail-title" style={{ margin: "0 0 8px", fontSize: 19, lineHeight: 1.3, fontWeight: 600, overflowWrap: "anywhere" }}>{row.descripcion}</h2>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}><ObraStatusBadge status={view.status} /><span style={muted}>{obraLabel}</span></div>
       <div role="tablist" aria-label="Detalle del material" style={{ display: "flex", gap: 20 }}>{[["resumen", "Resumen"], ["compras", "Compras"], ["mas", "Más"]].map(([key, label], index, tabs) => <button id={`obra-tab-${key}`} aria-controls={`obra-tabpanel-${key}`} key={key} type="button" role="tab" tabIndex={tab === key ? 0 : -1} aria-selected={tab === key} onClick={() => onTab(key)} onKeyDown={(event) => { if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return; event.preventDefault(); const next = tabs[(index + (event.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length][0]; onTab(next); document.getElementById(`obra-tab-${next}`)?.focus(); }} style={{ ...button, border: "none", borderBottom: `2px solid ${tab === key ? C.blue : "transparent"}`, borderRadius: 0, padding: "10px 0", background: "transparent", color: tab === key ? C.blue : C.muted }}>{label}</button>)}</div>
     </div>
     <div key={`${row.id}:${tab}`} role="tabpanel" id={`obra-tabpanel-${tab}`} aria-labelledby={`obra-tab-${tab}`} className="obra-scroll obra-detail-content" style={{ flex: 1, overflowY: "auto", minWidth: 0, minHeight: 0, padding: editing ? 20 : 18 }}>{renderContent(row, tab)}</div>
-    <div style={{ padding: "12px 16px", paddingBottom: "max(12px, env(safe-area-inset-bottom))", flexShrink: 0, borderTop: `1px solid ${C.border}`, background: C.panelSolid }}>{footer}<div style={{ ...muted, fontSize: 10, textAlign: "right", marginTop: 6 }}>Esc · Cerrar</div></div>
+    <div style={{ padding: "12px 16px", paddingBottom: "max(12px, env(safe-area-inset-bottom))", flexShrink: 0, borderTop: `1px solid ${C.border}`, background: C.panelSolid }}>{footer}{!isMobile && <div style={{ ...muted, fontSize: 10, textAlign: "right", marginTop: 6 }}>Esc · Cerrar</div>}</div>
   </aside>, document.body);
 }

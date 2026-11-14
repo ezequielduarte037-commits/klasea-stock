@@ -36,7 +36,9 @@ before(async () => {
       source text, estado text, recepcion_estado text, recepcion_updated_at timestamptz, stock_sede text, stock_nota text,
       egreso_at timestamptz, egreso_por uuid, egreso_nota text, retirado_por text, sector_destino text, egreso_destino_obra_id uuid,
       es_adicional boolean, variante text, producto_asignado_at timestamptz, producto_asignado_por uuid,
-      producto_asignacion_origen text, panol_envio_id uuid, created_at timestamptz default now());
+      producto_asignacion_origen text, panol_envio_id uuid, created_at timestamptz default now(),
+      updated_at timestamptz default now(), orden int, purchase_request_id uuid, purchase_request_item_id uuid,
+      panol_envio_item_id uuid, recepcion_cantidad_recibida text, recepcion_nota text);
     create function public.is_panol_manager(uuid) returns boolean language sql as
       $$select exists(select 1 from profiles where id=$1 and role in ('admin','tecnica','compras'))$$;
     create function public.can_receive_envio(text,uuid) returns boolean language sql as
@@ -58,6 +60,7 @@ before(async () => {
   await db.exec(fn(productos, 'panol_cierre_refrescar_items'));
   await db.exec(fn(productos, 'panol_cierre_requisitos_sin_producto'));
   await db.exec(await readFile('supabase/migrations/20261007120000_panol_cierre_egreso_directo.sql', 'utf8'));
+  await db.exec(await readFile('supabase/migrations/20261112120000_panol_validar_saldo_retiro_por_renglon.sql', 'utf8'));
 });
 after(async () => db.close());
 beforeEach(async () => {
@@ -93,6 +96,60 @@ async function rejected(action, message) {
   try { await assert.rejects(action, message); }
   finally { await db.exec('rollback to savepoint rechazo; release savepoint rechazo'); }
 }
+
+test('liberar la reserva impide retirar por el renglón que se cargó antes del cierre', async () => {
+  const f = await fixture(1);
+  const [original] = await snapshots(f);
+  await q("select panol_cierre_resolver($1, p_recibido := 1, p_sede := 'Chubut')", [f.item.id]);
+
+  await rejected(() => q('select panol_egresar_obra_materiales($1)', [[original.id]]), /saldo de .* cambió/);
+  assert.equal(await saldo(f), 0);
+  assert.equal(await saldo(f, null), 1);
+});
+
+test('una liberación parcial permite retirar el saldo de la obra y rechaza un retiro mayor', async () => {
+  const f = await fixture(3);
+  const [original] = await snapshots(f);
+  await q("select panol_cierre_resolver($1, p_recibido := 2, p_sede := 'Chubut')", [f.item.id]);
+  const retirar = (cantidad) => q('select panol_egresar_obra_materiales($1, p_cantidades := $2)', [
+    [original.id], { [original.id]: cantidad },
+  ]);
+
+  await rejected(() => retirar(2), /Disponible: 1(?:\.0+)?, solicitado: 2/);
+  await retirar(1);
+  assert.equal(await saldo(f), 0);
+  assert.equal(await saldo(f, null), 2);
+});
+
+test('un retiro para la misma obra no se guarda como reasignación', async () => {
+  const f = await fixture(1);
+  const [original] = await snapshots(f);
+  await q('select panol_egresar_obra_materiales($1, p_destino_obra_id := $2)', [[original.id], f.obra.id]);
+  const [retirado] = await snapshots(f);
+  assert.equal(retirado.estado, 'egresado');
+  assert.equal(retirado.obra_id, f.obra.id);
+  assert.equal(retirado.egreso_destino_obra_id, null);
+  assert.equal(await saldo(f), 0);
+});
+
+test('reasignar a otra obra y después retirar descuenta una vez en la ubicación correcta', async () => {
+  const f = await fixture(2);
+  const otra = await one("insert into produccion_obras(codigo) values('55-2') returning *");
+  const movimiento = await one(`select panol_transferir_producto(
+    p_material_id := $1, p_sede := 'Chubut', p_cantidad := 1,
+    p_obra_origen_id := $2, p_obra_destino_id := $3) as transferencia`, [f.material.id, f.obra.id, otra.id]);
+  const llegada = movimiento.transferencia.ingreso_id;
+  assert.equal(await saldo(f), 1);
+  assert.equal(await saldo(f, otra.id), 1);
+
+  await q('select panol_egresar_obra_materiales($1, p_destino_obra_id := $2)', [[llegada], otra.id]);
+  const retirado = await one('select * from panol_obra_materiales_snapshot where id=$1', [llegada]);
+  assert.equal(retirado.obra_origen_id, f.obra.id);
+  assert.equal(retirado.egreso_destino_obra_id, null);
+  assert.equal(await saldo(f), 1);
+  assert.equal(await saldo(f, otra.id), 0);
+  assert.equal(await saldo(f, null), 0);
+});
 
 test('egreso total de la misma obra sin pasar por stock general, con auditoría y cierre', async () => {
   const f = await fixture();

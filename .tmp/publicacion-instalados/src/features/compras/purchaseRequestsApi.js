@@ -1,0 +1,1367 @@
+import { supabase } from "@/supabaseClient";
+import { mergeDocumentAttachments } from "@/features/materiales/productDocuments";
+
+export const PURCHASE_PHOTOS_BUCKET = "purchase-request-photos";
+
+export const REQUEST_STATUSES = [
+  { value: "nuevo", label: "Nuevo" },
+  { value: "en_revision", label: "En revision" },
+  { value: "cotizando", label: "Cotizando" },
+  { value: "comprado", label: "Comprado" },
+  { value: "recibido", label: "Recibido" },
+  { value: "cancelado", label: "Cancelado" },
+];
+
+export const REQUEST_PRIORITIES = [
+  { value: "baja", label: "Baja" },
+  { value: "media", label: "Media" },
+  { value: "alta", label: "Alta" },
+  { value: "urgente", label: "Urgente" },
+];
+
+export function normalizeRequestKind(form = {}) {
+  if (form.tipo_pedido) return form.tipo_pedido;
+  if (form.es_adicional === true) return "adicional";
+  if (form.es_adicional === false) return "estandar";
+  return "estandar"; // default
+}
+
+const REQUEST_SELECT = `
+  *,
+  creator:profiles!purchase_requests_created_by_fkey(id, username, role, is_admin),
+  assignee:profiles!purchase_requests_assigned_to_fkey(id, username, role, is_admin),
+  project:produccion_obras!purchase_requests_project_id_fkey(id, codigo, descripcion, estado),
+  followers:request_followers(
+    user_id,
+    created_at,
+    profile:profiles!request_followers_user_id_fkey(id, username, role, is_admin)
+  )
+`;
+
+const DETAIL_SELECT = `
+  ${REQUEST_SELECT},
+  comments:request_comments(
+    id,
+    body,
+    attachments,
+    created_at,
+    updated_at,
+    author_id,
+    author:profiles!request_comments_author_id_fkey(id, username, role, is_admin),
+    mentions:request_comment_mentions(
+      mentioned_user_id,
+      profile:profiles!request_comment_mentions_mentioned_user_id_fkey(id, username, role)
+    )
+  )
+`;
+
+const LEGACY_DETAIL_SELECT = DETAIL_SELECT.replace(/\n\s+attachments,/, "");
+
+function isMissingCommentAttachments(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes("attachments") && (
+    error?.code === "42703"
+    || error?.code === "PGRST204"
+    || message.includes("column")
+    || message.includes("schema cache")
+  );
+}
+
+const ADDITIONAL_BOARD_SELECT = `
+  *,
+  project:produccion_obras!purchase_additional_boards_project_id_fkey(id, codigo, descripcion, estado)
+`;
+
+const ADDITIONAL_ITEM_SELECT = `
+  *,
+  request:purchase_requests!purchase_additional_items_purchase_request_id_fkey(id, title, status, priority, created_at, proveedor, estimated_amount, actual_amount, project_id)
+`;
+
+const AVISO_SELECT = `
+  *,
+  creator:profiles!compras_avisos_created_by_fkey(id, username, role, is_admin),
+  resolver:profiles!compras_avisos_resuelto_por_fkey(id, username, role, is_admin),
+  project:produccion_obras!compras_avisos_project_id_fkey(id, codigo, descripcion, estado),
+  comentarios:compras_aviso_comentarios(
+    id,
+    body,
+    created_at,
+    author_id,
+    author:profiles!compras_aviso_comentarios_author_id_fkey(id, username, role, is_admin)
+  )
+`;
+
+function safeFilePart(value) {
+  return String(value || "archivo")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 80);
+}
+
+export const PURCHASE_ATTACHMENT_MAX_BYTES = 50 * 1024 * 1024;
+export const PURCHASE_ATTACHMENT_MAX_COUNT = 10;
+export const COMMENT_ATTACHMENT_MAX_COUNT = 6;
+
+function fileExtension(fileName = "") {
+  const parts = String(fileName || "").toLowerCase().split(".");
+  return parts.length > 1 ? safeFilePart(parts.pop()) : "";
+}
+
+function attachmentContentType(file) {
+  const ext = fileExtension(file?.name);
+  // Evita servir contenido activo inline desde el bucket publico.
+  if (["html", "htm", "svg", "js", "mjs"].includes(ext)) return "application/octet-stream";
+  return String(file?.type || "").trim() || "application/octet-stream";
+}
+
+export function validatePurchaseAttachment(file) {
+  if (!file) throw new Error("Seleccioná un archivo.");
+  if (Number(file.size || 0) > PURCHASE_ATTACHMENT_MAX_BYTES) {
+    throw new Error(`“${file.name}” supera el límite de 50 MB.`);
+  }
+  return file;
+}
+
+function normalizeAttachmentEntries(value) {
+  let entries = value;
+  if (typeof entries === "string") {
+    try { entries = JSON.parse(entries); }
+    catch { return []; }
+  }
+  if (!Array.isArray(entries)) return [];
+
+  return entries
+    .filter((item) => item && typeof item.url === "string" && /^https?:\/\//i.test(item.url))
+    .map((item) => ({
+      url: item.url,
+      path: String(item.path || ""),
+      name: String(item.name || "Archivo adjunto"),
+      type: String(item.type || "application/octet-stream"),
+      size: Number(item.size) || 0,
+    }));
+}
+
+export function isPurchaseManager(profile) {
+  return !!profile?.is_admin || profile?.role === "admin" || profile?.role === "compras";
+}
+
+export function usernameOf(profile) {
+  return profile?.username || profile?.nombre_completo || "Sin nombre";
+}
+
+export async function uploadPurchaseRequestAttachments(files, userId, folder = "requests") {
+  const selectedFiles = Array.from(files || []);
+  if (!selectedFiles.length) return [];
+  if (!userId) throw new Error("No se pudo identificar al usuario.");
+  if (selectedFiles.length > PURCHASE_ATTACHMENT_MAX_COUNT) {
+    throw new Error(`Podés adjuntar hasta ${PURCHASE_ATTACHMENT_MAX_COUNT} archivos por pedido.`);
+  }
+
+  return Promise.all(selectedFiles.map(async (file) => {
+    validatePurchaseAttachment(file);
+    const ext = fileExtension(file.name);
+    const id = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const path = `${folder}/${userId}/${Date.now()}-${id}${ext ? `.${ext}` : ""}`;
+    const contentType = attachmentContentType(file);
+
+    const { error } = await supabase.storage
+      .from(PURCHASE_PHOTOS_BUCKET)
+      .upload(path, file, {
+        cacheControl: "3600",
+        contentType,
+        upsert: false,
+      });
+    if (error) {
+      const message = String(error.message || "").toLowerCase();
+      if (message.includes("mime type") && message.includes("not supported")) {
+        throw new Error("Supabase todavía está configurado para aceptar solo imágenes. Aplicá la migración de archivos adjuntos de Compras.");
+      }
+      if (message.includes("maximum allowed size") || message.includes("exceeded")) {
+        throw new Error(`“${file.name}” supera el tamaño permitido por Supabase.`);
+      }
+      throw error;
+    }
+
+    const { data } = supabase.storage.from(PURCHASE_PHOTOS_BUCKET).getPublicUrl(path);
+    return {
+      url: data.publicUrl,
+      path,
+      name: file.name,
+      type: contentType,
+      size: file.size,
+    };
+  }));
+}
+
+export async function uploadPurchaseRequestPhoto(file, userId) {
+  if (!file) return { photoUrl: null, photoPath: null };
+  const [attachment] = await uploadPurchaseRequestAttachments([file], userId);
+  return {
+    photoUrl: attachment?.url || null,
+    photoPath: attachment?.path || null,
+  };
+}
+
+export function normalizeCommentAttachments(value) {
+  return normalizeAttachmentEntries(value);
+}
+
+export function normalizePurchaseRequestAttachments(request = {}) {
+  const stored = normalizeAttachmentEntries(request.attachments);
+  if (stored.length) return stored;
+
+  const urls = Array.isArray(request.photo_urls) && request.photo_urls.length
+    ? request.photo_urls
+    : request.photo_url ? [request.photo_url] : [];
+  return urls
+    .filter((url) => typeof url === "string" && /^https?:\/\//i.test(url))
+    .map((url, index) => ({
+      url,
+      path: index === 0 ? String(request.photo_path || "") : "",
+      name: urls.length > 1 ? `Adjunto ${index + 1}` : "Adjunto del pedido",
+      type: "application/octet-stream",
+      size: 0,
+    }));
+}
+
+export async function uploadRequestCommentAttachments(requestId, files, userId) {
+  const selectedFiles = Array.from(files || []);
+  if (!selectedFiles.length) return [];
+  if (!requestId || !userId) throw new Error("No se pudo identificar el pedido o el usuario.");
+  if (selectedFiles.length > COMMENT_ATTACHMENT_MAX_COUNT) {
+    throw new Error(`Podés adjuntar hasta ${COMMENT_ATTACHMENT_MAX_COUNT} archivos por mensaje.`);
+  }
+  return uploadPurchaseRequestAttachments(selectedFiles, userId, `comments/${requestId}`);
+}
+
+// Alias temporal para otros flujos que todavía importan el nombre anterior.
+export const uploadRequestCommentImages = uploadRequestCommentAttachments;
+
+function isMissingRequestAttachments(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return message.includes("attachments") && (
+    error?.code === "42703"
+    || error?.code === "PGRST204"
+    || message.includes("column")
+    || message.includes("schema cache")
+  );
+}
+
+export async function createPurchaseRequest({
+  form,
+  ccUserIds = [],
+  photoFile = null,
+  attachmentFiles = [],
+  existingAttachments = [],
+}) {
+  // Usamos getSession (lee de localStorage) en vez de getUser (golpea servidor y
+  // puede gatillar un refresh que invalide la sesión si el refresh token está roto).
+  const { data: { session } = {}, error: authError } = await supabase.auth.getSession();
+  if (authError) throw authError;
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("No hay usuario autenticado.");
+
+  const selectedFiles = attachmentFiles?.length
+    ? Array.from(attachmentFiles)
+    : photoFile ? [photoFile] : [];
+  const uploadedAttachments = await uploadPurchaseRequestAttachments(selectedFiles, userId);
+  const attachmentMap = new Map();
+  [
+    ...normalizeAttachmentEntries(existingAttachments),
+    ...uploadedAttachments,
+  ].forEach((attachment) => {
+    attachmentMap.set(attachment.path || attachment.url, attachment);
+  });
+  const attachments = [...attachmentMap.values()];
+  const legacyAttachment = attachments.find((item) => item.type.startsWith("image/")) || attachments[0] || null;
+
+  const payload = {
+    title: form.title.trim(),
+    description: form.description.trim() || null,
+    photo_url: legacyAttachment?.url || null,
+    photo_path: legacyAttachment?.path || null,
+    attachments,
+    priority: form.priority || "media",
+    status: "nuevo",
+    project_id: form.project_id || null,
+    destino: form.destino || null,
+    proveedor: form.proveedor?.trim?.() || null,
+    needed_at: form.needed_at || null,
+    source: form.source || null,
+    source_ref: form.source_ref || null,
+    source_url: form.source_url || null,
+    es_adicional: normalizeRequestKind(form) === "adicional",
+    created_by: userId,
+  };
+
+  let { data: request, error } = await supabase
+    .from("purchase_requests")
+    .insert(payload)
+    .select(REQUEST_SELECT)
+    .single();
+
+  if (error && isMissingRequestAttachments(error)) {
+    const legacyPayload = { ...payload };
+    delete legacyPayload.attachments;
+    ({ data: request, error } = await supabase
+      .from("purchase_requests")
+      .insert(legacyPayload)
+      .select(REQUEST_SELECT)
+      .single());
+  }
+
+  if (error) throw error;
+
+  const followerRows = [...new Set(ccUserIds)]
+    .filter((id) => id && id !== userId)
+    .map((id) => ({ request_id: request.id, user_id: id, added_by: userId }));
+
+  if (followerRows.length) {
+    const { error: followersError } = await supabase
+      .from("request_followers")
+      .upsert(followerRows, { onConflict: "request_id,user_id", ignoreDuplicates: true });
+    if (followersError) throw followersError;
+  }
+
+  notifyWaUpdate({
+    requestId: request.id,
+    eventType: "created",
+    actorId: userId,
+    payload: {
+      actorName: request.creator?.username || "Usuario",
+      source: payload.source || "web",
+    },
+  });
+
+  return request;
+}
+
+// Estado de compra por ítem de una obra (Fase 2): cruza los ítems pedidos (purchase_request_items)
+// de los pedidos linkeados a la obra (project_id) y devuelve un mapa descripción-normalizada -> estado.
+// estado: "recibido" (pisa) | "pedido". Tolerante: Map vacío si falla.
+export async function fetchItemsEstadoPorObra(obraId) {
+  if (!obraId) return new Map();
+  try {
+    const { data, error } = await supabase
+      .from("purchase_requests")
+      .select("status, purchase_request_items(description)")
+      .eq("project_id", obraId)
+      .neq("status", "cancelado");
+    if (error || !data) return new Map();
+    const norm = (s) => String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
+    const map = new Map();
+    for (const req of data) {
+      const estado = req.status === "recibido" ? "recibido" : "pedido";
+      for (const it of (req.purchase_request_items || [])) {
+        const k = norm(it.description);
+        if (!k) continue;
+        if (map.get(k) !== "recibido") map.set(k, estado); // recibido tiene prioridad
+      }
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
+export async function fetchPurchaseRequests() {
+  // last_comment_author_id viaja denormalizado en la fila (trigger).
+  const { data, error } = await supabase
+    .from("purchase_requests")
+    .select(REQUEST_SELECT)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+// Versión liviana para widgets que sólo cuentan pedidos (ComprasBicho): sin los
+// cuatro joins ni el `select *`. La consulta completa se bajaba en un poll cada
+// 60s por usuario de compras y era el grueso del egress.
+export async function fetchPurchaseRequestsResumen({ limit = 400 } = {}) {
+  const { data, error } = await supabase
+    .from("purchase_requests")
+    .select("id,status,priority,title,description,created_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data || [];
+}
+
+// Devuelve null cuando la solicitud no aparece.
+//
+// Con `.single()`, un id que no existe -o que RLS no deja ver- no volvía como
+// "no está": volvía como el error crudo de PostgREST, "Cannot coerce the result
+// to a single JSON object", que era lo que quedaba impreso en pantalla cuando
+// alguien abría el link de un aviso de un pedido ya borrado. `.maybeSingle()`
+// distingue las dos cosas: sin fila es null, y un error de verdad sigue siendo
+// un error.
+export async function fetchPurchaseRequestDetail(requestId) {
+  let { data, error } = await supabase
+    .from("purchase_requests")
+    .select(DETAIL_SELECT)
+    .eq("id", requestId)
+    .maybeSingle();
+
+  if (error && isMissingCommentAttachments(error)) {
+    const legacy = await supabase
+      .from("purchase_requests")
+      .select(LEGACY_DETAIL_SELECT)
+      .eq("id", requestId)
+      .maybeSingle();
+    data = legacy.data;
+    error = legacy.error;
+  }
+
+  if (error) throw error;
+  if (!data) return null;
+  return {
+    ...data,
+    comments: [...(data.comments || [])].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)),
+  };
+}
+
+export async function updatePurchaseRequest(requestId, patch) {
+  const { data, error } = await supabase
+    .from("purchase_requests")
+    .update(patch)
+    .eq("id", requestId)
+    .select(REQUEST_SELECT)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function guardarCostosCompra(requestId, { items, actualAmount, confirmar = true }) {
+  const { data, error } = await supabase.rpc("purchase_request_guardar_costos", {
+    p_request_id: requestId,
+    p_items: items,
+    p_actual_amount: actualAmount,
+    p_confirmar: confirmar,
+  });
+  if (error) throw error;
+  if (!data?.request?.id || !Array.isArray(data.items)) throw new Error("No se pudo guardar el detalle de precios.");
+  return data;
+}
+
+export async function addRequestFollower(requestId, userId) {
+  const { data: { session } = {} } = await supabase.auth.getSession();
+  const { error } = await supabase
+    .from("request_followers")
+    .upsert(
+      { request_id: requestId, user_id: userId, added_by: session?.user?.id || null },
+      { onConflict: "request_id,user_id", ignoreDuplicates: true },
+    );
+
+  if (error) throw error;
+}
+
+export async function removeRequestFollower(requestId, userId) {
+  const { error } = await supabase
+    .from("request_followers")
+    .delete()
+    .eq("request_id", requestId)
+    .eq("user_id", userId);
+
+  if (error) throw error;
+}
+
+export async function setRequestFollowerWhatsapp(requestId, enabled) {
+  const { data: { session } = {}, error: authError } = await supabase.auth.getSession();
+  if (authError) throw authError;
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("No hay usuario autenticado.");
+
+  const { data, error } = await supabase
+    .from("request_followers")
+    .update({
+      notify_whatsapp: !!enabled,
+      notify_whatsapp_at: enabled ? new Date().toISOString() : null,
+    })
+    .eq("request_id", requestId)
+    .eq("user_id", userId)
+    .select("request_id, user_id, notify_whatsapp, notify_whatsapp_at")
+    .single();
+
+  if (error) {
+    if (String(error.message || "").includes("notify_whatsapp")) {
+      throw new Error("Falta aplicar la migracion de notificaciones por WhatsApp.");
+    }
+    throw error;
+  }
+  return data;
+}
+
+export async function fetchRequestFollowerWhatsappPreference(requestId) {
+  const { data: { session } = {}, error: authError } = await supabase.auth.getSession();
+  if (authError) throw authError;
+  const userId = session?.user?.id;
+  if (!userId) return null;
+
+  const { data, error } = await supabase
+    .from("request_followers")
+    .select("request_id, user_id, notify_whatsapp, notify_whatsapp_at")
+    .eq("request_id", requestId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    if (String(error.message || "").includes("notify_whatsapp")) return null;
+    throw error;
+  }
+  return data;
+}
+
+export function extractMentionUserIds(text, users) {
+  const found = new Set();
+  const lowered = text.toLowerCase();
+
+  users.forEach((user) => {
+    const username = user.username?.toLowerCase();
+    if (username && lowered.includes(`@${username}`)) found.add(user.id);
+  });
+
+  return [...found];
+}
+
+export async function addRequestComment(requestId, body, users = [], attachments = []) {
+  const clean = body.trim();
+  const cleanAttachments = normalizeCommentAttachments(attachments);
+  if (!clean && !cleanAttachments.length) return null;
+  const storedBody = clean || `${cleanAttachments.length} archivo${cleanAttachments.length === 1 ? "" : "s"} adjunto${cleanAttachments.length === 1 ? "" : "s"}`;
+
+  // getSession lee localStorage (no dispara refresh ni cierra sesión si el
+  // refresh token está vencido). Solo necesitamos el uid para llenar author_id;
+  // la validación real la hace RLS contra auth.uid() del JWT del request.
+  const { data: { session } = {}, error: authError } = await supabase.auth.getSession();
+  if (authError) throw authError;
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("No hay usuario autenticado.");
+
+  let { data: comment, error } = await supabase
+    .from("request_comments")
+    .insert({ request_id: requestId, author_id: userId, body: storedBody, attachments: cleanAttachments })
+    .select("id")
+    .single();
+
+  if (error && isMissingCommentAttachments(error) && !cleanAttachments.length) {
+    const legacy = await supabase
+      .from("request_comments")
+      .insert({ request_id: requestId, author_id: userId, body: storedBody })
+      .select("id")
+      .single();
+    comment = legacy.data;
+    error = legacy.error;
+  }
+
+  if (error && isMissingCommentAttachments(error)) {
+    throw new Error("Falta aplicar la migración de archivos adjuntos de Compras en Supabase.");
+  }
+
+  if (error) throw error;
+
+  const mentionRows = extractMentionUserIds(clean, users)
+    .filter((id) => id !== userId)
+    .map((id) => ({ comment_id: comment.id, mentioned_user_id: id }));
+
+  if (mentionRows.length) {
+    const { error: mentionsError } = await supabase
+      .from("request_comment_mentions")
+      .upsert(mentionRows, { onConflict: "comment_id,mentioned_user_id", ignoreDuplicates: true });
+    if (mentionsError) throw mentionsError;
+  }
+
+  return comment;
+}
+
+export async function fetchProfiles() {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, username, role, is_admin")
+    .neq("role", "cliente")
+    .order("username");
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function fetchProjects() {
+  const { data, error } = await supabase
+    .from("produccion_obras")
+    .select("id, codigo, descripcion, estado")
+    .order("codigo");
+
+  if (error) throw error;
+  return (data || []).filter((project) => project.estado !== "archivada");
+}
+
+// --- AVISOS A COMPRAS ------------------------------------------------------
+
+export async function fetchComprasAvisos() {
+  const { data, error } = await supabase
+    .from("compras_avisos")
+    .select(AVISO_SELECT)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return (data || []).map((aviso) => ({
+    ...aviso,
+    comentarios: [...(aviso.comentarios || [])].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)),
+  }));
+}
+
+export async function createComprasAviso(fields) {
+  const { data: { session } = {}, error: authError } = await supabase.auth.getSession();
+  if (authError) throw authError;
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("No hay usuario autenticado.");
+
+  const payload = {
+    titulo: fields.titulo?.trim(),
+    detalle: fields.detalle?.trim() || null,
+    material: fields.material?.trim() || null,
+    project_id: fields.project_id || null,
+    destino: fields.destino?.trim() || null,
+    prioridad: fields.prioridad || "media",
+    estado: fields.estado || "nuevo",
+    origen: fields.origen || "web",
+    created_by: userId,
+    source_ref: fields.source_ref || null,
+  };
+
+  const { data, error } = await supabase
+    .from("compras_avisos")
+    .insert(payload)
+    .select(AVISO_SELECT)
+    .single();
+
+  if (error) throw error;
+  return { ...data, comentarios: data.comentarios || [] };
+}
+
+export async function updateComprasAviso(id, patch) {
+  const payload = { ...patch };
+  if (payload.estado === "resuelto" || payload.estado === "descartado") {
+    const { data: { session } = {}, error: authError } = await supabase.auth.getSession();
+    if (authError) throw authError;
+    payload.resuelto_por = payload.resuelto_por || session?.user?.id || null;
+    payload.resuelto_en = payload.resuelto_en || new Date().toISOString();
+  } else if (payload.estado && payload.estado !== "resuelto" && payload.estado !== "descartado") {
+    payload.resuelto_por = null;
+    payload.resuelto_en = null;
+  }
+
+  const { data, error } = await supabase
+    .from("compras_avisos")
+    .update(payload)
+    .eq("id", id)
+    .select(AVISO_SELECT)
+    .single();
+
+  if (error) throw error;
+  return { ...data, comentarios: data.comentarios || [] };
+}
+
+export async function addComprasAvisoComentario(avisoId, body) {
+  const clean = body.trim();
+  if (!clean) return null;
+  const { data: { session } = {}, error: authError } = await supabase.auth.getSession();
+  if (authError) throw authError;
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("No hay usuario autenticado.");
+
+  const { data, error } = await supabase
+    .from("compras_aviso_comentarios")
+    .insert({ aviso_id: avisoId, author_id: userId, body: clean })
+    .select("id, body, created_at, author_id, author:profiles!compras_aviso_comentarios_author_id_fkey(id, username, role, is_admin)")
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteComprasAviso(id) {
+  const { error } = await supabase
+    .from("compras_avisos")
+    .delete()
+    .eq("id", id);
+
+  if (error) throw error;
+}
+
+// --- ADICIONALES -----------------------------------------------------------
+
+export async function fetchAdditionalBoards() {
+  const { data, error } = await supabase
+    .from("purchase_additional_boards")
+    .select(ADDITIONAL_BOARD_SELECT)
+    .order("updated_at", { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createAdditionalBoard(fields) {
+  const payload = {
+    name: fields.name?.trim(),
+    project_id: fields.project_id || null,
+    notes: fields.notes?.trim() || null,
+    status: fields.status || "activo",
+  };
+
+  const { data, error } = await supabase
+    .from("purchase_additional_boards")
+    .insert(payload)
+    .select(ADDITIONAL_BOARD_SELECT)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function updateAdditionalBoard(id, patch) {
+  const { data, error } = await supabase
+    .from("purchase_additional_boards")
+    .update(patch)
+    .eq("id", id)
+    .select(ADDITIONAL_BOARD_SELECT)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteAdditionalBoard(id) {
+  const { error } = await supabase
+    .from("purchase_additional_boards")
+    .delete()
+    .eq("id", id);
+
+  if (error) throw error;
+}
+
+export async function fetchAdditionalItems(boardId = null) {
+  let query = supabase
+    .from("purchase_additional_items")
+    .select(ADDITIONAL_ITEM_SELECT)
+    .order("entry_date", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false });
+
+  if (boardId) query = query.eq("board_id", boardId);
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createAdditionalItem(fields) {
+  const payload = {
+    board_id: fields.board_id,
+    purchase_request_id: fields.purchase_request_id || null,
+    purchase_request_item_id: fields.purchase_request_item_id || null,
+    entry_date: fields.entry_date || null,
+    provider: fields.provider?.trim() || null,
+    detail: fields.detail?.trim(),
+    cantidad: fields.cantidad == null || String(fields.cantidad).trim() === "" ? null : String(fields.cantidad).trim(),
+    amount: fields.amount === "" || fields.amount === undefined || fields.amount === null ? null : Number(fields.amount),
+    currency: fields.currency === "USD" ? "USD" : "ARS",
+    link_url: fields.link_url?.trim() || null,
+    notes: fields.notes?.trim() || null,
+  };
+
+  const { data, error } = await supabase
+    .from("purchase_additional_items")
+    .insert(payload)
+    .select(ADDITIONAL_ITEM_SELECT)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function updateAdditionalItem(id, patch) {
+  const payload = { ...patch };
+  if (payload.provider !== undefined) payload.provider = payload.provider?.trim() || null;
+  if (payload.detail !== undefined) payload.detail = payload.detail?.trim();
+  if (payload.cantidad !== undefined) payload.cantidad = payload.cantidad == null || String(payload.cantidad).trim() === "" ? null : String(payload.cantidad).trim();
+  if (payload.currency !== undefined) payload.currency = payload.currency === "USD" ? "USD" : "ARS";
+  if (payload.link_url !== undefined) payload.link_url = payload.link_url?.trim() || null;
+  if (payload.notes !== undefined) payload.notes = payload.notes?.trim() || null;
+  if (payload.amount !== undefined) {
+    payload.amount = payload.amount === "" || payload.amount === null ? null : Number(payload.amount);
+  }
+  if (payload.desglose !== undefined) payload.desglose = normalizarDesglose(payload.desglose);
+
+  const { data, error } = await supabase
+    .from("purchase_additional_items")
+    .update(payload)
+    .eq("id", id)
+    .select(ADDITIONAL_ITEM_SELECT)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteAdditionalItem(id, { adjuntoPath = null } = {}) {
+  const { error } = await supabase
+    .from("purchase_additional_items")
+    .delete()
+    .eq("id", id);
+
+  if (error) throw error;
+  // Sin renglón, el adjunto no lo encuentra nadie más.
+  if (adjuntoPath) await supabase.storage.from(ADICIONALES_BUCKET).remove([adjuntoPath]).catch(() => null);
+}
+
+/* ── Desglose y comprobantes de un renglón de adicionales ─────────────────
+ *
+ * Los comprobantes de proveedores van a un depósito PRIVADO: los públicos
+ * (documentos, obra-archivos) abren cualquier archivo con el link. Se suben
+ * y se bajan con la sesión del usuario de Compras; el cliente los recibe
+ * anexados dentro del PDF del detalle, nunca como link.
+ */
+
+export const ADICIONALES_BUCKET = "compras-adicionales";
+const ADJUNTO_MAX_BYTES = 20 * 1024 * 1024;
+
+/** Deja el desglose en la forma que guarda la columna, o null si no hay nada. */
+export function normalizarDesglose(valor) {
+  if (!valor || typeof valor !== "object") return null;
+  const comprobantes = (Array.isArray(valor.comprobantes) ? valor.comprobantes : [])
+    .map((c) => {
+      const importe = c?.importe === "" || c?.importe == null ? null : Number(String(c.importe).replace(",", "."));
+      const pagina = c?.pagina === "" || c?.pagina == null ? null : Math.trunc(Number(c.pagina));
+      return {
+        numero: String(c?.numero ?? "").trim(),
+        fecha: String(c?.fecha ?? "").slice(0, 10) || null,
+        importe: Number.isFinite(importe) ? importe : null,
+        pagina: Number.isFinite(pagina) && pagina > 0 ? pagina : null,
+      };
+    })
+    .filter((c) => c.numero || c.importe != null);
+  if (!comprobantes.length) return null;
+  return { emisor: String(valor.emisor ?? "").trim(), comprobantes };
+}
+
+function nombreSeguro(nombre) {
+  const base = String(nombre || "comprobantes.pdf")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80);
+  return /\.pdf$/i.test(base) ? base : `${base || "comprobantes"}.pdf`;
+}
+
+/**
+ * Sube el PDF con las copias y lo deja vinculado al renglón. Si el renglón ya
+ * tenía uno, lo reemplaza y borra el anterior.
+ */
+export async function subirAdjuntoAdicional(item, file, { paginas = null } = {}) {
+  if (!file) throw new Error("Elegí un archivo.");
+  if (file.type && file.type !== "application/pdf" && !/\.pdf$/i.test(file.name || "")) {
+    throw new Error("El adjunto tiene que ser un PDF.");
+  }
+  if (file.size > ADJUNTO_MAX_BYTES) throw new Error("El PDF pesa más de 20 MB.");
+
+  // La fecha en la ruta evita pisar un archivo que alguien tenga abierto.
+  const path = `${item.board_id}/${item.id}/${Date.now()}-${nombreSeguro(file.name)}`;
+  const { error: upErr } = await supabase.storage
+    .from(ADICIONALES_BUCKET)
+    .upload(path, file, { contentType: "application/pdf", upsert: false });
+  if (upErr) throw upErr;
+
+  const { data, error } = await supabase
+    .from("purchase_additional_items")
+    .update({ adjunto_path: path, adjunto_nombre: file.name || "comprobantes.pdf", adjunto_paginas: paginas })
+    .eq("id", item.id)
+    .select(ADDITIONAL_ITEM_SELECT)
+    .single();
+  if (error) {
+    await supabase.storage.from(ADICIONALES_BUCKET).remove([path]).catch(() => null);
+    throw error;
+  }
+  if (item.adjunto_path && item.adjunto_path !== path) {
+    await supabase.storage.from(ADICIONALES_BUCKET).remove([item.adjunto_path]).catch(() => null);
+  }
+  return data;
+}
+
+export async function quitarAdjuntoAdicional(item) {
+  const { data, error } = await supabase
+    .from("purchase_additional_items")
+    .update({ adjunto_path: null, adjunto_nombre: null, adjunto_paginas: null })
+    .eq("id", item.id)
+    .select(ADDITIONAL_ITEM_SELECT)
+    .single();
+  if (error) throw error;
+  if (item.adjunto_path) await supabase.storage.from(ADICIONALES_BUCKET).remove([item.adjunto_path]).catch(() => null);
+  return data;
+}
+
+/** Bytes del adjunto, bajados con la sesión (para anexarlo al detalle). */
+export async function descargarAdjuntoAdicional(path) {
+  const { data, error } = await supabase.storage.from(ADICIONALES_BUCKET).download(path);
+  if (error) throw error;
+  return new Uint8Array(await data.arrayBuffer());
+}
+
+/** Link temporal (10 minutos) para mirarlo desde la app. No es para mandar. */
+export async function verAdjuntoAdicional(path) {
+  const { data, error } = await supabase.storage.from(ADICIONALES_BUCKET).createSignedUrl(path, 600);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
+// Propaga el precio de un pedido hacia sus renglones de "adicionales":
+//  - Si el pedido YA está sumado a una tabla de adicionales → actualiza el importe
+//    del renglón (a nivel pedido) con el monto cargado. Así no hay que re-tipearlo.
+//  - Si NO está sumado y el pedido es claramente un "adicional" de una obra
+//    (título/descr. dice "adicional", o nació desde el tab Adicionales) → lo crea
+//    en la tabla de esa obra. Las compras comunes NO se tocan (no infla el presupuesto).
+// Best-effort: nunca lanza.
+export async function propagateAdditionalFromRequest(request) {
+  try {
+    if (!request?.id) return { skipped: true };
+    const amount = request.actual_amount ?? request.estimated_amount ?? null;
+
+    const { data: linked } = await supabase
+      .from("purchase_additional_items")
+      .select("id")
+      .eq("purchase_request_id", request.id);
+
+    if (linked && linked.length > 0) {
+      if (amount != null) {
+        // Solo el renglón a nivel pedido (no los desglosados, que tienen importe propio)
+        await supabase
+          .from("purchase_additional_items")
+          .update({ amount })
+          .eq("purchase_request_id", request.id)
+          .is("purchase_request_item_id", null);
+      }
+      return { updated: linked.length };
+    }
+
+    const text = `${request.title || ""} ${String(request.description || "").replace(/<[^>]+>/g, " ")}`.toLowerCase();
+    const esAdicional = /\badicional(?:es)?\b/.test(text) || request.source === "adicionales";
+    if (!request.project_id || !esAdicional) return { skipped: true };
+
+    let { data: boards } = await supabase
+      .from("purchase_additional_boards")
+      .select("id")
+      .eq("project_id", request.project_id)
+      .limit(1);
+    let board = boards?.[0];
+    if (!board) {
+      const { data: proj } = await supabase
+        .from("produccion_obras").select("codigo").eq("id", request.project_id).single();
+      const { data: nb } = await supabase
+        .from("purchase_additional_boards")
+        .insert({ name: proj?.codigo || "Obra", project_id: request.project_id, status: "activo" })
+        .select("id").single();
+      board = nb;
+    }
+    if (!board) return { skipped: true };
+
+    await supabase.from("purchase_additional_items").insert({
+      board_id: board.id,
+      purchase_request_id: request.id,
+      entry_date: new Date().toISOString().slice(0, 10),
+      detail: (request.title || "Adicional").slice(0, 260),
+      amount,
+      currency: "ARS",
+      notes: "Generado automáticamente desde el pedido al cargar el monto.",
+    });
+    return { created: true };
+  } catch (err) {
+    console.warn("propagateAdditionalFromRequest:", err?.message || err);
+    return { error: true };
+  }
+}
+
+// --- FACTURAS / COMPROBANTES ----------------------------------------------
+
+export async function uploadInvoice(file, userId) {
+  if (!file) return { invoiceUrl: null, invoicePath: null };
+
+  const ext = safeFilePart(file.name.split(".").pop() || "pdf").toLowerCase();
+  const id = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const path = `invoices/${userId}/${Date.now()}-${id}.${ext}`;
+
+  const { error } = await supabase.storage
+    .from(PURCHASE_PHOTOS_BUCKET)
+    .upload(path, file, {
+      cacheControl: "3600",
+      contentType: file.type || "application/pdf",
+      upsert: false,
+    });
+
+  if (error) throw error;
+
+  const { data } = supabase.storage.from(PURCHASE_PHOTOS_BUCKET).getPublicUrl(path);
+  return { invoiceUrl: data.publicUrl, invoicePath: path };
+}
+
+// ─── ANALYTICS / DASHBOARD ────────────────────────────────────────────
+
+export async function fetchMonthlySpending() {
+  const { data, error } = await supabase
+    .from("purchase_requests")
+    .select("actual_amount, created_at")
+    .not("actual_amount", "is", null)
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+
+  const byMonth = {};
+  (data || []).forEach((r) => {
+    const month = r.created_at?.slice(0, 7);
+    if (!month) return;
+    byMonth[month] = (byMonth[month] || 0) + Number(r.actual_amount);
+  });
+
+  return Object.entries(byMonth).map(([month, total]) => ({ month, total }));
+}
+
+export async function fetchOverdueRequests() {
+  // Vencido = pasó la fecha en que se esperaba, y si no hay estimada de entrega
+  // vale la fecha en que se necesitaba.
+  //
+  // Antes exigía `estimated_delivery_at` no nulo, que casi nadie completa hasta
+  // que compra. Por eso el tablero mostraba "Vencidos (0)" mientras la bandeja
+  // listaba pedidos con "vencido hace 8d": eran dos definiciones distintas de
+  // la misma palabra en la misma pantalla. Esta es la que usa la bandeja.
+  const today = new Date().toISOString().slice(0, 10);
+  const { data, error } = await supabase
+    .from("purchase_requests")
+    .select(REQUEST_SELECT)
+    .not("status", "in", `("recibido","cancelado")`)
+    .or(`estimated_delivery_at.lt.${today},and(estimated_delivery_at.is.null,needed_at.lt.${today})`)
+    .order("estimated_delivery_at", { ascending: true, nullsFirst: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function fetchAnalyticsStats() {
+  const { data, error } = await supabase
+    .from("purchase_requests")
+    .select("status, priority, estimated_amount, actual_amount, created_at");
+
+  if (error) throw error;
+  const rows = data || [];
+
+  const totalEstimated = rows.reduce((s, r) => s + (Number(r.estimated_amount) || 0), 0);
+  const totalActual = rows.reduce((s, r) => s + (Number(r.actual_amount) || 0), 0);
+  const pending = rows.filter((r) => !["recibido", "cancelado"].includes(r.status)).length;
+  const urgentes = rows.filter((r) => r.priority === "urgente" && !["recibido", "cancelado"].includes(r.status)).length;
+
+  // Tiempo promedio nuevo → comprado
+  const completed = rows.filter((r) => r.status === "comprado" || r.status === "recibido");
+  let avgDays = 0;
+  if (completed.length > 0) {
+    const totalDays = completed.reduce((s, r) => {
+      const created = r.created_at ? new Date(r.created_at) : null;
+      const updated = r.updated_at ? new Date(r.updated_at) : null;
+      if (!created || !updated) return s;
+      return s + Math.round((updated - created) / (1000 * 60 * 60 * 24));
+    }, 0);
+    avgDays = Math.round(totalDays / completed.length);
+  }
+
+  return { totalEstimated, totalActual, pending, urgentes, avgDays, totalRequests: rows.length };
+}
+
+// ─── Purchase Log (manual purchases) ───────────────────────────────────────────
+
+const LOG_SELECT = `
+  *,
+  items:purchase_log_items(*),
+  creator:profiles!purchase_log_created_by_fkey(id, username, role, is_admin)
+`;
+
+export async function fetchPurchaseLog() {
+  const { data, error } = await supabase
+    .from("purchase_log")
+    .select(LOG_SELECT)
+    .order("purchased_at", { ascending: false })
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createPurchaseLog(entry) {
+  const { data, error } = await supabase
+    .from("purchase_log")
+    .insert(entry)
+    .select(LOG_SELECT)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function createPurchaseLogConItems({ header, items = [] }) {
+  const { data: log, error } = await supabase
+    .from("purchase_log")
+    .insert(header)
+    .select(LOG_SELECT)
+    .single();
+  if (error) throw error;
+
+  const rows = (items || [])
+    .filter((item) => String(item.descripcion || "").trim())
+    .map((item) => {
+      const price = item.precio_unitario === null || item.precio_unitario === undefined || item.precio_unitario === ""
+        ? null
+        : Number(item.precio_unitario);
+      return {
+        log_id: log.id,
+        descripcion: String(item.descripcion || "").trim(),
+        codigo: String(item.codigo || "").trim() || null,
+        cantidad: item.cantidad == null ? null : String(item.cantidad).trim(),
+        unidad: String(item.unidad || "unidad").trim() || "unidad",
+        precio_unitario: Number.isFinite(price) ? price : null,
+        moneda: item.moneda === "USD" || item.moneda === "ARS" ? item.moneda : null,
+        revisar: Boolean(item.revisar),
+      };
+    });
+
+  if (!rows.length) return log;
+
+  const { error: itemsError } = await supabase
+    .from("purchase_log_items")
+    .insert(rows);
+  if (itemsError) throw itemsError;
+
+  const { data: fullLog, error: reloadError } = await supabase
+    .from("purchase_log")
+    .select(LOG_SELECT)
+    .eq("id", log.id)
+    .single();
+  if (reloadError) throw reloadError;
+  return fullLog;
+}
+
+// Corregir un item de una carga de compra sin volver a cargarla entera: se usa
+// desde el detalle de obra para completar los precios que quedaron "a revisar".
+export async function updatePurchaseLogItem(itemId, patch = {}) {
+  const fields = {};
+  if ("precio_unitario" in patch) {
+    const price = patch.precio_unitario === null || patch.precio_unitario === undefined || patch.precio_unitario === ""
+      ? null
+      : Number(patch.precio_unitario);
+    fields.precio_unitario = Number.isFinite(price) ? price : null;
+  }
+  if ("moneda" in patch) {
+    fields.moneda = patch.moneda === "USD" || patch.moneda === "ARS" ? patch.moneda : null;
+  }
+  if ("cantidad" in patch) {
+    fields.cantidad = patch.cantidad == null ? null : String(patch.cantidad).trim() || null;
+  }
+  if ("revisar" in patch) fields.revisar = Boolean(patch.revisar);
+
+  const { data, error } = await supabase
+    .from("purchase_log_items")
+    .update(fields)
+    .eq("id", itemId)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updatePurchaseLog(id, patch) {
+  const { data, error } = await supabase
+    .from("purchase_log")
+    .update(patch)
+    .eq("id", id)
+    .select(LOG_SELECT)
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deletePurchaseLog(id) {
+  const { error: itemsError } = await supabase
+    .from("purchase_log_items")
+    .delete()
+    .eq("log_id", id);
+  if (itemsError) throw itemsError;
+
+  const { error } = await supabase
+    .from("purchase_log")
+    .delete()
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function deletePurchaseRequest(id) {
+  const { error } = await supabase
+    .from("purchase_requests")
+    .delete()
+    .eq("id", id);
+  if (error) throw error;
+}
+
+export async function uploadPurchaseLogInvoice(file, userId) {
+  if (!file) return { url: null, path: null };
+  const rawExt = (file.name.split(".").pop() || "pdf").toLowerCase();
+  const ext = safeFilePart(rawExt) || "pdf";
+  const id = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const path = `invoices/${userId}/${Date.now()}-${id}.${ext}`;
+  const { error: uploadError } = await supabase.storage
+    .from(PURCHASE_PHOTOS_BUCKET)
+    .upload(path, file, {
+      cacheControl: "3600",
+      contentType: file.type || "application/pdf",
+      upsert: false,
+    });
+  if (uploadError) throw uploadError;
+  const { data: urlData } = supabase.storage
+    .from(PURCHASE_PHOTOS_BUCKET)
+    .getPublicUrl(path);
+  return { url: urlData.publicUrl, path };
+}
+
+// Mail a compras desde la pantalla. Solo hace falta para dos tipos:
+// "nuevo_aviso" y "pedido_recibido". Pedido nuevo, mensaje, cambio de estado y
+// cambio de prioridad salen solos desde la base (trigger compras_email_encolar,
+// migración 20260916100000), así que llamar con esos tipos no manda nada: la
+// función los ignora para no duplicar. Las llamadas que quedan con esos tipos
+// son inofensivas y sirven de red mientras la migración no esté aplicada.
+export async function notifyComprasEmail(payload) {
+  const { error } = await supabase.functions.invoke("notificar-email-compras", {
+    body: payload,
+  })
+  if (error) console.warn("notifyComprasEmail error:", error)
+}
+
+// Notifica vía WhatsApp AL CREADOR del pedido cuando alguien que NO es él hace
+// una actualización (cambio de status, prioridad, ítem, comentario, etc).
+// Fire-and-forget: si falla (ej. ventana de 24h cerrada), no rompe el flow.
+//
+// payload: { requestId, eventType, payload, actorId }
+//   eventType: "status" | "priority" | "comment" | "item_status"
+//            | "amount" | "delivery_date" | "received"
+export async function notifyWaUpdate(payload) {
+  try {
+    const { error } = await supabase.functions.invoke("notify-wa-update", { body: payload });
+    if (error) console.warn("notifyWaUpdate error:", error);
+  } catch (e) {
+    console.warn("notifyWaUpdate exception:", e);
+  }
+}
+
+// ─── PURCHASE REQUEST ITEMS ─────────────────────────────────────────────
+
+export const ITEM_STATUSES = [
+  { value: "pendiente",  label: "Pendiente",  color: "#a1a1aa" },
+  { value: "en_panol",   label: "Enviado a pañol", color: "#3b82f6" },
+  { value: "pedido",     label: "Pedido",     color: "var(--cyan)" },
+  // 'parcial': llegó parte de la mercadería y el pedido sigue abierto. Antes no
+  // existía y una recepción parcial se veía igual que una completa (o no se veía).
+  { value: "parcial",    label: "Recibido parcial", color: "#a78bfa" },
+  { value: "recibido",   label: "Recibido",   color: "#10b981" },
+  { value: "cancelado",  label: "Cancelado",  color: "#ef4444" },
+];
+
+export async function fetchRequestItems(requestId) {
+  const { data, error } = await supabase
+    .from("purchase_request_items")
+    .select("*")
+    .eq("request_id", requestId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  const items = data || [];
+  const ids = [...new Set(items.flatMap(item => [item.catalog_source === "madera" || item.catalog_source === "laminacion" ? null : item.material_id, item.requisito_material_id]).filter(Boolean))];
+  if (!ids.length) return items;
+  const { data: products, error: productsError } = await supabase.from("panol_materiales").select("id,links").in("id", ids);
+  if (productsError) throw productsError;
+  const links = new Map((products || []).map(product => [product.id, product.links || []]));
+  return items.map(item => ({
+    ...item,
+    material_document_links: links.get(item.material_id) || [],
+    requirement_document_links: item.requisito_material_id !== item.material_id ? links.get(item.requisito_material_id) || [] : [],
+    product_links: mergeDocumentAttachments(links.get(item.material_id) || [], links.get(item.requisito_material_id) || []),
+  }));
+}
+
+export async function fetchAllRequestItems() {
+  const { data, error } = await supabase
+    .from("purchase_request_items")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function addRequestItem(requestId, fields) {
+  const { data, error } = await supabase
+    .from("purchase_request_items")
+    .insert({ request_id: requestId, ...fields })
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function crearPedidoAdicionalObra({ obraId, titulo, descripcion, items, envioId, attachments = [] }) {
+  const { data, error } = await supabase.rpc("materiales_pedir_adicional_obra", {
+    p_obra_id:obraId, p_titulo:titulo, p_descripcion:descripcion, p_items:items, p_envio_id:envioId,
+  });
+  if (error) throw error;
+  if (!data?.request?.id) throw new Error("No se pudo confirmar el pedido adicional.");
+  if (attachments.length) {
+    const saved = await updatePurchaseRequest(data.request.id, {
+      attachments: mergeDocumentAttachments(data.request.attachments || [], attachments),
+    });
+    data.request = saved;
+  }
+  if (!data.reutilizado) notifyWaUpdate({
+    requestId:data.request.id,eventType:"created",actorId:data.request.created_by,
+    payload:{source:"materiales_obra"},
+  });
+  return data.request;
+}
+
+export async function updateRequestItem(itemId, patch) {
+  const { data, error } = await supabase
+    .from("purchase_request_items")
+    .update(patch)
+    .eq("id", itemId)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteRequestItem(itemId) {
+  const { error } = await supabase
+    .from("purchase_request_items")
+    .delete()
+    .eq("id", itemId);
+  if (error) throw error;
+}
+
+export async function uploadItemImage(file, requestId) {
+  if (!file) return { imageUrl: null, imagePath: null };
+  const rawExt = (file.name.split(".").pop() || "jpg").toLowerCase();
+  const ext = rawExt.replace(/[^a-z0-9]/g, "") || "jpg";
+  const id = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const path = `items/${safeFilePart(requestId)}/${Date.now()}-${id}.${ext}`;
+  const { error: uploadError } = await supabase.storage
+    .from(PURCHASE_PHOTOS_BUCKET)
+    .upload(path, file, {
+      cacheControl: "3600",
+      contentType: file.type || "image/jpeg",
+      upsert: false,
+    });
+  if (uploadError) throw uploadError;
+  const { data } = supabase.storage.from(PURCHASE_PHOTOS_BUCKET).getPublicUrl(path);
+  return { imageUrl: data.publicUrl, imagePath: path };
+}

@@ -1,0 +1,1 @@
+async function t(a,o=12e3){let e;try{return await Promise.race([a,new Promise((n,r)=>{e=setTimeout(()=>r(new Error("La consulta tardó demasiado. Revisá la conexión y probá de nuevo.")),o)})])}finally{clearTimeout(e)}}export{t as c};

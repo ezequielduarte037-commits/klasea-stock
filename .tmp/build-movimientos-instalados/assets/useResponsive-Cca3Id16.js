@@ -1,0 +1,1 @@
+import{a as i}from"./three-BfqajQ8s.js";function r(e=900){const[s,t]=i.useState(()=>typeof window!="undefined"?window.innerWidth<e:!1);return i.useEffect(()=>{const n=()=>t(window.innerWidth<e);return n(),window.addEventListener("resize",n),()=>window.removeEventListener("resize",n)},[e]),{isMobile:s}}export{r as u};

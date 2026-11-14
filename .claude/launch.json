@@ -8,6 +8,12 @@
       "port": 5173
     },
     {
+      "name": "klasea-armonia",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "C:/klasea-stock-armonia", "run", "dev", "--", "--port", "5180", "--strictPort"],
+      "port": 5180
+    },
+    {
       "name": "robot-panel",
       "runtimeExecutable": "node",
       "runtimeArgs": ["tools/robot-panol/bridge.mjs"],

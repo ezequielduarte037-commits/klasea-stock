@@ -1,5 +1,5 @@
 import { materialBarcodeList } from "../materiales/materialBarcodes.js";
-import { rowCountsAsStock, rowDelta, rowHasRecordedEgreso, rowIsTransit, rowSource } from "./panolMovimientos.js";
+import { rowCountsAsStock, rowDelta, rowHasRecordedEgreso, rowIsInstalled, rowIsTransit, rowSource } from "./panolMovimientos.js";
 
 /*
  * Agrupación del ledger de pañol en productos y ubicaciones, y el renglón del
@@ -609,7 +609,8 @@ export function egresoDisplayItems(cart = [], obras = [], destinoObraId = "") {
 }
 
 export function rowIsAsignacionStock(row) {
-  return rowSource(row) === "transferencia_ingreso" && !!rowObraId(row) && !rowHasRecordedEgreso(row);
+  return rowSource(row) === "transferencia_ingreso" && !!rowObraId(row)
+    && !rowIsInstalled(row) && !rowHasRecordedEgreso(row);
 }
 
 export function rowIsLiberacionStock(row) {
@@ -628,8 +629,10 @@ export function rowIsAsignacionMirrorOut(row) {
 // reasignación seguida de egreso, el mismo hecho que "Reasig. -> egreso".
 export function rowIsReasignacionRetirada(row) {
   const obraId = rowObraId(row);
-  return rowSource(row) === "transferencia_ingreso" && !!obraId && !!row.obra_origen_id
-    && row.obra_origen_id !== obraId && !row.egreso_destino_obra_id && rowHasRecordedEgreso(row);
+  const destino = row.egreso_destino_obra_id;
+  return !!obraId && !!row.obra_origen_id && row.obra_origen_id !== obraId
+    && rowHasRecordedEgreso(row)
+    && (destino === obraId || (!destino && rowSource(row) === "transferencia_ingreso"));
 }
 
 export function rowIsMovimientoEspejo(row) {
@@ -638,7 +641,7 @@ export function rowIsMovimientoEspejo(row) {
   // Si después se retira ese ingreso, su salida física sí debe verse.
   return rowIsAsignacionMirrorOut(row)
     || (rowSource(row) === "transferencia_ingreso" && !rowObraId(row)
-      && !!row.obra_origen_id && !rowHasRecordedEgreso(row));
+      && !!row.obra_origen_id && !rowIsInstalled(row) && !rowHasRecordedEgreso(row));
 }
 
 // Material de una obra que salió hacia un destino que no es una obra cargada
@@ -653,22 +656,34 @@ export function rowIsReasignacionSinObra(row) {
 }
 
 export function rowInHistory(row) {
-  return !rowIsMovimientoEspejo(row) && (rowIsAsignacionStock(row) || rowHasRecordedEgreso(row));
+  return !rowIsMovimientoEspejo(row) && (rowIsInstalled(row) || rowIsAsignacionStock(row) || rowHasRecordedEgreso(row));
 }
 
 export function rowEgresoKind(row) {
+  if (rowIsInstalled(row)) return "instalado";
   const source = rowSource(row);
   if (rowIsLiberacionStock(row)) return "liberacion";
   if (rowIsAsignacionStock(row)) {
     return row.obra_origen_id ? "reasignacion" : "asignacion";
   }
-  if (row.egreso_destino_obra_id || source.startsWith("transferencia_egreso")) {
+  if (rowIsReasignacionSinObra(row) || rowIsReasignacionRetirada(row)) return "reasignacion_egreso";
+  if ((row.egreso_destino_obra_id && row.egreso_destino_obra_id !== rowObraId(row))
+      || source.startsWith("transferencia_egreso")) {
     return rowObraId(row) ? "reasignacion_egreso" : "egreso_obra";
   }
-  if (rowIsReasignacionSinObra(row) || rowIsReasignacionRetirada(row)) return "reasignacion_egreso";
   return "egreso";
 }
 
+export function rowRecepcionOriginal(row) {
+  if (rowSource(row) !== "remito" || row.estado !== "egresado") return null;
+  const fecha = row.recepcion_updated_at;
+  const cantidad = qty(row.recepcion_cantidad_recibida);
+  return cantidad > 0 && fecha && new Date(fecha) < new Date(row.egreso_at)
+    ? { fecha, cantidad }
+    : null;
+}
+
 export function rowEgresoQuantity(row) {
+  if (rowIsInstalled(row)) return Math.abs(qty(row.cantidad, 1));
   return Math.abs(rowDelta(row)) || Math.abs(qty(row.cantidad_egresada, qty(row.cantidad, 1)));
 }

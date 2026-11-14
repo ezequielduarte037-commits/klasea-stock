@@ -1,6 +1,6 @@
-import { Fragment, memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Fragment, memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { AlertTriangle, Barcode, ChevronLeft, ChevronRight, Copy, Download, ExternalLink, FileSpreadsheet, FileText, ImagePlus, Link as LinkIcon, MoreHorizontal, PackagePlus, Pencil, Plus, RefreshCw, Save, Search, Settings2, ShoppingCart, SkipForward, SlidersHorizontal, StickyNote, Trash2, Upload, Warehouse, X } from "lucide-react";
 import { useResponsive } from "@/hooks/useResponsive";
 import { C } from "@/theme";
@@ -3914,7 +3914,7 @@ function snapshotLockReason(row = {}) {
   return "";
 }
 
-export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, materiales, proveedores = [], opciones = [], ums = [], onChanged, onBack, soloPedirACompras = false }) {
+export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, materiales, proveedores = [], opciones = [], ums = [], onChanged, onBack, detalleId, onAbrirDetalle, onCerrarDetalle, soloPedirACompras = false }) {
   const { isMobile } = useResponsive();
   const [q, setQ] = useState("");
   const deferredQ = useDeferredValue(q);
@@ -3962,13 +3962,16 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
   const [exclusionesObra, setExclusionesObra] = useState([]);
   const [exclusionBusy, setExclusionBusy] = useState("");
   const [estadoBusy, setEstadoBusy] = useState("");
+  const [instalandoId, setInstalandoId] = useState(null);
+  const [instalarError, setInstalarError] = useState(null);
+  const cambioEstadoBusy = Boolean(estadoBusy || instalandoId || loteAvance || snapshotBusy);
   const [productoBusy, setProductoBusy] = useState("");
   const [productosCompatibles, setProductosCompatibles] = useState([]);
   const [editingMaterialRowId, setEditingMaterialRowId] = useState("");
   // Fila con el panel de estado/acciones secundarias abierto (⋯). Una a la vez.
-  const [openActionsRowId, setOpenActionsRowId] = useState("");
   const [detailTab, setDetailTab] = useState("resumen");
   const detailTriggerRef = useRef(null);
+  const snapshotRequestRef = useRef(0);
 
   const cargarAddons = useCallback(async () => {
     try {
@@ -3980,10 +3983,12 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
   useEffect(() => { cargarAddons(); }, [cargarAddons]);
 
   const cargarSnapshot = useCallback(async () => {
+    const request = ++snapshotRequestRef.current;
     try {
-      setSnapshot(await fetchObraMaterialSnapshot(obra?.id));
+      const saved = await fetchObraMaterialSnapshot(obra?.id, { throwOnError: true });
+      if (request === snapshotRequestRef.current) setSnapshot(saved);
     } catch {
-      setSnapshot([]);
+      // Una lectura fallida deja disponible la última lista cargada.
     }
   }, [obra?.id]);
   useEffect(() => { cargarSnapshot(); }, [cargarSnapshot]);
@@ -4660,6 +4665,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
     try {
       const saved = await ensureObraMaterialSnapshot(obra.id, obraRows);
       if (saved.length) {
+        snapshotRequestRef.current++;
         setSnapshot(saved);
         setSelected(new Set());
       }
@@ -4908,7 +4914,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
   }
 
   async function regularizarEstadoRow(row, estado, nota = "", retiradoPor = "") {
-    if (!row || !estado || estadoBusy) return;
+    if (!row || !estado || cambioEstadoBusy) return;
     setEstadoBusy(row.id);
     setFlowMsg(null);
     try {
@@ -4925,9 +4931,6 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
     }
   }
 
-  // El mismo cambio que hace el detalle de un renglón, para muchos a la vez.
-  // Va de a 6 para no saturar la base y sigue aunque alguno falle: al final
-  // se dice cuántos quedaron y cuáles no se pudieron.
   // El renglón guardado de la obra para una fila de la lista. Si no existe lo
   // crea, igual que al asignar un producto. Pasa cuando lo único guardado de
   // ese material son movimientos (un remito, un traslado): comparten la clave
@@ -4941,34 +4944,42 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
     return created?.id || null;
   }
 
-  // Un toque desde el detalle, para ir marcando en el barco sin tildar.
-  // Se puede volver atrás con «Cambiar estado» → Pendiente.
-  const [instalandoId, setInstalandoId] = useState(null);
-  // El error va en el pie del detalle: en el celular el detalle tapa la pantalla
-  // y el aviso de arriba de la lista no se ve.
-  const [instalarError, setInstalarError] = useState(null);
   async function marcarInstalado(row) {
-    if (!row || instalandoId) return;
+    if (!row || cambioEstadoBusy) return;
     setInstalandoId(row.id);
     setInstalarError(null);
     setFlowMsg(null);
     try {
-      const saved = await ensureSnapshotForFlow();
-      const snapId = await snapshotIdParaEstado(row, saved);
+      const snapId = row.snapshotId || await snapshotIdParaEstado(row, await ensureSnapshotForFlow());
       if (!snapId) throw new Error("No se pudo encontrar ni crear el renglón de la obra.");
       const { estado, retiradoPor } = estadoParaGuardar("instalado");
-      await cambiarEstadoObraSnapshot(snapId, estado, "", retiradoPor);
-      await cargarSnapshot();
+      const updated = await cambiarEstadoObraSnapshot(snapId, estado, "", retiradoPor);
+      // La respuesta del guardado ya trae el renglón actualizado. Una lectura
+      // iniciada antes de guardar podría devolver su estado anterior.
+      snapshotRequestRef.current++;
+      setSnapshot((current) => current.map((item) => item.id === snapId ? {
+        ...item,
+        estado: updated.estado,
+        retirado_por: updated.retirado_por,
+        egreso_at: updated.egreso_at,
+        egreso_por: updated.egreso_por,
+        egreso_nota: updated.egreso_nota,
+        es_regularizacion: updated.es_regularizacion,
+        updated_at: updated.updated_at,
+      } : item));
       setFlowMsg({ type: "ok", text: `${row.descripcion}: instalado.` });
     } catch (e) {
-      setInstalarError({ id: row.id, text: e?.message || "No se pudo marcar como instalado." });
+      const error = e?.message || "No se pudo marcar como instalado.";
+      setInstalarError({ id: row.id, text: error });
+      setFlowMsg({ type: "err", text: `${row.descripcion}: ${error}` });
     } finally {
       setInstalandoId(null);
     }
   }
 
+  // Se procesan de a seis y se conservan seleccionadas las filas que fallen.
   async function cambiarEstadoEnLote({ estado, etiqueta: etiquetaElegida, nota, retiradoPor, filas }) {
-    if (!filas?.length || loteAvance) return;
+    if (!filas?.length || cambioEstadoBusy) return;
     setFlowMsg(null);
     setLoteAvance({ hechos: 0, total: filas.length });
     try {
@@ -5158,7 +5169,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
         next.delete(`addon:${addon.id}`);
         return next;
       });
-      setOpenActionsRowId("");
+      onCerrarDetalle();
       setFlowMsg({
         type: "ok",
         text: `${material.descripcion} ahora es estándar de K${linea} (${qtyText(cantidad, material.unidad_medida || addon.unidad || "unidad")}). Se quitó el adicional de ${obra.codigo}.`,
@@ -5268,7 +5279,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
         throw deleteError;
       }
       await Promise.allSettled([cargarSnapshot(), onChanged?.()]);
-      setOpenActionsRowId("");
+      onCerrarDetalle();
       setFlowMsg({
         type: "ok",
         text: `${material.descripcion} ahora es estándar de K${linea} (${qtyText(cantidad, material.unidad_medida || row.unidad || "unidad")}).`,
@@ -5431,21 +5442,25 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
   }, [rows]);
 
   const activeObraFilterCount = [proveedorFilter, rubroFilter, estadosSel.size > 0, tipoFilter !== "todos", etapaFilter !== "todos", q.trim()].filter(Boolean).length;
-  const detailRow = visibleRows.find((row) => row.id === openActionsRowId) || rows.find((row) => row.id === openActionsRowId);
-  const detailIndex = visibleRows.findIndex((row) => row.id === openActionsRowId);
+  const detailRow = visibleRows.find((row) => row.id === detalleId) || rows.find((row) => row.id === detalleId);
+  // Si el nuevo estado queda fuera del filtro, conserva la posición para
+  // poder pasar al siguiente material pendiente desde el mismo detalle.
+  const detailRows = detailRow && !visibleRows.includes(detailRow)
+    ? ordenarFilasObra([...visibleRows, detailRow], orden.key ? orden : { key: groupBy === "ninguno" ? "rubro" : "", dir: 1 })
+    : visibleRows;
+  const detailIndex = detailRows.indexOf(detailRow);
 
   function openObraDetail(row, trigger) {
     detailTriggerRef.current = trigger;
     setDetailTab("resumen");
-    setOpenActionsRowId(row.id);
+    onAbrirDetalle(row.id);
   }
-  const closeObraDetail = useCallback(() => setOpenActionsRowId(""), []);
   useEffect(() => {
-    if (!detailRow && detailTriggerRef.current) {
+    if (!detalleId && detailTriggerRef.current) {
       detailTriggerRef.current.focus?.({ preventScroll: true });
       detailTriggerRef.current = null;
     }
-  }, [detailRow]);
+  }, [detalleId]);
 
   function getObraRowView(row) {
     const cant = cantidadesDeFila(row);
@@ -5518,7 +5533,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
       {(row.esRequisito || row.source === "matriz") && <ProductoAsignadoControl row={row} materiales={materiales} compatibles={productosCompatiblesPorRequisito.get(row.requisitoMaterialId || row.materialId) || []} busy={productoBusy === row.id || snapshotBusy} obraCodigo={obra?.codigo || "esta obra"} linea={linea} allowLineScope={!row.productoPorObra && !row.productoCondicionante} specOnly={!row.esRequisito} onSave={cambiarProductoRow} />}
     </div>;
     if (tab === "compras") return <div style={{ display: "grid", gap: 20 }}>
-      <div><strong style={{ fontSize: 12 }}>Estado y regularización</strong><div style={{ marginTop: 10 }}><ObraEstadoControl key={row.id} row={row} busy={estadoBusy === row.id || snapshotBusy} onChange={regularizarEstadoRow} /></div></div>
+      <div><strong style={{ fontSize: 12 }}>Estado y regularización</strong><div style={{ marginTop: 10 }}><ObraEstadoControl key={row.id} row={row} busy={cambioEstadoBusy} onChange={regularizarEstadoRow} /></div></div>
       <EtapaCompraEditor row={row} etapas={etapasObra} asignaciones={etapasRow} busy={asignarEtapaBusy === row.id} error={etapasObraError} onSave={(payload) => guardarEtapaMaterial(row, payload)} />
       <RecepcionDetalle row={row} />
       {(row.purchase_request_id || row.recepcion_envio?.titulo) && <div style={{ fontSize: 12, color: C.muted, overflowWrap: "anywhere" }}>{row.purchase_request_id ? `Pedido vinculado: ${row.purchase_request_id}` : ""}{row.recepcion_envio?.titulo ? ` · ${row.recepcion_envio.titulo}` : ""}</div>}
@@ -5869,13 +5884,13 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
         key={obra.id}
         groups={groupedRows} allRows={rows} visibleRows={visibleRows} rubro={rubroFilter} onRubro={setRubroFilter} proveedor={proveedorFilter} onProveedor={setProveedorFilter}
         filterKey={JSON.stringify([obra.id, deferredQ, proveedorFilter, rubroFilter, tipoFilter, [...estadosSel].sort(), etapaFilter, groupBy, orden])}
-        selected={selected} onSelectionChange={setSelected} getRowView={getObraRowView} onOpen={openObraDetail} detailId={openActionsRowId}
+        selected={selected} onSelectionChange={setSelected} getRowView={getObraRowView} onOpen={openObraDetail} detailId={detalleId}
         estadoOpciones={estadoOpciones} estadosSel={estadosSel} onEstados={setEstadosSel}
         orden={orden} onOrden={setOrden}
         valorizacion={{ texto: [kpis.usd ? fmtMoney(kpis.usd, "USD") : "", kpis.ars ? fmtMoney(kpis.ars, "ARS") : ""].filter(Boolean).join(" · "), conPrecio: kpis.items ? Math.round((kpis.items - kpis.sinPrecio) / kpis.items * 100) : 0 }}
         onImageUploaded={async () => { await onChanged?.(); await cargarSnapshot(); }}
         accionesSeleccion={<>
-          <button type="button" onClick={() => setLoteOpen(true)} disabled={!!loteAvance || snapshotBusy} style={{ ...obraButton, color: C.blue, borderColor: C.blueB }}>Cambiar estado</button>
+          <button type="button" onClick={() => setLoteOpen(true)} disabled={cambioEstadoBusy} style={{ ...obraButton, color: C.blue, borderColor: C.blueB }}>Cambiar estado</button>
           <select aria-label="Tipo de pedido" value={pedidoObraTipo || ""} onChange={(event) => setPedidoObraTipo(event.target.value || null)} style={obraSelect}><option value="" style={OPT_ST}>Tipo de pedido</option><option value="stock" style={OPT_ST}>Stock</option><option value="estandar" style={OPT_ST}>Estándar</option><option value="adicional" style={OPT_ST}>Adicional</option></select>
           <CopiarOcProveedor lineas={ordenLineasDesdeMatriz(orderRows)} label="OC proveedor" style={obraButton} />
           <button type="button" onClick={copiarOrden} disabled={!orderRows.length} style={obraButton}><Copy size={13} />{copied ? "Copiado" : "Copiar OC"}</button>
@@ -5890,14 +5905,14 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
       />}
       {detailRow && <ObraItemDrawer
         row={detailRow} view={getObraRowView(detailRow)} obraLabel={`${obra.codigo} · ${lineaNombre}`} tab={detailTab} onTab={setDetailTab}
-        onClose={closeObraDetail} suspendEscape={!!(addonModalOpen || reassignAddon || pedidoConfirm || panolPrefill)}
-        onPrevious={detailIndex > 0 ? () => setOpenActionsRowId(visibleRows[detailIndex - 1].id) : null}
-        onNext={detailIndex >= 0 && detailIndex < visibleRows.length - 1 ? () => setOpenActionsRowId(visibleRows[detailIndex + 1].id) : null}
+        onClose={onCerrarDetalle} suspendEscape={!!(addonModalOpen || reassignAddon || pedidoConfirm || panolPrefill)}
+        onPrevious={detailIndex > 0 ? () => onAbrirDetalle(detailRows[detailIndex - 1].id) : null}
+        onNext={detailIndex >= 0 && detailIndex < detailRows.length - 1 ? () => onAbrirDetalle(detailRows[detailIndex + 1].id) : null}
         editing={detailTab === "mas" && editingMaterialRowId === detailRow.id}
         renderContent={renderObraDetail}
         footer={<>{instalarError?.id === detailRow.id && <div role="alert" style={{ color: C.red, fontSize: 12, marginBottom: 8 }}>{instalarError.text}</div>}{estadoObraForRow(detailRow) === "egresado" && esInstalado(detailRow)
-          ? <div style={{ display: "flex", alignItems: "center", gap: 8, color: C.teal, fontSize: 13, fontWeight: 600, minHeight: 44 }}>Instalado en el barco</div>
-          : <button type="button" onClick={() => marcarInstalado(detailRow)} disabled={!!instalandoId || snapshotBusy}
+          ? <div role="status" style={{ display: "flex", alignItems: "center", gap: 8, color: C.teal, fontSize: 13, fontWeight: 600, minHeight: 44 }}>Instalado en el barco</div>
+          : <button type="button" onClick={() => marcarInstalado(detailRow)} disabled={cambioEstadoBusy}
             style={{ ...obraButton, width: "100%", minHeight: 44, justifyContent: "center", fontSize: 13, fontWeight: 600, color: C.teal, borderColor: C.tealB, background: C.tealL }}>
             {instalandoId === detailRow.id ? "Guardando…" : "Marcar instalado"}
           </button>}</>}
@@ -8218,12 +8233,19 @@ function TarjetaLinea({ linea, dolar, indice, onAbrir }) {
   );
 }
 
+const NIVELES_LISTA_OBRA = ["linea", "obra", "item"];
+
 function LineasTab({ lineas, obras, categorias, materiales, proveedores, opciones = [], onChanged, soloPedirACompras = false }) {
-  const [sel, setSel] = useState("");
-  const [selObra, setSelObra] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const rutaActivaRef = useRef(null);
+  useLayoutEffect(() => {
+    rutaActivaRef.current = location.key;
+    return () => { rutaActivaRef.current = null; };
+  }, [location.key]);
   const [q, setQ] = useState("");
   const [secondaryByLine, setSecondaryByLine] = useState({});
-  const [, startRouteTransition] = useTransition();
 
   // El dólar va por su lado: si la API no contesta, la tarjeta muestra los dos
   // importes separados en vez de un total unificado. Nunca se queda sin pintar.
@@ -8250,6 +8272,12 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
     const base = lineas?.length ? lineas : MODELOS.map((c) => ({ codigo: c, nombre: `K${c}` }));
     return base.map((l) => ({ ...l, codigo: String(l.codigo || "").replace(/^K/i, "") }));
   }, [lineas]);
+
+  const lineaPedida = searchParams.get("linea");
+  const sel = listaLineas.some((linea) => linea.codigo === lineaPedida) ? lineaPedida : "";
+  const obraId = searchParams.get("obra");
+  const selObra = obraId && (obras ?? []).find((obra) => String(obra.id) === obraId && String(obra.modelo) === sel);
+  const detalleId = searchParams.get("item") || "";
 
   useEffect(() => {
     let active = true;
@@ -8386,13 +8414,31 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
     sinPrecio: cards.reduce((sum, l) => sum + l.sinPrecio, 0),
   }), [cards]);
 
-  const abrirLinea = useCallback((codigo) => {
-    startRouteTransition(() => setSel(codigo));
-  }, [startRouteTransition]);
+  const navegarAlNivel = (nivel, valor, replace = false) => {
+    const next = new URLSearchParams(searchParams);
+    for (const key of NIVELES_LISTA_OBRA.slice(NIVELES_LISTA_OBRA.indexOf(nivel))) next.delete(key);
+    next.set(nivel, valor);
+    setSearchParams(next, {
+      replace,
+      state: replace ? location.state : { materialesNivelAnterior: nivel },
+    });
+  };
 
-  const abrirObra = useCallback((obra) => {
-    startRouteTransition(() => setSelObra(obra));
-  }, [startRouteTransition]);
+  const volverDelNivel = (nivel) => {
+    // Un guardado que termina después de salir del detalle no navega.
+    if (rutaActivaRef.current !== location.key || !searchParams.has(nivel)) return;
+    rutaActivaRef.current = null;
+    if (location.state?.materialesNivelAnterior === nivel) {
+      navigate(-1);
+      return;
+    }
+    const next = new URLSearchParams(searchParams);
+    for (const key of NIVELES_LISTA_OBRA.slice(NIVELES_LISTA_OBRA.indexOf(nivel))) next.delete(key);
+    setSearchParams(next, { replace: true });
+  };
+
+  const abrirLinea = (codigo) => navegarAlNivel("linea", codigo, !!sel);
+  const abrirObra = (obra) => navegarAlNivel("obra", obra.id);
 
   if (selObra) {
     const lineaNombre = cards.find((l) => l.codigo === sel)?.nombre || (sel ? `K${sel}` : "Líneas");
@@ -8409,7 +8455,10 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
         opciones={opciones}
         ums={ums}
         onChanged={onChanged}
-        onBack={() => setSelObra(null)}
+        onBack={() => volverDelNivel("obra")}
+        detalleId={detalleId}
+        onAbrirDetalle={(id) => navegarAlNivel("item", id, !!detalleId)}
+        onCerrarDetalle={() => volverDelNivel("item")}
         soloPedirACompras={soloPedirACompras}
       />
       </div>
@@ -8431,7 +8480,7 @@ function LineasTab({ lineas, obras, categorias, materiales, proveedores, opcione
         conjuntos={conjuntos}
         ums={ums}
         onChanged={onChanged}
-        onBack={() => setSel("")}
+        onBack={() => volverDelNivel("linea")}
         onSelectLinea={abrirLinea}
         onSelectObra={abrirObra}
       />
@@ -9731,9 +9780,9 @@ export default function MaterialesScreen({ profile }) {
     if (nextTab === tab) return;
     const next = new URLSearchParams(searchParams);
     next.set("tab", nextTab);
-    // `replace` para no llenar el historial: el botón de atrás tiene que salir
-    // de Materiales, no recorrer las once solapas que se miraron.
-    setSearchParams(next, { replace: true });
+    const desdeListaAnidada = tab === "lineas" && next.has("linea");
+    for (const key of NIVELES_LISTA_OBRA) next.delete(key);
+    setSearchParams(next, { replace: !desdeListaAnidada });
   }, [searchParams, setSearchParams, tab]);
 
   const listo = categorias != null && materiales != null;
