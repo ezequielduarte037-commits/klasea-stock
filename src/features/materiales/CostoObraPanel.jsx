@@ -536,16 +536,16 @@ export default function CostoObraPanel({ categorias = [], materiales = [], prove
       <style href="klasea-costo-obra" precedence="default">{CSS}</style>
 
       <div className="costo-obra-barra">
-        <div className="ui-tabs" role="tablist" aria-label="Línea">
+        <div className="az-tabs" role="tablist" aria-label="Línea">
           {MODELOS.map((mod) => (
-            <button key={mod} type="button" role="tab" aria-selected={modelo === mod} className="ui-tab" onClick={() => { setModelo(mod); setAbierto(null); setEjeAbierto(false); }}>
+            <button key={mod} type="button" role="tab" aria-selected={modelo === mod} className={`az-tab${modelo === mod ? " is-active" : ""}`} onClick={() => { setModelo(mod); setAbierto(null); setEjeAbierto(false); }}>
               K{mod}
             </button>
           ))}
         </div>
-        <div className="ui-tabs" role="tablist" aria-label="Vista">
-          <button type="button" role="tab" aria-selected={vista === "costo"} className="ui-tab" onClick={() => setVista("costo")}>Costo</button>
-          <button type="button" role="tab" aria-selected={vista === "pendientes"} className="ui-tab" onClick={() => setVista("pendientes")}>Pendientes</button>
+        <div className="az-tabs" role="tablist" aria-label="Vista">
+          <button type="button" role="tab" aria-selected={vista === "costo"} className={`az-tab${vista === "costo" ? " is-active" : ""}`} onClick={() => setVista("costo")}>Costo</button>
+          <button type="button" role="tab" aria-selected={vista === "pendientes"} className={`az-tab${vista === "pendientes" ? " is-active" : ""}`} onClick={() => setVista("pendientes")}>Pendientes</button>
         </div>
       </div>
 
@@ -553,18 +553,18 @@ export default function CostoObraPanel({ categorias = [], materiales = [], prove
         <div className="costo-obra-cobertura">
           <div className="costo-obra-cobertura-num" aria-hidden="true">{cobertura}%</div>
           <div>
-            <div className="costo-obra-kicker">Cobertura de la matriz K{modelo}</div>
+            <div className="costo-obra-kicker az-rotulo">Cobertura de la matriz K{modelo}</div>
             <div className="costo-obra-frase">{total.resueltos} de {total.items} resueltos</div>
             <div className="costo-obra-track" aria-hidden="true"><span style={{ width: `${cobertura}%` }} /></div>
           </div>
         </div>
-        <div className="costo-obra-totales">
-          <div>
-            <div className="costo-obra-kicker">Dólares</div>
+        <div className="costo-obra-totales az-ficha">
+          <div className="az-dato">
+            <div className="costo-obra-kicker az-rotulo">Dólares</div>
             <div className="costo-obra-total">{fmtMoney(usd, "USD")}</div>
           </div>
-          <div>
-            <div className="costo-obra-kicker">Pesos</div>
+          <div className="az-dato">
+            <div className="costo-obra-kicker az-rotulo">Pesos</div>
             <div className="costo-obra-total">{fmtMoney(ars, "ARS")}</div>
           </div>
         </div>
@@ -710,6 +710,8 @@ function ListaPendiente({ filas, modo, ocupado, onGuardar, onEspecificar, provee
 const CSS = `
 .costo-obra { display: flex; flex-direction: column; gap: 14px; color: var(--text); }
 .costo-obra-barra { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--border); }
+.costo-obra-barra .az-tabs { border-bottom: 0; }
+.costo-obra .ui-card { border: 1px solid var(--border); border-radius: 3px; background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
 .costo-obra-resumen {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(240px, .85fr);
@@ -721,25 +723,23 @@ const CSS = `
 .costo-obra-cobertura > div:last-child { flex: 1; min-width: 0; }
 .costo-obra-cobertura-num {
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 40px; font-weight: 700; letter-spacing: -.04em; line-height: .9;
-  color: var(--text);
+  font-family: inherit; font-size: 40px; font-weight: 300; letter-spacing: -.01em; line-height: .9;
+  font-variant-numeric: tabular-nums; color: var(--text);
 }
-.costo-obra-kicker {
-  font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--dim);
-}
+.costo-obra .costo-obra-totales > .az-dato > .az-rotulo { margin-top: 0; }
 .costo-obra-frase { margin-top: 3px; font-size: 14px; font-weight: 500; color: var(--text); }
 .costo-obra-track {
-  margin-top: 8px; height: 4px; border-radius: 99px;
+  margin-top: 8px; height: 2px; border-radius: 0;
   background: color-mix(in srgb, var(--text) 14%, transparent);
   overflow: hidden;
 }
-.costo-obra-track > span { display: block; height: 100%; border-radius: 99px; background: var(--brand-grad); }
+.costo-obra-track > span { display: block; height: 100%; border-radius: 0; background: var(--text); }
 .costo-obra-track.chico { flex: 1; width: auto; min-width: 48px; margin-top: 0; }
-.costo-obra-totales { display: flex; gap: 22px; justify-content: flex-end; }
+.costo-obra-totales { justify-content: flex-end; }
 .costo-obra-total {
-  margin-top: 2px;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 18px; font-weight: 600; letter-spacing: -.02em;
+  margin-top: 8px;
+  font-size: 26px; font-weight: 300; line-height: 1; letter-spacing: -.01em;
+  font-variant-numeric: tabular-nums; color: var(--text);
 }
 .costo-obra-fuente { grid-column: 1 / -1; margin: 4px 0 0; font-size: 13px; line-height: 1.45; color: var(--dim); }
 .costo-obra-accion { grid-column: 1 / -1; justify-self: start; }
@@ -788,7 +788,7 @@ const CSS = `
 .costo-obra-sinprecio { white-space: nowrap; font-size: 12.5px; color: var(--muted); }
 .costo-obra-motivos {
   grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
-  padding: 10px 12px; border-radius: 10px;
+  padding: 10px 12px; border-radius: 3px;
   background: var(--panel-2); border: 1px solid var(--border);
   animation: costoObraMotivos .22s cubic-bezier(.22,1,.36,1) both;
 }
@@ -819,6 +819,7 @@ const CSS = `
   .costo-obra-resumen { grid-template-columns: 1fr; padding: 16px; }
   .costo-obra-totales { justify-content: flex-start; }
   .costo-obra-cobertura-num { font-size: 32px; }
+  .costo-obra-totales { display: flex; }
   .costo-obra .costo-obra-rubro,
   .costo-obra .costo-obra-rubro.es-fila { display: flex; align-items: flex-start; flex-wrap: wrap; }
   .costo-obra-pista { width: 100%; }

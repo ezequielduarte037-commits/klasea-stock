@@ -7,9 +7,9 @@ import { MaterialThumb } from "../MaterialExtras";
 import { coincideProveedor, nombresProveedor } from "../proveedorNombre";
 import { compararEtiquetaGrupo, paginateObraGroups, rubroDeFila, toggleObraSelection, obraThemeScope } from "./obraListaPresentation";
 
-const button = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${C.border}`, borderRadius: 6, background: C.panelSolid, color: C.text, minHeight: 32, padding: "5px 9px", fontFamily: C.sans, fontSize: 12, cursor: "pointer", transition: "background 150ms ease, border-color 150ms ease" };
+const button = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, border: `1px solid ${C.border}`, borderRadius: 3, background: C.panelSolid, color: C.text, minHeight: 32, padding: "5px 9px", fontFamily: C.sans, fontSize: 12, cursor: "pointer", transition: "background 150ms ease, border-color 150ms ease" };
 const muted = { color: C.muted, fontSize: 12 };
-const numberStyle = { fontFamily: C.mono, fontVariantNumeric: "tabular-nums", textAlign: "right", whiteSpace: "nowrap" };
+const numberStyle = { fontFamily: C.sans, fontVariantNumeric: "tabular-nums", textAlign: "right", whiteSpace: "nowrap" };
 
 // Local aliases also cover existing children without changing the global palette.
 
@@ -32,17 +32,6 @@ export function ObraWorkspaceStyles() {
     .obra-workspace .obra-index-item:active { transform: translateX(2px); }
     .obra-workspace .obra-page-content, .obra-workspace .obra-detail-content { animation: obra-content-in 150ms ease-out; }
     @keyframes obra-content-in { from { opacity: .55; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
-    .materiales-page-body:has(.obra-workspace) { padding: 12px 24px 18px !important; }
-    .materiales-page-body:has(.obra-workspace) .materiales-page-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 8px !important; }
-    .materiales-page-body:has(.obra-workspace) .materiales-page-heading h1 { font-size: 20px !important; line-height: 1.2; }
-    .materiales-page-body:has(.obra-workspace) .materiales-page-heading > div { font-size: 11px !important; margin-top: 0 !important; }
-    .materiales-page-body:has(.obra-workspace) .materiales-page-tabs { margin-bottom: 8px !important; }
-    .materiales-page-body:has(.obra-workspace) .materiales-tabbar { padding: 3px; }
-    .materiales-page-body:has(.obra-workspace) .materiales-tab { min-height: 30px; padding: 0 12px; font-size: 12px; }
-    @media (max-width: 899px) {
-      .materiales-page-body:has(.obra-workspace) { padding: 10px 12px 18px !important; }
-      .materiales-page-body:has(.obra-workspace) .materiales-tab { min-height: 44px; }
-    }
     .obra-material-editor { container-type: inline-size; }
     .obra-material-editor :is(div,span,input,select,textarea) { min-width: 0; }
     .obra-material-editor :is(input,select,textarea) { max-width: 100%; box-sizing: border-box; }
@@ -134,7 +123,7 @@ export function ObraColumnFilter({ label, options, selected, onChange, align = "
       <div className="obra-scroll" style={{ maxHeight: 260, overflowY: "auto" }}>
         {options.map((o) => {
           const marcado = selected.has(o.value);
-          return <div key={o.value} className="obra-filtro-opcion" style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 6px", borderRadius: 6 }}>
+          return <div key={o.value} className="obra-filtro-opcion" style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 6px", borderRadius: 3 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0, cursor: "pointer" }}>
               <input type="checkbox" checked={marcado} onChange={() => alternar(o.value)} style={{ accentColor: C.blue, margin: 0 }} />
               {o.color && <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 3, background: o.color, flexShrink: 0 }} />}
@@ -194,7 +183,7 @@ function SortHeader({ label, k, orden, onOrden, align = "left", title }) {
  * se van dibujando de a 200 a medida que se baja, así una obra de 700 ítems
  * abre rápido y se puede tildar todo lo filtrado de un clic.
  */
-export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, rubro, onRubro, proveedor, onProveedor, selected, onSelectionChange, getRowView, onOpen, detailId, onImageUploaded, estadoOpciones = [], estadosSel = new Set(), onEstados = () => {}, orden, onOrden = () => {}, valorizacion, accionesSeleccion }) {
+export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, rubro, onRubro, proveedor, onProveedor, selected, onSelectionChange, getRowView, onOpen, detailId, onImageUploaded, estadoOpciones = [], estadosSel = new Set(), onEstados = () => {}, orden, onOrden = () => {}, valorizacion, accionesSeleccion, estadosEnPie = true }) {
   const { isMobile } = useResponsive();
   const containerRef = useRef(null);
   const gridRef = useRef(null);
@@ -279,23 +268,23 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, r
   const columns = phone ? "40px minmax(0,1fr) 92px 40px"
     : narrow ? "40px minmax(0,1fr) 64px 92px 40px"
       : compact ? "34px minmax(200px,1fr) 70px 54px 54px 60px 96px 30px"
-        : "34px minmax(220px,1fr) minmax(110px,170px) 76px 58px 58px 62px 96px 92px 30px";
+        : "40px minmax(260px,1fr) minmax(120px,180px) 84px 64px 64px 70px 112px 104px 36px";
   const cell = { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", padding: "0 8px" };
-  const num = { ...cell, ...numberStyle };
-  const sub = { display: "block", fontSize: 11, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 };
+  const num = { ...cell, ...numberStyle, fontSize: 14 };
+  const sub = { display: "block", fontSize: 11.5, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 };
   const indexItem = (name, count) => <button key={name || "__todos"} className="obra-index-item" type="button" aria-pressed={indexValue === name} onClick={() => onIndexChange(name)}
-    style={{ ...button, display: "flex", justifyContent: "space-between", gap: 10, textAlign: "left", width: narrow ? "auto" : "100%", flexShrink: 0, borderColor: narrow && indexValue !== name ? C.border : "transparent", background: indexValue === name ? C.blueL : "transparent", color: indexValue === name ? C.blue : C.muted, padding: narrow ? "4px 10px" : "6px 8px", marginBottom: narrow ? 0 : 1, borderRadius: narrow ? 999 : 6 }}>
-    <span title={name} style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: indexValue === name ? C.blue : C.text }}>{name || (indexMode === "rubro" ? "Todos los rubros" : "Todos")}</span><span style={{ ...numberStyle, fontSize: 10.5, color: indexValue === name ? C.blue : C.muted }}>{count.toLocaleString("es-AR")}</span>
+    style={{ ...button, display: "flex", justifyContent: "space-between", gap: 10, textAlign: "left", width: narrow ? "auto" : "100%", flexShrink: 0, borderColor: narrow && indexValue !== name ? C.border : "transparent", background: "transparent", color: indexValue === name ? C.text : C.muted, padding: narrow ? "4px 10px" : "8px 4px", marginBottom: 0, borderRadius: narrow ? 999 : 0, fontSize: 13, fontWeight: indexValue === name ? 500 : 400, boxShadow: !narrow && indexValue === name ? "inset 0 -1px 0 currentColor" : "none" }}>
+    <span title={name} style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: indexValue === name ? C.text : C.muted }}>{name || (indexMode === "rubro" ? "Todos los rubros" : "Todos")}</span><span style={{ ...numberStyle, fontSize: 12, color: indexValue === name ? C.text : C.dim }}>{count.toLocaleString("es-AR")}</span>
   </button>;
   const modoIndice = <select aria-label="Índice de la lista" value={indexMode} onChange={(event) => setIndexMode(event.target.value)} style={{ ...button, width: narrow ? "auto" : "100%", flexShrink: 0, marginBottom: narrow ? 0 : 6, fontWeight: 600, background: C.panelSolid }}><option value="rubro">Rubros</option><option value="proveedor">Proveedores</option></select>;
   const index = narrow
     ? <nav aria-label="Filtrar por rubro o proveedor" className="obra-chips" style={{ display: "flex", gap: 5, alignItems: "center", overflowX: "auto", padding: "8px 8px", borderBottom: `1px solid ${C.border}` }}>{modoIndice}{[["", indexTotal], ...indexEntries].map(([name, count]) => indexItem(name, count))}</nav>
-    : <nav aria-label="Filtrar por rubro o proveedor" className="obra-scroll" style={{ padding: "8px 6px", overflowY: "auto", minHeight: 0, borderRight: `1px solid ${C.border}`, background: C.panel }}>
+    : <nav aria-label="Filtrar por rubro o proveedor" className="obra-scroll" style={{ padding: "10px 16px", overflowY: "auto", minHeight: 0, borderRight: `1px solid ${C.border}`, background: "transparent" }}>
       {modoIndice}
       {(indexMode === "rubro" ? proveedor : rubro) && <button type="button" onClick={() => indexMode === "rubro" ? onProveedor("") : onRubro("")} style={{ ...button, width: "100%", marginBottom: 6, color: C.blue, fontSize: 11 }} title="Quitar el otro filtro"><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{indexMode === "rubro" ? proveedor : rubro}</span><X size={12} /></button>}
       {[["", indexTotal], ...indexEntries].map(([name, count]) => indexItem(name, count))}
     </nav>;
-  const header = <div role="row" style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center", minHeight: 34, position: "sticky", top: 0, zIndex: 2, background: C.panelSolid, borderBottom: `1px solid ${C.border}`, color: C.muted, fontSize: 11, fontWeight: 500, letterSpacing: 0.2 }}>
+  const header = <div role="row" style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center", position: "sticky", top: 0, zIndex: 2, background: C.panelSolid, borderBottom: `1px solid ${C.border}`, color: C.muted, fontSize: 10.5, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", minHeight: 40 }}>
     <div role="columnheader"><SelectionBox rows={visibleRows} selected={selected} onToggle={() => selectRows(visibleRows)} label={`Tildar todo lo filtrado (${visibleRows.length} ítems)`} /></div>
     <div role="columnheader" style={cell}><SortHeader label="Material" k="material" orden={orden} onOrden={onOrden} /></div>
     {!compact && <div role="columnheader" style={cell}><SortHeader label="Proveedor" k="proveedor" orden={orden} onOrden={onOrden} /></div>}
@@ -316,30 +305,30 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, r
       view.origin,
     ].filter(Boolean).join(" · ");
     return <div key={row.id} role="row" tabIndex={0} className="obra-data-row" data-row-id={row.id} aria-selected={active} onKeyDown={(event) => onRowKey(event, row)} onDoubleClick={(event) => { if (!event.target.closest("button,input,a,select")) onOpen(row, event.currentTarget); }}
-      style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center", minHeight: narrow ? 52 : 38, background: active ? C.blueL : detailId === row.id ? C.panel : "transparent", borderBottom: `1px solid ${C.border}`, cursor: "default" }}>
+      style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center", minHeight: narrow ? 56 : 60, background: active ? C.blueL : detailId === row.id ? C.panel : "transparent", borderBottom: `1px solid ${C.border}`, cursor: "default" }}>
       <div role="cell"><SelectionBox rows={[row]} selected={selected} onToggle={() => selectRows([row])} label={`Tildar ${row.descripcion}`} /></div>
-      <div role="cell" style={{ ...cell, display: "flex", alignItems: "center", gap: 8, padding: "3px 6px" }}>
-        <MaterialThumb material={view.imageMaterial} size={narrow ? 36 : 24} fallbackLabel={row.rubro?.slice(0, 1) || "M"} uploadMaterial={view.uploadMaterial} onUploaded={onImageUploaded} />
+      <div role="cell" style={{ ...cell, display: "flex", alignItems: "center", gap: 12, padding: "6px 8px" }}>
+        <MaterialThumb material={view.imageMaterial} size={narrow ? 36 : 40} fallbackLabel={row.rubro?.slice(0, 1) || "M"} uploadMaterial={view.uploadMaterial} onUploaded={onImageUploaded} />
         <button type="button" onClick={(event) => onOpen(row, event.currentTarget)} style={{ display: "block", border: "none", background: "transparent", color: C.text, padding: 0, textAlign: "left", minWidth: 0, flex: 1, cursor: "pointer", fontFamily: C.sans, lineHeight: 1.3 }} title={[row.descripcion, row.codigo, view.issue].filter(Boolean).join(" · ")}>
           {/* En el celular el nombre va en dos renglones: cortado en 20 letras no
               se distingue "Buje de bronce 75x4…" de "Buje de bronce 90x…". */}
           <span style={narrow
-            ? { display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", fontSize: 12.5, fontWeight: 500, overflowWrap: "anywhere" }
-            : { display: "block", fontSize: 12.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</span>
+            ? { display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", fontSize: 14, fontWeight: 500, overflowWrap: "anywhere" }
+            : { display: "block", fontSize: 15, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</span>
           {(subtexto || view.issue) && <span style={sub}>{view.issue && <span style={{ color: C.red }}>{view.issue}{subtexto ? " · " : ""}</span>}{subtexto}</span>}
           {view.stockLibre && <span style={{ ...sub, color: C.green }} title={view.stockLibre.title}>{view.stockLibre.texto}</span>}
         </button>
       </div>
-      {!compact && <div role="cell" title={row.proveedor} style={{ ...cell, whiteSpace: "nowrap", color: row.proveedor ? C.muted : C.dim }}>{row.proveedor || "—"}</div>}
+      {!compact && <div role="cell" title={row.proveedor} style={{ ...cell, whiteSpace: "nowrap", fontSize: 13.5, color: row.proveedor ? C.muted : C.dim }}>{row.proveedor || "—"}</div>}
       {!narrow && <div role="cell" style={num} title={view.quantityTitle}>{view.necesarioCorto} <span style={{ color: C.dim, fontFamily: C.sans, fontSize: 10.5 }}>{view.unidadCorta}</span></div>}
       {!narrow && <><div role="cell" style={{ ...num, color: view.cant.panol ? C.muted : C.dim }}>{view.cant.panol ? view.received : "·"}</div><div role="cell" style={{ ...num, color: view.cant.entregado ? C.muted : C.dim }}>{view.cant.entregado ? view.delivered : "·"}</div></>}
       {!phone && <div role="cell" style={{ ...num, color: view.falta ? view.faltaColor : C.dim, fontWeight: view.falta ? 600 : 400 }} title={view.faltaTitle}>{view.falta ? view.faltaTexto : "·"}</div>}
       <div role="cell" style={{ ...cell, padding: "0 4px" }}><ObraStatusBadge status={view.status} /></div>
-      {!compact && <div role="cell" title={row.precio?.text} style={{ ...num, fontSize: 11, color: row.precio?.amount ? C.muted : C.dim }}>{row.precio?.amount ? row.precio.text : "—"}</div>}
+      {!compact && <div role="cell" title={row.precio?.text} style={{ ...num, fontSize: 13.5, color: row.precio?.amount ? C.text : C.dim }}>{row.precio?.amount ? row.precio.text : "—"}</div>}
       <div role="cell"><button type="button" title="Abrir detalle" aria-label={`Detalle de ${row.descripcion}`} onClick={(event) => onOpen(row, event.currentTarget)} style={{ ...button, borderColor: "transparent", padding: 4, minWidth: narrow ? 40 : 26, minHeight: narrow ? 40 : 30, background: "transparent", color: C.muted }}><MoreHorizontal size={15} /></button></div>
     </div>;
   };
-  const barraSeleccion = selected.size > 0 && <div role="region" aria-label="Acciones sobre lo tildado" className={flujo ? "obra-selbar obra-chips" : "obra-selbar"} style={{ zIndex: 5, boxSizing: "border-box", ...(flujo ? { position: "sticky", bottom: 0, overflowX: "auto", flexWrap: "nowrap", borderRadius: 0, borderWidth: "1px 0 0", paddingBottom: "max(7px, env(safe-area-inset-bottom))" } : { position: "absolute", left: "50%", bottom: 48, transform: "translateX(-50%)", width: "max-content", maxWidth: "calc(100% - 20px)", flexWrap: "wrap", borderRadius: 10 }), display: "flex", alignItems: "center", gap: 6, padding: "7px 8px 7px 12px", background: C.panelSolid, border: `1px solid ${C.blueB}`, boxShadow: "0 14px 40px var(--shadow)" }}>
+  const barraSeleccion = selected.size > 0 && <div role="region" aria-label="Acciones sobre lo tildado" className={flujo ? "obra-selbar obra-chips" : "obra-selbar"} style={{ zIndex: 5, boxSizing: "border-box", ...(flujo ? { position: "sticky", bottom: 0, overflowX: "auto", flexWrap: "nowrap", borderRadius: 0, borderWidth: "1px 0 0", paddingBottom: "max(7px, env(safe-area-inset-bottom))" } : { position: "absolute", left: "50%", bottom: 48, transform: "translateX(-50%)", width: "max-content", maxWidth: "calc(100% - 20px)", flexWrap: "wrap", borderRadius: 3 }), display: "flex", alignItems: "center", gap: 6, padding: "7px 8px 7px 12px", background: C.panelSolid, border: `1px solid ${C.blueB}`, boxShadow: "0 14px 40px var(--shadow)" }}>
     <strong style={{ fontWeight: 600, fontSize: 12.5, color: C.text, marginRight: 4, whiteSpace: "nowrap" }}>{tildadosVisibles.toLocaleString("es-AR")} {tildadosVisibles === 1 ? "tildado" : "tildados"}</strong>
     {tildadosFuera > 0 && <span style={{ ...muted, fontSize: 11, whiteSpace: "nowrap" }} title="Lo tildado que quedó afuera del filtro no entra en las acciones.">+{tildadosFuera} fuera del filtro</span>}
     {accionesSeleccion}
@@ -347,9 +336,9 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, r
   </div>;
   // overflow "clip" y no "hidden": "hidden" convierte la caja en el contenedor
   // del sticky y el encabezado y el pie dejan de quedar pegados a la pantalla.
-  return <div ref={containerRef} className={narrow ? "obra-table-narrow" : undefined} data-testid="obra-lista" style={{ position: "relative", minWidth: 0, border: `1px solid ${C.border}`, borderRadius: 10, overflow: flujo ? "clip" : "hidden", background: C.panelSolid }}>
+  return <div ref={containerRef} className={narrow ? "obra-table-narrow" : undefined} data-testid="obra-lista" style={{ position: "relative", minWidth: 0, border: `1px solid ${C.border}`, borderRadius: 3, overflow: flujo ? "clip" : "hidden", background: C.panelSolid }}>
     {narrow && index}
-    <div ref={gridRef} style={{ display: "grid", gridTemplateColumns: narrow ? "minmax(0,1fr)" : "176px minmax(0,1fr)", height: flujo ? "auto" : listHeight, minHeight: flujo ? 0 : 360 }}>
+    <div ref={gridRef} style={{ display: "grid", gridTemplateColumns: narrow ? "minmax(0,1fr)" : "212px minmax(0,1fr)", height: flujo ? "auto" : listHeight, minHeight: flujo ? 0 : 360 }}>
       {!narrow && index}
       <div style={{ display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
         <div ref={scrollRef} onScroll={flujo ? undefined : onScroll} className="obra-scroll" style={{ overflow: flujo ? "visible" : "auto", flex: 1, minHeight: 0 }}>
@@ -371,10 +360,10 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, r
         {flujo && barraSeleccion}
         {!(flujo && barraSeleccion) && <div className={narrow ? "obra-chips" : undefined} style={{ display: "flex", flexWrap: narrow ? "nowrap" : "wrap", overflowX: narrow ? "auto" : "visible", whiteSpace: "nowrap", gap: "4px 6px", alignItems: "center", padding: "6px 10px", borderTop: `1px solid ${C.border}`, background: C.panelSolid, fontSize: 11.5, ...(flujo ? { position: "sticky", bottom: 0, zIndex: 3, paddingBottom: "max(6px, env(safe-area-inset-bottom))" } : {}) }}>
           <span data-testid="obra-page-range" style={{ ...muted, fontVariantNumeric: "tabular-nums", marginRight: 4 }}>{recorte.total.toLocaleString("es-AR")} {recorte.total === 1 ? "ítem" : "ítems"}</span>
-          {estadoOpciones.map((op) => {
+          {estadosEnPie && estadoOpciones.map((op) => {
             const on = estadosSel.size === 1 && estadosSel.has(op.value);
             return <button key={op.value} type="button" aria-pressed={on} onClick={() => onEstados(on ? new Set() : new Set([op.value]))} title={on ? "Ver todos los estados" : `Ver sólo ${op.label}`}
-              style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${on ? "var(--border-2)" : "transparent"}`, background: on ? "var(--panel-2)" : "transparent", borderRadius: 6, padding: "2px 7px", minHeight: 26, color: on ? C.text : C.muted, font: "inherit", cursor: "pointer" }}>
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${on ? "var(--border-2)" : "transparent"}`, background: on ? "var(--panel-2)" : "transparent", borderRadius: 3, padding: "2px 7px", minHeight: 26, color: on ? C.text : C.muted, font: "inherit", cursor: "pointer" }}>
               <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: 2, background: op.color }} />{op.label}<span style={{ ...numberStyle, color: on ? C.text : C.muted }}>{op.count.toLocaleString("es-AR")}</span>
             </button>;
           })}

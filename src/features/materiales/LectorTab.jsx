@@ -27,21 +27,22 @@ function beep(frequency = 800, duration = 100) {
 
 
 const inputStyle = {
-  width: "100%", padding: "12px 16px", borderRadius: 10,
-  border: `1px solid ${C.border}`, background: C.panel,
+  width: "100%", padding: "12px 16px", borderRadius: 3,
+  border: `1px solid ${C.border}`, background: "transparent",
   color: C.text, fontSize: 16, fontFamily: C.mono,
   outline: "none", boxSizing: "border-box", letterSpacing: 1,
 };
 
 const btnBase = {
-  padding: "8px 16px", borderRadius: 8, cursor: "pointer",
+  padding: "8px 16px", borderRadius: 3, cursor: "pointer",
   fontSize: 13, fontFamily: C.sans, fontWeight: 600,
+  background: "transparent", color: C.text,
   transition: "all 0.15s", border: `1px solid ${C.border}`,
 };
 
 const selectStyle = {
-  padding: "8px 12px", borderRadius: 8,
-  border: `1px solid ${C.border}`, background: C.panel,
+  padding: "8px 12px", borderRadius: 3,
+  border: `1px solid ${C.border}`, background: "transparent",
   color: C.text, fontSize: 13, fontFamily: C.sans,
   outline: "none", cursor: "pointer",
 };
@@ -594,33 +595,26 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
     }
   }
 
-  const modeBtn = (active) => ({
-    ...btnBase, flex: 1, textAlign: "center",
-    background: active ? C.blue : C.panel,
-    color: active ? "#fff" : C.muted,
-    border: active ? `1px solid ${C.blue}` : `1px solid ${C.border}`,
-  });
-
   const totalUnitsCounted = countSession.reduce((sum, e) => sum + e.qty, 0);
 
   return (
-    <div style={{ padding: "20px 24px", maxWidth: 720, margin: "0 auto" }}>
+    <div className="lector-tab" style={{ padding: "20px 24px", maxWidth: 720, margin: "0 auto", fontWeight: 400 }}>
       {/* Mode selector */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-        <button type="button" onClick={() => { setMode("assign"); setPendingBarcode(null); }} style={modeBtn(mode === "assign")}>
+      <div className="az-tabs" style={{ gap: 8, marginBottom: 20 }}>
+        <button type="button" onClick={() => { setMode("assign"); setPendingBarcode(null); }} className={`az-tab${mode === "assign" ? " is-active" : ""}`} style={{ flex: 1, minWidth: 0, whiteSpace: "normal" }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Barcode size={14} /> Asignar códigos</span>
         </button>
-        <button type="button" onClick={() => setMode("stock")} style={modeBtn(mode === "stock")}>
+        <button type="button" onClick={() => setMode("stock")} className={`az-tab${mode === "stock" ? " is-active" : ""}`} style={{ flex: 1, minWidth: 0, whiteSpace: "normal" }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Scan size={14} /> Ajuste de stock</span>
         </button>
-        <button type="button" onClick={() => setMode("count")} style={modeBtn(mode === "count")}>
+        <button type="button" onClick={() => setMode("count")} className={`az-tab${mode === "count" ? " is-active" : ""}`} style={{ flex: 1, minWidth: 0, whiteSpace: "normal" }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><ClipboardList size={14} /> Conteo físico</span>
         </button>
       </div>
 
       {/* Barcode input — always focused */}
       <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 10, color: C.dim, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 6, fontFamily: C.mono }}>
+        <div className="az-rotulo" style={{ marginBottom: 6 }}>
           Escaneá un código de barras
         </div>
         <input
@@ -640,9 +634,9 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
       {/* Last result feedback */}
       {lastResult && (
         <div style={{
-          padding: "10px 14px", borderRadius: 8, marginBottom: 16,
-          background: lastResult.ok ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)",
-          border: `1px solid ${lastResult.ok ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)"}`,
+          padding: "10px 14px", borderRadius: 3, marginBottom: 16,
+          background: lastResult.ok ? "var(--green-soft)" : "var(--red-soft)",
+          border: `1px solid ${lastResult.ok ? "var(--green-border)" : "var(--red-border)"}`,
           color: lastResult.ok ? C.green : C.red,
           fontSize: 13, fontWeight: 600,
           display: "flex", alignItems: "center", gap: 8,
@@ -658,27 +652,26 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
         <div>
           {pendingBarcode && (
             <div style={{
-              padding: "10px 14px", borderRadius: 8, marginBottom: 16,
-              background: "rgba(59,130,246,0.1)", border: `1px solid rgba(59,130,246,0.3)`,
+              padding: "10px 14px", borderRadius: 3, marginBottom: 16,
+              background: "var(--blue-soft)", border: `1px solid var(--blue-border)`,
               color: C.blue, fontSize: 12,
             }}>
-              Código pendiente: <strong style={{ fontFamily: C.mono }}>{pendingBarcode}</strong> — Seleccioná un material para asignarlo.
+              Código pendiente: <strong style={{ fontFamily: C.mono, fontWeight: 600 }}>{pendingBarcode}</strong> — Seleccioná un material para asignarlo.
             </div>
           )}
 
           {/* Material search */}
-          <div style={{ position: "relative", marginBottom: 12 }}>
-            <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: C.dim }} />
+          <label className="az-buscar" style={{ marginBottom: 12 }}>
+            <Search size={15} />
             <input
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Buscar material por nombre o código…"
-              style={{ ...inputStyle, paddingLeft: 32, fontSize: 13 }}
             />
-          </div>
+          </label>
 
           {/* Material list */}
-          <div style={{ maxHeight: 280, overflowY: "auto", border: `1px solid ${C.border}`, borderRadius: 10, background: C.panel }}>
+          <div style={{ maxHeight: 280, overflowY: "auto", border: `1px solid ${C.border}`, borderRadius: 3, background: "transparent" }}>
             {filteredMaterials.length === 0 && (
               <div style={{ padding: 20, textAlign: "center", color: C.dim, fontSize: 12 }}>Sin resultados</div>
             )}
@@ -691,7 +684,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                   style={{
                     padding: "10px 14px", cursor: "pointer",
                     borderBottom: `1px solid ${C.border}`,
-                    background: isSelected ? "rgba(59,130,246,0.1)" : "transparent",
+                    background: isSelected ? "var(--blue-soft)" : "transparent",
                     borderLeft: isSelected ? `3px solid ${C.blue}` : "3px solid transparent",
                     transition: "background 0.1s",
                   }}
@@ -706,14 +699,14 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
           </div>
 
           {selectedMaterial && (
-            <div style={{ marginTop: 12, padding: 12, borderRadius: 10, border: `1px solid ${C.blueB}`, background: "rgba(59,130,246,0.08)", display: "grid", gap: 8 }}>
+            <div style={{ marginTop: 12, padding: 12, borderRadius: 3, border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", display: "grid", gap: 8 }}>
               <div>
-                <div style={{ fontSize: 12, fontWeight: 650, color: C.text }}>{selectedMaterial.descripcion}</div>
-                <div style={{ fontSize: 11, color: C.dim, marginTop: 2 }}>Escaneá un código para sumarlo a este material. No pisa los anteriores.</div>
+                <div style={{ fontSize: 12, fontWeight: 500, color: C.text }}>{selectedMaterial.descripcion}</div>
+                <p className="az-texto" style={{ marginTop: 2 }}>Escaneá un código para sumarlo a este material. No pisa los anteriores.</p>
               </div>
               {selectedMaterial.variantes?.length > 0 && (
                 <div>
-                  <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600 }}>Variante específica (opcional)</div>
+                  <div className="az-rotulo" style={{ marginBottom: 4 }}>Variante específica (opcional)</div>
                   <select
                     value={selectedVariante}
                     onChange={(e) => setSelectedVariante(e.target.value)}
@@ -728,7 +721,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                 {materialBarcodeList(selectedMaterial).length ? materialBarcodeList(selectedMaterial).map((row) => (
                   <span
                     key={`${row.id || "legacy"}-${row.codigo}`}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, borderRadius: 999, padding: "4px 8px", fontSize: 11, fontFamily: C.mono }}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.border}`, background: "transparent", color: C.muted, borderRadius: 999, padding: "4px 8px", fontSize: 11, fontFamily: C.mono }}
                     title={row.etiqueta || "Código de barras"}
                   >
                     {row.codigo}
@@ -753,13 +746,13 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
           {/* Session list */}
           {assignedSession.length > 0 && (
             <div style={{ marginTop: 20 }}>
-              <div style={{ fontSize: 10, color: C.dim, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8, fontFamily: C.mono }}>
+              <div className="az-rotulo" style={{ marginBottom: 8 }}>
                 Asignados en esta sesión ({assignedSession.length})
               </div>
               {assignedSession.map((entry, i) => (
                 <div key={i} style={{
-                  padding: "8px 12px", borderRadius: 8, marginBottom: 4,
-                  background: "rgba(16,185,129,0.08)", border: `1px solid rgba(16,185,129,0.2)`,
+                  padding: "8px 12px", borderRadius: 3, marginBottom: 4,
+                  background: "var(--green-soft)", border: `1px solid var(--green-border)`,
                   display: "flex", justifyContent: "space-between", alignItems: "center",
                 }}>
                   <div>
@@ -783,8 +776,8 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
           {/* Last scanned material + controls */}
           {lastScannedMaterial && (
             <div style={{
-              padding: 16, borderRadius: 12, marginBottom: 16,
-              background: C.panel, border: `1px solid ${C.border}`,
+              padding: 16, borderRadius: 3, marginBottom: 16,
+              background: "transparent", border: `1px solid ${C.border}`,
             }}>
               <div style={{ fontWeight: 600, fontSize: 15, color: C.text }}>{lastScannedMaterial.descripcion}</div>
               <div style={{ fontSize: 12, color: C.dim, marginTop: 4, fontFamily: C.mono }}>
@@ -796,7 +789,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                   type="button"
                   onClick={() => adjustStock(1)}
                   disabled={stockLoading}
-                  style={{ ...btnBase, background: C.green, color: "#fff", border: "none", display: "flex", alignItems: "center", gap: 4 }}
+                  style={{ ...btnBase, background: C.greenL, color: C.green, border: `1px solid ${C.greenB}`, display: "flex", alignItems: "center", gap: 4 }}
                 >
                   <Plus size={14} /> 1
                 </button>
@@ -804,7 +797,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                   type="button"
                   onClick={() => adjustStock(-1)}
                   disabled={stockLoading}
-                  style={{ ...btnBase, background: C.red, color: "#fff", border: "none", display: "flex", alignItems: "center", gap: 4 }}
+                  style={{ ...btnBase, background: C.redL, color: C.red, border: `1px solid ${C.redB}`, display: "flex", alignItems: "center", gap: 4 }}
                 >
                   <Minus size={14} /> 1
                 </button>
@@ -822,7 +815,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                   type="button"
                   onClick={() => adjustStock(customQty)}
                   disabled={stockLoading}
-                  style={{ ...btnBase, background: C.blue, color: "#fff", border: "none" }}
+                  style={{ ...btnBase, background: C.blueL, color: C.blue, border: `1px solid ${C.blueB}` }}
                 >
                   + Cant.
                 </button>
@@ -830,7 +823,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                   type="button"
                   onClick={() => adjustStock(-customQty)}
                   disabled={stockLoading}
-                  style={{ ...btnBase, background: C.red, color: "#fff", border: "none" }}
+                  style={{ ...btnBase, background: C.redL, color: C.red, border: `1px solid ${C.redB}` }}
                 >
                   - Cant.
                 </button>
@@ -841,16 +834,16 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
           {/* Not found — offer to assign */}
           {lastResult && !lastResult.ok && lastResult.code && (
             <div style={{
-              padding: "12px 14px", borderRadius: 10, marginBottom: 16,
-              background: "rgba(34,211,238,0.1)", border: `1px solid rgba(34,211,238,0.3)`,
+              padding: "12px 14px", borderRadius: 3, marginBottom: 16,
+              background: "var(--cyan-soft)", border: `1px solid var(--cyan-border)`,
             }}>
               <div style={{ fontSize: 12, color: C.cyan, marginBottom: 8 }}>
-                Código no encontrado: <strong style={{ fontFamily: C.mono }}>{lastResult.code}</strong>
+                Código no encontrado: <strong style={{ fontFamily: C.mono, fontWeight: 600 }}>{lastResult.code}</strong>
               </div>
               <button
                 type="button"
                 onClick={() => { setMode("assign"); setPendingBarcode(lastResult.code); }}
-                style={{ ...btnBase, background: C.cyan, color: "#000", border: "none", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}
+                style={{ ...btnBase, background: C.cyanL, color: C.cyan, border: `1px solid ${C.cyanB}`, fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}
               >
                 Asignar este código a un producto <ArrowRight size={12} />
               </button>
@@ -860,16 +853,16 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
           {/* Session history */}
           {stockSession.length > 0 && (
             <div style={{ marginTop: 20 }}>
-              <div style={{ fontSize: 10, color: C.dim, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 8, fontFamily: C.mono }}>
+              <div className="az-rotulo" style={{ marginBottom: 8 }}>
                 Historial de sesión ({stockSession.length})
               </div>
               {stockSession.map((entry, i) => {
                 const isPlus = entry.action.startsWith("+");
                 return (
                   <div key={i} style={{
-                    padding: "8px 12px", borderRadius: 8, marginBottom: 4,
-                    background: isPlus ? "rgba(16,185,129,0.08)" : "rgba(239,68,68,0.08)",
-                    border: `1px solid ${isPlus ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"}`,
+                    padding: "8px 12px", borderRadius: 3, marginBottom: 4,
+                    background: isPlus ? "var(--green-soft)" : "var(--red-soft)",
+                    border: `1px solid ${isPlus ? "var(--green-border)" : "var(--red-border)"}`,
                     display: "flex", justifyContent: "space-between", alignItems: "center",
                   }}>
                     <div>
@@ -877,7 +870,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                       <div style={{ fontSize: 11, color: C.dim, fontFamily: C.mono }}>{entry.material.codigo}</div>
                     </div>
                     <span style={{
-                      fontWeight: 650, fontSize: 14, fontFamily: C.mono,
+                      fontWeight: 500, fontSize: 14, fontFamily: C.mono,
                       color: isPlus ? C.green : C.red,
                     }}>{entry.action}</span>
                   </div>
@@ -895,7 +888,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
           <div style={{ display: "flex", gap: 4, marginBottom: 16, alignItems: "center" }}>
             {[1, 2, 3].map(s => (
               <div key={s} style={{
-                flex: 1, height: 4, borderRadius: 4,
+                flex: 1, height: 4, borderRadius: 3,
                 background: s <= countStep ? C.blue : C.border,
                 transition: "background 0.2s",
               }} />
@@ -908,20 +901,19 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
           {/* ── STEP 1: Identify product ── */}
           {countStep === 1 && (
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 4 }}>¿Qué producto es?</div>
-              <div style={{ fontSize: 11, color: C.dim, marginBottom: 12 }}>Buscá por nombre, código o escaneá el código de barras.</div>
+              <h2 className="az-subtitulo" style={{ marginBottom: 4 }}>¿Qué producto es?</h2>
+              <p className="az-texto" style={{ marginBottom: 12 }}>Buscá por nombre, código o escaneá el código de barras.</p>
 
-              <div style={{ position: "relative", marginBottom: 12 }}>
-                <Search size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: C.dim }} />
+              <label className="az-buscar" style={{ marginBottom: 12 }}>
+                <Search size={15} />
                 <input
                   value={countSearchQ}
                   onChange={e => setCountSearchQ(e.target.value)}
                   placeholder="Buscar material por nombre o código…"
-                  style={{ ...inputStyle, paddingLeft: 32, fontSize: 13 }}
                 />
-              </div>
+              </label>
 
-              <div style={{ maxHeight: 300, overflowY: "auto", border: `1px solid ${C.border}`, borderRadius: 10, background: C.panel }}>
+              <div style={{ maxHeight: 300, overflowY: "auto", border: `1px solid ${C.border}`, borderRadius: 3, background: "transparent" }}>
                 {countFilteredMaterials.length === 0 && (
                   <div style={{ padding: 20, textAlign: "center", color: C.dim, fontSize: 12 }}>Sin resultados</div>
                 )}
@@ -934,7 +926,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                       borderBottom: `1px solid ${C.border}`,
                       transition: "background 0.1s",
                     }}
-                    onMouseEnter={e => e.currentTarget.style.background = "rgba(59,130,246,0.08)"}
+                    onMouseEnter={e => e.currentTarget.style.background = "var(--blue-soft)"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                   >
                     <div style={{ fontWeight: 600, fontSize: 13, color: C.text }}>{m.descripcion}</div>
@@ -952,7 +944,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                 onClick={() => { setQuickCreateOpen(true); setQuickCreateDesc(countSearchQ); }}
                 style={{
                   ...btnBase, width: "100%", marginTop: 10, padding: "10px 14px",
-                  background: "rgba(16,185,129,0.1)", border: `1px solid rgba(16,185,129,0.3)`,
+                  background: "var(--green-soft)", border: `1px solid var(--green-border)`,
                   color: C.green, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                 }}
               >
@@ -962,11 +954,11 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
               {/* Quick create inline form */}
               {quickCreateOpen && (
                 <div style={{
-                  marginTop: 10, padding: 14, borderRadius: 10,
-                  border: `1px solid ${C.border}`, background: C.panel,
+                  marginTop: 10, padding: 14, borderRadius: 3,
+                  border: `1px solid ${C.border}`, background: "transparent",
                   display: "grid", gap: 8,
                 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: C.text }}>Alta rápida de material</div>
+                  <h2 className="az-subtitulo">Alta rápida de material</h2>
                   <input
                     value={quickCreateDesc}
                     onChange={e => setQuickCreateDesc(e.target.value)}
@@ -1024,7 +1016,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                     />
                   </div>
                   <div>
-                    <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+                    <div className="az-rotulo" style={{ marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}>
                       <StickyNote size={11} /> Observaciones (opcional)
                     </div>
                     <textarea
@@ -1037,14 +1029,14 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                   </div>
                   {/* Variantes / marcas con precio */}
                   <div>
-                    <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600 }}>Variantes / marcas (con precio)</div>
+                    <div className="az-rotulo" style={{ marginBottom: 4 }}>Variantes / marcas (con precio)</div>
                     {quickCreateVariantes.length > 0 && (
                       <div style={{ display: "grid", gap: 5, marginBottom: 6 }}>
                         {quickCreateVariantes.map((v) => {
                           const p = quickCreateVariantesPrecios[v] || {};
                           return (
                             <div key={v} style={{ display: "grid", gridTemplateColumns: "minmax(52px,0.85fr) minmax(70px,1fr) 84px 54px 28px", gap: 5, alignItems: "center" }}>
-                              <span style={{ color: C.violet, background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.3)", borderRadius: 999, padding: "3px 9px", fontSize: 11, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v}</span>
+                              <span style={{ color: C.violet, background: "var(--violet-soft)", border: "1px solid var(--violet-border)", borderRadius: 999, padding: "3px 9px", fontSize: 11, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v}</span>
                               <input value={p.codigo ?? ""} onChange={(e) => setQuickCreateVariantesPrecios((m) => ({ ...m, [v]: { ...(m[v] || { moneda: "ARS" }), codigo: e.target.value } }))} placeholder="Código" style={{ ...inputStyle, fontSize: 12, padding: "6px 8px", fontFamily: C.mono }} />
                               <input value={p.precio ?? ""} inputMode="decimal" onChange={(e) => setQuickCreateVariantesPrecios((m) => ({ ...m, [v]: { ...(m[v] || { moneda: "ARS" }), precio: e.target.value } }))} placeholder="Precio" style={{ ...inputStyle, fontSize: 12, padding: "6px 8px", fontFamily: C.mono }} />
                               <select value={p.moneda || "ARS"} onChange={(e) => setQuickCreateVariantesPrecios((m) => ({ ...m, [v]: { ...(m[v] || {}), moneda: e.target.value } }))} style={{ ...selectStyle, fontSize: 12, padding: "6px 4px" }}>
@@ -1065,9 +1057,9 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
 
                   {/* Foto del producto */}
                   <div>
-                    <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600 }}>Foto del producto</div>
+                    <div className="az-rotulo" style={{ marginBottom: 4 }}>Foto del producto</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ width: 52, height: 52, borderRadius: 8, border: `1px solid ${C.border}`, background: C.panel, overflow: "hidden", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                      <div style={{ width: 52, height: 52, borderRadius: 3, border: `1px solid ${C.border}`, background: "transparent", overflow: "hidden", display: "grid", placeItems: "center", flexShrink: 0 }}>
                         {quickImgPreview ? <img src={quickImgPreview} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <ImagePlus size={18} color={C.dim} />}
                       </div>
                       <button type="button" onClick={() => quickCreateImageInputRef.current?.click()} style={{ ...btnBase, padding: "7px 10px", color: C.blue }}>{quickCreateImageFile ? "Cambiar foto" : "Elegir / sacar foto"}</button>
@@ -1082,7 +1074,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                       type="button"
                       onClick={handleQuickCreate}
                       disabled={!quickCreateDesc.trim() || quickCreateSaving}
-                      style={{ ...btnBase, background: C.green, color: "#fff", border: "none", opacity: !quickCreateDesc.trim() || quickCreateSaving ? 0.5 : 1 }}
+                      style={{ ...btnBase, background: C.greenL, color: C.green, border: `1px solid ${C.greenB}`, opacity: !quickCreateDesc.trim() || quickCreateSaving ? 0.5 : 1 }}
                     >
                       {quickCreateSaving ? "Creando…" : "Crear y seleccionar"}
                     </button>
@@ -1095,12 +1087,12 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
           {/* ── STEP 2: Count and assign destination ── */}
           {countStep === 2 && countMaterial && (
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 4 }}>¿Cuántos hay y para dónde van?</div>
+              <h2 className="az-subtitulo" style={{ marginBottom: 4 }}>¿Cuántos hay y para dónde van?</h2>
 
               {/* Selected material card */}
               <div style={{
-                padding: 14, borderRadius: 10, marginBottom: 14,
-                background: "rgba(59,130,246,0.08)", border: `1px solid rgba(59,130,246,0.25)`,
+                padding: 14, borderRadius: 3, marginBottom: 14,
+                background: "var(--blue-soft)", border: `1px solid var(--blue-border)`,
               }}>
                 <div style={{ fontWeight: 600, fontSize: 14, color: C.text }}>{countMaterial.descripcion}</div>
                 <div style={{ fontSize: 11, color: C.dim, fontFamily: C.mono, marginTop: 2 }}>
@@ -1110,9 +1102,9 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
 
               {/* Quantity */}
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600 }}>Cantidad física</div>
+                <div className="az-rotulo" style={{ marginBottom: 4 }}>Cantidad física</div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <button type="button" onClick={() => setCountQty(q => Math.max(1, q - 1))} style={{ ...btnBase, padding: "8px 12px", background: C.panel }}><Minus size={14} /></button>
+                  <button type="button" onClick={() => setCountQty(q => Math.max(1, q - 1))} style={{ ...btnBase, padding: "8px 12px", background: "transparent" }}><Minus size={14} /></button>
                   <input
                     type="number"
                     min={1}
@@ -1120,7 +1112,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                     onChange={e => setCountQty(Math.max(1, parseInt(e.target.value) || 1))}
                     style={{ ...inputStyle, width: 80, textAlign: "center", fontSize: 18, fontWeight: 600, padding: "8px" }}
                   />
-                  <button type="button" onClick={() => setCountQty(q => q + 1)} style={{ ...btnBase, padding: "8px 12px", background: C.panel }}><Plus size={14} /></button>
+                  <button type="button" onClick={() => setCountQty(q => q + 1)} style={{ ...btnBase, padding: "8px 12px", background: "transparent" }}><Plus size={14} /></button>
                   <span style={{ fontSize: 12, color: C.dim }}>{countMaterial.unidad_medida || "unidad"}</span>
                 </div>
               </div>
@@ -1128,7 +1120,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
               {/* Sede — obligatoria siempre (permiso + dónde vive el stock general),
                   aplica a todos los destinos de este ítem. */}
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600 }}>Sede</div>
+                <div className="az-rotulo" style={{ marginBottom: 4 }}>Sede</div>
                 <select value={countSede} onChange={e => setCountSede(e.target.value)} style={selectStyle}>
                   {SEDES_PANOL.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
@@ -1138,8 +1130,8 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                   obras y/o stock general. Con 1 solo destino la cantidad se auto-completa. */}
               <div style={{ marginBottom: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                  <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", fontWeight: 600 }}>Destino(s)</div>
-                  <span style={{ fontSize: 10, fontFamily: C.mono, fontWeight: 650, color: destinosTotal === Number(countQty) ? C.green : C.cyan }}>
+                  <div className="az-rotulo">Destino(s)</div>
+                  <span style={{ fontSize: 10, fontFamily: C.mono, fontWeight: 500, color: destinosTotal === Number(countQty) ? C.green : C.cyan }}>
                     asignado {destinosTotal} / {countQty}
                   </span>
                 </div>
@@ -1186,7 +1178,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                 <button
                   type="button"
                   onClick={addDestinoRow}
-                  style={{ ...btnBase, marginTop: 8, padding: "6px 10px", fontSize: 11, background: "transparent", color: C.blue, border: `1px dashed rgba(59,130,246,0.4)`, display: "inline-flex", alignItems: "center", gap: 4 }}
+                  style={{ ...btnBase, marginTop: 8, padding: "6px 10px", fontSize: 11, background: "transparent", color: C.blue, border: `1px dashed var(--blue-border)`, display: "inline-flex", alignItems: "center", gap: 4 }}
                 >
                   <Plus size={12} /> Repartir entre varias obras/stock
                 </button>
@@ -1195,7 +1187,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
               {/* Ubicación en el pañol (estantería/estante, o "afuera" + observación).
                   Se guarda de forma independiente al conteo — podés fijarla en cualquier
                   momento con el material seleccionado, no hace falta confirmar el conteo. */}
-              <div style={{ marginBottom: 14, padding: 12, borderRadius: 10, border: `1px solid ${C.border}`, background: C.panel }}>
+              <div style={{ marginBottom: 14, padding: 12, borderRadius: 3, border: `1px solid ${C.border}`, background: "transparent" }}>
                 <UbicacionPicker
                   key={countMaterial.id}
                   materialId={countMaterial.id}
@@ -1210,7 +1202,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
 
               {/* Observaciones del producto (se guardan al confirmar el conteo) */}
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+                <div className="az-rotulo" style={{ marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}>
                   <StickyNote size={11} /> Observaciones
                 </div>
                 <textarea
@@ -1225,7 +1217,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
               {/* Variant selector */}
               {countMaterial.variantes?.length > 0 && (
                 <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600 }}>Variante (opcional)</div>
+                  <div className="az-rotulo" style={{ marginBottom: 4 }}>Variante (opcional)</div>
                   <select value={countVariante} onChange={e => setCountVariante(e.target.value)} style={{ ...selectStyle, width: "100%" }}>
                     <option value="">Sin variante específica</option>
                     {countMaterial.variantes.map(v => <option key={v} value={v}>{v}</option>)}
@@ -1240,7 +1232,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                   type="button"
                   onClick={() => setCountStep(3)}
                   disabled={!destinosValid}
-                  style={{ ...btnBase, flex: 2, background: C.blue, color: "#fff", border: "none", opacity: !destinosValid ? 0.5 : 1 }}
+                  style={{ ...btnBase, flex: 2, background: C.blueL, color: C.blue, border: `1px solid ${C.blueB}`, opacity: !destinosValid ? 0.5 : 1 }}
                 >
                   Siguiente → Código de barras
                 </button>
@@ -1251,13 +1243,13 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
           {/* ── STEP 3: Barcode assignment + confirm ── */}
           {countStep === 3 && countMaterial && (
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 4 }}>Código de barras (opcional)</div>
-              <div style={{ fontSize: 11, color: C.dim, marginBottom: 12 }}>Escaneá o escribí un código para asignarlo a este material, o saltá este paso.</div>
+              <h2 className="az-subtitulo" style={{ marginBottom: 4 }}>Código de barras (opcional)</h2>
+              <p className="az-texto" style={{ marginBottom: 12 }}>Escaneá o escribí un código para asignarlo a este material, o saltá este paso.</p>
 
               {/* Summary card */}
               <div style={{
-                padding: 12, borderRadius: 10, marginBottom: 14,
-                background: "rgba(59,130,246,0.06)", border: `1px solid rgba(59,130,246,0.2)`,
+                padding: 12, borderRadius: 3, marginBottom: 14,
+                background: "var(--blue-soft)", border: `1px solid var(--blue-border)`,
                 display: "flex", justifyContent: "space-between", alignItems: "center",
               }}>
                 <div>
@@ -1270,18 +1262,18 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                     {countVariante ? ` · ${countVariante}` : ""}
                   </div>
                 </div>
-                <span style={{ fontFamily: C.mono, fontWeight: 650, fontSize: 18, color: C.blue }}>{countQty}</span>
+                <span className="az-cifra">{countQty}</span>
               </div>
 
               {/* Existing barcodes */}
               {materialBarcodeList(countMaterial).length > 0 && (
                 <div style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600 }}>Códigos ya asignados</div>
+                  <div className="az-rotulo" style={{ marginBottom: 4 }}>Códigos ya asignados</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                     {materialBarcodeList(countMaterial).map(row => (
                       <span key={`${row.id || "l"}-${row.codigo}`} style={{
                         display: "inline-flex", alignItems: "center", gap: 4,
-                        border: `1px solid ${C.border}`, background: C.panel,
+                        border: `1px solid ${C.border}`, background: "transparent",
                         borderRadius: 999, padding: "3px 8px", fontSize: 10, fontFamily: C.mono, color: C.muted,
                       }}>
                         {row.codigo}
@@ -1294,7 +1286,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
 
               {/* Barcode input */}
               <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: 10, color: C.dim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600 }}>Nuevo código (opcional)</div>
+                <div className="az-rotulo" style={{ marginBottom: 4 }}>Nuevo código (opcional)</div>
                 <input
                   value={countBarcodeInput}
                   onChange={e => setCountBarcodeInput(e.target.value)}
@@ -1312,7 +1304,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                   disabled={countSaving || !destinosValid}
                   style={{
                     ...btnBase, flex: 2, padding: "12px",
-                    background: C.green, color: "#fff", border: "none",
+                    background: C.greenL, color: C.green, border: `1px solid ${C.greenB}`,
                     fontWeight: 600, fontSize: 14,
                     opacity: countSaving ? 0.5 : 1,
                     display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
@@ -1330,7 +1322,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
               <div style={{
                 display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8,
               }}>
-                <div style={{ fontSize: 10, color: C.dim, letterSpacing: 1.5, textTransform: "uppercase", fontFamily: C.mono }}>
+                <div className="az-rotulo">
                   Sesión ({countSession.length} items · {totalUnitsCounted} unidades)
                 </div>
                 <button
@@ -1341,7 +1333,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                   <RotateCcw size={10} /> Limpiar
                 </button>
               </div>
-              <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
+              <div style={{ border: `1px solid ${C.border}`, borderRadius: 3, overflow: "hidden" }}>
                 {countSession.map(entry => {
                   const destLabel = entry.allocations.map(a => (
                     a.type === "stock" ? `Stock ${a.sede} ×${a.cantidad}` : `Obra ${a.obraCodigo || "?"} ×${a.cantidad}`
@@ -1351,7 +1343,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                     <div key={entry.id} style={{
                       padding: "10px 14px", borderBottom: `1px solid ${C.border}`,
                       display: "flex", alignItems: "center", gap: 10,
-                      background: isUndoing ? "rgba(239,68,68,0.06)" : "transparent",
+                      background: isUndoing ? "var(--red-soft)" : "transparent",
                       opacity: isUndoing ? 0.6 : entry.reverted ? 0.45 : 1,
                       transition: "all 0.2s",
                     }}>
@@ -1366,7 +1358,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                           {entry.reverted && <span style={{ color: C.red, fontWeight: 600 }}>Revertido</span>}
                         </div>
                       </div>
-                      <span style={{ fontFamily: C.mono, fontWeight: 650, fontSize: 14, color: entry.reverted ? C.dim : C.green, flexShrink: 0, textDecoration: entry.reverted ? "line-through" : "none" }}>+{entry.qty}</span>
+                      <span style={{ fontFamily: C.mono, fontWeight: 500, fontSize: 14, color: entry.reverted ? C.dim : C.green, flexShrink: 0, textDecoration: entry.reverted ? "line-through" : "none" }}>+{entry.qty}</span>
                       <button
                         type="button"
                         onClick={() => undoCountItem(entry)}
@@ -1374,7 +1366,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
                         title={entry.reverted ? "Ya fue revertido" : "Deshacer este movimiento"}
                         style={{
                           ...btnBase, padding: "4px 8px", background: "transparent",
-                          color: C.red, border: `1px solid rgba(239,68,68,0.3)`,
+                          color: C.red, border: `1px solid var(--red-border)`,
                           fontSize: 10, flexShrink: 0, opacity: (countUndoing || entry.reverted) ? 0.4 : 1,
                         }}
                       >
@@ -1391,16 +1383,16 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
 
       {/* Aviso: producto no está en la lista matriz de la línea de la obra elegida */}
       {matrixPrompt && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => confirmMatrixAndContinue(false)}>
-          <div style={{ background: C.panelSolid || C.panel, border: `1px solid ${C.border}`, borderRadius: 16, padding: 24, maxWidth: 440, width: "100%" }} onClick={e => e.stopPropagation()}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "color-mix(in srgb, var(--text) 70%, transparent)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => confirmMatrixAndContinue(false)}>
+          <div style={{ background: C.panelSolid || C.panel, border: `1px solid ${C.border}`, borderRadius: 3, padding: 24, maxWidth: 440, width: "100%" }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
               <AlertTriangle size={18} color={C.cyan} />
-              <div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>¿Agregar a la lista matriz?</div>
+              <h2 className="az-subtitulo">¿Agregar a la lista matriz?</h2>
             </div>
             <div style={{ fontSize: 13, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>
-              <strong style={{ color: C.text }}>{countMaterial?.descripcion}</strong> todavía no figura en la lista matriz de{" "}
+              <strong style={{ color: C.text, fontWeight: 600 }}>{countMaterial?.descripcion}</strong> todavía no figura en la lista matriz de{" "}
               {Object.keys(matrixPrompt.cantidades).length === 1 ? "esta línea" : "estas líneas"}:{" "}
-              <strong style={{ color: C.text }}>{Object.keys(matrixPrompt.cantidades).map(l => `K${l}`).join(", ")}</strong>.
+              <strong style={{ color: C.text, fontWeight: 600 }}>{Object.keys(matrixPrompt.cantidades).map(l => `K${l}`).join(", ")}</strong>.
               <br /><br />
               Si lo agregás, todas las obras de esa línea van a esperar este producto de ahora en más (podés ajustar la cantidad base después desde el catálogo).
             </div>
@@ -1422,7 +1414,7 @@ export default function LectorTab({ materiales, categorias = [], onMaterialUpdat
               <button type="button" onClick={() => confirmMatrixAndContinue(false)} disabled={matrixSaving} style={{ ...btnBase, background: "transparent", color: C.muted }}>
                 Solo contar (no agregar)
               </button>
-              <button type="button" onClick={() => confirmMatrixAndContinue(true)} disabled={matrixSaving} style={{ ...btnBase, background: C.blue, color: "#fff", border: "none" }}>
+              <button type="button" onClick={() => confirmMatrixAndContinue(true)} disabled={matrixSaving} style={{ ...btnBase, background: C.blueL, color: C.blue, border: `1px solid ${C.blueB}` }}>
                 {matrixSaving ? "Guardando…" : "Agregar a la matriz y continuar"}
               </button>
             </div>

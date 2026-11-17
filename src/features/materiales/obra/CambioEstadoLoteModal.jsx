@@ -27,10 +27,10 @@ export default function CambioEstadoLoteModal({ rows, estadoDe, obraCodigo, onCe
   return createPortal(<div onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onCerrar(); }} style={{ position: "fixed", inset: 0, zIndex: 5100, background: "var(--overlay-strong)", display: "grid", placeItems: "center", padding: 16 }}>
     <form ref={ref} role="dialog" aria-modal="true" aria-label="Cambiar estado de los tildados" tabIndex={-1}
       onSubmit={(e) => { e.preventDefault(); if (puede) onConfirmar({ ...estadoParaGuardar(estado, retira), etiqueta: nombre, nota, filas: plan.aplicar }); }}
-      style={{ width: "min(480px,100%)", boxSizing: "border-box", maxHeight: "90vh", overflowY: "auto", border: `1px solid ${C.b1}`, borderRadius: 14, background: C.panelSolid, boxShadow: "var(--elev-2)", padding: 18, display: "grid", gap: 14, color: C.t0, fontFamily: C.sans }}>
+      style={{ width: "min(480px,100%)", boxSizing: "border-box", maxHeight: "90vh", overflowY: "auto", border: `1px solid ${C.b1}`, borderRadius: 3, background: C.panelSolid, boxShadow: "var(--elev-2)", padding: 18, display: "grid", gap: 14, color: C.t0, fontFamily: C.sans }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
         <div>
-          <strong style={{ fontSize: 15, fontWeight: 650 }}>Cambiar estado de {rows.length} {rows.length === 1 ? "ítem" : "ítems"}</strong>
+          <strong style={{ fontSize: 15, fontWeight: 500 }}>Cambiar estado de {rows.length} {rows.length === 1 ? "ítem" : "ítems"}</strong>
           <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>Obra {obraCodigo} · queda registrado como regularización</div>
         </div>
         <button type="button" aria-label="Cerrar" disabled={busy} onClick={onCerrar} style={{ ...BTN, padding: 6, display: "grid", placeItems: "center" }}><X size={16} /></button>

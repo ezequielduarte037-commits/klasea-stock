@@ -1,21 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/supabaseClient";
-import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
 import { C } from "@/theme";
+import { FileText } from "lucide-react";
 import Cargando from "@/components/ui/Cargando";
+import PageHeader from "@/components/ui/PageHeader";
 
 // ─── PALETA ──────────────────────────────────────────────────────────────────
 const GLASS = {
   backdropFilter: "blur(32px) saturate(130%)",
   WebkitBackdropFilter: "blur(32px) saturate(130%)",
-};
-const INP = {
-  background: "var(--panel)", border: `1px solid ${C.b0}`,
-  color: C.t0, padding: "9px 12px", borderRadius: 8, fontSize: 13,
-  outline: "none", width: "100%", fontFamily: "'Outfit', system-ui",
-  boxSizing: "border-box",
 };
 const LABEL = {
   fontSize: 10, letterSpacing: 1.3, color: C.t1, display: "block",
@@ -25,7 +20,6 @@ const LABEL = {
 const ROLES = ["todos", "admin", "oficina", "laminacion", "muebles", "panol", "mecanica", "electricidad"];
 
 export default function ProcedimientosScreen({ profile }) {
-  const { isMobile } = useResponsive();
   const role    = profile?.role ?? "invitado";
   const isAdmin = hasAdminAccess(profile);
 
@@ -158,15 +152,14 @@ export default function ProcedimientosScreen({ profile }) {
   };
 
   return (
-    <div style={{ background: C.bg, position: "absolute", inset: 0, overflow: "hidden", color: C.t0, fontFamily: C.sans }}>
+    <div className="prc-root">
       <style>{`
-        .bg-glow {
-          position: absolute; inset: 0; pointer-events: none; z-index: 0;
-          background:
-            radial-gradient(ellipse 70% 38% at 50% -6%, rgba(59,130,246,0.07) 0%, transparent 65%),
-            radial-gradient(ellipse 40% 28% at 92% 88%, rgba(34,211,238,0.02) 0%, transparent 55%);
+        .prc-root {
+          position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+          display: flex; flex-direction: column; min-height: 0;
+          overflow: hidden; color: var(--text); font-family: 'Outfit', system-ui, sans-serif;
         }
-        .doc-card:hover { border-color: rgba(255,255,255,0.14) !important; background: var(--panel) !important; }
+        .prc-root .doc-card:hover { border-color: var(--border-3) !important; background: var(--panel) !important; }
         @media print {
           body * { visibility: hidden; }
           #printable-doc, #printable-doc * { visibility: visible; }
@@ -174,44 +167,28 @@ export default function ProcedimientosScreen({ profile }) {
           .no-print { display: none !important; }
         }
       `}</style>
-      <div className="bg-glow" />
+      <div className="no-print" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", flex: 1, minHeight: 0, overflow: "hidden", position: "relative", zIndex: 1 }}>
 
-      <div className="no-print" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", height: "100%", overflow: "hidden", position: "relative", zIndex: 1 }}>
-
-        <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+        <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>
 
           {/* ── TOPBAR ── */}
-          <div style={{
-            height: 50, background: C.topbar, ...GLASS,
-            borderBottom: `1px solid ${C.b0}`, padding: isMobile ? "0 12px" : "0 18px",
-            display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
-          }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: C.t0 }}>Procedimientos</div>
-              <div style={{ fontSize: 10, color: C.t2, letterSpacing: 1.1, textTransform: "uppercase", marginTop: 1 }}>
-                {filtrados.length} documento{filtrados.length !== 1 ? "s" : ""}
-              </div>
-            </div>
-
-            <div style={{
-              display: "flex", alignItems: "center", gap: 5, padding: "4px 10px",
-              borderRadius: 7, background: C.s0, border: `1px solid ${C.b0}`,
-              borderLeft: `2px solid ${C.primary}`,
-            }}>
-              <span style={{ fontFamily: C.mono, fontSize: 15, fontWeight: 600, color: C.primary }}>{items.length}</span>
-              <span style={{ fontSize: 10, color: C.t1, letterSpacing: 1.1, textTransform: "uppercase" }}>Total</span>
-            </div>
-
-            {isAdmin && (
-              <button onClick={abrirNuevo} style={{
-                border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)",
-                color: "#60a5fa", padding: "7px 18px", borderRadius: 8, cursor: "pointer",
-                fontSize: 13, fontWeight: 600, fontFamily: C.sans,
-              }}>
-                + Nuevo
-              </button>
+          <PageHeader
+            icon={FileText}
+            eyebrow={`${filtrados.length} documento${filtrados.length !== 1 ? "s" : ""}`}
+            title="Procedimientos"
+            actions={(
+              <>
+                <span className="ui-chip">
+                  <span className="ui-num" style={{ color: "var(--text)" }}>{items.length}</span> Total
+                </span>
+                {isAdmin && (
+                  <button onClick={abrirNuevo} className="ui-btn ui-btn-primario">
+                    + Nuevo
+                  </button>
+                )}
+              </>
             )}
-          </div>
+          />
 
           {/* ── SEARCH ── */}
           <div style={{
@@ -231,17 +208,15 @@ export default function ProcedimientosScreen({ profile }) {
           </div>
 
           {/* ── CONTENT ── */}
-          <div style={{ flex: 1, overflowY: "auto", padding: "16px 18px" }}>
+          <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "16px 18px" }}>
 
             {err && (
-              <div style={{ padding: "10px 14px", borderRadius: 8, marginBottom: 14,
-                background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", color: C.red, fontSize: 13 }}>
+              <div className="ui-aviso is-error" style={{ marginBottom: 14 }}>
                 {err}
               </div>
             )}
             {msg && (
-              <div style={{ padding: "10px 14px", borderRadius: 8, marginBottom: 14,
-                background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.25)", color: C.green, fontSize: 13 }}>
+              <div className="ui-aviso is-ok" style={{ marginBottom: 14 }}>
                 {msg}
               </div>
             )}
@@ -362,22 +337,16 @@ export default function ProcedimientosScreen({ profile }) {
             </div>
             <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0, marginLeft: 12 }}>
               {selItem.pdf_url ? (
-                <a href={selItem.pdf_url} target="_blank" rel="noreferrer" style={{
-                  border: `1px solid ${C.b0}`, background: C.s0, color: C.t1,
-                  padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, textDecoration: "none",
-                }}>↗ Abrir</a>
+                <a href={selItem.pdf_url} target="_blank" rel="noreferrer" className="ui-btn">↗ Abrir</a>
               ) : (
-                <button style={{ border: `1px solid ${C.b0}`, background: C.s0, color: C.t1,
-                  padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}
+                <button className="ui-btn"
                   onClick={imprimirPDF}>↓ Imprimir</button>
               )}
               {isAdmin && (
                 <>
-                  <button style={{ border: `1px solid ${C.b0}`, background: C.s0, color: C.t1,
-                    padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}
+                  <button className="ui-btn"
                     onClick={() => abrirEditar(selItem)}>Editar</button>
-                  <button style={{ border: "1px solid rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.08)",
-                    color: C.red, padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans }}
+                  <button className="ui-btn ui-btn-peligro"
                     onClick={() => archivar(selItem.id)}>Archivar</button>
                 </>
               )}
@@ -462,14 +431,14 @@ export default function ProcedimientosScreen({ profile }) {
               {/* Título */}
               <div style={{ marginBottom: 12 }}>
                 <label style={LABEL}>Título *</label>
-                <input style={INP} required value={form.titulo} autoFocus placeholder="Nombre del procedimiento"
+                <input className="ui-input" required value={form.titulo} autoFocus placeholder="Nombre del procedimiento"
                   onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))} />
               </div>
 
               {/* Descripción */}
               <div style={{ marginBottom: 12 }}>
                 <label style={LABEL}>Descripción / objetivo</label>
-                <input style={INP} placeholder="Resumen en una línea…" value={form.descripcion}
+                <input className="ui-input" placeholder="Resumen en una línea…" value={form.descripcion}
                   onChange={e => setForm(f => ({ ...f, descripcion: e.target.value }))} />
               </div>
 
@@ -477,13 +446,13 @@ export default function ProcedimientosScreen({ profile }) {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
                 <div>
                   <label style={LABEL}>Visible para</label>
-                  <select style={INP} value={form.rol_visible} onChange={e => setForm(f => ({ ...f, rol_visible: e.target.value }))}>
+                  <select className="ui-input" value={form.rol_visible} onChange={e => setForm(f => ({ ...f, rol_visible: e.target.value }))}>
                     {ROLES.map(r => <option key={r} value={r}>{r === "todos" ? "Todos" : r}</option>)}
                   </select>
                 </div>
                 <div>
                   <label style={{ ...LABEL, color: C.primary }}>Adjuntar PDF</label>
-                  <div style={{ padding: "7px 10px", background: "rgba(59,130,246,0.05)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 8 }}>
+                  <div style={{ padding: "7px 10px", background: "var(--blue-soft)", border: "1px solid var(--blue-border)", borderRadius: 8 }}>
                     <input type="file" accept="application/pdf"
                       onChange={e => setFileToUpload(e.target.files[0])}
                       style={{ color: C.t1, fontSize: 12, width: "100%" }} />
@@ -504,7 +473,7 @@ export default function ProcedimientosScreen({ profile }) {
                   {pasos.map((p, i) => (
                     <div key={i} style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
                       <span style={{ width: 18, fontSize: 11, color: C.t2, textAlign: "right", fontFamily: C.mono, flexShrink: 0 }}>{i + 1}</span>
-                      <input style={{ ...INP, flex: 1 }} placeholder={`Paso ${i + 1}…`} value={p}
+                      <input className="ui-input" style={{ flex: 1 }}placeholder={`Paso ${i + 1}…`} value={p}
                         onChange={e => { const n = [...pasos]; n[i] = e.target.value; setPasos(n); }} />
                       <button type="button"
                         style={{ background: "transparent", border: "none", color: C.t2, cursor: "pointer", fontSize: 16, padding: "0 4px", flexShrink: 0 }}
@@ -512,8 +481,7 @@ export default function ProcedimientosScreen({ profile }) {
                     </div>
                   ))}
                   <button type="button"
-                    style={{ border: `1px solid ${C.b0}`, background: C.s0, color: C.t1,
-                      padding: "5px 12px", borderRadius: 7, cursor: "pointer", fontSize: 12, fontFamily: C.sans, marginTop: 4 }}
+                    className="ui-btn" style={{ marginTop: 4 }}
                     onClick={() => setPasos(p => [...p, ""])}>+ Paso</button>
                 </div>
               )}
@@ -521,22 +489,15 @@ export default function ProcedimientosScreen({ profile }) {
               {/* Notas */}
               <div style={{ marginBottom: 20 }}>
                 <label style={LABEL}>Notas adicionales</label>
-                <textarea style={{ ...INP, minHeight: 60, resize: "vertical" }} placeholder="Advertencias, aclaraciones…"
+                <textarea className="ui-input" style={{ padding: "9px 12px", minHeight: 60, resize: "vertical" }} placeholder="Advertencias, aclaraciones…"
                   value={form.contenido} onChange={e => setForm(f => ({ ...f, contenido: e.target.value }))} />
               </div>
 
               <div style={{ display: "flex", gap: 8 }}>
-                <button type="submit" disabled={uploading} style={{
-                  flex: 1, border: "1px solid rgba(59,130,246,0.35)", background: "rgba(59,130,246,0.15)",
-                  color: "#60a5fa", padding: "11px", borderRadius: 8, cursor: "pointer",
-                  fontSize: 14, fontWeight: 600, fontFamily: C.sans, opacity: uploading ? 0.6 : 1,
-                }}>
+                <button type="submit" disabled={uploading} className="ui-btn ui-btn-primario" style={{ flex: 1 }}>
                   {uploading ? "Subiendo…" : (editTarget ? "Guardar cambios" : "Crear documento")}
                 </button>
-                <button type="button" disabled={uploading} onClick={() => setShowModal(false)} style={{
-                  background: "transparent", border: `1px solid ${C.b0}`, color: C.t2,
-                  padding: "11px 20px", borderRadius: 8, cursor: "pointer", fontSize: 13, fontFamily: C.sans,
-                }}>
+                <button type="button" disabled={uploading} onClick={() => setShowModal(false)} className="ui-btn">
                   Cancelar
                 </button>
               </div>

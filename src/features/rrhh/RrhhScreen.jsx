@@ -5,7 +5,7 @@ import { useSearchParams } from "react-router-dom";
 import { BarChart3, Briefcase, CalendarCheck2, Clock3, Upload, UsersRound } from "lucide-react";
 import { useResponsive } from "@/hooks/useResponsive";
 import { canManageOficiosYObras, canManagePresentismo, canViewEmpleados } from "@/lib/permissions";
-import { C } from "@/theme";
+import PageHeader from "@/components/ui/PageHeader";
 import { fetchConfig, fetchContratistas, fetchEmpleados, isMissingTable } from "./api";
 import DashboardTab from "./DashboardTab";
 import EmpleadosTab from "./EmpleadosTab";
@@ -78,29 +78,32 @@ export default function RrhhScreen({ profile }) {
   const confirmados = (empleados ?? []).filter(e => !e.provisorio && !e.externo);
   const puedeGestionarAltasEmpleados = puedeGestionarAltas(profile);
 
+  const tabsVisibles = TABS.filter(t => esAdmin || BASICAS.includes(t.key) || (verEmpleados && t.key === "empleados") || (puedeEditarOficiosYObras && t.key === "oficios"));
+  const haySinAsignar = (empleados ?? []).some(e => e.grupo === "sin_asignar" && e.activo !== false);
+
   return (
-    <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, background: C.bg, color: C.t0, fontFamily: C.sans, display: "flex", overflow: "hidden" }}>
-      <style>{`
-        .rrhh-tab:hover { background: var(--panel-2) !important; color: var(--text) !important; }
-        .rrhh-tab:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
-      `}</style>
+    <div className="rrhh-root">
+      <style>{CSS}</style>
+      {/* Mismo encabezado que Consumibles: las pestañas van en su segunda fila. */}
+      <PageHeader icon={CalendarCheck2} eyebrow="Asistencia y control horario" title="Recursos humanos">
+        {listo && !setupPendiente && !error && (
+          <nav className="ui-tabs" role="tablist" aria-label="Secciones de recursos humanos">
+            {tabsVisibles.map(t => {
+              const Icon = t.icon;
+              return (
+                <button key={t.key} type="button" role="tab" className="ui-tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}>
+                  <Icon size={15} strokeWidth={1.8} />
+                  {t.label}
+                  {t.key === "empleados" && haySinAsignar && <span className="ui-punto" />}
+                </button>
+              );
+            })}
+          </nav>
+        )}
+      </PageHeader>
 
-
-      <div style={{ flex: 1, height: "100%", overflowY: "auto", minWidth: 0 }}>
-        <div style={{ width: "100%", maxWidth: 1760, margin: "0 auto", padding: isMobile ? "14px 12px 50px 12px" : "20px 24px 60px" }}>
-          {/* Header */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 14 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 11, minWidth: 0 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 9, display: "grid", placeItems: "center", color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}`, flexShrink: 0 }}>
-                <CalendarCheck2 size={18} strokeWidth={1.8} />
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: isMobile ? 18 : 21, fontWeight: 650, color: C.t0, lineHeight: 1.1 }}>Recursos humanos</div>
-                <div style={{ fontSize: 11, color: C.t2, marginTop: 4 }}>Asistencia y control horario</div>
-              </div>
-            </div>
-          </div>
-
+      <main className="rrhh-cuerpo">
+        <div className="rrhh-ancho">
           {setupPendiente ? (
             <SetupPendiente onRetry={cargar} />
           ) : error ? (
@@ -109,29 +112,6 @@ export default function RrhhScreen({ profile }) {
             <Cargando />
           ) : (
             <>
-              {/* Tabs */}
-              <div style={{ display: "flex", gap: 3, marginBottom: 16, padding: 4, width: "fit-content", maxWidth: "100%", overflowX: "auto", background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 10 }}>
-                {TABS.filter(t => esAdmin || BASICAS.includes(t.key) || (verEmpleados && t.key === "empleados") || (puedeEditarOficiosYObras && t.key === "oficios")).map(t => {
-                  const on = tab === t.key;
-                  const Icon = t.icon;
-                  return (
-                    <button className="rrhh-tab" key={t.key} onClick={() => setTab(t.key)} style={{
-                      display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 11px", cursor: "pointer", fontSize: 12, fontFamily: C.sans,
-                      fontWeight: on ? 600 : 500, color: on ? C.t0 : C.t2,
-                      background: on ? C.panelSolid : "transparent", border: `1px solid ${on ? C.b1 : "transparent"}`,
-                      borderRadius: 7, boxShadow: on ? "0 1px 3px rgba(0,0,0,.08)" : "none",
-                      transition: "background .16s ease, color .16s ease, border-color .16s ease", whiteSpace: "nowrap",
-                    }}>
-                      <Icon size={14} strokeWidth={1.8} />
-                      {t.label}
-                      {t.key === "empleados" && empleados.some(e => e.grupo === "sin_asignar" && e.activo !== false) && (
-                        <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.red }} />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
               {tab === "presentismo" && <PresentismoTab empleados={confirmados} contratistas={contratistas} config={config} canEdit={puedeEditarPresentismo} canArchiveEmployees={esAdmin} onChanged={cargar} />}
               {tab === "extras" && <ExtrasTab empleados={confirmados} contratistas={contratistas} config={config} onConfigChange={cargar} esAdmin={esAdmin} />}
               {tab === "empleados" && <EmpleadosTab empleados={empleados} contratistas={contratistas} onChanged={cargar} esAdmin={esAdmin} puedeGestionarAltas={puedeGestionarAltasEmpleados} initialQuery={searchParams.get("q") || ""} initialView={searchParams.get("vista") || "activos"} />}
@@ -141,7 +121,20 @@ export default function RrhhScreen({ profile }) {
             </>
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 }
+
+const CSS = `
+  .rrhh-root {
+    position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+    display: flex; flex-direction: column; min-height: 0;
+    font-family: 'Outfit', system-ui, sans-serif; color: var(--text);
+  }
+  .rrhh-root .rrhh-cuerpo { flex: 1; min-height: 0; overflow: auto; }
+  .rrhh-root .rrhh-ancho { width: 100%; max-width: 1760px; margin: 0 auto; padding: 16px 20px 60px; }
+  @media (max-width: 899px) {
+    .rrhh-root .rrhh-ancho { padding: 14px 12px 50px; }
+  }
+`;

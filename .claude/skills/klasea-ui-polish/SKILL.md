@@ -32,6 +32,31 @@ tipografía liviana y mucho aire. Las pantallas operativas mantienen la densidad
   cursor de botones. Un `<style>` de pantalla sin ámbito le cambia el aspecto a toda la
   app mientras está montada (el menú lateral incluido).
 
+## Aire Azimut (aprobado en Listas de compras, 16-17/11/2026)
+
+Ezequiel pidió armonía con el aire de azimutyachts.com y lo aprobó en Materiales
+(Listas de compras). Es la dirección para llevar al resto de las pantallas.
+
+- **Clases** (`index.css`, bloque "Aire Azimut"): `az-titulo` (título fino 300 en
+  mayúsculas espaciadas), `az-subtitulo`, `az-rotulo` (11 px, `.2em`), `az-texto`,
+  `az-tabs`/`az-tab` (pestañas de texto con línea fina), `az-ficha`/`az-dato`/`az-cifra`
+  (números como ficha técnica separados por un pelo), `az-buscar` (buscador de una
+  línea, sin caja), `az-tarjeta` (plana, filete, radio 3), `az-linea`.
+- **Banda del modelo**: la tarjeta de cada línea lleva el nombre del barco en una
+  banda invertida (oscura en el tema claro, `--panel-solid-3` en el oscuro), y la
+  misma banda es la cabecera al entrar (`CabeceraTrabajo` en `MaterialesScreen.jsx`):
+  un renglón con la vuelta, el nombre y tres datos chicos; los botones en su propio
+  renglón debajo, una sola acción principal llena (`--text` de fondo, `--bg` de letra).
+- **Los datos son lo importante**: KPIs chicos, el título de la tabla grande
+  ("MATERIALES 403"), filas de 60–64 px con foto de 40 px, nombre de 15 px/500 que
+  puede ir en dos renglones, cifras en Outfit con `tabular-nums` (no mono) y en un
+  solo renglón. Una tabla larga no va en una caja con alto fijo: scrollea con la
+  página con el encabezado pegajoso.
+- **Excepciones a la escala de pesos de abajo**: títulos y cifras grandes en 300.
+  Radios de 3 px para cajas, campos y botones. Color sólo en lo que pide atención.
+- Para mostrar una dirección nueva, primero un diseño de pantalla completa con datos
+  reales (artifact Design) y recién después código: así se aprobó esta.
+
 ## Contenedor
 
 - `AppShell` monta el `Sidebar` una sola vez (ruta de layout). Una pantalla **no**

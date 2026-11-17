@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { C } from "@/theme";
-import { KpiCard, Td, Th } from "@/features/rrhh/ui";
+import { Td, Th } from "@/features/rrhh/ui";
 import { precioVigente } from "./api";
 import { MODELOS } from "./materialesParser";
 
@@ -56,10 +56,10 @@ function Progress({ value, color = C.blue }) {
 
 function Section({ title, subtitle, children }) {
   return (
-    <section style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 14, padding: 16 }}>
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 15, color: C.t0, fontWeight: 650 }}>{title}</div>
-        {subtitle && <div style={{ fontSize: 12, color: C.t2, marginTop: 4 }}>{subtitle}</div>}
+    <section style={{ background: "transparent", border: `1px solid ${C.b0}`, borderRadius: 3, padding: 18 }}>
+      <div style={{ marginBottom: 16 }}>
+        <h2 className="az-subtitulo">{title}</h2>
+        {subtitle && <p className="az-texto" style={{ marginTop: 6 }}>{subtitle}</p>}
       </div>
       {children}
     </section>
@@ -68,7 +68,7 @@ function Section({ title, subtitle, children }) {
 
 function Empty({ children }) {
   return (
-    <div style={{ padding: 18, textAlign: "center", fontSize: 13, color: C.t2, border: `1px dashed ${C.b0}`, borderRadius: 10 }}>
+    <div style={{ padding: 18, textAlign: "center", fontSize: 13, color: C.t2, border: `1px dashed ${C.b0}`, borderRadius: 3 }}>
       {children}
     </div>
   );
@@ -79,13 +79,13 @@ function Chip({ children, color = C.t2 }) {
     <span style={{
       display: "inline-flex",
       alignItems: "center",
-      border: `1px solid ${color}44`,
-      background: `${color}14`,
+      border: "1px solid var(--border-2)",
+      background: "transparent",
       color,
       borderRadius: 999,
       padding: "3px 8px",
       fontSize: 11,
-      fontWeight: 650,
+      fontWeight: 500,
       whiteSpace: "nowrap",
     }}>
       {children}
@@ -166,15 +166,29 @@ export default function AvanceTab({ categorias = [], materiales = [], batches = 
 
   return (
     <div style={{ display: "grid", gap: 16 }}>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <KpiCard label="Materiales activos" value={nf.format(total)} />
-        <KpiCard label="Con precio" value={`${pctConPrecio}%`} sub={`${nf.format(data.conPrecio.length)} de ${nf.format(total)}`} color={pctConPrecio >= 80 ? C.green : C.blue} />
-        <KpiCard label="Pendientes revision" value={nf.format(data.pendientesRevision.length)} color={data.pendientesRevision.length ? C.cyan : C.green} />
-        <KpiCard label="Sectores cargados" value={nf.format(data.sectoresCargados.size)} sub={`${nf.format(categorias.length)} sectores totales`} />
+      <div className="az-ficha">
+        <div className="az-dato">
+          <div className="az-cifra">{nf.format(total)}</div>
+          <div className="az-rotulo">Materiales activos</div>
+        </div>
+        <div className="az-dato">
+          <div className="az-cifra">{`${pctConPrecio}%`}</div>
+          <div className="az-rotulo">Con precio</div>
+          <div className="az-texto" style={{ fontSize: 12, marginTop: 4 }}>{`${nf.format(data.conPrecio.length)} de ${nf.format(total)}`}</div>
+        </div>
+        <div className="az-dato">
+          <div className="az-cifra" style={data.pendientesRevision.length ? { color: C.cyan } : undefined}>{nf.format(data.pendientesRevision.length)}</div>
+          <div className="az-rotulo">Pendientes revision</div>
+        </div>
+        <div className="az-dato">
+          <div className="az-cifra">{nf.format(data.sectoresCargados.size)}</div>
+          <div className="az-rotulo">Sectores cargados</div>
+          <div className="az-texto" style={{ fontSize: 12, marginTop: 4 }}>{`${nf.format(categorias.length)} sectores totales`}</div>
+        </div>
       </div>
 
       <Section title="Cobertura por sector" subtitle="Precio vigente y pendientes de revision por sector del catalogo.">
-        <div style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 12 }}>
+        <div style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 3 }}>
           <table style={{ width: "100%", minWidth: 760, borderCollapse: "collapse" }}>
             <thead>
               <tr>
@@ -210,9 +224,9 @@ export default function AvanceTab({ categorias = [], materiales = [], batches = 
       <Section title="Avance por modelo y obra" subtitle="BOM cargado por modelo y lectura de obras activas de produccion.">
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 10, marginBottom: 14 }}>
           {data.modelos.map((row) => (
-            <div key={row.modelo} style={{ border: `1px solid ${C.b0}`, borderRadius: 12, padding: 14, background: C.bg }}>
-              <div style={{ fontSize: 10, letterSpacing: 1.3, color: C.t2, fontWeight: 650, textTransform: "uppercase", marginBottom: 6 }}>Modelo K{row.modelo}</div>
-              <div style={{ fontFamily: C.mono, fontSize: 22, color: C.t0, fontWeight: 650 }}>{nf.format(row.definidos)}</div>
+            <div key={row.modelo} style={{ border: `1px solid ${C.b0}`, borderRadius: 3, padding: 14, background: "transparent" }}>
+              <div className="az-rotulo" style={{ marginBottom: 6 }}>Modelo K{row.modelo}</div>
+              <div className="az-cifra">{nf.format(row.definidos)}</div>
               <div style={{ fontSize: 12, color: C.t2, margin: "5px 0 10px" }}>{nf.format(row.conPrecio)} con precio</div>
               <Progress value={row.pctPrecio} color={row.pctPrecio >= 80 ? C.green : C.blue} />
             </div>
@@ -222,7 +236,7 @@ export default function AvanceTab({ categorias = [], materiales = [], batches = 
         {!data.obrasRows.length ? (
           <Empty>No hay obras activas para mostrar en este momento.</Empty>
         ) : (
-          <div style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 12 }}>
+          <div style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 3 }}>
             <table style={{ width: "100%", minWidth: 720, borderCollapse: "collapse" }}>
               <thead>
                 <tr>
@@ -260,9 +274,9 @@ export default function AvanceTab({ categorias = [], materiales = [], batches = 
           ) : (
             <div style={{ display: "grid", gap: 8 }}>
               {batches.slice(0, 8).map((batch) => (
-                <div key={batch.id ?? `${batch.filename}-${batch.created_at}`} style={{ border: `1px solid ${C.b0}`, borderRadius: 10, padding: 10, background: C.bg }}>
+                <div key={batch.id ?? `${batch.filename}-${batch.created_at}`} style={{ border: `1px solid ${C.b0}`, borderRadius: 3, padding: 10, background: "transparent" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
-                    <div style={{ fontSize: 13, color: C.t0, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{batch.filename || "Archivo sin nombre"}</div>
+                    <div style={{ fontSize: 13, color: C.t0, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{batch.filename || "Archivo sin nombre"}</div>
                     <div style={{ fontSize: 11, color: C.t2, fontFamily: C.mono, whiteSpace: "nowrap" }}>{fmtFecha(batch.created_at)}</div>
                   </div>
                   <div style={{ fontSize: 12, color: C.t2, marginTop: 5 }}>
@@ -278,7 +292,7 @@ export default function AvanceTab({ categorias = [], materiales = [], batches = 
           {!data.recientes.length ? (
             <Empty>No hay materiales cargados.</Empty>
           ) : (
-            <div style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 12 }}>
+            <div style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 3 }}>
               <table style={{ width: "100%", minWidth: 620, borderCollapse: "collapse" }}>
                 <thead>
                   <tr>

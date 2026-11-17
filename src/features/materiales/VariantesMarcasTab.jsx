@@ -1,5 +1,5 @@
-import { createElement, useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, Link2, PackageCheck, Plus, RefreshCw, Search, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { PackageCheck, Plus, RefreshCw, Search, X } from "lucide-react";
 import { C } from "@/theme";
 import { INP } from "@/features/rrhh/ui";
 import { norm } from "./materialesParser";
@@ -162,28 +162,31 @@ export default function VariantesMarcasTab({ materiales = [] }) {
 
   return (
     <div style={{ display: "grid", gap: 14, maxWidth: 1180 }}>
-      <section style={{ border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 16, padding: 16, display: "grid", gap: 13 }}>
+      <section style={{ display: "grid", gap: 26, marginBottom: 12 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 20, fontWeight: 750, color: C.t0 }}>Requisitos y productos</div>
-            <div style={{ color: C.t2, fontSize: 12.5, marginTop: 4, maxWidth: 650, lineHeight: 1.45 }}>
+            <h2 className="az-subtitulo">Requisitos y productos</h2>
+            <p className="az-texto" style={{ marginTop: 8, maxWidth: 650 }}>
               La matriz define qué necesita el barco. Cada obra elige un producto real del catálogo; compras y Pañol trabajan siempre con ese producto.
-            </div>
+            </p>
           </div>
-          <button type="button" onClick={reload} disabled={loading} style={{ border: `1px solid ${C.b0}`, background: C.bg, color: C.t1, borderRadius: 9, padding: "8px 11px", fontFamily: C.sans, fontWeight: 700, cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1 }}>
+          <button type="button" onClick={reload} disabled={loading} style={{ border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, borderRadius: 3, padding: "8px 11px", fontFamily: C.sans, fontWeight: 500, cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1 }}>
             <RefreshCw size={14} /> {loading ? "Actualizando…" : "Actualizar"}
           </button>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(145px, 1fr))", gap: 8 }}>
-          <Stat icon={Link2} label="Requisitos" value={stats.requirements} color={C.blue} />
-          <Stat icon={PackageCheck} label="Productos vinculados" value={stats.products} color={C.violet} />
-          <Stat icon={CheckCircle2} label="Obras resueltas" value={stats.resolved} color={C.green} />
-          <Stat icon={AlertTriangle} label="Obras pendientes" value={stats.pending} color={stats.pending ? C.cyan : C.green} />
+        <div className="az-ficha">
+          <Stat label="Requisitos" value={stats.requirements} />
+          <Stat label="Productos vinculados" value={stats.products} />
+          <Stat label="Obras resueltas" value={stats.resolved} />
+          <Stat label="Obras pendientes" value={stats.pending} color={stats.pending ? C.cyan : undefined} />
         </div>
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <input value={q} onChange={(event) => setQ(event.target.value)} placeholder="Buscar requisito, producto, código, proveedor o marca anterior…" style={{ ...INP, flex: "1 1 320px" }} />
+        <div style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <label className="az-buscar" style={{ flex: "1 1 320px" }}>
+            <Search size={15} />
+            <input value={q} onChange={(event) => setQ(event.target.value)} placeholder="Buscar requisito, producto, código, proveedor o marca anterior…" />
+          </label>
           <select value={mode} onChange={(event) => setMode(event.target.value)} style={{ ...INP, width: 205 }}>
             <option value="todos">Todos los requisitos</option>
             <option value="pendientes">Con obras pendientes</option>
@@ -192,7 +195,7 @@ export default function VariantesMarcasTab({ materiales = [] }) {
           </select>
         </div>
         {error && (
-          <div style={{ border: `1px solid ${C.redB}`, background: "rgba(239,68,68,.08)", color: C.red, borderRadius: 10, padding: "9px 11px", fontSize: 12, fontWeight: 650 }}>
+          <div style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 3, padding: "9px 11px", fontSize: 12, fontWeight: 500 }}>
             {error}
           </div>
         )}
@@ -203,38 +206,38 @@ export default function VariantesMarcasTab({ materiales = [] }) {
           const total = Number(migration.obras_total || 0);
           const resolved = Number(migration.obras_resueltas || 0);
           return (
-            <section key={requirement.id} style={{ border: `1px solid ${pending ? C.cyanB : C.b0}`, background: C.s0, borderRadius: 13, padding: 12, display: "grid", gap: 10 }}>
+            <section key={requirement.id} style={{ border: `1px solid ${pending ? C.cyanB : C.b0}`, background: "transparent", borderRadius: 3, padding: 12, display: "grid", gap: 10 }}>
               <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 12, alignItems: "start" }}>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-                    <span style={{ color: C.t0, fontSize: 13.5, fontWeight: 750 }}>{requirement.descripcion}</span>
-                    <span style={{ color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}`, borderRadius: 999, padding: "2px 7px", fontSize: 9.5, fontWeight: 700 }}>REQUISITO</span>
+                    <span style={{ color: C.t0, fontSize: 13.5, fontWeight: 600 }}>{requirement.descripcion}</span>
+                    <span style={{ color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}`, borderRadius: 999, padding: "2px 7px", fontSize: 9.5, fontWeight: 600 }}>REQUISITO</span>
                   </div>
                   <div style={{ color: C.t3, fontSize: 10.8, marginTop: 3 }}>{[requirement.codigo, requirement.proveedor].filter(Boolean).join(" · ") || "sin código"}</div>
                 </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                  <span style={{ color: C.green, background: C.greenL, border: `1px solid ${C.greenB}`, borderRadius: 999, padding: "3px 8px", fontSize: 10.5, fontWeight: 700 }}>{resolved}/{total} obras resueltas</span>
-                  {pending > 0 && <span style={{ color: C.cyan, background: C.cyanL, border: `1px solid ${C.cyanB}`, borderRadius: 999, padding: "3px 8px", fontSize: 10.5, fontWeight: 700 }}>{pending} pendientes</span>}
+                  <span style={{ color: C.green, background: C.greenL, border: `1px solid ${C.greenB}`, borderRadius: 999, padding: "3px 8px", fontSize: 10.5, fontWeight: 600 }}>{resolved}/{total} obras resueltas</span>
+                  {pending > 0 && <span style={{ color: C.cyan, background: C.cyanL, border: `1px solid ${C.cyanB}`, borderRadius: 999, padding: "3px 8px", fontSize: 10.5, fontWeight: 600 }}>{pending} pendientes</span>}
                 </div>
               </div>
 
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                   {products.map(({ product, link }) => (
-                    <span key={product.id} title={link.variante_legacy ? `Migrado desde: ${link.variante_legacy}` : "Producto recomendado"} style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.t1, background: C.bg, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "3px 5px 3px 9px", fontSize: 10.8, fontWeight: 700 }}>
+                    <span key={product.id} title={link.variante_legacy ? `Migrado desde: ${link.variante_legacy}` : "Producto recomendado"} style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.t1, background: C.bg, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "3px 5px 3px 9px", fontSize: 10.8, fontWeight: 600 }}>
                       <PackageCheck size={11} color={C.green} /> {product.descripcion}
                       <button type="button" disabled={!!busyKey} aria-label={`Quitar ${product.descripcion} de ${requirement.descripcion}`} title="Quitar recomendación" onClick={() => unlinkProduct(requirement, product)} style={{ width: 20, height: 20, border: "none", display: "grid", placeItems: "center", color: C.t3, background: "transparent", cursor: busyKey ? "default" : "pointer", borderRadius: 999 }}>
                         <X size={12} />
                       </button>
                     </span>
                   ))}
-                  {!products.length && <span style={{ color: C.cyan, fontSize: 11.5, fontWeight: 650 }}>Todavía no tiene productos compatibles.</span>}
-                  <button type="button" onClick={() => { setEditingRequirementId((current) => current === requirement.id ? "" : requirement.id); setProductQuery(""); }} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${C.blueB}`, background: editingRequirementId === requirement.id ? C.blueL : C.bg, color: C.blue, borderRadius: 999, padding: "4px 9px", fontFamily: C.sans, fontSize: 10.5, fontWeight: 750, cursor: "pointer" }}>
+                  {!products.length && <span style={{ color: C.cyan, fontSize: 11.5, fontWeight: 500 }}>Todavía no tiene productos compatibles.</span>}
+                  <button type="button" onClick={() => { setEditingRequirementId((current) => current === requirement.id ? "" : requirement.id); setProductQuery(""); }} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${C.blueB}`, background: editingRequirementId === requirement.id ? C.blueL : C.bg, color: C.blue, borderRadius: 999, padding: "4px 9px", fontFamily: C.sans, fontSize: 10.5, fontWeight: 600, cursor: "pointer" }}>
                     <Plus size={12} /> Vincular producto
                   </button>
                 </div>
 
                 {editingRequirementId === requirement.id && (
-                  <div style={{ display: "grid", gap: 8, padding: 10, border: `1px solid ${C.blueB}`, background: C.blueL, borderRadius: 10 }}>
+                  <div style={{ display: "grid", gap: 8, padding: 10, border: `1px solid ${C.blueB}`, background: C.blueL, borderRadius: 3 }}>
                     <label style={{ display: "flex", alignItems: "center", gap: 7, border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 8, padding: "0 9px" }}>
                       <Search size={13} color={C.t2} />
                       <input autoFocus value={productQuery} onChange={(event) => setProductQuery(event.target.value)} placeholder="Buscar producto físico por nombre, código o proveedor…" style={{ minWidth: 0, width: "100%", border: "none", outline: "none", background: "transparent", color: C.t0, padding: "8px 0", fontFamily: C.sans, fontSize: 11.5 }} />
@@ -244,7 +247,7 @@ export default function VariantesMarcasTab({ materiales = [] }) {
                         const key = `link:${requirement.id}:${product.id}`;
                         return <button key={product.id} type="button" disabled={!!busyKey} onClick={() => linkProduct(requirement, product)} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", alignItems: "center", gap: 10, textAlign: "left", border: `1px solid ${C.b0}`, background: C.bg, color: C.t0, borderRadius: 8, padding: "7px 9px", fontFamily: C.sans, cursor: busyKey ? "default" : "pointer" }}>
                           <span style={{ minWidth: 0 }}><strong style={{ fontSize: 11.5 }}>{product.descripcion}</strong><span style={{ display: "block", color: C.t2, fontSize: 10, marginTop: 2 }}>{[product.codigo, product.proveedor].filter(Boolean).join(" · ") || "sin código"}</span></span>
-                          <span style={{ color: C.blue, fontSize: 10.5, fontWeight: 750 }}>{busyKey === key ? "Vinculando…" : "Vincular"}</span>
+                          <span style={{ color: C.blue, fontSize: 10.5, fontWeight: 600 }}>{busyKey === key ? "Vinculando…" : "Vincular"}</span>
                         </button>;
                       })}
                       {!productOptions.filter((product) => product.id !== requirement.id && !products.some((item) => item.product.id === product.id)).length && <span style={{ color: C.t2, fontSize: 11 }}>No hay otro producto que coincida con esa búsqueda.</span>}
@@ -254,7 +257,7 @@ export default function VariantesMarcasTab({ materiales = [] }) {
 
               {legacy.length > 0 && (
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", borderTop: `1px solid ${C.b0}`, paddingTop: 8 }}>
-                  <span style={{ color: C.t3, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: .7 }}>Variantes anteriores</span>
+                  <span className="az-rotulo">Variantes anteriores</span>
                   {legacy.map((variant) => <span key={variant} style={{ color: C.t2, fontSize: 10.5 }}>{variant}</span>)}
                 </div>
               )}
@@ -262,7 +265,7 @@ export default function VariantesMarcasTab({ materiales = [] }) {
           );
         })}
         {!rows.length && !loading && (
-          <div style={{ border: `1px dashed ${C.b0}`, borderRadius: 13, padding: 26, color: C.t2, textAlign: "center", fontSize: 12.5 }}>
+          <div style={{ border: `1px dashed ${C.b0}`, borderRadius: 3, padding: 26, color: C.t2, textAlign: "center", fontSize: 12.5 }}>
             No hay requisitos con esos filtros.
           </div>
         )}
@@ -271,14 +274,11 @@ export default function VariantesMarcasTab({ materiales = [] }) {
   );
 }
 
-function Stat({ icon, label, value, color }) {
+function Stat({ label, value, color }) {
   return (
-    <div style={{ border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 11, padding: "9px 11px", display: "grid", gridTemplateColumns: "30px 1fr", gap: 9, alignItems: "center" }}>
-      <span style={{ width: 30, height: 30, display: "grid", placeItems: "center", borderRadius: 9, color, background: `${color}18`, border: `1px solid ${color}35` }}>{createElement(icon, { size: 15 })}</span>
-      <span>
-        <span style={{ display: "block", color, fontFamily: C.mono, fontSize: 17, fontWeight: 750 }}>{value}</span>
-        <span style={{ display: "block", color: C.t2, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: .55 }}>{label}</span>
-      </span>
+    <div className="az-dato">
+      <div className="az-cifra" style={color ? { color } : undefined}>{value}</div>
+      <div className="az-rotulo">{label}</div>
     </div>
   );
 }

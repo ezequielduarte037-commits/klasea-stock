@@ -68,7 +68,7 @@ export function MaterialThumb({ material, size = 42, fallbackLabel, uploadMateri
           </span>
         )}
         {multiple && (
-          <div style={{ position: "absolute", bottom: 0, right: 0, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 9, fontWeight: 700, padding: "2px 5px", borderTopLeftRadius: 6, backdropFilter: "blur(2px)" }}>
+          <div style={{ position: "absolute", bottom: 0, right: 0, background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 9, fontWeight: 600, padding: "2px 5px", borderTopLeftRadius: 6, backdropFilter: "blur(2px)" }}>
             {imagenes.length} <Camera size={8} style={{ display: "inline", verticalAlign: "middle" }} />
           </div>
         )}
@@ -169,9 +169,9 @@ export function MaterialImageLightbox({ material, imagenes: initialImages = [], 
       }}
       style={{ position: "fixed", inset: 0, zIndex: 6000, background: themeAware ? "color-mix(in srgb, var(--bg) 85%, transparent)" : "rgba(2,6,23,0.88)", backdropFilter: "blur(7px)", display: "grid", placeItems: "center", padding: 20 }}
     >
-      <div onClick={(event) => event.stopPropagation()} style={{ width: "min(1100px, 96vw)", height: "min(820px, 90vh)", minHeight: 240, border: "1px solid rgba(255,255,255,0.18)", background: themeAware ? C.panelSolid : "rgba(15,23,42,0.94)", borderRadius: 12, boxShadow: "0 28px 90px rgba(0,0,0,0.55)", overflow: "hidden", display: "grid", gridTemplateRows: "auto minmax(0,1fr) auto" }}>
+      <div onClick={(event) => event.stopPropagation()} style={{ width: "min(1100px, 96vw)", height: "min(820px, 90vh)", minHeight: 240, border: "1px solid rgba(255,255,255,0.18)", background: themeAware ? C.panelSolid : "rgba(15,23,42,0.94)", borderRadius: 3, boxShadow: "0 28px 90px rgba(0,0,0,0.55)", overflow: "hidden", display: "grid", gridTemplateRows: "auto minmax(0,1fr) auto" }}>
         <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderBottom: "1px solid rgba(255,255,255,0.12)" }}>
-          <div title={alt} style={{ color: themeAware ? C.text : "#f8fafc", fontSize: 13, fontWeight: 700, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{alt}</div>
+          <div title={alt} style={{ color: themeAware ? C.text : "#f8fafc", fontSize: 13, fontWeight: 600, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{alt}</div>
           
           <button type="button" onClick={makeMain} disabled={loading || isMain} title={isMain ? "Ya es la foto principal" : "Hacer foto principal"} style={{ height: 34, padding: "0 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.16)", background: isMain ? (themeAware ? C.blueL : "rgba(34,211,238,0.2)") : "transparent", color: themeAware ? (isMain ? C.blue : C.text) : (isMain ? "#22d3ee" : "#cbd5e1"), display: "flex", alignItems: "center", gap: 6, cursor: loading || isMain ? "default" : "pointer" }}>
             <Star size={15} fill={isMain ? "currentColor" : "none"} /> <span style={{ fontSize: 12, fontWeight: 600 }}>{isMain ? "Principal" : "Hacer Principal"}</span>
@@ -331,7 +331,7 @@ export function PriceHistory({ material }) {
           minWidth: 280,
           background: C.panelSolid,
           border: `1px solid ${C.b1}`,
-          borderRadius: 10,
+          borderRadius: 3,
           boxShadow: "0 18px 60px rgba(0,0,0,.32)",
           padding: 10,
         }}>

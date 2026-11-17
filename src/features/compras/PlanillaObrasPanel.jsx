@@ -1166,6 +1166,18 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         @media (prefers-reduced-motion: reduce) {
           .planilla-obras *, .planilla-obras *::before, .planilla-obras *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
         }
+
+        .planilla-obras .planilla-central .planilla-senales > div { min-width: 0 !important; padding: 2px 24px !important; border: 0 !important; border-left: 1px solid var(--border) !important; border-radius: 0 !important; background: transparent !important; align-items: flex-start !important; }
+        .planilla-obras .planilla-central .planilla-senales > div:first-child { padding-left: 0 !important; border-left: 0 !important; }
+        .planilla-obras .planilla-central .planilla-senales > div > span:first-child { background: transparent !important; color: var(--dim) !important; }
+        .planilla-obras .planilla-central .planilla-senales > div > span:last-child { gap: 10px !important; }
+        .planilla-obras .planilla-central .planilla-senales strong { font-family: inherit !important; font-size: 32px !important; font-weight: 300 !important; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+        .planilla-obras .planilla-central .planilla-senales > div > span:last-child > span { font-size: 11px !important; font-weight: 500 !important; line-height: 1.4; letter-spacing: .2em; text-transform: uppercase; white-space: normal !important; }
+        .planilla-obras .planilla-command .az-buscar > input { padding-right: 24px; }
+        @media (max-width: 899px) {
+          .planilla-obras .planilla-central .planilla-senales > div:nth-child(odd) { padding-left: 0 !important; border-left: 0 !important; }
+          .planilla-obras .planilla-central .planilla-senales strong { font-size: 26px !important; }
+        }
       `}</style>
 
       {/* Encabezado con el mismo lenguaje que el resto de Compras. Va con
@@ -1173,27 +1185,27 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
       <section className="planilla-central" style={{ display: "grid", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
           <div style={{ minWidth: 200, flex: 1 }}>
-            <div style={{ color: C.dim, fontSize: 11, fontWeight: 600, letterSpacing: ".12em", textTransform: "uppercase" }}>{onPedir ? "Compras · Planificar" : "Materiales"}</div>
-            <h2 style={{ margin: "3px 0 0", color: C.text, fontSize: isMobile ? 20 : 24, lineHeight: 1.12, fontWeight: 700, letterSpacing: "-.02em" }}>
-              Planilla por <span style={{ background: "var(--brand-grad)", WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent", color: "transparent" }}>obra</span>
+            <div className="az-rotulo">{onPedir ? "Compras · Planificar" : "Materiales"}</div>
+            <h2 className="az-subtitulo" style={{ marginTop: 3 }}>
+              Planilla por <span>obra</span>
             </h2>
-            <p style={{ margin: "5px 0 0", color: C.dim, fontSize: 13 }}>
+            <p className="az-texto" style={{ marginTop: 5 }}>
               Materiales y obras en una sola tabla
               {datos ? <> · <b style={{ color: C.muted, fontWeight: 600 }}>{datos.obras.length}</b> obras · <b style={{ color: C.muted, fontWeight: 600 }}>{resumenFoco.materiales}</b> materiales</> : null}
             </p>
           </div>
-          <button type="button" aria-expanded={resumenAbierto} onClick={() => setResumenAbierto(actual => !actual)} style={{ ...control, padding: "6px 9px", display: "inline-flex", alignItems: "center", gap: 6, color: resumenAbierto ? C.blue : C.dim }}>
+          <button type="button" aria-expanded={resumenAbierto} onClick={() => setResumenAbierto(actual => !actual)} style={{ ...control, borderRadius: 3, fontWeight: 500, background: "transparent", padding: "6px 9px", display: "inline-flex", alignItems: "center", gap: 6, color: resumenAbierto ? C.blue : C.dim }}>
             Resumen <ChevronDown size={13} style={{ transform: resumenAbierto ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
           </button>
         </div>
         {resumenAbierto && datos ? (
-          <MotionDiv initial={reducirMovimiento ? false : { opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="planilla-senales" style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-            <Metric valor={resumenFoco.aComprar} etiqueta="requieren compra" color={C.cyan} icono={ShoppingCart} />
-            <Metric valor={resumenFoco.pendientes} etiqueta="con faltantes" color={C.red} icono={AlertTriangle} />
-            <Metric valor={resumenFoco.enPanol} etiqueta="esperando retiro" color={C.cyan} icono={PackageCheck} />
-            <Metric valor={resumenFoco.entregados} etiqueta="con entregas" color={C.green} icono={CheckCircle2} />
-            {resumenFoco.secundarios ? <Metric valor={resumenFoco.secundarios} etiqueta="materiales de producción" color={C.violet} icono={FlaskConical} /> : null}
-            {obraSeleccionada?.opcionesPendientes ? <Metric valor={obraSeleccionada.opcionesPendientes} etiqueta="productos por definir" color={C.cyan} icono={CircleAlert} /> : null}
+          <MotionDiv initial={reducirMovimiento ? false : { opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="planilla-senales az-ficha">
+            <Metric valor={resumenFoco.aComprar} etiqueta="requieren compra" color={resumenFoco.aComprar ? C.cyan : C.text} icono={ShoppingCart} />
+            <Metric valor={resumenFoco.pendientes} etiqueta="con faltantes" color={resumenFoco.pendientes ? C.red : C.text} icono={AlertTriangle} />
+            <Metric valor={resumenFoco.enPanol} etiqueta="esperando retiro" color={resumenFoco.enPanol ? C.cyan : C.text} icono={PackageCheck} />
+            <Metric valor={resumenFoco.entregados} etiqueta="con entregas" color={C.text} icono={CheckCircle2} />
+            {resumenFoco.secundarios ? <Metric valor={resumenFoco.secundarios} etiqueta="materiales de producción" color={resumenFoco.secundarios ? C.violet : C.text} icono={FlaskConical} /> : null}
+            {obraSeleccionada?.opcionesPendientes ? <Metric valor={obraSeleccionada.opcionesPendientes} etiqueta="productos por definir" color={obraSeleccionada.opcionesPendientes ? C.cyan : C.text} icono={CircleAlert} /> : null}
           </MotionDiv>
         ) : null}
       </section>
@@ -1296,16 +1308,14 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
       <section
         className="planilla-command"
         style={{
-          ...panel,
+          border: `1px solid ${C.border}`,
+          borderRadius: 3,
           position: "relative",
           zIndex: 4,
           padding: 9,
           display: "grid",
           gap: 8,
-          background: "var(--topbar-soft)",
-          backdropFilter: "var(--glass-filter)",
-          WebkitBackdropFilter: "var(--glass-filter)",
-          boxShadow: "0 12px 30px rgba(15,23,42,.10)",
+          background: "transparent",
         }}
       >
         <div className="planilla-filtros">
@@ -1314,7 +1324,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
           onChange={(event) => cambiarLinea(event.target.value)}
           aria-label="Línea de producción"
           title="Línea de producción"
-          style={{ ...control, minWidth: 82, borderColor: C.blueB, background: C.blueL, color: C.blue, fontWeight: 750 }}
+          style={{ ...control, borderRadius: 3, minWidth: 82, borderColor: C.blueB, background: C.blueL, color: C.blue, fontWeight: 500 }}
         >
           {(datos?.lineasDisponibles ?? [linea]).map((item) => <option key={item} value={item}>{item}</option>)}
         </select>
@@ -1323,36 +1333,35 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
           onChange={(event) => cambiarObra(event.target.value)}
           aria-label="Obra visible"
           title="Elegí una obra para verla en detalle"
-          style={{ ...control, minWidth: 190 }}
+          style={{ ...control, borderRadius: 3, fontWeight: 500, background: "transparent", minWidth: 190 }}
         >
           <option value="">Todas las obras · vista general</option>
           {(datos?.obras ?? []).map((obra) => (
             <option key={obra.id} value={obra.id}>{obra.codigo} · {obra.pendientes} pendientes</option>
           ))}
         </select>
-        <div className="planilla-buscador" style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 240, border: `1px solid ${C.border2}`, background: "var(--panel-2)", borderRadius: 9, padding: "7px 10px" }}>
-          <Search size={14} color={C.dim} />
+        <label className="planilla-buscador az-buscar" style={{ minWidth: 240 }}>
+          <Search size={15} />
           <input
             ref={buscadorRef}
             value={busqueda}
             onChange={(event) => setBusqueda(event.target.value)}
             placeholder="Buscar material, código, rubro o proveedor…"
-            style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", color: C.text, outline: "none", fontFamily: C.sans, fontSize: 12.5, fontWeight: 600 }}
           />
           {busqueda ? (
-            <button type="button" onClick={() => { setBusqueda(""); buscadorRef.current?.focus(); }} aria-label="Limpiar búsqueda" style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", display: "flex", padding: 0 }}>
+            <button type="button" onClick={() => { setBusqueda(""); buscadorRef.current?.focus(); }} aria-label="Limpiar búsqueda" style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", display: "flex", padding: 0, position: "absolute", right: 0, top: "50%", transform: "translateY(-50%)" }}>
               <X size={13} />
             </button>
           ) : null}
-        </div>
-        <button type="button" aria-expanded={filtrosAbiertos} onClick={() => setFiltrosAbiertos(actual => !actual)} style={{ ...control, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, borderColor: cantidadFiltrosActivos ? C.blueB : C.border2, color: cantidadFiltrosActivos ? C.blue : C.text }}>
+        </label>
+        <button type="button" aria-expanded={filtrosAbiertos} onClick={() => setFiltrosAbiertos(actual => !actual)} style={{ ...control, borderRadius: 3, fontWeight: 500, background: "transparent", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, borderColor: cantidadFiltrosActivos ? C.blueB : C.border2, color: cantidadFiltrosActivos ? C.blue : C.text }}>
           <Filter size={14} /> Filtros{cantidadFiltrosActivos ? ` · ${cantidadFiltrosActivos}` : ""}
           <ChevronDown size={13} style={{ transform: filtrosAbiertos ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
         </button>
-        <button type="button" aria-expanded={vistaAbierta} onClick={() => setVistaAbierta(actual => !actual)} style={{ ...control, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, color: vistaAbierta ? C.blue : C.text }}>
+        <button type="button" aria-expanded={vistaAbierta} onClick={() => setVistaAbierta(actual => !actual)} style={{ ...control, borderRadius: 3, fontWeight: 500, background: "transparent", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, color: vistaAbierta ? C.blue : C.text }}>
           <Settings2 size={14} /> Vista
         </button>
-        <button type="button" onClick={() => cargar(linea)} disabled={cargando} aria-label="Actualizar" title="Actualizar datos" style={{ ...control, display: "grid", placeItems: "center", flex: "0 0 auto" }}>
+        <button type="button" onClick={() => cargar(linea)} disabled={cargando} aria-label="Actualizar" title="Actualizar datos" style={{ ...control, borderRadius: 3, fontWeight: 500, background: "transparent", display: "grid", placeItems: "center", flex: "0 0 auto" }}>
           {cargando ? <LoaderCircle size={14} className="spin" /> : <RotateCcw size={14} />}
         </button>
         </div>
@@ -1366,7 +1375,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
             ? `${soloPedirACompras ? "Pedido" : "Aviso"} para: ${obrasAvisoSeleccionadas.map((obra) => obra.codigo).join(", ")}`
             : `Elegí las obras que compartirán el ${soloPedirACompras ? "pedido a compras" : "aviso a pañol"}`}
           style={{
-            ...control,
+            ...control, borderRadius: 3, fontWeight: 500,
             minWidth: 152,
             display: "inline-flex",
             alignItems: "center",
@@ -1384,7 +1393,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
           <ChevronDown size={13} style={{ transform: selectorObrasAvisoAbierto ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
         </button>
         {!obraSeleccionada ? (
-          <div style={{ display: "inline-flex", gap: 2, border: `1px solid ${C.border2}`, borderRadius: 9, padding: 2, background: "var(--panel-solid)" }}>
+          <div style={{ display: "inline-flex", gap: 2, border: `1px solid ${C.border2}`, borderRadius: 3, padding: 2, background: "var(--panel-solid)" }}>
             {VISTAS.map((item) => (
               <button
                 key={item.valor}
@@ -1393,12 +1402,12 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                 title={item.ayuda}
                 style={{
                   border: "none",
-                  borderRadius: 7,
+                  borderRadius: 3,
                   padding: "5px 8px",
                   cursor: "pointer",
                   fontFamily: C.sans,
                   fontSize: 11,
-                  fontWeight: vista === item.valor ? 700 : 650,
+                  fontWeight: vista === item.valor ? 500 : 400,
                   background: vista === item.valor ? C.blueL : "transparent",
                   color: vista === item.valor ? C.blue : C.dim,
                 }}
@@ -1408,13 +1417,13 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
             ))}
           </div>
         ) : null}
-        <select value={agrupar} onChange={(event) => setAgrupar(event.target.value)} style={control}>
+        <select value={agrupar} onChange={(event) => setAgrupar(event.target.value)} style={{ ...control, borderRadius: 3, fontWeight: 500, background: "transparent" }}>
           {AGRUPACIONES.map((item) => <option key={item.valor} value={item.valor}>{item.etiqueta}</option>)}
         </select>
         <button
           type="button"
           onClick={() => setSoloPendientes((current) => !current)}
-          style={{ ...control, borderColor: soloPendientes ? C.blueB : C.border2, background: soloPendientes ? C.blueL : "var(--panel-solid)", color: soloPendientes ? C.blue : C.text }}
+          style={{ ...control, borderRadius: 3, fontWeight: 500, borderColor: soloPendientes ? C.blueB : C.border2, background: soloPendientes ? C.blueL : "var(--panel-solid)", color: soloPendientes ? C.blue : C.text }}
         >
           {soloPendientes ? "Sólo pendientes" : "Todos los materiales"}
         </button>
@@ -1425,13 +1434,13 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
             aria-pressed={soloSinOpcion}
             title="Mostrar únicamente requisitos matriz sin producto concreto elegido"
             style={{
-              ...control,
+              ...control, borderRadius: 3, fontWeight: 500,
               display: "inline-flex",
               alignItems: "center",
               gap: 6,
               borderColor: soloSinOpcion ? "var(--cyan)" : C.cyanB,
               background: soloSinOpcion ? "color-mix(in srgb, var(--cyan) 16%, transparent)" : C.cyanL,
-              color: "#b86b00",
+              color: C.cyan,
             }}
           >
             <CircleAlert size={14} />
@@ -1439,14 +1448,14 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
           </button>
         ) : null}
         <div style={{ marginLeft: "auto", display: "flex", gap: 7 }}>
-          <button type="button" onClick={exportar} disabled={!datos || exportando} title="Descargar Excel con resumen, vista por obra y detalle" style={{ ...control, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: exportando ? .65 : 1 }}>
+          <button type="button" onClick={exportar} disabled={!datos || exportando} title="Descargar Excel con resumen, vista por obra y detalle" style={{ ...control, borderRadius: 3, fontWeight: 500, background: "transparent", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: exportando ? .65 : 1 }}>
             {exportando ? <LoaderCircle size={14} className="spin" /> : <Download size={14} />} {exportando ? "Armando…" : "Excel"}
           </button>
         </div>
         </div>
 
         <div className="planilla-origenes" aria-label="Filtrar por origen del material" style={{ display: "flex", alignItems: "center", gap: 6, overflowX: "auto", paddingTop: 8, borderTop: `1px solid ${C.border}`, scrollbarWidth: "thin" }}>
-          <span style={{ flexShrink: 0, padding: "0 4px", color: C.dim, fontSize: 9.5, fontWeight: 750, letterSpacing: .85, textTransform: "uppercase" }}>Origen</span>
+          <span className="az-rotulo" style={{ flexShrink: 0, padding: "0 4px" }}>Origen</span>
           {ORIGENES.map((item) => {
             const activa = origenFiltro === item.valor;
             const meta = item.valor === "todos" ? { color: C.text, fondo: "var(--panel-2)", borde: C.border2 } : ORIGEN_TONOS[item.valor];
@@ -1470,18 +1479,18 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                   border: `1px solid ${activa ? meta.borde : C.border}`,
                   background: activa ? meta.fondo : "transparent",
                   color: activa ? meta.color : C.dim,
-                  borderRadius: 9,
+                  borderRadius: 3,
                   padding: "5px 8px",
                   cursor: "pointer",
                   fontFamily: C.sans,
                   fontSize: 10.5,
-                  fontWeight: activa ? 750 : 650,
+                  fontWeight: activa ? 500 : 400,
                   transition: "border-color .18s ease, color .18s ease, background .18s ease",
                 }}
               >
                 <Icon size={12} />
                 {item.etiqueta}
-                <span style={{ minWidth: 19, borderRadius: 999, padding: "2px 5px", textAlign: "center", background: activa ? "color-mix(in srgb, currentColor 12%, transparent)" : "var(--panel-2)", color: "currentColor", fontFamily: C.mono, fontSize: 9, fontWeight: 700 }}>
+                <span style={{ minWidth: 19, borderRadius: 999, padding: "2px 5px", textAlign: "center", background: activa ? "color-mix(in srgb, currentColor 12%, transparent)" : "var(--panel-2)", color: "currentColor", fontFamily: C.mono, fontSize: 9, fontWeight: 500 }}>
                   {conteoOrigen[item.valor] || 0}
                 </span>
                 {activa ? (
@@ -1490,7 +1499,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
               </MotionButton>
             );
           })}
-          <span style={{ marginLeft: "auto", flexShrink: 0, color: C.dim, fontSize: 10.5, fontWeight: 650 }}>{filasVisibles.length} visibles</span>
+          <span style={{ marginLeft: "auto", flexShrink: 0, color: C.dim, fontSize: 10.5, fontWeight: 500 }}>{filasVisibles.length} visibles</span>
         </div>
         </> : null}
       </section>

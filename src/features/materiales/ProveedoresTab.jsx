@@ -81,17 +81,17 @@ export default function ProveedoresTab({ proveedores, onChanged }) {
   return (
     <div>
       <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
-        <div style={{ position: "relative", flex: "1 1 260px", minWidth: 220 }}>
-          <Search size={14} style={{ position: "absolute", left: 10, top: 10, color: C.t2 }} />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar proveedor" style={{ ...INP, width: "100%", paddingLeft: 30 }} />
-        </div>
+        <label className="az-buscar" style={{ flex: "1 1 260px", minWidth: 220 }}>
+          <Search size={15} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar proveedor" />
+        </label>
         <button type="button" onClick={() => setEditing(emptyProveedor())} style={BTN_PRIMARY}>
           <Plus size={14} /> Nuevo proveedor
         </button>
       </div>
 
       {editing && (
-        <form onSubmit={save} style={{ background: C.s0, border: `1px solid ${C.b1}`, borderRadius: 12, padding: 14, marginBottom: 16 }}>
+        <form onSubmit={save} style={{ background: "transparent", border: `1px solid ${C.b0}`, borderRadius: 3, padding: 14, marginBottom: 16 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10, marginBottom: 10 }}>
             <div>
               <label style={LBL}>Nombre</label>
@@ -149,7 +149,7 @@ export default function ProveedoresTab({ proveedores, onChanged }) {
         </form>
       )}
 
-      <div style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 12 }}>
+      <div style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 3 }}>
         <table style={{ width: "100%", minWidth: 900, borderCollapse: "collapse" }}>
           <thead>
             <tr>
@@ -166,7 +166,7 @@ export default function ProveedoresTab({ proveedores, onChanged }) {
               <tr key={p.id}>
                 <Td>
                   <div style={{ display: "grid", gap: 3 }}>
-                    <span style={{ color: C.t0, fontWeight: 700 }}>{p.nombre}</span>
+                    <span style={{ color: C.t0, fontWeight: 500 }}>{p.nombre}</span>
                     {p.compite_con && <span style={{ color: C.t3, fontSize: 11 }}>Compite: {p.compite_con}</span>}
                   </div>
                 </Td>

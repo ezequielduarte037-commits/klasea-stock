@@ -70,7 +70,7 @@ function ProveedorAlternativasHint({ proveedor, proveedores, compact = false }) 
       style={{
         color: C.t3,
         fontSize: compact ? 10 : 11,
-        fontWeight: 650,
+        fontWeight: 500,
         whiteSpace: "nowrap",
         overflow: "hidden",
         textOverflow: "ellipsis",
@@ -85,7 +85,7 @@ function ProveedorAlternativasHint({ proveedor, proveedores, compact = false }) 
 function SetupPendienteMateriales({ onRetry }) {
   return (
     <div style={{ padding: 28 }}>
-      <div style={{ background: "rgba(34,211,238,0.06)", border: "1px solid rgba(34,211,238,0.25)", borderRadius: 12, padding: 22, maxWidth: 620 }}>
+      <div style={{ background: "rgba(34,211,238,0.06)", border: "1px solid rgba(34,211,238,0.25)", borderRadius: 3, padding: 22, maxWidth: 620 }}>
         <div style={{ fontSize: 14, color: C.cyan, fontWeight: 600, marginBottom: 8 }}>Faltan crear las tablas de Materiales</div>
         <div style={{ fontSize: 13, color: C.t1, lineHeight: 1.7, marginBottom: 14 }}>
           No se pudieron leer las tablas <code style={{ fontFamily: C.mono, fontSize: 12 }}>panol_*</code>.
@@ -145,7 +145,7 @@ function ImportarTab({ batches, onImported }) {
         onClick={() => fileRef.current?.click()}
         style={{
           border: `2px dashed ${dragging ? "#60a5fa" : C.b0}`,
-          borderRadius: 14,
+          borderRadius: 3,
           padding: "34px 20px",
           textAlign: "center",
           cursor: "pointer",
@@ -169,13 +169,13 @@ function ImportarTab({ batches, onImported }) {
       </div>
 
       {parseErr && (
-        <div style={{ background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 10, padding: 14, marginBottom: 16, fontSize: 13, color: "#f87171" }}>
+        <div style={{ background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 3, padding: 14, marginBottom: 16, fontSize: 13, color: "#f87171" }}>
           {String(parseErr.message ?? parseErr)}
         </div>
       )}
 
       {result && (
-        <div style={{ background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 12, padding: 18, marginBottom: 16 }}>
+        <div style={{ background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.25)", borderRadius: 3, padding: 18, marginBottom: 16 }}>
           <div style={{ fontSize: 14, color: C.green, fontWeight: 600, marginBottom: 6 }}>Importación completada</div>
           <div style={{ fontSize: 13, color: C.t1, lineHeight: 1.8 }}>
             {result.creados} materiales nuevos, {result.actualizados} actualizados y {result.cantidades_upsert} cantidades BOM cargadas/actualizadas.
@@ -184,7 +184,7 @@ function ImportarTab({ batches, onImported }) {
       )}
 
       {parsed && (
-        <div style={{ background: C.s0, border: `1px solid ${C.b1}`, borderRadius: 14, padding: 20, marginBottom: 18 }}>
+        <div style={{ background: C.s0, border: `1px solid ${C.b1}`, borderRadius: 3, padding: 20, marginBottom: 18 }}>
           <div style={{ fontSize: 11, letterSpacing: 1.3, textTransform: "uppercase", color: "#60a5fa", fontWeight: 600, marginBottom: 12 }}>
             Vista previa — {fileName}
           </div>
@@ -195,7 +195,7 @@ function ImportarTab({ batches, onImported }) {
             <KpiCard label="Hojas salteadas" value={parsed.skipped.length} sub={parsed.skipped.join(" · ") || "ninguna"} />
           </div>
 
-          <div style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 10, marginBottom: 14 }}>
+          <div style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 3, marginBottom: 14 }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 520 }}>
               <thead>
                 <tr>
@@ -241,7 +241,7 @@ function ImportarTab({ batches, onImported }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
           {batches.map((b) => (
-            <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 14, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 9, padding: "9px 14px", flexWrap: "wrap" }}>
+            <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 14, background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 3, padding: "9px 14px", flexWrap: "wrap" }}>
               <span style={{ fontSize: 13, color: C.t0, fontWeight: 600, flex: 1, minWidth: 160 }}>{b.filename}</span>
               <span style={{ fontSize: 12, color: C.t2 }}>{b.stats?.materiales ?? 0} materiales · {b.stats?.cantidades ?? 0} cantidades</span>
               <span style={{ fontSize: 11, color: C.t2 }}>

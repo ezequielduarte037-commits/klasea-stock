@@ -7,15 +7,15 @@ import { fmtMoney } from "./format";
 import { norm } from "./materialesParser";
 
 const FUENTE_META = {
-  compras_pedido: { label: "Pedido compras", color: "#60a5fa" },
-  compras_carga: { label: "Carga compra", color: "#34d399" },
-  panol_envio: { label: "Pañol", color: "#a78bfa" },
+  compras_pedido: { label: "Pedido compras", color: C.blue, soft: "var(--blue-soft)", border: "var(--blue-border)" },
+  compras_carga: { label: "Carga compra", color: C.green, soft: "var(--green-soft)", border: "var(--green-border)" },
+  panol_envio: { label: "Pañol", color: C.violet, soft: "var(--violet-soft)", border: "var(--violet-border)" },
 };
 
 const inp = (over) => ({
   width: "100%",
   border: `1px solid ${C.b0}`,
-  borderRadius: 7,
+  borderRadius: 3,
   background: "var(--panel)",
   color: C.t0,
   padding: "7px 9px",
@@ -27,13 +27,13 @@ const inp = (over) => ({
 });
 
 const btn = (color, filled = true) => ({
-  border: `1px solid ${filled ? "transparent" : color + "55"}`,
+  border: `1px solid ${filled ? "transparent" : "var(--border-2)"}`,
   background: filled ? color : "transparent",
-  color: filled ? "#fff" : color,
-  borderRadius: 7,
+  color: filled ? "var(--inverse-text)" : color,
+  borderRadius: 3,
   padding: "6px 11px",
   fontSize: 12,
-  fontWeight: 600,
+  fontWeight: 500,
   fontFamily: C.sans,
   cursor: "pointer",
   display: "inline-flex",
@@ -42,9 +42,9 @@ const btn = (color, filled = true) => ({
 });
 
 function FuenteChip({ fuente }) {
-  const meta = FUENTE_META[fuente] || { label: fuente, color: C.dim };
+  const meta = FUENTE_META[fuente] || { label: fuente, color: C.dim, soft: "transparent", border: "var(--border)" };
   return (
-    <span style={{ fontSize: 9, fontWeight: 650, letterSpacing: 0.5, textTransform: "uppercase", color: meta.color, background: `${meta.color}1c`, border: `1px solid ${meta.color}44`, borderRadius: 5, padding: "2px 6px" }}>
+    <span style={{ fontSize: 9, fontWeight: 500, letterSpacing: 0.5, textTransform: "uppercase", color: meta.color, background: meta.soft, border: `1px solid ${meta.border}`, borderRadius: 3, padding: "2px 6px" }}>
       {meta.label}
     </span>
   );
@@ -61,7 +61,7 @@ function VincularPicker({ materiales, onPick, onCancel }) {
   }, [q, materiales]);
 
   return (
-    <div style={{ display: "grid", gap: 6, marginTop: 8, padding: 9, background: "var(--panel)", border: `1px solid ${C.b0}`, borderRadius: 8 }}>
+    <div style={{ display: "grid", gap: 6, marginTop: 8, padding: 9, background: "var(--panel)", border: `1px solid ${C.b0}`, borderRadius: 3 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <Search size={13} color={C.dim} />
         <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar material del catálogo…" style={inp({ padding: "6px 8px" })} />
@@ -72,8 +72,8 @@ function VincularPicker({ materiales, onPick, onCancel }) {
       ) : (
         <div style={{ display: "grid", gap: 4 }}>
           {matches.map((m) => (
-            <button key={m.id} type="button" onClick={() => onPick(m.id)} style={{ textAlign: "left", border: `1px solid ${C.b0}`, background: C.panelSolid, color: C.t0, borderRadius: 6, padding: "6px 8px", cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>
-              <span style={{ fontWeight: 600 }}>{m.descripcion}</span>
+            <button key={m.id} type="button" onClick={() => onPick(m.id)} style={{ textAlign: "left", border: `1px solid ${C.b0}`, background: C.panelSolid, color: C.t0, borderRadius: 3, padding: "6px 8px", cursor: "pointer", fontSize: 12, fontFamily: C.sans }}>
+              <span style={{ fontWeight: 500 }}>{m.descripcion}</span>
               {m.codigo ? <span style={{ color: C.dim, fontFamily: C.mono, marginLeft: 6 }}>· {m.codigo}</span> : null}
             </button>
           ))}
@@ -86,8 +86,8 @@ function VincularPicker({ materiales, onPick, onCancel }) {
 function CrearPicker({ categorias, onCreate, onCancel }) {
   const [catId, setCatId] = useState(categorias[0]?.id || "");
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, padding: 9, background: "var(--panel)", border: `1px solid ${C.b0}`, borderRadius: 8, flexWrap: "wrap" }}>
-      <span style={{ color: C.t2, fontSize: 11, fontWeight: 600 }}>Sector:</span>
+    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, padding: 9, background: "var(--panel)", border: `1px solid ${C.b0}`, borderRadius: 3, flexWrap: "wrap" }}>
+      <span style={{ color: C.t2, fontSize: 11, fontWeight: 500 }}>Sector:</span>
       <select value={catId} onChange={(e) => setCatId(e.target.value)} style={inp({ width: "auto", minWidth: 150, padding: "6px 8px", background: C.panelSolid, cursor: "pointer" })}>
         {categorias.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
       </select>
@@ -109,11 +109,11 @@ function CandidatoRow({ cand, categorias, materiales, onAction, busy }) {
   }
 
   return (
-    <div style={{ border: `1px solid ${C.border}`, background: C.panel, borderRadius: 10, padding: 11, opacity: busy ? 0.55 : 1 }}>
+    <div style={{ border: `1px solid ${C.border}`, background: "transparent", borderRadius: 3, padding: 11, opacity: busy ? 0.55 : 1 }}>
       <div style={{ display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 200 }}>
           <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
-            <span style={{ color: C.text, fontSize: 13, fontWeight: 650 }}>{cand.descripcion || "—"}</span>
+            <span style={{ color: C.text, fontSize: 13, fontWeight: 500 }}>{cand.descripcion || "—"}</span>
             <FuenteChip fuente={cand.fuente} />
           </div>
           <div style={{ color: C.dim, fontSize: 11, marginTop: 3, display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -123,7 +123,7 @@ function CandidatoRow({ cand, categorias, materiales, onAction, busy }) {
             {cand.modelo ? <span style={{ color: C.blue }}>Modelo {cand.modelo}</span> : null}
           </div>
         </div>
-        {precio && <div style={{ color: C.green, fontFamily: C.mono, fontSize: 13, fontWeight: 700 }}>{precio}</div>}
+        {precio && <div style={{ color: C.green, fontFamily: C.mono, fontSize: 13, fontWeight: 500 }}>{precio}</div>}
       </div>
 
       <div style={{ display: "flex", gap: 6, marginTop: 9, flexWrap: "wrap" }}>
@@ -204,10 +204,10 @@ export default function BandejaTab({ categorias = [], materiales = [], onChanged
       <style>{"@keyframes spin { to { transform: rotate(360deg); } }"}</style>
       <div style={{ display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 220 }}>
-          <div style={{ color: C.text, fontSize: 16, fontWeight: 700 }}>Bandeja de entrada</div>
-          <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>
+          <h2 className="az-subtitulo">Bandeja de entrada</h2>
+          <p className="az-texto" style={{ marginTop: 8 }}>
             Materiales detectados en pedidos a compras y envíos a pañol. Vinculá a un material existente, creá uno nuevo, o descartá.
-          </div>
+          </p>
         </div>
         <button type="button" disabled={syncing} onClick={() => sincronizar()} style={btn(C.blue, false)}>
           <RefreshCw size={14} style={{ animation: syncing ? "spin 1s linear infinite" : undefined }} /> {syncing ? "Sincronizando…" : "Sincronizar"}
@@ -215,7 +215,7 @@ export default function BandejaTab({ categorias = [], materiales = [], onChanged
       </div>
 
       {aviso && (
-        <div style={{ border: `1px solid ${C.cyanB || "rgba(34,211,238,0.4)"}`, background: "var(--cyan-soft)", color: C.cyan, borderRadius: 9, padding: "9px 11px", fontSize: 12 }}>
+        <div style={{ border: "1px solid var(--cyan-border)", background: "var(--cyan-soft)", color: C.cyan, borderRadius: 3, padding: "9px 11px", fontSize: 12 }}>
           {aviso}
         </div>
       )}
@@ -225,12 +225,12 @@ export default function BandejaTab({ categorias = [], materiales = [], onChanged
       ) : candidatos.length === 0 ? (
         <div style={{ display: "grid", gap: 6, placeItems: "center", padding: "32px 16px", color: C.dim, textAlign: "center" }}>
           <Check size={26} color={C.green} />
-          <div style={{ fontSize: 13, fontWeight: 600, color: C.t1 }}>Bandeja vacía</div>
+          <div style={{ fontSize: 13, fontWeight: 500, color: C.t1 }}>Bandeja vacía</div>
           <div style={{ fontSize: 12 }}>No hay materiales pendientes de revisar. A medida que se trabajen pedidos y envíos van a ir apareciendo acá.</div>
         </div>
       ) : (
         <>
-          <div style={{ color: C.t2, fontSize: 11, fontWeight: 650, letterSpacing: 0.6, textTransform: "uppercase" }}>{candidatos.length} pendiente{candidatos.length === 1 ? "" : "s"}</div>
+          <div className="az-rotulo">{candidatos.length} pendiente{candidatos.length === 1 ? "" : "s"}</div>
           <div style={{ display: "grid", gap: 8 }}>
             {candidatos.map((cand) => (
               <CandidatoRow

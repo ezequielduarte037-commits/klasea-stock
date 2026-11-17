@@ -121,7 +121,7 @@ export function VariantesTab({ opciones, onChanged }) {
       ) : (
         <div style={{ display: "grid", gap: 12 }}>
           {opciones.map((o) => (
-            <div key={o.id} style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, padding: 14 }}>
+            <div key={o.id} style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 3, padding: 14 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: C.t0 }}>{o.nombre}</div>
                 <button type="button" disabled={busy} onClick={() => run(() => borrarOpcion(o.id))} style={{ ...BTN, color: C.red, padding: "4px 8px" }} title="Borrar dimensión">

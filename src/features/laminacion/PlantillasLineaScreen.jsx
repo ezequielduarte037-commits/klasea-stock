@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Save, Trash2 } from "lucide-react";
+import { ClipboardList, Plus, Save, Trash2 } from "lucide-react";
+import PageHeader from "@/components/ui/PageHeader";
 import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
 import { supabase } from "@/supabaseClient";
@@ -201,27 +202,28 @@ export default function PlantillasLineaScreen({ profile }) {
   }
 
   return (
-    <div style={{ position: "absolute", inset: 0, display: "flex", background: C.bg, color: C.text, fontFamily: C.sans }}>
+    <div className="plt-root">
+      <style>{`
+        .plt-root {
+          position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+          display: flex; flex-direction: column; min-height: 0;
+          color: var(--text); font-family: 'Outfit', system-ui, sans-serif;
+        }
+        .plt-root .plt-cuerpo { flex: 1; min-width: 0; min-height: 0; overflow: auto; }
+      `}</style>
 
-      <main style={{ flex: 1, minWidth: 0, overflow: "auto", padding: isMobile ? 14 : 22 }}>
-        <style>{`
-        `}</style>
+      <PageHeader
+        icon={ClipboardList}
+        title="Plantillas por linea"
+        subtitle="Recetas base de materiales de laminacion para K34, K37, K42, K43, K52, K55, K64 y Antago."
+        actions={canEdit ? (
+          <button type="button" onClick={startNew} className="ui-btn ui-btn-primario">
+            <Plus size={14} /> Nueva
+          </button>
+        ) : null}
+      />
 
-        <header style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 18 }}>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <h1 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: C.text }}>
-              Plantillas por linea
-            </h1>
-            <p style={{ margin: "5px 0 0", color: C.dim, fontSize: 13, lineHeight: 1.45 }}>
-              Recetas base de materiales de laminacion para K34, K37, K42, K43, K52, K55, K64 y Antago.
-            </p>
-          </div>
-          {canEdit && (
-            <button type="button" onClick={startNew} style={buttonStyle(C.blue, true)}>
-              <Plus size={14} /> Nueva
-            </button>
-          )}
-        </header>
+      <main className="plt-cuerpo" style={{ padding: isMobile ? 14 : 22 }}>
 
         {!canEdit && (
           <div style={{ ...cardStyle(), marginBottom: 14, color: C.cyan, borderColor: C.cyan }}>
@@ -347,7 +349,7 @@ export default function PlantillasLineaScreen({ profile }) {
                 <button
                   type="button"
                   onClick={() => setItemDrafts((prev) => [...prev, newItemDraft(prev.length + 1)])}
-                  style={buttonStyle(C.muted)}
+                  className="ui-btn"
                 >
                   <Plus size={13} /> Item
                 </button>
@@ -430,7 +432,7 @@ export default function PlantillasLineaScreen({ profile }) {
                   type="button"
                   disabled={!selectedId || saving}
                   onClick={deletePlantilla}
-                  style={buttonStyle(C.red, false, !selectedId || saving)}
+                  className="ui-btn ui-btn-peligro"
                 >
                   <Trash2 size={13} /> Borrar
                 </button>
@@ -438,7 +440,7 @@ export default function PlantillasLineaScreen({ profile }) {
                   type="button"
                   disabled={saving}
                   onClick={savePlantilla}
-                  style={buttonStyle(C.green, true, saving)}
+                  className="ui-btn ui-btn-primario"
                 >
                   <Save size={14} /> {saving ? "Guardando..." : "Guardar plantilla"}
                 </button>
@@ -486,23 +488,5 @@ function inputStyle(over = {}) {
     fontFamily: C.sans,
     boxSizing: "border-box",
     ...over,
-  };
-}
-
-function buttonStyle(color, primary = false, disabled = false) {
-  return {
-    border: `1px solid ${primary ? color : C.border}`,
-    background: primary ? C.panel2 : "transparent",
-    color: disabled ? C.dim : color,
-    borderRadius: 8,
-    padding: "9px 12px",
-    cursor: disabled ? "default" : "pointer",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 6,
-    fontSize: 12,
-    fontWeight: 650,
-    fontFamily: C.sans,
-    opacity: disabled ? 0.55 : 1,
   };
 }

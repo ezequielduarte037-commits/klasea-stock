@@ -21,6 +21,7 @@ import {
 import { C } from "@/theme";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
+import PageHeader from "@/components/ui/PageHeader";
 import { hasAdminAccess } from "@/lib/permissions";
 import {
   actualizarTicket,
@@ -59,10 +60,10 @@ import {
  */
 
 const COLOR_ESTADO = {
-  nuevo: { color: () => C.violet, soft: () => C.violetL, borde: () => C.violetB },
-  en_curso: { color: () => C.blue, soft: () => C.blueL, borde: () => C.blueB },
-  hecho: { color: () => C.green, soft: () => C.greenL, borde: () => C.greenB },
-  descartado: { color: () => C.dim, soft: () => C.panel2, borde: () => C.border },
+  nuevo: { tono: "violeta", color: () => C.violet, soft: () => C.violetL, borde: () => C.violetB },
+  en_curso: { tono: "azul", color: () => C.blue, soft: () => C.blueL, borde: () => C.blueB },
+  hecho: { tono: "verde", color: () => C.green, soft: () => C.greenL, borde: () => C.greenB },
+  descartado: { tono: "gris", color: () => C.dim, soft: () => C.panel2, borde: () => C.border },
 };
 
 const COLOR_TIPO = {
@@ -78,12 +79,10 @@ function sinTildes(texto) {
   return String(texto || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
-function Pastilla({ children, color, soft, borde, title }) {
+function Pastilla({ children, color, soft, borde, title, tono }) {
   return (
-    <span title={title} style={{
-      display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap",
-      border: `1px solid ${borde}`, background: soft, color,
-      borderRadius: 999, padding: "2px 9px", fontSize: 10.5, fontWeight: 700,
+    <span className="ui-tag" data-tono={tono} title={title} style={tono ? undefined : {
+      borderColor: borde, background: soft, color,
     }}>
       {children}
     </span>
@@ -96,7 +95,7 @@ function Avatar({ persona, size = 26 }) {
       width: size, height: size, borderRadius: 9, flexShrink: 0,
       background: C.panel2, border: `1px solid ${C.border}`,
       display: "grid", placeItems: "center", boxSizing: "border-box",
-      fontSize: size * 0.4, fontWeight: 700, color: C.muted, letterSpacing: .3,
+      fontSize: size * 0.4, fontWeight: 600, color: C.muted, letterSpacing: .3,
     }}>
       {iniciales(persona)}
     </div>
@@ -109,6 +108,7 @@ function Voto({ ticket, onVotar, ocupado }) {
   return (
     <button
       type="button"
+      className="ui-btn tickets-voto"
       onClick={(evento) => { evento.stopPropagation(); onVotar(ticket); }}
       disabled={ocupado}
       title={votado ? "Sacar mi voto" : "A mí también me hace falta"}
@@ -118,11 +118,11 @@ function Voto({ ticket, onVotar, ocupado }) {
         background: votado ? C.blueL : C.panelSolid,
         color: votado ? C.blue : C.dim,
         borderRadius: 9, padding: "5px 9px", cursor: ocupado ? "default" : "pointer",
-        fontFamily: C.sans, minWidth: 40, flexShrink: 0,
+        minWidth: 40, flexShrink: 0,
       }}
     >
       <ThumbsUp size={12} fill={votado ? "currentColor" : "none"} />
-      <span style={{ fontSize: 11.5, fontWeight: 700, fontFamily: C.mono }}>{ticket.votos}</span>
+      <span className="ui-num" style={{ fontSize: 11.5, fontWeight: 600 }}>{ticket.votos}</span>
     </button>
   );
 }
@@ -154,11 +154,9 @@ function ModalNuevo({ hayCapturas, onCerrar, onCreado }) {
   useEffect(() => () => { capturas.forEach((captura) => URL.revokeObjectURL(captura.url)); }, [capturas]);
 
   const campo = {
-    width: "100%", boxSizing: "border-box", border: `1px solid ${C.border2}`,
-    background: C.panelSolid, color: C.text, borderRadius: 9, padding: "9px 11px",
-    fontFamily: C.sans, fontSize: 13, fontWeight: 600, outline: "none",
+    boxSizing: "border-box", padding: "9px 11px",
   };
-  const rotulo = { fontSize: 10, fontWeight: 700, color: C.dim, textTransform: "uppercase", letterSpacing: .9, marginBottom: 5, display: "block" };
+  const rotulo = { marginBottom: 5, display: "block" };
 
   async function guardar() {
     if (!titulo.trim() || guardando) return;
@@ -187,7 +185,7 @@ function ModalNuevo({ hayCapturas, onCerrar, onCreado }) {
 
   return (
     <div onClick={onCerrar} style={{
-      position: "fixed", inset: 0, zIndex: 9998, background: "rgba(15,23,42,0.55)",
+      position: "fixed", inset: 0, zIndex: 9998, background: "var(--overlay)",
       backdropFilter: "blur(4px)", display: "grid", placeItems: "center", padding: 16, fontFamily: C.sans,
     }}>
       <div onClick={(evento) => evento.stopPropagation()} style={{
@@ -197,26 +195,24 @@ function ModalNuevo({ hayCapturas, onCerrar, onCreado }) {
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 15px", borderBottom: `1px solid ${C.border}`, position: "sticky", top: 0, background: C.panelSolid }}>
           <LifeBuoy size={16} color={C.blue} />
-          <div style={{ flex: 1, fontSize: 14, fontWeight: 750, color: C.text }}>Pedir algo al sistema</div>
-          <button type="button" onClick={onCerrar} aria-label="Cerrar" style={{ border: "none", background: "transparent", color: C.dim, cursor: "pointer", padding: 4, display: "flex" }}>
+          <div className="ui-seccion-titulo" style={{ flex: 1, fontSize: 14 }}>Pedir algo al sistema</div>
+          <button type="button" className="ui-btn ui-btn-icono ui-btn-fantasma" onClick={onCerrar} aria-label="Cerrar">
             <X size={16} />
           </button>
         </div>
 
         <div style={{ padding: 15, display: "grid", gap: 13 }}>
           <div>
-            <span style={rotulo}>Qué es</span>
+            <span className="ui-rotulo" style={rotulo}>Qué es</span>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {TIPOS.map((opcion) => {
                 const activo = tipo === opcion.id;
                 const color = COLOR_TIPO[opcion.id]?.() || C.blue;
                 return (
-                  <button key={opcion.id} type="button" onClick={() => setTipo(opcion.id)} title={opcion.ayuda} style={{
-                    border: `1px solid ${activo ? color : C.border}`,
+                  <button key={opcion.id} type="button" className="ui-btn" onClick={() => setTipo(opcion.id)} title={opcion.ayuda} style={{
+                    borderColor: activo ? color : C.border,
                     background: activo ? C.panel2 : C.panel,
                     color: activo ? color : C.muted,
-                    borderRadius: 9, padding: "7px 13px", cursor: "pointer",
-                    fontFamily: C.sans, fontSize: 12.5, fontWeight: 700,
                   }}>{opcion.label}</button>
                 );
               })}
@@ -227,8 +223,9 @@ function ModalNuevo({ hayCapturas, onCerrar, onCreado }) {
           </div>
 
           <div>
-            <span style={rotulo}>En una línea</span>
+            <span className="ui-rotulo" style={rotulo}>En una línea</span>
             <input
+              className="ui-input"
               value={titulo}
               onChange={(evento) => setTitulo(evento.target.value)}
               onKeyDown={(evento) => { if (evento.key === "Enter") guardar(); }}
@@ -239,8 +236,9 @@ function ModalNuevo({ hayCapturas, onCerrar, onCreado }) {
           </div>
 
           <div>
-            <span style={rotulo}>Contalo bien <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 600 }}>(opcional, pero ayuda)</span></span>
+            <span className="ui-rotulo" style={rotulo}>Contalo bien <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 600 }}>(opcional, pero ayuda)</span></span>
             <textarea
+              className="ui-input"
               value={detalle}
               onChange={(evento) => setDetalle(evento.target.value)}
               rows={5}
@@ -252,18 +250,12 @@ function ModalNuevo({ hayCapturas, onCerrar, onCreado }) {
           {/* De qué parte del sistema: se toca, no se escribe. Escribiéndolo,
               cada uno lo llama distinto y después no se puede filtrar. */}
           <div>
-            <span style={rotulo}>De qué apartado</span>
+            <span className="ui-rotulo" style={rotulo}>De qué apartado</span>
             <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
               {AREAS.map((area) => {
                 const activo = pantalla === area;
                 return (
-                  <button key={area} type="button" onClick={() => setPantalla(activo ? "" : area)} style={{
-                    border: `1px solid ${activo ? C.blueB : C.border}`,
-                    background: activo ? C.blueL : C.panel,
-                    color: activo ? C.blue : C.muted,
-                    borderRadius: 999, padding: "5px 11px", cursor: "pointer",
-                    fontFamily: C.sans, fontSize: 11.5, fontWeight: 700,
-                  }}>{area}</button>
+                  <button key={area} type="button" className="ui-filtro" aria-pressed={activo} onClick={() => setPantalla(activo ? "" : area)}>{area}</button>
                 );
               })}
             </div>
@@ -273,7 +265,7 @@ function ModalNuevo({ hayCapturas, onCerrar, onCreado }) {
               está escrito en el cartel. Elegir archivo y arrastrar también. */}
           {hayCapturas ? (
           <div>
-            <span style={rotulo}>Capturas <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 600 }}>(opcional)</span></span>
+            <span className="ui-rotulo" style={rotulo}>Capturas <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 600 }}>(opcional)</span></span>
             <label
               onPaste={(evento) => sumarCapturas(imagenesDelEvento(evento))}
               onDragOver={(evento) => evento.preventDefault()}
@@ -281,7 +273,7 @@ function ModalNuevo({ hayCapturas, onCerrar, onCreado }) {
               style={{
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 border: `1px dashed ${C.border2}`, background: C.panel, borderRadius: 10,
-                padding: "14px 12px", cursor: "pointer", color: C.dim, fontSize: 12, fontWeight: 650, textAlign: "center",
+                padding: "14px 12px", cursor: "pointer", color: C.dim, fontSize: 12, fontWeight: 600, textAlign: "center",
               }}
             >
               <ImagePlus size={15} />
@@ -298,9 +290,10 @@ function ModalNuevo({ hayCapturas, onCerrar, onCreado }) {
                     <img src={captura.url} alt={captura.archivo.name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                     <button
                       type="button"
+                      className="ui-btn ui-btn-icono tickets-captura-quitar"
                       onClick={() => setCapturas((actual) => actual.filter((row) => row.id !== captura.id))}
                       aria-label={`Sacar ${captura.archivo.name}`}
-                      style={{ position: "absolute", top: 3, right: 3, border: "none", background: "rgba(15,23,42,.72)", color: "#fff", borderRadius: 6, width: 19, height: 19, display: "grid", placeItems: "center", cursor: "pointer", padding: 0 }}
+                      style={{ position: "absolute", top: 3, right: 3, width: 19, height: 19 }}
                     >
                       <X size={11} />
                     </button>
@@ -313,16 +306,10 @@ function ModalNuevo({ hayCapturas, onCerrar, onCreado }) {
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, padding: "12px 15px", borderTop: `1px solid ${C.border}` }}>
-          <button type="button" onClick={onCerrar} style={{ border: `1px solid ${C.border2}`, background: C.panel, color: C.muted, borderRadius: 9, padding: "9px 14px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700 }}>
+          <button type="button" className="ui-btn" onClick={onCerrar}>
             Cancelar
           </button>
-          <button type="button" onClick={guardar} disabled={!titulo.trim() || guardando} style={{
-            border: `1px solid ${titulo.trim() ? C.blueB : C.border}`,
-            background: titulo.trim() ? C.blue : C.panel,
-            color: titulo.trim() ? "var(--inverse-text)" : C.dim,
-            borderRadius: 9, padding: "9px 16px", cursor: titulo.trim() && !guardando ? "pointer" : "default",
-            fontFamily: C.sans, fontSize: 12.5, fontWeight: 750, display: "inline-flex", alignItems: "center", gap: 7,
-          }}>
+          <button type="button" className="ui-btn ui-btn-primario" onClick={guardar} disabled={!titulo.trim() || guardando}>
             {guardando ? <LoaderCircle size={14} className="spin" /> : <Plus size={14} />}
             Crear
           </button>
@@ -416,13 +403,13 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
       {mirando ? (
         <div
           onClick={() => setMirando(null)}
-          style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(8,12,22,.86)", display: "grid", placeItems: "center", padding: 24, cursor: "zoom-out" }}
+          style={{ position: "fixed", inset: 0, zIndex: 9999, background: "var(--overlay-strong)", display: "grid", placeItems: "center", padding: 24, cursor: "zoom-out" }}
         >
           {/* min-height:0 o la captura alta sale cortada: como item de grid
               arranca con min-height:auto -su alto natural- y ese mínimo le gana
               al max-height:100%. Una captura de celular es siempre en retrato. */}
-          <img src={mirando.url} alt={mirando.nombre || "captura"} style={{ maxWidth: "100%", maxHeight: "100%", minWidth: 0, minHeight: 0, objectFit: "contain", borderRadius: 10, boxShadow: "0 24px 70px rgba(0,0,0,.5)" }} />
-          <button type="button" onClick={() => setMirando(null)} aria-label="Cerrar" style={{ position: "fixed", top: 16, right: 16, border: "1px solid rgba(255,255,255,.25)", background: "rgba(15,23,42,.7)", color: "#fff", borderRadius: 9, width: 34, height: 34, display: "grid", placeItems: "center", cursor: "pointer" }}>
+          <img src={mirando.url} alt={mirando.nombre || "captura"} style={{ maxWidth: "100%", maxHeight: "100%", minWidth: 0, minHeight: 0, objectFit: "contain", borderRadius: 10, boxShadow: "0 24px 70px var(--shadow)" }} />
+          <button type="button" className="ui-btn ui-btn-icono" onClick={() => setMirando(null)} aria-label="Cerrar" style={{ position: "fixed", top: 16, right: 16 }}>
             <X size={16} />
           </button>
         </div>
@@ -432,13 +419,13 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
       <div style={{ padding: isMobile ? "12px 12px 10px" : "14px 16px 12px", borderBottom: `1px solid ${C.border}`, flexShrink: 0, background: C.topbarSoft }}>
         <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
           {isMobile ? (
-            <button type="button" onClick={onVolver} aria-label="Volver a la lista" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 8, width: 30, height: 30, display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
+            <button type="button" className="ui-btn ui-btn-icono" onClick={onVolver} aria-label="Volver a la lista" style={{ flexShrink: 0 }}>
               <ArrowLeft size={15} />
             </button>
           ) : null}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
-              <Pastilla color={estado.color()} soft={estado.soft()} borde={estado.borde()}>
+              <Pastilla tono={estado.tono}>
                 {etiquetaEstado(ticket.estado)}
               </Pastilla>
               <Pastilla color={COLOR_TIPO[ticket.tipo]?.() || C.blue} soft={C.panel2} borde={C.border}>
@@ -453,7 +440,7 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
                 </Pastilla>
               ) : null}
             </div>
-            <h2 style={{ margin: 0, fontSize: isMobile ? 15.5 : 17, fontWeight: 750, color: C.text, lineHeight: 1.3 }}>
+            <h2 className="ui-seccion-titulo" style={{ fontSize: isMobile ? 15.5 : 17, lineHeight: 1.3 }}>
               {ticket.titulo}
             </h2>
             <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 7, color: C.dim, fontSize: 11.5, fontWeight: 600 }}>
@@ -472,7 +459,7 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
             a buscar el que lo abrió. */}
         {cerrado && ticket.resolucion ? (
           <div style={{ ...seccion, borderColor: estado.borde(), background: estado.soft(), padding: 13 }}>
-            <div style={{ color: estado.color(), fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: .8, marginBottom: 5 }}>
+            <div className="ui-rotulo" style={{ color: estado.color(), marginBottom: 5 }}>
               {ticket.estado === "hecho" ? "Qué se hizo" : "Por qué no se hace"}
             </div>
             <div style={{ color: C.text, fontSize: 13, lineHeight: 1.55, whiteSpace: "pre-wrap" }}>{ticket.resolucion}</div>
@@ -481,7 +468,7 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
 
         {ticket.detalle ? (
           <div style={{ ...seccion, padding: 13 }}>
-            <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: .8, marginBottom: 6 }}>El pedido</div>
+            <div className="ui-rotulo" style={{ marginBottom: 6 }}>El pedido</div>
             <div style={{ color: C.text, fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{ticket.detalle}</div>
           </div>
         ) : null}
@@ -495,14 +482,10 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
           onDrop={(evento) => { evento.preventDefault(); sumarCapturas(imagenesDelEvento(evento)); }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: capturas.length ? 9 : 0 }}>
-            <span style={{ flex: 1, color: C.dim, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: .8 }}>
+            <span className="ui-rotulo" style={{ flex: 1 }}>
               Capturas{capturas.length ? ` · ${capturas.length}` : ""}
             </span>
-            <label style={{
-              display: "inline-flex", alignItems: "center", gap: 6, cursor: subiendo ? "default" : "pointer",
-              border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.muted, borderRadius: 8,
-              padding: "5px 10px", fontSize: 11.5, fontWeight: 700,
-            }}>
+            <label className="ui-btn" style={{ cursor: subiendo ? "default" : "pointer" }}>
               {subiendo ? <LoaderCircle size={12} className="spin" /> : <ImagePlus size={12} />}
               Agregar
               <input type="file" accept="image/*" multiple hidden
@@ -513,14 +496,14 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {capturas.map((captura) => (
                 <div key={captura.id} style={{ position: "relative" }}>
-                  <button type="button" onClick={() => setMirando(captura)} title={captura.nombre || "Ver"} style={{
+                  <button type="button" className="ui-btn" onClick={() => setMirando(captura)} title={captura.nombre || "Ver"} style={{
                     width: 96, height: 78, borderRadius: 9, overflow: "hidden", padding: 0,
                     border: `1px solid ${C.border2}`, background: C.panel2, cursor: "zoom-in", display: "block",
                   }}>
                     <img src={captura.url} alt={captura.nombre || "captura"} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                   </button>
                   {captura.autor_id === miId || puedeGestionar ? (
-                    <button type="button"
+                    <button type="button" className="ui-btn ui-btn-icono tickets-captura-quitar"
                       onClick={async () => {
                         try {
                           await borrarAdjunto(captura.id);
@@ -528,7 +511,7 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
                         } catch (e) { toast.error(e?.message || "No se pudo borrar."); }
                       }}
                       aria-label={`Borrar ${captura.nombre || "la captura"}`}
-                      style={{ position: "absolute", top: 4, right: 4, border: "none", background: "rgba(15,23,42,.72)", color: "#fff", borderRadius: 6, width: 20, height: 20, display: "grid", placeItems: "center", cursor: "pointer", padding: 0 }}
+                      style={{ position: "absolute", top: 4, right: 4 }}
                     >
                       <X size={11} />
                     </button>
@@ -547,57 +530,55 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
         {/* Panel de gestión */}
         {puedeGestionar ? (
           <div style={{ ...seccion, borderColor: C.border2, padding: 13, display: "grid", gap: 10 }}>
-            <div style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: .8 }}>Seguimiento</div>
+            <div className="ui-rotulo">Seguimiento</div>
             <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
               {ESTADOS.map((opcion) => {
                 const activo = ticket.estado === opcion.id;
                 const paleta = COLOR_ESTADO[opcion.id];
                 return (
-                  <button key={opcion.id} type="button" title={opcion.ayuda}
+                  <button key={opcion.id} type="button" className="ui-btn" title={opcion.ayuda}
                     onClick={() => { if (!activo) cambiar({ estado: opcion.id }); }}
                     style={{
-                      border: `1px solid ${activo ? paleta.borde() : C.border}`,
+                      borderColor: activo ? paleta.borde() : C.border,
                       background: activo ? paleta.soft() : C.panelSolid,
                       color: activo ? paleta.color() : C.muted,
-                      borderRadius: 8, padding: "6px 11px", cursor: activo ? "default" : "pointer",
-                      fontFamily: C.sans, fontSize: 11.5, fontWeight: 700,
+                      cursor: activo ? "default" : "pointer",
                     }}>{opcion.label}</button>
                 );
               })}
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-              <span style={{ color: C.dim, fontSize: 11.5, fontWeight: 650 }}>Prioridad</span>
+              <span style={{ color: C.dim, fontSize: 11.5, fontWeight: 600 }}>Prioridad</span>
               <select
+                className="ui-input"
                 value={ticket.prioridad}
                 onChange={(evento) => cambiar({ prioridad: evento.target.value })}
-                style={{ border: `1px solid ${C.border2}`, background: C.panelSolid, color: C.text, borderRadius: 8, padding: "6px 9px", fontFamily: C.sans, fontSize: 12, fontWeight: 650, outline: "none", cursor: "pointer" }}
+                style={{ width: "auto", cursor: "pointer" }}
               >
                 {PRIORIDADES.map((opcion) => (
                   <option key={opcion.id} value={opcion.id}>{opcion.label}</option>
                 ))}
               </select>
-              <button type="button"
+              <button type="button" className="ui-btn"
                 onClick={() => cambiar({ asignado_a: ticket.asignado_a === miId ? null : miId })}
                 style={{
-                  border: `1px solid ${ticket.asignado_a === miId ? C.blueB : C.border2}`,
+                  borderColor: ticket.asignado_a === miId ? C.blueB : C.border2,
                   background: ticket.asignado_a === miId ? C.blueL : C.panelSolid,
                   color: ticket.asignado_a === miId ? C.blue : C.muted,
-                  borderRadius: 8, padding: "6px 11px", cursor: "pointer", fontFamily: C.sans, fontSize: 11.5, fontWeight: 700,
                 }}>
                 {ticket.asignado_a === miId ? "Lo estoy viendo yo" : "Me lo asigno"}
               </button>
             </div>
             <div>
               <textarea
+                className="ui-input"
                 value={resolucion}
                 onChange={(evento) => setResolucion(evento.target.value)}
                 onBlur={() => { if ((resolucion || "") !== (ticket.resolucion || "")) cambiar({ resolucion }); }}
                 rows={2}
                 placeholder="Qué se hizo, o por qué no se va a hacer. Lo lee el que lo pidió."
                 style={{
-                  width: "100%", boxSizing: "border-box", border: `1px solid ${C.border2}`,
-                  background: C.panelSolid, color: C.text, borderRadius: 9, padding: "8px 10px",
-                  fontFamily: C.sans, fontSize: 12.5, outline: "none", resize: "vertical", lineHeight: 1.5,
+                  boxSizing: "border-box", padding: "8px 10px", resize: "vertical", lineHeight: 1.5,
                 }}
               />
             </div>
@@ -606,7 +587,7 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
 
         {/* El hilo */}
         <div style={{ ...seccion, overflow: "hidden" }}>
-          <div style={{ padding: "10px 13px", borderBottom: `1px solid ${C.border}`, color: C.dim, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: .8, display: "flex", alignItems: "center", gap: 7 }}>
+          <div className="ui-rotulo" style={{ padding: "10px 13px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 7 }}>
             <MessageSquare size={12} /> Qué pasó con esto
           </div>
           {cargandoHilo ? (
@@ -636,14 +617,14 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       {cambio ? (
-                        <div style={{ fontSize: 12, fontWeight: 650, color: C.muted }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: C.muted }}>
                           {nombrePersona(fila.autor)} lo pasó a{" "}
                           <b style={{ color: paleta.color() }}>{etiquetaEstado(fila.estado_a)}</b>
                           <span style={{ color: C.dim, fontWeight: 600 }}> · {haceCuanto(fila.created_at)}</span>
                         </div>
                       ) : (
                         <>
-                          <div style={{ fontSize: 11.5, fontWeight: 700, color: C.muted }}>
+                          <div style={{ fontSize: 11.5, fontWeight: 600, color: C.muted }}>
                             {nombrePersona(fila.autor)}
                             <span style={{ color: C.dim, fontWeight: 600 }}> · {haceCuanto(fila.created_at)}</span>
                           </div>
@@ -659,11 +640,7 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
         </div>
 
         {puedeBorrar ? (
-          <button type="button" onClick={() => onBorrar(ticket)} style={{
-            justifySelf: "start", border: `1px solid ${C.border}`, background: "transparent", color: C.red,
-            borderRadius: 9, padding: "7px 12px", cursor: "pointer", fontFamily: C.sans, fontSize: 12, fontWeight: 700,
-            display: "inline-flex", alignItems: "center", gap: 7,
-          }}>
+          <button type="button" className="ui-btn ui-btn-peligro" onClick={() => onBorrar(ticket)} style={{ justifySelf: "start" }}>
             <Trash2 size={13} /> Borrar el ticket
           </button>
         ) : null}
@@ -672,6 +649,7 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
       {/* Comentar: pegado abajo, que es donde la mano lo busca. */}
       <div style={{ borderTop: `1px solid ${C.border}`, padding: isMobile ? 10 : "10px 16px", background: C.topbarSoft, flexShrink: 0, display: "flex", gap: 8, alignItems: "flex-end" }}>
         <textarea
+          className="ui-input"
           value={texto}
           onChange={(evento) => setTexto(evento.target.value)}
           onKeyDown={(evento) => { if (evento.key === "Enter" && (evento.ctrlKey || evento.metaKey)) { evento.preventDefault(); enviar(); } }}
@@ -683,18 +661,11 @@ function Detalle({ ticket, miId, puedeGestionar, hayCapturas, onCambiar, onBorra
           rows={1}
           placeholder="Escribí algo o pegá una captura… (Ctrl + Enter para mandar)"
           style={{
-            flex: 1, minWidth: 0, boxSizing: "border-box", border: `1px solid ${C.border2}`,
-            background: C.panelSolid, color: C.text, borderRadius: 9, padding: "9px 11px",
-            fontFamily: C.sans, fontSize: 12.5, outline: "none", resize: "vertical", lineHeight: 1.5, maxHeight: 140,
+            flex: 1, minWidth: 0, boxSizing: "border-box", padding: "9px 11px",
+            resize: "vertical", lineHeight: 1.5, maxHeight: 140,
           }}
         />
-        <button type="button" onClick={enviar} disabled={!texto.trim() || enviando} title="Mandar" style={{
-          border: `1px solid ${texto.trim() ? C.blueB : C.border}`,
-          background: texto.trim() ? C.blue : C.panel,
-          color: texto.trim() ? "var(--inverse-text)" : C.dim,
-          borderRadius: 9, width: 38, height: 38, display: "grid", placeItems: "center",
-          cursor: texto.trim() && !enviando ? "pointer" : "default", flexShrink: 0,
-        }}>
+        <button type="button" className="ui-btn ui-btn-primario ui-btn-icono" onClick={enviar} disabled={!texto.trim() || enviando} title="Mandar" aria-label="Mandar" style={{ flexShrink: 0 }}>
           {enviando ? <LoaderCircle size={15} className="spin" /> : <Send size={15} />}
         </button>
       </div>
@@ -841,42 +812,30 @@ export default function TicketsScreen({ profile }) {
           <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
             <Search size={14} color={C.dim} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
             <input
+              className="ui-input"
               value={busca}
               onChange={(evento) => setBusca(evento.target.value)}
               placeholder="Buscar un ticket…"
               aria-label="Buscar entre los tickets"
               style={{
-                width: "100%", boxSizing: "border-box", border: `1px solid ${C.border2}`,
-                background: C.panelSolid, color: C.text, borderRadius: 9,
-                padding: "8px 32px 8px 32px", fontFamily: C.sans, fontSize: 12.5, fontWeight: 600, outline: "none",
+                boxSizing: "border-box", padding: "8px 32px",
               }}
             />
             {busca ? (
-              <button type="button" onClick={() => setBusca("")} aria-label="Limpiar la búsqueda" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: C.dim, cursor: "pointer", display: "flex", padding: 2 }}>
+              <button type="button" className="ui-btn ui-btn-icono ui-btn-fantasma tickets-buscar-limpiar" onClick={() => setBusca("")} aria-label="Limpiar la búsqueda" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)" }}>
                 <X size={13} />
               </button>
             ) : null}
           </div>
-          <button type="button" onClick={() => setSoloMios((v) => !v)} title="Sólo los que cargué yo" style={{
-            border: `1px solid ${soloMios ? C.blueB : C.border2}`,
-            background: soloMios ? C.blueL : C.panel,
-            color: soloMios ? C.blue : C.muted,
-            borderRadius: 9, padding: "8px 11px", cursor: "pointer", fontFamily: C.sans, fontSize: 11.5, fontWeight: 700, whiteSpace: "nowrap",
-          }}>
+          <button type="button" className="ui-filtro" aria-pressed={soloMios} onClick={() => setSoloMios((v) => !v)} title="Sólo los que cargué yo">
             Míos
           </button>
         </div>
-        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+        <div className="ui-filtros" style={{ flexWrap: "wrap" }}>
           {filtros.map((opcion) => {
             const activo = filtro === opcion.id;
             return (
-              <button key={opcion.id} type="button" onClick={() => setFiltro(opcion.id)} style={{
-                border: `1px solid ${activo ? C.blueB : C.border}`,
-                background: activo ? C.blueL : C.panelSolid,
-                color: activo ? C.blue : C.muted,
-                borderRadius: 8, padding: "5px 10px", cursor: "pointer",
-                fontFamily: C.sans, fontSize: 11.5, fontWeight: 700,
-              }}>
+              <button key={opcion.id} type="button" className="ui-filtro" aria-pressed={activo} onClick={() => setFiltro(opcion.id)}>
                 {opcion.label}{opcion.cuenta ? ` · ${opcion.cuenta}` : ""}
               </button>
             );
@@ -887,7 +846,7 @@ export default function TicketsScreen({ profile }) {
       {/* La lista */}
       <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: isMobile ? 10 : 16, display: "grid", gap: 9, alignContent: "start", gridAutoRows: "max-content" }}>
         {error ? (
-          <div style={{ ...seccion, borderColor: C.redB, background: C.redL, color: C.red, padding: "11px 13px", fontSize: 12.5, fontWeight: 650, display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ ...seccion, borderColor: C.redB, background: C.redL, color: C.red, padding: "11px 13px", fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
             <AlertTriangle size={16} /> {error}
           </div>
         ) : null}
@@ -895,22 +854,22 @@ export default function TicketsScreen({ profile }) {
         {faltaTabla ? (
           <div style={{ ...seccion, padding: 26, textAlign: "center" }}>
             <Lock size={20} color={C.dim} style={{ marginBottom: 8 }} />
-            <div style={{ fontSize: 14, fontWeight: 700 }}>Falta crear las tablas</div>
+            <div className="ui-seccion-titulo" style={{ fontSize: 14 }}>Falta crear las tablas</div>
             <div style={{ color: C.dim, fontSize: 12.5, marginTop: 5, lineHeight: 1.55, maxWidth: 420, marginInline: "auto" }}>
               La pantalla está lista, pero en la base todavía no existen las tablas de tickets.
-              Hay que correr la migración <b style={{ color: C.muted, fontFamily: C.mono, fontSize: 11.5 }}>20260907140000_sistema_tickets.sql</b> en
+              Hay que correr la migración <b className="ui-num" style={{ color: C.muted, fontSize: 11.5 }}>20260907140000_sistema_tickets.sql</b> en
               el editor SQL de Supabase.
             </div>
           </div>
         ) : cargando ? (
-          <div style={{ ...seccion, padding: 34, textAlign: "center", color: C.dim, fontSize: 13, fontWeight: 650 }}>
+          <div style={{ ...seccion, padding: 34, textAlign: "center", color: C.dim, fontSize: 13, fontWeight: 600 }}>
             <LoaderCircle size={20} className="spin" style={{ marginBottom: 8 }} />
             <div>Buscando tickets…</div>
           </div>
         ) : !visibles.length ? (
           <div style={{ ...seccion, padding: 30, textAlign: "center" }}>
             <Inbox size={20} color={C.dim} style={{ marginBottom: 8 }} />
-            <div style={{ fontSize: 13.5, fontWeight: 700 }}>
+            <div className="ui-seccion-titulo" style={{ fontSize: 13.5 }}>
               {tickets.length ? "Nada con ese filtro" : "Todavía no hay tickets"}
             </div>
             <div style={{ color: C.dim, fontSize: 12.5, marginTop: 5, lineHeight: 1.5, maxWidth: 380, marginInline: "auto" }}>
@@ -919,11 +878,7 @@ export default function TicketsScreen({ profile }) {
                 : "Si algo del sistema te hace perder tiempo o falta algo que necesitás, pedilo acá. Se le puede seguir el rastro."}
             </div>
             {!tickets.length ? (
-              <button type="button" onClick={() => setNuevo(true)} style={{
-                marginTop: 13, border: `1px solid ${C.blueB}`, background: C.blue, color: "var(--inverse-text)",
-                borderRadius: 9, padding: "9px 15px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 750,
-                display: "inline-flex", alignItems: "center", gap: 7,
-              }}>
+              <button type="button" className="ui-btn ui-btn-primario" onClick={() => setNuevo(true)} style={{ marginTop: 13 }}>
                 <Plus size={14} /> Cargar el primero
               </button>
             ) : null}
@@ -950,7 +905,7 @@ export default function TicketsScreen({ profile }) {
               <Voto ticket={ticket} onVotar={votar} ocupado={votando === ticket.id} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
-                  <Pastilla color={estado.color()} soft={estado.soft()} borde={estado.borde()}>
+                  <Pastilla tono={estado.tono}>
                     {etiquetaEstado(ticket.estado)}
                   </Pastilla>
                   <Pastilla color={COLOR_TIPO[ticket.tipo]?.() || C.blue} soft={C.panel2} borde={C.border}>
@@ -959,13 +914,13 @@ export default function TicketsScreen({ profile }) {
                   {ticket.pantalla ? <Pastilla color={C.dim} soft={C.panel2} borde={C.border}>{ticket.pantalla}</Pastilla> : null}
                   {ticket.prioridad === "alta" ? <Pastilla color={C.red} soft={C.redL} borde={C.redB}>Alta</Pastilla> : null}
                 </div>
-                <div style={{ fontSize: 13.5, fontWeight: 700, color: C.text, lineHeight: 1.35 }}>
+                <div className="ui-seccion-titulo" style={{ fontSize: 13.5, lineHeight: 1.35 }}>
                   {ticket.titulo}
                 </div>
                 <div style={{ color: C.dim, fontSize: 11, fontWeight: 600, marginTop: 4, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                   <Avatar persona={ticket.autor} size={17} />
                   {nombrePersona(ticket.autor)} · {haceCuanto(ticket.created_at)}
-                  {ticket.asignado ? <> · <span style={{ color: C.muted, fontWeight: 650 }}>{nombrePersona(ticket.asignado)}</span></> : null}
+                  {ticket.asignado ? <> · <span style={{ color: C.muted, fontWeight: 600 }}>{nombrePersona(ticket.asignado)}</span></> : null}
                 </div>
               </div>
               <ChevronRight size={15} color={C.dim} style={{ flexShrink: 0, marginTop: 4 }} />
@@ -977,7 +932,7 @@ export default function TicketsScreen({ profile }) {
   );
 
   return (
-    <div style={{ position: "absolute", inset: 0, overflow: "hidden", background: C.bg, color: C.text, fontFamily: C.sans }}>
+    <div className="tickets-root">
       {nuevo ? (
         <ModalNuevo
           hayCapturas={hayCapturas}
@@ -991,68 +946,71 @@ export default function TicketsScreen({ profile }) {
         />
       ) : null}
       <style>{`
-        .ticket-card { transition: border-color .16s, transform .16s, box-shadow .16s; }
-        .ticket-card:hover { border-color: var(--border-2); transform: translateY(-1px); box-shadow: 0 6px 18px var(--shadow); }
+        .tickets-root {
+          position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+          display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+          background: var(--bg); color: var(--text); font-family: 'Outfit', sans-serif;
+        }
+        .tickets-root .tickets-cuerpo { flex: 1; min-width: 0; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
+        .tickets-root .ticket-card { transition: border-color .16s, transform .16s, box-shadow .16s; }
+        .tickets-root .ticket-card:hover { border-color: var(--border-2); transform: translateY(-1px); box-shadow: 0 6px 18px var(--shadow); }
+        .tickets-root .tickets-voto { min-height: 0; }
+        .tickets-root .tickets-captura-quitar { min-height: 0; width: 20px; height: 20px; padding: 0; border-radius: 6px; }
+        .tickets-root .tickets-buscar-limpiar { min-height: 0; width: 20px; height: 24px; padding: 2px; }
+        .tickets-root b { font-weight: 600; }
       `}</style>
 
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", height: "100%" }}>
-
-        <main style={{ minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <header style={{ minHeight: 52, display: "flex", alignItems: "center", gap: 10, padding: isMobile ? "9px 12px" : "9px 18px", borderBottom: `1px solid ${C.border}`, background: C.topbar, flexShrink: 0 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 10, display: "grid", placeItems: "center", color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}` }}>
-              <LifeBuoy size={17} />
-            </div>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ color: C.text, fontSize: 17, fontWeight: 750 }}>Tickets</div>
-              <div style={{ color: C.dim, fontSize: 10.5, marginTop: 1 }}>Pedidos y mejoras del sistema · con seguimiento</div>
-            </div>
-            <button type="button" onClick={() => setNuevo(true)} disabled={faltaTabla} style={{
-              border: `1px solid ${C.blueB}`, background: C.blue, color: "var(--inverse-text)", borderRadius: 9,
-              padding: "8px 13px", cursor: faltaTabla ? "default" : "pointer", fontSize: 12.5, fontWeight: 750,
-              display: "inline-flex", alignItems: "center", gap: 7, opacity: faltaTabla ? .5 : 1,
-            }}>
+      <PageHeader
+        icon={LifeBuoy}
+        title="Tickets"
+        subtitle="Pedidos y mejoras del sistema · con seguimiento"
+        actions={(
+          <>
+            <button type="button" className={`ui-btn ui-btn-primario${isMobile ? " ui-btn-icono" : ""}`} onClick={() => setNuevo(true)} disabled={faltaTabla} aria-label={isMobile ? "Nuevo ticket" : undefined}>
               <Plus size={14} /> {isMobile ? "" : "Nuevo ticket"}
             </button>
-            <button type="button" onClick={cargar} disabled={cargando} title="Actualizar" style={{ width: 34, height: 34, display: "grid", placeItems: "center", border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 9, cursor: cargando ? "default" : "pointer", opacity: cargando ? .6 : 1 }}>
+            <button type="button" className="ui-btn ui-btn-icono" onClick={cargar} disabled={cargando} title="Actualizar" aria-label="Actualizar">
               <RefreshCw size={15} className={cargando ? "spin" : ""} />
             </button>
-          </header>
+          </>
+        )}
+      />
 
-          {/* En el teléfono es una cosa o la otra; en escritorio, lista y detalle. */}
-          {isMobile ? (
-            seleccionado ? (
-              <Detalle
-                ticket={seleccionado} miId={miId} puedeGestionar={puedeGestionar} hayCapturas={hayCapturas}
-                onCambiar={cambiar} onBorrar={borrar} onVotar={votar}
-                isMobile onVolver={() => setAbierto(null)}
-              />
-            ) : lista
-          ) : (
-            <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "minmax(320px, .85fr) minmax(0, 1.15fr)" }}>
-              <div style={{ minWidth: 0, borderRight: `1px solid ${C.border}` }}>{lista}</div>
-              <div style={{ minWidth: 0 }}>
-                {seleccionado ? (
-                  <Detalle
-                    ticket={seleccionado} miId={miId} puedeGestionar={puedeGestionar} hayCapturas={hayCapturas}
-                    onCambiar={cambiar} onBorrar={borrar} onVotar={votar}
-                    isMobile={false}
-                  />
-                ) : (
-                  <div style={{ height: "100%", display: "grid", placeItems: "center", padding: 30, textAlign: "center" }}>
-                    <div>
-                      <MessageSquare size={22} color={C.dim} style={{ marginBottom: 9 }} />
-                      <div style={{ fontSize: 13.5, fontWeight: 700, color: C.text }}>Elegí un ticket</div>
-                      <div style={{ color: C.dim, fontSize: 12.5, marginTop: 5, maxWidth: 300, lineHeight: 1.5 }}>
-                        Acá se ve el pedido completo, quién lo está mirando y todo lo que pasó con él.
-                      </div>
+      <main className="tickets-cuerpo">
+        {/* En el teléfono es una cosa o la otra; en escritorio, lista y detalle. */}
+        {isMobile ? (
+          seleccionado ? (
+            <Detalle
+              ticket={seleccionado} miId={miId} puedeGestionar={puedeGestionar} hayCapturas={hayCapturas}
+              onCambiar={cambiar} onBorrar={borrar} onVotar={votar}
+              isMobile onVolver={() => setAbierto(null)}
+            />
+          ) : lista
+        ) : (
+          <div style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "minmax(320px, .85fr) minmax(0, 1.15fr)" }}>
+            <div style={{ minWidth: 0, borderRight: `1px solid ${C.border}` }}>{lista}</div>
+            <div style={{ minWidth: 0 }}>
+              {seleccionado ? (
+                <Detalle
+                  ticket={seleccionado} miId={miId} puedeGestionar={puedeGestionar} hayCapturas={hayCapturas}
+                  onCambiar={cambiar} onBorrar={borrar} onVotar={votar}
+                  isMobile={false}
+                />
+              ) : (
+                <div style={{ height: "100%", display: "grid", placeItems: "center", padding: 30, textAlign: "center" }}>
+                  <div>
+                    <MessageSquare size={22} color={C.dim} style={{ marginBottom: 9 }} />
+                    <div className="ui-seccion-titulo" style={{ fontSize: 13.5 }}>Elegí un ticket</div>
+                    <div style={{ color: C.dim, fontSize: 12.5, marginTop: 5, maxWidth: 300, lineHeight: 1.5 }}>
+                      Acá se ve el pedido completo, quién lo está mirando y todo lo que pasó con él.
                     </div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
-          )}
-        </main>
-      </div>
+          </div>
+        )}
+      </main>
     </div>
   );
 }

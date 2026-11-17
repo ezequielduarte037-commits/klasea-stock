@@ -159,7 +159,7 @@ function CondicionanteItemForm({ condicionante, materiales, categorias = [], onD
   }
 
   return (
-    <div style={{ border: `1px dashed ${C.b0}`, borderRadius: 10, padding: 10, display: "grid", gap: 8, background: C.bg }}>
+    <div style={{ border: `1px dashed ${C.b0}`, borderRadius: 3, padding: 10, display: "grid", gap: 8, background: C.bg }}>
       <div style={{ display: "grid", gap: 8 }}>
         <div style={{ position: "relative", minWidth: 0 }}>
           <input
@@ -171,24 +171,24 @@ function CondicionanteItemForm({ condicionante, materiales, categorias = [], onD
             }}
             onFocus={() => setMatchesOpen(true)}
             placeholder="Buscar item base o escribir item condicionado..."
-            style={{ ...INP, width: "100%", height: 40, fontWeight: 650 }}
+            style={{ ...INP, width: "100%", height: 40, fontWeight: 600 }}
           />
           {matchesOpen && matches.length > 0 && !draft.material_id && (
-            <div style={{ position: "absolute", zIndex: 10, left: 0, right: 0, top: "calc(100% + 4px)", border: `1px solid ${C.b1}`, background: C.panelSolid, borderRadius: 10, padding: 5, boxShadow: "0 10px 24px rgba(0,0,0,0.28)", maxHeight: 250, overflowY: "auto" }}>
+            <div style={{ position: "absolute", zIndex: 10, left: 0, right: 0, top: "calc(100% + 4px)", border: `1px solid ${C.b1}`, background: C.panelSolid, borderRadius: 3, padding: 5, maxHeight: 250, overflowY: "auto" }}>
               {matches.map((material) => (
-                <button key={material.id} type="button" onClick={() => selectMaterial(material)} style={{ display: "grid", width: "100%", textAlign: "left", border: "none", background: "transparent", color: C.t1, cursor: "pointer", padding: "7px 9px", borderRadius: 7, fontFamily: C.sans }}>
-                  <span style={{ fontSize: 12.5, fontWeight: 700 }}>{material.descripcion}</span>
+                <button key={material.id} type="button" onClick={() => selectMaterial(material)} style={{ display: "grid", width: "100%", textAlign: "left", border: "none", background: "transparent", color: C.t1, cursor: "pointer", padding: "7px 9px", borderRadius: 3, fontFamily: C.sans }}>
+                  <span style={{ fontSize: 12.5, fontWeight: 600 }}>{material.descripcion}</span>
                   <span style={{ fontSize: 10.5, color: C.t3 }}>{[material.codigo, material.proveedor].filter(Boolean).join(" · ") || "sin codigo"}</span>
                 </button>
               ))}
             </div>
           )}
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", border: `1px solid ${draft.material_id ? C.greenB : C.b0}`, background: draft.material_id ? C.greenL : C.s0, borderRadius: 10, padding: "8px 9px" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", border: `1px solid ${draft.material_id ? C.greenB : C.b0}`, background: draft.material_id ? C.greenL : C.s0, borderRadius: 3, padding: "8px 9px" }}>
           {draft.material_id ? (
             <>
-              <span style={{ fontSize: 12, color: C.green, fontWeight: 700 }}>Item vinculado:</span>
-              <span style={{ fontSize: 12, color: C.t1, fontWeight: 700, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span style={{ fontSize: 12, color: C.green, fontWeight: 600 }}>Item vinculado:</span>
+              <span style={{ fontSize: 12, color: C.t1, fontWeight: 600, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {selectedMaterial?.descripcion || draft.descripcion}
               </span>
               <span style={{ fontSize: 11, color: C.t3 }}>
@@ -207,7 +207,7 @@ function CondicionanteItemForm({ condicionante, materiales, categorias = [], onD
             </>
           ) : (
             <>
-              <span style={{ fontSize: 12, color: C.t2, fontWeight: 650 }}>No existe en catalogo?</span>
+              <span style={{ fontSize: 12, color: C.t2, fontWeight: 600 }}>No existe en catalogo?</span>
               <select value={categoriaId} onChange={(event) => setCategoriaId(event.target.value)} style={{ ...INP, flex: "0 1 240px", minWidth: 180, height: 34 }}>
                 <option value="">Rubro para catalogo</option>
                 {categorias.map((categoria) => <option key={categoria.id} value={categoria.id}>{categoria.nombre}</option>)}
@@ -307,14 +307,14 @@ function CondicionanteCard({ condicionante, materiales, categorias, modelos, onR
   }
 
   return (
-    <section style={{ border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 14, overflow: "hidden" }}>
+    <section style={{ border: `1px solid ${C.b0}`, background: "transparent", borderRadius: 3, overflow: "hidden" }}>
       <div style={{ padding: 13, borderBottom: `1px solid ${C.b0}`, display: "flex", gap: 10, alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap" }}>
         <div style={{ minWidth: 0, flex: "1 1 360px" }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <span style={{ fontSize: 10.5, color: C.violet, border: `1px solid ${C.violet}55`, background: `${C.violet}14`, borderRadius: 999, padding: "2px 7px", fontWeight: 700 }}>K{condicionante.modelo}</span>
-            <div style={{ fontSize: 15, fontWeight: 750, color: C.t0 }}>{condicionante.nombre}</div>
-            <span style={{ fontSize: 10.5, color: C.blue, border: `1px solid ${C.blueB}`, background: C.blueL, borderRadius: 999, padding: "2px 7px", fontWeight: 700 }}>{tipoLabel(condicionante.tipo)}</span>
-            <span style={{ fontSize: 10.5, color: condicionante.activo_por_defecto ? C.green : C.cyan, border: `1px solid ${condicionante.activo_por_defecto ? C.greenB : C.cyanB}`, background: condicionante.activo_por_defecto ? C.greenL : C.cyanL, borderRadius: 999, padding: "2px 7px", fontWeight: 700 }}>
+            <span style={{ fontSize: 10.5, color: C.violet, border: `1px solid ${C.violetB}`, background: C.violetL, borderRadius: 999, padding: "2px 7px", fontWeight: 600 }}>K{condicionante.modelo}</span>
+            <div style={{ fontSize: 15, fontWeight: 600, color: C.t0 }}>{condicionante.nombre}</div>
+            <span style={{ fontSize: 10.5, color: C.blue, border: `1px solid ${C.blueB}`, background: C.blueL, borderRadius: 999, padding: "2px 7px", fontWeight: 600 }}>{tipoLabel(condicionante.tipo)}</span>
+            <span style={{ fontSize: 10.5, color: condicionante.activo_por_defecto ? C.green : C.cyan, border: `1px solid ${condicionante.activo_por_defecto ? C.greenB : C.cyanB}`, background: condicionante.activo_por_defecto ? C.greenL : C.cyanL, borderRadius: 999, padding: "2px 7px", fontWeight: 600 }}>
               {condicionante.activo_por_defecto ? "Activo por defecto" : "No viene por defecto"}
             </span>
           </div>
@@ -329,7 +329,7 @@ function CondicionanteCard({ condicionante, materiales, categorias, modelos, onR
                 {TIPOS.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
               </select>
               <input value={draft.descripcion} onChange={(event) => setDraft((prev) => ({ ...prev, descripcion: event.target.value }))} placeholder="Detalle / cuando aplica" style={{ ...INP, height: 34, gridColumn: "1 / -1" }} />
-              <label style={{ display: "inline-flex", gap: 7, alignItems: "center", color: C.t1, fontSize: 12, fontWeight: 650, gridColumn: "1 / -1" }}>
+              <label style={{ display: "inline-flex", gap: 7, alignItems: "center", color: C.t1, fontSize: 12, fontWeight: 600, gridColumn: "1 / -1" }}>
                 <input type="checkbox" checked={!!draft.activo_por_defecto} onChange={(event) => setDraft((prev) => ({ ...prev, activo_por_defecto: event.target.checked }))} />
                 Activo por defecto en esta linea
               </label>
@@ -366,10 +366,10 @@ function CondicionanteCard({ condicionante, materiales, categorias, modelos, onR
         {condicionante.items?.length ? (
           <div style={{ display: "grid", gap: 6 }}>
             {condicionante.items.map((item) => (
-              <div key={item.id} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8, alignItems: "center", border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 10, padding: "8px 9px" }}>
-                <div style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 700, color: C.t0 }}>{fmtQty(item.cantidad, item.unidad)}</div>
+              <div key={item.id} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8, alignItems: "center", border: `1px solid ${C.b0}`, background: C.bg, borderRadius: 3, padding: "8px 9px" }}>
+                <div style={{ fontFamily: C.mono, fontSize: 12, fontWeight: 600, color: C.t0 }}>{fmtQty(item.cantidad, item.unidad)}</div>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ color: C.t0, fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.descripcion}</div>
+                  <div style={{ color: C.t0, fontSize: 12.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.descripcion}</div>
                   <div style={{ color: C.t3, fontSize: 10.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.material?.codigo || item.notas || "item condicionado"}</div>
                 </div>
                 <span style={{ justifySelf: "start", fontSize: 10.5, color: C.t2, border: `1px solid ${C.b0}`, borderRadius: 999, padding: "2px 7px" }}>{itemTipoLabel(item.tipo_item)}</span>
@@ -380,7 +380,7 @@ function CondicionanteCard({ condicionante, materiales, categorias, modelos, onR
             ))}
           </div>
         ) : (
-          <div style={{ border: `1px dashed ${C.b0}`, borderRadius: 10, padding: 14, color: C.t2, fontSize: 12, textAlign: "center" }}>
+          <div style={{ border: `1px dashed ${C.b0}`, borderRadius: 3, padding: 14, color: C.t2, fontSize: 12, textAlign: "center" }}>
             Todavia no tiene items asociados.
           </div>
         )}
@@ -430,12 +430,12 @@ export default function MatrizCondicionantesTab({ materiales = [], categorias = 
 
   return (
     <div style={{ display: "grid", gap: 14, maxWidth: 1180 }}>
-      <div style={{ border: `1px solid ${C.b0}`, background: C.s0, borderRadius: 14, padding: 16, display: "grid", gap: 13 }}>
+      <div style={{ border: `1px solid ${C.b0}`, background: "transparent", borderRadius: 3, padding: 20, display: "grid", gap: 20 }}>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 750, color: C.t0 }}>Condicionantes de matriz</div>
-          <div style={{ color: C.t2, fontSize: 13, marginTop: 4, lineHeight: 1.5 }}>
+          <h2 className="az-subtitulo">Condicionantes de matriz</h2>
+          <p className="az-texto" style={{ marginTop: 8 }}>
             Para opcionales estandar y configuraciones tecnicas de cada modelo. Ej: K55 base lleva 20 bisagras; si lleva vestidor, este condicionante suma 9 mas sobre el mismo item.
-          </div>
+          </p>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8, alignItems: "end" }}>
@@ -464,13 +464,13 @@ export default function MatrizCondicionantesTab({ materiales = [], categorias = 
           </button>
         </div>
 
-        <label style={{ display: "inline-flex", gap: 7, alignItems: "center", color: C.t1, fontSize: 12, fontWeight: 650 }}>
+        <label style={{ display: "inline-flex", gap: 7, alignItems: "center", color: C.t1, fontSize: 12, fontWeight: 600 }}>
           <input type="checkbox" checked={draft.activo_por_defecto} onChange={(event) => setDraft((prev) => ({ ...prev, activo_por_defecto: event.target.checked }))} />
           Viene activo por defecto en la matriz del modelo
         </label>
       </div>
 
-      {error && <div style={{ color: C.red, border: `1px solid ${C.redB}`, background: C.redL, borderRadius: 10, padding: 10, fontSize: 13 }}>{error}</div>}
+      {error && <div style={{ color: C.red, border: `1px solid ${C.redB}`, background: C.redL, borderRadius: 3, padding: 10, fontSize: 13 }}>{error}</div>}
 
       {loading ? (
         <div style={{ padding: 24, color: C.t2, fontSize: 13 }}>Cargando condicionantes...</div>
@@ -481,7 +481,7 @@ export default function MatrizCondicionantesTab({ materiales = [], categorias = 
           ))}
         </div>
       ) : (
-        <div style={{ border: `1px dashed ${C.b0}`, borderRadius: 14, padding: 28, color: C.t2, textAlign: "center", fontSize: 13 }}>
+        <div style={{ border: `1px dashed ${C.b0}`, borderRadius: 3, padding: 28, color: C.t2, textAlign: "center", fontSize: 13 }}>
           No hay condicionantes para K{modelo}. Crea el primero arriba.
         </div>
       )}

@@ -179,31 +179,31 @@ function ComprobanteList({ comprobantes, selectedId, onSelect }) {
   }, [comprobantes, q]);
 
   return (
-    <div style={{ background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 12, padding: 12 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+    <div style={{ background: "transparent", border: `1px solid ${C.b0}`, borderRadius: 3, padding: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
         <FileText size={15} color={C.t2} />
-        <div style={{ fontSize: 13, color: C.t0, fontWeight: 600, flex: 1 }}>Comprobantes cargados</div>
+        <h2 className="az-subtitulo" style={{ flex: 1 }}>Comprobantes cargados</h2>
       </div>
-      <div style={{ position: "relative", marginBottom: 10 }}>
-        <Search size={13} style={{ position: "absolute", left: 9, top: 9, color: C.t2 }} />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar" style={{ ...INP, width: "100%", paddingLeft: 28 }} />
-      </div>
+      <label className="az-buscar" style={{ marginBottom: 14 }}>
+        <Search size={15} />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar" />
+      </label>
       <div style={{ display: "grid", gap: 6, maxHeight: 520, overflowY: "auto" }}>
         {visibles.map((c) => {
           const on = c.id === selectedId;
           return (
             <button key={c.id} type="button" onClick={() => onSelect(c)} style={{
               textAlign: "left",
-              border: `1px solid ${on ? "rgba(59,130,246,.35)" : C.b0}`,
-              background: on ? "rgba(59,130,246,.08)" : C.panel,
-              borderRadius: 9,
+              border: `1px solid ${on ? "var(--blue-border)" : C.b0}`,
+              background: on ? "var(--blue-soft)" : "transparent",
+              borderRadius: 3,
               padding: 10,
               color: C.t0,
               cursor: "pointer",
               display: "block",
             }}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 3 }}>
-                <strong style={{ fontSize: 13 }}>{c.proveedor || "Sin proveedor"}</strong>
+                <strong style={{ fontSize: 13, fontWeight: 500 }}>{c.proveedor || "Sin proveedor"}</strong>
                 <span style={{ fontSize: 10, color: c.estado === "procesado" ? C.green : C.cyan, textTransform: "uppercase" }}>{c.estado || "borrador"}</span>
               </div>
               <div style={{ fontSize: 12, color: C.t2 }}>{c.fecha || "sin fecha"} · Nº {c.numero || "—"}</div>
@@ -336,13 +336,13 @@ export default function ComprobantesTab({ categorias, materiales, proveedores, c
       <div style={{ minWidth: 0 }}>
         <div style={{ display: "flex", gap: 8, justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
           <div>
-            <div style={{ fontSize: 17, color: C.t0, fontWeight: 600 }}>{form.id ? "Editar comprobante" : "Nuevo comprobante"}</div>
-            <div style={{ fontSize: 12, color: C.t2 }}>Remitos, facturas o presupuestos para actualizar precios reales.</div>
+            <h2 className="az-subtitulo">{form.id ? "Editar comprobante" : "Nuevo comprobante"}</h2>
+            <p className="az-texto" style={{ marginTop: 6 }}>Remitos, facturas o presupuestos para actualizar precios reales.</p>
           </div>
           <button type="button" onClick={nuevo} style={BTN_PRIMARY}><Plus size={14} /> Nuevo</button>
         </div>
 
-        <div style={{ background: C.s0, border: `1px solid ${C.b1}`, borderRadius: 14, padding: 16, marginBottom: 14 }}>
+        <div style={{ background: "transparent", border: `1px solid ${C.b0}`, borderRadius: 3, padding: 16, marginBottom: 14 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10 }}>
             <div>
               <label style={LBL}>Proveedor</label>
@@ -386,7 +386,7 @@ export default function ComprobantesTab({ categorias, materiales, proveedores, c
             <button type="button" onClick={readWithAi} disabled={reading || !file || !file.type.startsWith("image/")} style={BTN_PRIMARY}>
               <Wand2 size={14} /> {reading ? "Leyendo…" : "Leer con IA"}
             </button>
-            <button type="button" onClick={applyPrices} disabled={applying || !items.some((item) => item.material_id && !item.aplicado)} style={{ ...BTN_PRIMARY, borderColor: "rgba(16,185,129,.35)", color: C.green }}>
+            <button type="button" onClick={applyPrices} disabled={applying || !items.some((item) => item.material_id && !item.aplicado)} style={{ ...BTN_PRIMARY, borderColor: "var(--green-border)", color: C.green }}>
               <Sparkles size={14} /> {applying ? "Aplicando…" : "Aplicar al catálogo"}
             </button>
           </div>
@@ -395,15 +395,15 @@ export default function ComprobantesTab({ categorias, materiales, proveedores, c
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8, flexWrap: "wrap" }}>
-          <div style={{ fontSize: 13, color: C.t0, fontWeight: 600 }}>
-            Ítems del comprobante <span style={{ color: C.t2, fontFamily: C.mono }}>{items.length}</span>
+          <div className="az-rotulo">
+            Ítems del comprobante <span style={{ color: C.t0, fontFamily: C.mono, fontWeight: 400, letterSpacing: 0 }}>{items.length}</span>
           </div>
           <button type="button" onClick={() => setItems((prev) => [...prev, emptyItem(form.id)])} style={BTN}>
             <Plus size={14} /> Agregar línea
           </button>
         </div>
 
-        <div style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 12 }}>
+        <div style={{ overflowX: "auto", border: `1px solid ${C.b0}`, borderRadius: 3 }}>
           <table style={{ width: "100%", minWidth: 1180, borderCollapse: "collapse" }}>
             <thead>
               <tr>
@@ -473,7 +473,7 @@ export default function ComprobantesTab({ categorias, materiales, proveedores, c
 
         <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", color: C.t2, fontSize: 12, gap: 8, flexWrap: "wrap" }}>
           <span><Bot size={13} style={{ verticalAlign: "-2px", marginRight: 4 }} />La IA sólo propone: revisá y corregí antes de aplicar.</span>
-          <strong style={{ color: C.t0 }}>Total líneas: {fmtMoney(totalCalc, form.moneda)}</strong>
+          <strong style={{ color: C.t0, fontWeight: 500 }}>Total líneas: {fmtMoney(totalCalc, form.moneda)}</strong>
         </div>
       </div>
     </div>

@@ -60,7 +60,7 @@ export default function PanelConsumiblesDeObra({ obraId, obraLabel = "", abierto
       >
         {abierto ? <ChevronDown size={14} color={C.muted} /> : <ChevronRight size={14} color={C.muted} />}
         <Package size={13} color={C.cyan} />
-        <span style={{ fontWeight: 650 }}>Consumibles consumidos</span>
+        <span style={{ fontWeight: 500 }}>Consumibles consumidos</span>
         <span style={{ color: error ? C.red : C.muted }}>{resumen}</span>
         <span style={{ marginLeft: "auto", color: C.muted, fontSize: 11 }}>Fuera de la lista del barco</span>
       </button>
