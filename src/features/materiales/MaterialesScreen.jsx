@@ -39,6 +39,7 @@ import {
   fetchAddonsMaterial,
   crearAddon,
   actualizarAddon,
+  reemplazarRenglonPedidoAdicional,
   borrarAddon,
   borrarObraSnapshotRows,
   reasignarAddon,
@@ -2481,8 +2482,15 @@ function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [],
   const [err, setErr] = useState(null);
   const editing = !!addon?.id;
 
+  // El formulario se arma una vez por apertura. La lista se recarga sola
+  // (categorías, adicionales) y si esto corre en cada recarga, borra lo que
+  // se está escribiendo y vuelve a "Vincular catálogo".
+  const iniciadoRef = useRef("");
   useEffect(() => {
-    if (!open) return;
+    if (!open) { iniciadoRef.current = ""; return; }
+    const clave = addon?.id || "nuevo";
+    if (iniciadoRef.current === clave) return;
+    iniciadoRef.current = clave;
     setMode(!addon || addon.material_id ? "existente" : "nuevo");
     setQ(addon?.descripcion || "");
     setSelectedId(addon?.material_id || "");
@@ -2509,7 +2517,16 @@ function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [],
   const targetObra = obrasDestino.find((item) => item.id === targetObraFinalId) || obra;
   const estadoAddon = String(addon?.estado || "").toLowerCase();
   const moveLocked = editing && ["en_panol", "recibido", "egresado"].includes(estadoAddon);
-  const snapshotLocked = !!addon?.__snapshotLocked;
+  // Pedido a Compras pero todavía sin comprar: se puede cambiar el producto y
+  // se corrige el renglón del pedido, así no hay que sacarlo y pedirlo de nuevo.
+  const pedidoEditable = editing && !!addon?.__pedidoEditable;
+  const snapshotLocked = !!addon?.__snapshotLocked && !pedidoEditable;
+  const materialActual = editing && addon?.material_id ? (materiales ?? []).find((m) => m.id === addon.material_id) : null;
+  // El material del adicional puede ser el mismo que usan otras obras (vino de
+  // un remito, un conteo…). Si se le cambia el nombre es otro producto: se
+  // crea uno nuevo y el anterior queda como está para las demás obras.
+  const nombreCambiado = editing && mode === "nuevo" && norm(draft.descripcion) !== norm(addon?.descripcion || materialActual?.descripcion || "");
+  const creaProductoNuevo = nombreCambiado && !!addon?.material_id && materialActual?.origen !== "addon_obra";
   const originNote = addonCatalogOriginNote(tipo, targetObra?.codigo || obra?.codigo);
 
   function addonSnapshotPatch(payload = {}) {
@@ -2523,7 +2540,8 @@ function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [],
       rubro: rubroDeLista(categorias, payload.categoria_id) || null,
       tipo: "addon",
       tipo_label: addonTipoMeta(payload.tipo || tipo).label,
-      precio_unitario: payload.precio_unitario ?? null,
+      // Sin precio llega como "" desde el formulario y la columna es numérica.
+      precio_unitario: toNum(payload.precio_unitario),
       moneda: payload.moneda || null,
       notas: payload.observaciones || null,
       source: addon?.obra_snapshot_id ? "adicional_obra" : "addon",
@@ -2532,11 +2550,30 @@ function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [],
 
   async function syncAddonSnapshot(payload = {}) {
     if (!editing || !addon?.__snapshotId || snapshotLocked) return;
-    await updateObraSnapshotRows([addon.__snapshotId], addonSnapshotPatch(payload));
+    const patch = addonSnapshotPatch(payload);
+    if (pedidoEditable && payload.material_id && (!addon.__requisitoMaterialId || addon.__requisitoMaterialId === addon.material_id)) {
+      patch.requisito_material_id = payload.material_id;
+    }
+    await updateObraSnapshotRows([addon.__snapshotId], patch);
+  }
+
+  async function syncPedidoCompras(payload = {}) {
+    if (!pedidoEditable || !addon?.__purchaseRequestItemId) return;
+    const link = normalizeMaterialLinks(payload.links).find((item) => item.kind !== "documento" && item.url)?.url || "";
+    await reemplazarRenglonPedidoAdicional(addon.__purchaseRequestItemId, {
+      descripcion: payload.descripcion,
+      descripcionAnterior: addon.__snapshotDescripcion || addon.descripcion || "",
+      materialId: payload.material_id || null,
+      materialAnteriorId: addon.material_id || null,
+      cantidad: payload.cantidad,
+      unidad: payload.unidad,
+      linkUrl: link,
+    });
   }
 
   async function moveAddonIfNeeded() {
     if (!editing || !targetObraFinalId || targetObraFinalId === (addon?.obra_id || obra?.id)) return;
+    if (pedidoEditable) throw new Error("Este adicional ya está pedido a Compras para esta obra. Para pasarlo a otra obra hay que corregir el pedido con Compras.");
     if (moveLocked || snapshotLocked) throw new Error("Este adicional ya tiene movimiento de pañol. Para moverlo hay que hacerlo desde stock/pañol y conservar el kardex.");
     await reasignarAddon(addon.id, targetObraFinalId, {
       materialId: addon.material_id || null,
@@ -2583,6 +2620,7 @@ function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [],
       const materialConNota = await ensureMaterialOriginNote(selected);
       const payload = addonPayloadFromMaterial(materialConNota, { cantidad, tipo, observaciones });
       if (editing) {
+        await syncPedidoCompras(payload);
         await actualizarAddon(addon.id, payload);
         await syncAddonSnapshot(payload);
         await moveAddonIfNeeded();
@@ -2607,12 +2645,13 @@ function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [],
         revisado: false,
         origen: "addon_obra",
       }, proveedores, variantesNuevo);
-      let materialId = addon?.material_id || null;
-      let imageUrl = draft.imagen_url || "";
+      let materialId = creaProductoNuevo ? null : addon?.material_id || null;
+      // La foto que trae el formulario es la del producto anterior.
+      let imageUrl = creaProductoNuevo && draft.imagen_url === (addon?.imagen_url || materialActual?.imagen_url) ? "" : draft.imagen_url || "";
       if (materialId) {
         await actualizarMaterialDatos({ ...prepared, id: materialId, imagen_url: imageUrl });
       } else {
-        materialId = await crearMaterial(prepared, {});
+        materialId = await crearMaterial({ ...prepared, imagen_url: imageUrl }, {});
       }
       if (imageFileNuevo) {
         const uploaded = await uploadMaterialImage(materialId, imageFileNuevo);
@@ -2623,6 +2662,7 @@ function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [],
       }
       const payload = addonPayloadFromMaterial({ ...prepared, id: materialId, imagen_url: imageUrl }, { cantidad, tipo, observaciones, imagenUrl: imageUrl });
       if (editing) {
+        await syncPedidoCompras(payload);
         await actualizarAddon(addon.id, payload);
         await syncAddonSnapshot(payload);
         await moveAddonIfNeeded();
@@ -2639,13 +2679,17 @@ function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [],
 
   if (!open) return null;
 
-  return (
+  // Al body: el detalle del ítem también va al body (z 4000) y si el editor
+  // queda dentro de la lista, el panel lo tapa.
+  return createPortal(
     <div style={{ position: "fixed", inset: 0, zIndex: 5000, background: "rgba(2,6,23,.72)", backdropFilter: "blur(3px)", display: "grid", placeItems: "center", padding: 18 }}>
       <div role="dialog" aria-modal="true" aria-label={editing ? "Editar adicional" : "Agregar adicional a la obra"} style={{ width: "min(1040px, calc(100vw - 28px))", maxHeight: "92vh", overflowY: "auto", border: `1px solid ${C.b1}`, borderRadius: 3, background: C.panelSolid, boxShadow: "0 30px 90px rgba(0,0,0,.45)" }}>
         <div style={{ position: "sticky", top: 0, zIndex: 2, background: C.panelSolid, borderBottom: `1px solid ${C.b0}`, padding: 16, display: "flex", gap: 12, alignItems: "flex-start", justifyContent: "space-between" }}>
           <div>
             <div style={{ fontSize: 16, fontWeight: 600, color: C.t0 }}>{editing ? "Editar adicional" : "Agregar item propio"} a {obra?.codigo}</div>
             <div style={{ fontSize: 12, color: C.t2, marginTop: 3 }}>Podés elegir un material que ya esté en la lista y agregar más unidades solo para esta obra.</div>
+            {pedidoEditable ? <div style={{ fontSize: 12, color: C.cyan, marginTop: 6 }}>Ya está pedido a Compras pero no se compró: al guardar se corrige también el renglón del pedido.</div> : null}
+            {creaProductoNuevo ? <div style={{ fontSize: 12, color: C.t2, marginTop: 4 }}>Con otro nombre queda como producto nuevo del catálogo (sin la foto anterior); {materialActual?.descripcion || "el anterior"} sigue igual para las otras obras.</div> : null}
           </div>
           <button type="button" onClick={onClose} style={{ ...BTN, padding: "7px 9px" }} title="Cerrar"><X size={15} /></button>
         </div>
@@ -2675,8 +2719,8 @@ function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [],
               <select
                 value={targetObraFinalId}
                 onChange={(e) => setTargetObraId(e.target.value)}
-                disabled={moveLocked || snapshotLocked}
-                style={{ ...INP, height: 36, opacity: moveLocked || snapshotLocked ? 0.65 : 1 }}
+                disabled={moveLocked || snapshotLocked || pedidoEditable}
+                style={{ ...INP, height: 36, opacity: moveLocked || snapshotLocked || pedidoEditable ? 0.65 : 1 }}
                 title={moveLocked || snapshotLocked ? "Este adicional ya tiene movimiento de pañol o compras vinculadas" : "Mover/asociar este adicional a otra obra"}
               >
                 {obrasDestino.map((item) => (
@@ -2761,7 +2805,7 @@ function ObraAddonModal({ open, obra, obras = [], addon = null, materiales = [],
         </div>
       </div>
     </div>
-  );
+  , document.body);
 }
 
 function ListaMateriales({ categorias, materiales, selectedId, ums, proveedores, obras = [], onChanged, defaultSoloPendientes = true, compact = false, lineaFija = "", externalQuery = null, onExternalQueryChange = null, hideSearch = false }) {
@@ -4054,6 +4098,17 @@ function EtapaCompraEditor({ row, etapas, asignaciones, busy, error, onSave }) {
   );
 }
 
+// Pedido a Compras y nada más: sin compra, recepción ni movimiento de pañol.
+// El renglón del pedido se puede corregir (cambiar de producto) sin rehacerlo;
+// la API vuelve a mirar el estado del pedido antes de tocarlo.
+function pedidoAdicionalEditable(row = {}) {
+  if (!row.purchase_request_item_id) return false;
+  if (row.panol_envio_id || row.panol_envio_item_id) return false;
+  if (Array.isArray(row.recepcion_items) && row.recepcion_items.length) return false;
+  if (String(row.recepcion_estado || "").trim()) return false;
+  return ["pendiente", "pedido"].includes(estadoObraForRow(row));
+}
+
 function snapshotLockReason(row = {}) {
   if (row.purchase_request_id) return "Tiene un pedido de compras asociado.";
   if (row.panol_envio_id || row.panol_envio_item_id) return "Tiene un envío o movimiento de pañol asociado.";
@@ -5238,7 +5293,15 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
     const direct = row.addonId ? addons.find((item) => item.id === row.addonId) : null;
     const byKey = addonByMergeKey.get(snapshotMergeKey(row));
     const addon = direct || byKey;
-    return addon ? { ...addon, __snapshotId: row.snapshotId || null, __snapshotLocked: snapshotLockedForAddon(row) } : null;
+    return addon ? {
+      ...addon,
+      __snapshotId: row.snapshotId || null,
+      __snapshotLocked: snapshotLockedForAddon(row),
+      __pedidoEditable: pedidoAdicionalEditable(row),
+      __purchaseRequestItemId: row.purchase_request_item_id || null,
+      __requisitoMaterialId: row.requisitoMaterialId || row.requisito_material_id || null,
+      __snapshotDescripcion: row.descripcion || "",
+    } : null;
   }
 
   function openReassignAddon(addon) {
@@ -5675,6 +5738,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
       <MaterialDocuments materialId={(row.producto || materialForRow)?.id} links={(row.producto || materialForRow)?.links || []} linea={linea} editable={!!(row.producto || materialForRow)?.id} onChanged={async () => { await onChanged?.(); await cargarSnapshot(); }} />
       {[...(view.requisito ? [["Requisito", view.requisito]] : []), ["Rubro", row.rubro || "Sin rubro"], ["Proveedor", row.proveedor || "Sin proveedor"], ["Código", row.codigo || "Sin código"], ["Origen", row.bucket?.label || "Matriz"]].map(([label, value]) => <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span style={{ color: C.muted }}>{label}</span><span style={{ textAlign: "right", color: C.text }}>{value}</span></div>)}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}><span style={{ color: C.muted }}>Precio unitario</span><span style={{ fontFamily: C.mono }}>{row.precio.amount ? row.precio.text : "Sin precio"}</span>{materialForRow && !editableAddon && <button type="button" aria-label="Editar precio en catálogo" onClick={() => { setEditingMaterialRowId(row.id); setDetailTab("mas"); }} style={obraButton}><Pencil size={13} /></button>}</div>
+      {editableAddon && (!editableAddon.__snapshotLocked || editableAddon.__pedidoEditable) && <button type="button" onClick={() => { setEditingAddon(editableAddon); setAddonModalOpen(true); }} style={{ ...obraButton, justifySelf: "start", color: C.blue }} title={editableAddon.__pedidoEditable ? "Cambiar el producto; también se corrige el pedido a Compras" : "Editar adicional"}><Pencil size={13} /> {editableAddon.__pedidoEditable ? "Cambiar producto" : "Editar adicional"}</button>}
       <div style={{ paddingTop: 12, borderTop: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
         <strong style={{ fontWeight: 600 }}>Cantidades</strong>
         {[["Necesario", cant.necesita], ["Recibido", cant.panol], ["Entregado", cant.entregado], ["Por comprar", cant.faltaComprar], ["Por entregar", cant.faltaEntregar]].map(([label, value]) => <div key={label} style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.muted }}>{label}</span><span style={{ fontFamily: C.mono }}>{qtyText(value, row.unidad)}</span></div>)}

@@ -1434,6 +1434,57 @@ export async function actualizarAddon(id, fields) {
   if (error) throw error;
 }
 
+// Un adicional ya pedido a Compras se puede cambiar de producto mientras
+// Compras no lo haya comprado: se corrige el renglón del pedido en vez de
+// sacarlo de la obra y pedir todo de nuevo. La lista de obra cruza el pedido
+// por descripción, así que el renglón tiene que quedar con el nombre nuevo.
+const PEDIDO_ESTADOS_EDITABLES = ["nuevo", "en_revision", "cotizando"];
+const RENGLON_ESTADOS_EDITABLES = ["", "pendiente", "pedido", "nuevo"];
+
+export async function reemplazarRenglonPedidoAdicional(itemId, { descripcion, descripcionAnterior = "", materialId = null, materialAnteriorId = null, cantidad, unidad, linkUrl } = {}) {
+  if (!itemId) throw new Error("Falta el renglón del pedido.");
+  const nombre = String(descripcion || "").trim();
+  if (!nombre) throw new Error("El producto necesita un nombre.");
+  const { data: item, error: leerError } = await supabase
+    .from("purchase_request_items")
+    .select("id,request_id,description,status,material_id,requisito_material_id,received_quantity,materialized_at,link_url,purchase_requests(id,status,title,description)")
+    .eq("id", itemId)
+    .single();
+  if (leerError) throw leerError;
+  const pedido = item?.purchase_requests || {};
+  if (!PEDIDO_ESTADOS_EDITABLES.includes(String(pedido.status || "").toLowerCase())
+    || !RENGLON_ESTADOS_EDITABLES.includes(String(item.status || "").toLowerCase())
+    || Number(item.received_quantity || 0) > 0
+    || item.materialized_at) {
+    throw new Error("Compras ya avanzó con este pedido (comprado o recibido). El cambio de producto hay que pedírselo a Compras.");
+  }
+
+  const patch = { description: nombre };
+  if (materialId) {
+    patch.material_id = materialId;
+    if (!item.requisito_material_id || item.requisito_material_id === (materialAnteriorId || item.material_id)) {
+      patch.requisito_material_id = materialId;
+    }
+  }
+  if (cantidad != null && String(cantidad).trim() !== "") patch.quantity = String(cantidad);
+  if (unidad) patch.unit = unidad;
+  if (linkUrl && !item.link_url) patch.link_url = linkUrl;
+  const { error } = await supabase.from("purchase_request_items").update(patch).eq("id", itemId);
+  if (error) throw error;
+
+  // El título y el texto del pedido llevan el nombre viejo ("55-2 · Heladera…").
+  const anterior = String(descripcionAnterior || item.description || "").trim();
+  if (anterior && anterior !== nombre && pedido.id) {
+    const pedidoPatch = {};
+    if (String(pedido.title || "").includes(anterior)) pedidoPatch.title = pedido.title.split(anterior).join(nombre);
+    if (String(pedido.description || "").includes(anterior)) pedidoPatch.description = pedido.description.split(anterior).join(nombre);
+    if (Object.keys(pedidoPatch).length) {
+      const { error: pedidoError } = await supabase.from("purchase_requests").update(pedidoPatch).eq("id", pedido.id);
+      if (pedidoError) throw pedidoError;
+    }
+  }
+}
+
 function addonSnapshotMovible(row = {}) {
   const recepcionEstado = String(row.recepcion_estado || "").toLowerCase();
   if (
