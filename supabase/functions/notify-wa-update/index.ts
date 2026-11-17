@@ -86,6 +86,17 @@ serve(async (req) => {
   try {
     const admin = supa();
     const auth = await authenticateFunctionRequest(req, admin, { allowServiceRole: true });
+    if (eventType === "received_summary") {
+      if (!auth.isService && auth.profile?.is_admin !== true) {
+        throw new ResponseError("Sólo administración puede enviar resúmenes de recepción", 403);
+      }
+      if (!requestId || avisoId) throw new ResponseError("Indicá el pedido del destinatario", 400);
+      await assertPurchaseRequestAccess(admin, String(requestId), auth);
+      const messageId = await sendReceiptSummary(admin, String(requestId), payload || {});
+      return new Response(JSON.stringify({ ok: true, sent: 1, messageId }), {
+        status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     if (requestId) {
       if (!REQUEST_EVENTS.has(String(eventType))) throw new ResponseError("Evento de pedido invalido", 400);
       await assertPurchaseRequestAccess(admin, String(requestId), auth);
@@ -112,6 +123,41 @@ serve(async (req) => {
     });
   }
 });
+
+// Los resúmenes consolidados son envíos directos al titular del pedido.
+// No pasan por los seguidores, que sólo reciben eventos de sus pedidos.
+async function sendReceiptSummary(
+  db: SupabaseClient,
+  requestId: string,
+  payload: { recipientId?: unknown; text?: unknown },
+): Promise<string> {
+  const text = typeof payload.text === "string" ? payload.text.trim() : "";
+  if (!text || text.length > 4096 || typeof payload.recipientId !== "string") {
+    throw new ResponseError("Indicá el destinatario y un resumen de hasta 4096 caracteres", 400);
+  }
+  const { data: request, error: requestError } = await db
+    .from("purchase_requests")
+    .select("created_by")
+    .eq("id", requestId)
+    .maybeSingle();
+  if (requestError) throw requestError;
+  if (!request || request.created_by !== payload.recipientId) {
+    throw new ResponseError("El destinatario no es el titular del pedido", 404);
+  }
+  const { data: contact, error: contactError } = await db
+    .from("user_phones")
+    .select("phone")
+    .eq("user_id", request.created_by)
+    .not("verified_at", "is", null)
+    .maybeSingle();
+  if (contactError) throw contactError;
+  if (!contact?.phone) throw new ResponseError("El destinatario no tiene WhatsApp verificado", 409);
+
+  const response = await sendText(contact.phone, text) as { messages?: { id?: string }[] };
+  const messageId = response.messages?.[0]?.id;
+  if (!messageId) throw new ResponseError("WhatsApp no confirmó el envío", 502);
+  return messageId;
+}
 
 interface NotifyArgs {
   requestId: string;
