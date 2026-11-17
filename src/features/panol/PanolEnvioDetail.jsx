@@ -1,5 +1,6 @@
 import { C } from "@/theme";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -962,7 +963,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
     try {
       await reasignarObraDeItemEnvio(item.obra_snapshot_item_id, obraId || null);
       await cargar();
-      toast.success(destino ? `"${item.descripcion}" ahora va a ${destino.codigo}.` : `"${item.descripcion}" quedó sin obra.`);
+      toast.success(destino ? `"${item.descripcion}" ahora va a ${destino.codigo}.` : `"${item.descripcion}" va a stock ${envio.sede}.`);
     } catch (err) {
       toast.error(err.message || "No se pudo cambiar la obra.");
     } finally {
@@ -1577,6 +1578,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
                     <MobileItemCard
                       key={item.id}
                       item={item}
+                      sede={envio.sede}
                       location={itemLocations[item.id]}
                       estanterias={estanterias}
                       selected={sel.has(item.id)}
@@ -1594,6 +1596,7 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
                     <DesktopItemRow
                       key={item.id}
                       item={item}
+                      sede={envio.sede}
                       location={itemLocations[item.id]}
                       estanterias={estanterias}
                       selected={sel.has(item.id)}
@@ -1836,37 +1839,55 @@ function ReceiptLocationEditor({ item, location, estanterias = [], saving = fals
 // quien puede corregir un aviso mal armado—. Solo mientras está pendiente: una
 // vez recibido el stock ya se imputó y moverlo aca dejaria las dos cosas
 // contando distinto.
-function ObraDeItem({ item, obras, editable, disabled, onChange }) {
-  if (editable) {
+function ObraDeItem({ item, sede, obras = [], editable, disabled, onChange }) {
+  const stockLabel = `Stock ${sede || "general"}`;
+  const stockQty = item.estado === "parcial" && item.cantidad_recibida
+    ? `${item.cantidad_recibida}/${item.cantidad}`
+    : item.cantidad || "";
+  const stockText = stockQty ? `${stockLabel} · ${stockQty}` : stockLabel;
+  const pill = {
+    flexShrink: 0,
+    border: `1px solid ${item.stock_general ? C.greenB : C.blueB}`,
+    background: item.stock_general ? "var(--green-soft)" : "var(--blue-soft)",
+    color: item.stock_general ? C.green : C.blue,
+    borderRadius: 999,
+    padding: "2px 7px",
+    fontSize: 10.5,
+    fontWeight: 700,
+    whiteSpace: "nowrap",
+  };
+  if (editable && item.obra_snapshot_item_id) {
     return (
       <select
         value={item.obra_id || ""}
         disabled={disabled}
-        title="Cambiar a qué obra va este renglón"
+        aria-label="Destino de este renglón"
         onChange={(e) => onChange?.(e.target.value)}
         onClick={(e) => e.stopPropagation()}
         style={{
-          flexShrink: 0, maxWidth: 128, border: `1px solid ${item.obra_codigo ? C.blueB : C.border}`,
-          background: item.obra_codigo ? "var(--blue-soft)" : C.panelSolid,
-          color: item.obra_codigo ? C.blue : C.dim,
-          borderRadius: 999, padding: "2px 6px", fontSize: 10.5, fontWeight: 700,
-          fontFamily: C.sans, cursor: disabled ? "default" : "pointer", outline: "none",
+          ...pill, maxWidth: 180, fontFamily: C.sans, cursor: disabled ? "default" : "pointer",
         }}
       >
-        <option value="">Sin obra</option>
+        <option value="">{item.stock_general ? stockText : stockLabel}</option>
         {obras.map((o) => <option key={o.id} value={o.id}>{o.codigo}</option>)}
       </select>
     );
   }
-  if (!item.obra_codigo) return null;
-  return (
-    <span style={{ flexShrink: 0, border: `1px solid ${C.blueB}`, background: "var(--blue-soft)", color: C.blue, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap" }}>
-      {item.obra_codigo}
-    </span>
-  );
+  if (item.stock_general) {
+    return item.material_id ? (
+      <Link
+        to={`/stock-panol?material=${encodeURIComponent(item.material_id)}`}
+        title="Ver el producto en Stock Pañol"
+        style={{ ...pill, textDecoration: "none" }}
+      >
+        {stockText}
+      </Link>
+    ) : <span style={pill}>{stockText}</span>;
+  }
+  return item.obra_codigo ? <span style={pill}>{item.obra_codigo}</span> : null;
 }
 
-function DesktopItemRow({ item, location, estanterias, selected, flash, canEdit, canSeePrices, obras = [], puedeCambiarObra = false, onCambiarObra, saving, onToggle, onApply, onSaveNote, onLocationChange, onSaveLocation }) {
+function DesktopItemRow({ item, sede, location, estanterias, selected, flash, canEdit, canSeePrices, obras = [], puedeCambiarObra = false, onCambiarObra, saving, onToggle, onApply, onSaveNote, onLocationChange, onSaveLocation }) {
   const meta = ITEM_ESTADO_META[item.estado] ?? ITEM_ESTADO_META.pendiente;
   const barcode = firstBarcodeOfItem(item);
   const effectiveLocation = location || locationFromItem(item);
@@ -1901,6 +1922,7 @@ function DesktopItemRow({ item, location, estanterias, selected, flash, canEdit,
               ven idénticos y no se sabe para qué barco es cada uno. */}
           <ObraDeItem
             item={item}
+            sede={sede}
             obras={obras}
             editable={puedeCambiarObra && item.estado === "pendiente"}
             disabled={saving}
@@ -2028,7 +2050,7 @@ function DesktopItemRow({ item, location, estanterias, selected, flash, canEdit,
   );
 }
 
-function MobileItemCard({ item, location, estanterias, selected, flash, canEdit, showAdvanced, saving, onToggle, onApply, onSaveNote, onLocationChange, onSaveLocation }) {
+function MobileItemCard({ item, sede, location, estanterias, selected, flash, canEdit, showAdvanced, saving, onToggle, onApply, onSaveNote, onLocationChange, onSaveLocation }) {
   const meta = ITEM_ESTADO_META[item.estado] ?? ITEM_ESTADO_META.pendiente;
   const barcode = firstBarcodeOfItem(item);
   const effectiveLocation = location || locationFromItem(item);
@@ -2049,6 +2071,9 @@ function MobileItemCard({ item, location, estanterias, selected, flash, canEdit,
           <div style={{ color: C.dim, fontSize: 12, marginTop: 4 }}>
             {item.cantidad || "-"} {item.unidad || ""}{item.codigo ? ` · ${item.codigo}` : ""}
             {barcode ? ` · CB ${barcode}` : ""}
+          </div>
+          <div style={{ display: "flex", gap: 6, marginTop: 5 }}>
+            <ObraDeItem item={item} sede={sede} />
           </div>
         </div>
         <StatusChip estado={item.estado} compact />

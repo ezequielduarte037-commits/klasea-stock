@@ -273,29 +273,31 @@ export async function fetchEnvio(id) {
 async function hydrateEnvioItemObras(envio) {
   const items = envio?.items || [];
   const snapshotIds = [...new Set(items.map((item) => item.obra_snapshot_item_id).filter(Boolean))];
-  if (!snapshotIds.length) return envio;
+  let porSnapshot = new Map();
 
-  try {
-    const { data, error } = await supabase
-      .from("panol_obra_materiales_snapshot")
-      .select("id, obra_id, obra:produccion_obras!panol_obra_materiales_snapshot_obra_id_fkey(id,codigo)")
-      .in("id", snapshotIds);
-    if (error) throw error;
-    const porSnapshot = new Map((data ?? []).map((row) => [row.id, row]));
-    return {
-      ...envio,
-      items: items.map((item) => {
-        const fila = item.obra_snapshot_item_id ? porSnapshot.get(item.obra_snapshot_item_id) : null;
-        return fila
-          ? { ...item, obra_id: fila.obra_id, obra_codigo: fila.obra?.codigo || "" }
-          : item;
-      }),
-    };
-  } catch {
-    // Si falla, el aviso se abre igual: la obra por renglón es información
-    // extra, no un requisito para recibir.
-    return envio;
+  if (snapshotIds.length) {
+    try {
+      const { data, error } = await supabase
+        .from("panol_obra_materiales_snapshot")
+        .select("id, obra_id, obra:produccion_obras!panol_obra_materiales_snapshot_obra_id_fkey(id,codigo)")
+        .in("id", snapshotIds);
+      if (!error) porSnapshot = new Map((data ?? []).map((row) => [row.id, row]));
+    } catch {
+      // La consulta de la obra no impide abrir el aviso.
+    }
   }
+  return {
+    ...envio,
+    items: items.map((item) => {
+      const fila = porSnapshot.get(item.obra_snapshot_item_id);
+      return {
+        ...item,
+        obra_id: fila ? fila.obra_id : envio.obra_id,
+        obra_codigo: (fila ? fila.obra?.codigo : envio.obra?.codigo) || "",
+        stock_general: fila ? !fila.obra_id : !item.obra_snapshot_item_id && !envio.obra_id && !item.purchase_request_item_id,
+      };
+    }),
+  };
 }
 
 async function hydrateEnvioItemMaterials(envio) {
@@ -1837,7 +1839,7 @@ async function buildPanolEnvioMatches({ material = null, q = "", sede = null, li
 
   const obraIds = [...new Set(scored.map(({ item }) => {
     const snapshot = item.obra_snapshot_item_id ? snapshotById.get(item.obra_snapshot_item_id) : null;
-    return snapshot?.obra_id || item.envio?.obra_id || null;
+    return snapshot ? snapshot.obra_id : item.envio?.obra_id || null;
   }).filter(Boolean))];
   let obrasById = new Map();
   if (obraIds.length) {
@@ -1851,8 +1853,9 @@ async function buildPanolEnvioMatches({ material = null, q = "", sede = null, li
 
   return scored.map(({ item, score }) => {
     const snapshot = item.obra_snapshot_item_id ? snapshotById.get(item.obra_snapshot_item_id) : null;
-    const obraId = snapshot?.obra_id || item.envio?.obra_id || null;
+    const obraId = snapshot ? snapshot.obra_id : item.envio?.obra_id || null;
     const obra = obraId ? obrasById.get(obraId) || null : null;
+    const stockGeneral = !obraId && (snapshot || (!item.obra_snapshot_item_id && !item.purchase_request_item_id));
     return {
       id: `recepcion:${item.id}`,
       source: "recepcion",
@@ -1868,11 +1871,11 @@ async function buildPanolEnvioMatches({ material = null, q = "", sede = null, li
       unit: item.unidad || "unidad",
       status: item.estado || "",
       destination: item.envio?.destino || "",
-      material_id: snapshot?.material_id || null,
+      material_id: snapshot?.material_id || item.material_id || null,
       requisito_material_id: snapshot?.requisito_material_id || item.requisito_material_id || null,
       especificaciones: snapshot?.especificaciones || item.especificaciones || {},
       obra_id: obraId,
-      obra_codigo: obra?.codigo || item.envio?.destino || "Sin obra",
+      obra_codigo: stockGeneral ? `Stock ${item.envio?.sede || "general"}` : obra?.codigo || item.envio?.destino || "Destino por verificar",
       linea_nombre: obra?.linea_nombre || obra?.modelo || "",
       obra_snapshot_item_id: item.obra_snapshot_item_id || null,
       purchase_request_item_id: item.purchase_request_item_id || null,
