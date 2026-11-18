@@ -504,8 +504,8 @@ export default function TarjetasNfcScreen() {
                     <button type="button" onClick={() => guardar()} disabled={!puedeGuardar || pidiendoPin} className="nfc-btn" style={{
                       minHeight: 40, display: "inline-flex", alignItems: "center", gap: 7,
                       border: "none", borderRadius: 10, padding: "0 16px",
-                      background: puedeGuardar ? "linear-gradient(135deg,var(--violet),var(--blue))" : C.panel2,
-                      color: puedeGuardar ? "var(--inverse-text)" : C.dim, cursor: puedeGuardar ? "pointer" : "default",
+                      background: puedeGuardar && !pidiendoPin ? "linear-gradient(135deg,var(--violet),var(--blue))" : C.panel2,
+                      color: puedeGuardar && !pidiendoPin ? "var(--inverse-text)" : C.dim, cursor: puedeGuardar && !pidiendoPin ? "pointer" : "default",
                       fontSize: 12.5, fontWeight: 600,
                     }}>
                       {guardando ? <Loader2 size={15} className="nfc-gira" /> : <Nfc size={16} />}
