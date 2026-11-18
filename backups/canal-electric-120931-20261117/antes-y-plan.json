@@ -1,0 +1,152 @@
+{
+  "request": {
+    "id": "353887b4-e3fb-4764-a417-c20a72ed94cc",
+    "title": "52-25 - Encargos bastidores y tapas Mignon",
+    "description": null,
+    "photo_url": null,
+    "photo_path": null,
+    "priority": "urgente",
+    "status": "nuevo",
+    "created_by": "b2bfcbbf-f6ed-491e-9095-d6d4ddadaf13",
+    "project_id": "dcc01fcd-fdb1-4f5d-8ea7-095a6551c560",
+    "assigned_to": null,
+    "needed_at": "2026-11-19",
+    "created_at": "2026-11-12T19:31:43.237171+00:00",
+    "updated_at": "2026-11-17T11:42:52.600613+00:00",
+    "closed_at": null,
+    "estimated_amount": null,
+    "actual_amount": null,
+    "estimated_delivery_at": null,
+    "delivered_at": null,
+    "received_quantity": null,
+    "receipt_notes": null,
+    "invoice_url": null,
+    "invoice_path": null,
+    "source": null,
+    "source_ref": null,
+    "source_url": null,
+    "proveedor": null,
+    "last_comment_at": "2026-11-17T11:42:52.600613+00:00",
+    "last_comment_author_id": "b2bfcbbf-f6ed-491e-9095-d6d4ddadaf13",
+    "photo_urls": null,
+    "destino": null,
+    "es_adicional": false,
+    "tipo_pedido": "estandar",
+    "attachments": [],
+    "status_changed_by": "b2bfcbbf-f6ed-491e-9095-d6d4ddadaf13",
+    "status_changed_at": "2026-11-12T19:31:43.237171+00:00",
+    "itemized_costs": false,
+    "project": {
+      "codigo": "52-25",
+      "estado": "activa"
+    },
+    "creator": {
+      "username": "gaston.tec"
+    }
+  },
+  "items": [
+    {
+      "id": "7f41a030-c4bb-4496-9b48-ce819b7091a3",
+      "request_id": "353887b4-e3fb-4764-a417-c20a72ed94cc",
+      "description": "Bastidores mignon",
+      "quantity": "8",
+      "unit": "unidad",
+      "status": "pendiente",
+      "notes": null,
+      "created_at": "2026-11-12T19:31:43.947772+00:00",
+      "updated_at": "2026-11-12T19:31:43.947772+00:00",
+      "image_url": null,
+      "image_path": null,
+      "link_url": null,
+      "destination": null,
+      "material_id": null,
+      "materialized_at": null,
+      "materialized_result": null,
+      "catalog_source": null,
+      "received_quantity": null,
+      "requisito_material_id": null,
+      "especificaciones": {},
+      "supplier_id": null,
+      "supplier_name": null,
+      "supplier_description": null,
+      "supplier_code": null,
+      "supplier_components": [],
+      "status_changed_by": "b2bfcbbf-f6ed-491e-9095-d6d4ddadaf13",
+      "status_changed_at": "2026-11-12T19:31:43.947772+00:00",
+      "actual_amount": null
+    },
+    {
+      "id": "a13e9a78-f1f8-4733-aa54-f67645fdd6c5",
+      "request_id": "353887b4-e3fb-4764-a417-c20a72ed94cc",
+      "description": "Tapas mignon",
+      "quantity": "8",
+      "unit": "unidad",
+      "status": "pendiente",
+      "notes": null,
+      "created_at": "2026-11-12T19:31:43.972272+00:00",
+      "updated_at": "2026-11-12T19:31:43.972272+00:00",
+      "image_url": null,
+      "image_path": null,
+      "link_url": null,
+      "destination": null,
+      "material_id": null,
+      "materialized_at": null,
+      "materialized_result": null,
+      "catalog_source": null,
+      "received_quantity": null,
+      "requisito_material_id": null,
+      "especificaciones": {},
+      "supplier_id": null,
+      "supplier_name": null,
+      "supplier_description": null,
+      "supplier_code": null,
+      "supplier_components": [],
+      "status_changed_by": "b2bfcbbf-f6ed-491e-9095-d6d4ddadaf13",
+      "status_changed_at": "2026-11-12T19:31:43.972272+00:00",
+      "actual_amount": null
+    }
+  ],
+  "invoice": [
+    {
+      "model": "6910",
+      "code": "METECTAP0003",
+      "description": "Bastidor Cambre Mignon 6910",
+      "invoiceQuantity": 20,
+      "unitCents": 77651,
+      "requestItem": "7f41a030-c4bb-4496-9b48-ce819b7091a3"
+    },
+    {
+      "model": "4742",
+      "code": "METECTAP0065",
+      "description": "Tapa Cambre SXXII Mignon 4742, 2 módulos, gris",
+      "invoiceQuantity": 20,
+      "unitCents": 246942,
+      "requestItem": "a13e9a78-f1f8-4733-aa54-f67645fdd6c5"
+    },
+    {
+      "model": "6111",
+      "code": "METECTEC0084",
+      "description": "Combinación Bauhaus 6111 gris",
+      "invoiceQuantity": 60,
+      "unitCents": 356915
+    },
+    {
+      "model": "6121",
+      "code": "METECTEC0086",
+      "description": "Combinación Bauhaus 6121 doble gris",
+      "invoiceQuantity": 60,
+      "unitCents": 382462
+    }
+  ],
+  "workCosts": [
+    {
+      "id": "7f41a030-c4bb-4496-9b48-ce819b7091a3",
+      "actual_amount": 6212.08
+    },
+    {
+      "id": "a13e9a78-f1f8-4733-aa54-f67645fdd6c5",
+      "actual_amount": 19755.36
+    }
+  ],
+  "observations": "Canal Electric. Ticket-factura B 00006-00120931 del 17/11/2026.\nPara 52-25, pedido de gaston.tec: 8 bastidores Mignon 6910 y 8 tapas Mignon 4742. ARS 25.967,44 según los precios unitarios impresos.\nPara stock general: 12 bastidores 6910, 12 tapas 4742, 60 combinaciones Bauhaus 6111 gris y 60 combinaciones Bauhaus 6121 doble gris.\nTotal impreso de la factura ARS 508.545,48. Diferencia de ARS 0,68 al extender los precios unitarios impresos a las 160 unidades."
+}

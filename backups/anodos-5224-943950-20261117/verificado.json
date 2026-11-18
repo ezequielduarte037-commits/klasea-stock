@@ -1,0 +1,131 @@
+{
+  "n": {
+    "id": "d114f5eb-4d81-481f-ace1-2dcaa0a56cf4",
+    "titulo": "52-24 · Anodo eje, ANODO ESCUDO +3",
+    "sede": "Chubut",
+    "estado": "enviado",
+    "obra_id": "4e967f5d-4022-4f68-9ca5-9a6f280829f3",
+    "purchase_request_id": "943950cc-94fb-48a9-b83b-8ad5c30e878a",
+    "items": [
+      {
+        "id": "2269bd08-8b27-4b20-ac6e-a4cb35ae5294",
+        "estado": "pendiente",
+        "cantidad": "1",
+        "descripcion": "ANODO ESCUDO ZINC",
+        "material_id": "7c5801b7-51d5-4240-9bcb-56af620eccde",
+        "obra_snapshot_item_id": "78e841d9-e30c-4925-9eed-ad6bd1818662",
+        "purchase_request_item_id": "102f5b7e-2cd9-4bbf-928f-420b0bbe4313"
+      },
+      {
+        "id": "e3dee204-4720-4c1c-8b7f-f5b50ff5248e",
+        "estado": "pendiente",
+        "cantidad": "1",
+        "descripcion": "ANODO TIMON 5´ ZINC",
+        "material_id": "96fbcfa4-43df-4ea8-8749-dfe5dc9a2f80",
+        "obra_snapshot_item_id": "45ba32d7-78a3-4567-8f6d-97de89ba10d8",
+        "purchase_request_item_id": "9d7fad21-0d7b-4fd2-9fe2-edc318a292b2"
+      },
+      {
+        "id": "35c002fd-357c-4f26-87f5-9deb2780a615",
+        "estado": "pendiente",
+        "cantidad": "1",
+        "descripcion": "ANODO TIMON 5´ ZINC",
+        "material_id": "96fbcfa4-43df-4ea8-8749-dfe5dc9a2f80",
+        "obra_snapshot_item_id": "13b56993-e4cb-419c-ba86-d4381278b0dc",
+        "purchase_request_item_id": "e6d3898d-3723-4e3d-ac48-c689f8fde52b"
+      },
+      {
+        "id": "9972bf8b-38ed-46b5-be26-2f90ca0aeb4d",
+        "estado": "pendiente",
+        "cantidad": "2",
+        "descripcion": "Anodo eje 2 1/2 · Zinc",
+        "material_id": "ab26f59b-ef28-4718-a043-4cd7253f73eb",
+        "obra_snapshot_item_id": "10bc4734-c11e-4632-8115-8771d0000ae5",
+        "purchase_request_item_id": "05c0ef33-2b07-48ee-8898-f6181561b357"
+      },
+      {
+        "id": "b45c13e1-211b-48e4-99b0-1b8296c331a5",
+        "estado": "pendiente",
+        "cantidad": "2",
+        "descripcion": "ANODO DE FLAP ZINC",
+        "material_id": "3bedd34e-ee72-40ef-9571-9e68a80ad891",
+        "obra_snapshot_item_id": "3dbdb692-9d5d-4777-b595-aac787eb3de7",
+        "purchase_request_item_id": "418154fe-8d19-4545-9b07-63144a0cf475"
+      }
+    ]
+  },
+  "snaps": [
+    {
+      "id": "78e841d9-e30c-4925-9eed-ad6bd1818662",
+      "descripcion": "Ánodo escudo",
+      "estado": "comprado",
+      "cantidad": 1,
+      "recepcion_estado": "pendiente",
+      "panol_envio_item_id": "2269bd08-8b27-4b20-ac6e-a4cb35ae5294",
+      "purchase_request_item_id": "102f5b7e-2cd9-4bbf-928f-420b0bbe4313",
+      "es_adicional": false
+    },
+    {
+      "id": "3dbdb692-9d5d-4777-b595-aac787eb3de7",
+      "descripcion": "ANODO DE FLAP ZINC",
+      "estado": "comprado",
+      "cantidad": 2,
+      "recepcion_estado": "pendiente",
+      "panol_envio_item_id": "b45c13e1-211b-48e4-99b0-1b8296c331a5",
+      "purchase_request_item_id": "418154fe-8d19-4545-9b07-63144a0cf475",
+      "es_adicional": false
+    },
+    {
+      "id": "10bc4734-c11e-4632-8115-8771d0000ae5",
+      "descripcion": "Anodo eje 2 1/2",
+      "estado": "comprado",
+      "cantidad": 2,
+      "recepcion_estado": "pendiente",
+      "panol_envio_item_id": "9972bf8b-38ed-46b5-be26-2f90ca0aeb4d",
+      "purchase_request_item_id": "05c0ef33-2b07-48ee-8898-f6181561b357",
+      "es_adicional": false
+    },
+    {
+      "id": "13b56993-e4cb-419c-ba86-d4381278b0dc",
+      "descripcion": "ANODO TIMON 5´ ZINC",
+      "estado": "comprado",
+      "cantidad": 1,
+      "recepcion_estado": "pendiente",
+      "panol_envio_item_id": "35c002fd-357c-4f26-87f5-9deb2780a615",
+      "purchase_request_item_id": "e6d3898d-3723-4e3d-ac48-c689f8fde52b",
+      "es_adicional": false
+    },
+    {
+      "id": "45ba32d7-78a3-4567-8f6d-97de89ba10d8",
+      "descripcion": "ANODO TIMON 5´ ZINC",
+      "estado": "comprado",
+      "cantidad": 1,
+      "recepcion_estado": "pendiente",
+      "panol_envio_item_id": "e3dee204-4720-4c1c-8b7f-f5b50ff5248e",
+      "purchase_request_item_id": "9d7fad21-0d7b-4fd2-9fe2-edc318a292b2",
+      "es_adicional": false
+    }
+  ],
+  "its": [
+    {
+      "id": "102f5b7e-2cd9-4bbf-928f-420b0bbe4313",
+      "status": "pedido"
+    },
+    {
+      "id": "9d7fad21-0d7b-4fd2-9fe2-edc318a292b2",
+      "status": "pedido"
+    },
+    {
+      "id": "e6d3898d-3723-4e3d-ac48-c689f8fde52b",
+      "status": "pedido"
+    },
+    {
+      "id": "05c0ef33-2b07-48ee-8898-f6181561b357",
+      "status": "pedido"
+    },
+    {
+      "id": "418154fe-8d19-4545-9b07-63144a0cf475",
+      "status": "pedido"
+    }
+  ]
+}

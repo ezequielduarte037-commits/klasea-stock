@@ -1,0 +1,4729 @@
+{
+  "matches": [
+    {
+      "code": "43 12V",
+      "obra": {
+        "id": "a1b72ce8-55de-4fdd-a7e8-be874dc497ff",
+        "codigo": "37-40",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-04-24",
+        "fecha_fin_estimada": "2026-09-07",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "6a0afd2f-71a1-4159-8cc4-16e15d26ad57",
+        "descripcion": "Rule Panel Switch 43 tablero",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 3,
+        "desdeMatriz": true,
+        "requisitoId": "6a0afd2f-71a1-4159-8cc4-16e15d26ad57",
+        "snapshotId": "87a12c59-3d45-46eb-a5c9-d25461d86439",
+        "configuracionSnapshotId": "87a12c59-3d45-46eb-a5c9-d25461d86439",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "43 12V",
+      "obra": {
+        "id": "b85fd483-b29a-4d26-a8cb-0d8ac6a9da14",
+        "codigo": "37-41",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-06-03",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "6a0afd2f-71a1-4159-8cc4-16e15d26ad57",
+        "descripcion": "Rule Panel Switch 43 tablero",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 3,
+        "desdeMatriz": true,
+        "requisitoId": "6a0afd2f-71a1-4159-8cc4-16e15d26ad57",
+        "snapshotId": "fd8ae456-05e4-4c28-a728-b8f6dc8758c1",
+        "configuracionSnapshotId": "fd8ae456-05e4-4c28-a728-b8f6dc8758c1",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "43 12V",
+      "obra": {
+        "id": "83681efc-7406-4462-bd0e-b7ddf8899efe",
+        "codigo": "37-42",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-06-30",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "6a0afd2f-71a1-4159-8cc4-16e15d26ad57",
+        "descripcion": "Rule Panel Switch 43 tablero",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 3,
+        "desdeMatriz": true,
+        "requisitoId": "6a0afd2f-71a1-4159-8cc4-16e15d26ad57",
+        "snapshotId": "01d598ae-3399-47c6-b532-84172bf084c0",
+        "configuracionSnapshotId": "01d598ae-3399-47c6-b532-84172bf084c0",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "43 12V",
+      "obra": {
+        "id": "f275f6dd-9695-458e-b29c-a093cdfa8380",
+        "codigo": "37-43",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-06-25",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "6a0afd2f-71a1-4159-8cc4-16e15d26ad57",
+        "descripcion": "Rule Panel Switch 43 tablero",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 3,
+        "desdeMatriz": true,
+        "requisitoId": "6a0afd2f-71a1-4159-8cc4-16e15d26ad57",
+        "snapshotId": "7e19b2b7-9c90-41b4-88ff-972ebd2c2807",
+        "configuracionSnapshotId": "7e19b2b7-9c90-41b4-88ff-972ebd2c2807",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "43 12V",
+      "obra": {
+        "id": "a7315fae-f0c4-451e-be31-267dd16fc840",
+        "codigo": "37-44",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-08-17",
+        "fecha_fin_estimada": "2027-01-04",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "6a0afd2f-71a1-4159-8cc4-16e15d26ad57",
+        "descripcion": "Rule Panel Switch 43 tablero",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 3,
+        "desdeMatriz": true,
+        "requisitoId": "6a0afd2f-71a1-4159-8cc4-16e15d26ad57",
+        "snapshotId": "6b6df4dd-44ab-4946-877a-50404260d8fc",
+        "configuracionSnapshotId": "6b6df4dd-44ab-4946-877a-50404260d8fc",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "43 12V",
+      "obra": {
+        "id": "8c0af357-a698-426e-a945-2869252b014b",
+        "codigo": "37-45",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-09-14",
+        "fecha_fin_estimada": "2027-02-01",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "6a0afd2f-71a1-4159-8cc4-16e15d26ad57",
+        "descripcion": "Rule Panel Switch 43 tablero",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 3,
+        "desdeMatriz": true,
+        "requisitoId": "6a0afd2f-71a1-4159-8cc4-16e15d26ad57",
+        "snapshotId": null,
+        "configuracionSnapshotId": null,
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "43 12V",
+      "obra": {
+        "id": "6b621141-03ec-4237-b42f-05bb7f7c2f2a",
+        "codigo": "37-46",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-10-22",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "6a0afd2f-71a1-4159-8cc4-16e15d26ad57",
+        "descripcion": "Rule Panel Switch 43 tablero",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 3,
+        "desdeMatriz": true,
+        "requisitoId": "6a0afd2f-71a1-4159-8cc4-16e15d26ad57",
+        "snapshotId": "2bc6d336-b485-411e-9f5d-b191291e8081",
+        "configuracionSnapshotId": "2bc6d336-b485-411e-9f5d-b191291e8081",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "10",
+      "obra": {
+        "id": "a1b72ce8-55de-4fdd-a7e8-be874dc497ff",
+        "codigo": "37-40",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-04-24",
+        "fecha_fin_estimada": "2026-09-07",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "descripcion": "Bomba achique 2000gph 12V",
+        "enPanolLibre": 0,
+        "libreFamilia": 1,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 19,
+        "enPanol": 0,
+        "pendiente": 0,
+        "desdeMatriz": true,
+        "requisitoId": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "snapshotId": "020caf7c-6eea-4037-84cd-f27b60504c02",
+        "configuracionSnapshotId": "bcca4b9f-39bd-4aa3-acbc-c430e3c475cb",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+        "productoDefinido": true,
+        "productoEstandar": false,
+        "requiereProductoConcreto": true,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "10",
+      "obra": {
+        "id": "b85fd483-b29a-4d26-a8cb-0d8ac6a9da14",
+        "codigo": "37-41",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-06-03",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "descripcion": "Bomba achique 2000gph 12V",
+        "enPanolLibre": 0,
+        "libreFamilia": 1,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 1,
+        "enPanol": 0,
+        "pendiente": 2,
+        "desdeMatriz": true,
+        "requisitoId": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "snapshotId": "e5710b03-b00a-49d3-8f93-46f8f37a2e6a",
+        "configuracionSnapshotId": "92fa64c4-71f1-46a4-829a-40379cba9b0a",
+        "avisoPendiente": true,
+        "pedidoAbierto": false,
+        "productoMaterialId": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+        "productoDefinido": true,
+        "productoEstandar": false,
+        "requiereProductoConcreto": true,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "10",
+      "obra": {
+        "id": "83681efc-7406-4462-bd0e-b7ddf8899efe",
+        "codigo": "37-42",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-06-30",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "descripcion": "Bomba achique 2000gph 12V",
+        "enPanolLibre": 0,
+        "libreFamilia": 1,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 2,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "snapshotId": "71b4c731-a77d-4bdb-b5fd-b50c4c92fb72",
+        "configuracionSnapshotId": "5169d6dc-0cfc-47b7-a14e-70dbdde4c1c2",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": true,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "10",
+      "obra": {
+        "id": "f275f6dd-9695-458e-b29c-a093cdfa8380",
+        "codigo": "37-43",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-06-25",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "descripcion": "Bomba achique 2000gph 12V",
+        "enPanolLibre": 0,
+        "libreFamilia": 1,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 3,
+        "desdeMatriz": true,
+        "requisitoId": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "snapshotId": "15f55150-e16a-4246-a1e2-bf75a1571a00",
+        "configuracionSnapshotId": "15f55150-e16a-4246-a1e2-bf75a1571a00",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": true,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "10",
+      "obra": {
+        "id": "a7315fae-f0c4-451e-be31-267dd16fc840",
+        "codigo": "37-44",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-08-17",
+        "fecha_fin_estimada": "2027-01-04",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "descripcion": "Bomba achique 2000gph 12V",
+        "enPanolLibre": 0,
+        "libreFamilia": 1,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 1,
+        "enPanol": 0,
+        "pendiente": 2,
+        "desdeMatriz": true,
+        "requisitoId": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "snapshotId": "e5d78ee9-b67e-44c7-92dd-5eb27e178a7f",
+        "configuracionSnapshotId": "b37fe798-4b42-413b-afe6-cdc74bd2acba",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+        "productoDefinido": true,
+        "productoEstandar": false,
+        "requiereProductoConcreto": true,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "10",
+      "obra": {
+        "id": "8c0af357-a698-426e-a945-2869252b014b",
+        "codigo": "37-45",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-09-14",
+        "fecha_fin_estimada": "2027-02-01",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "descripcion": "Bomba achique 2000gph 12V",
+        "enPanolLibre": 0,
+        "libreFamilia": 1,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 8,
+        "enPanol": 0,
+        "pendiente": 0,
+        "desdeMatriz": true,
+        "requisitoId": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "snapshotId": null,
+        "configuracionSnapshotId": "b0cc6f54-bda5-4063-9d72-6c2cabb7b21c",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+        "productoDefinido": true,
+        "productoEstandar": false,
+        "requiereProductoConcreto": true,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "10",
+      "obra": {
+        "id": "6b621141-03ec-4237-b42f-05bb7f7c2f2a",
+        "codigo": "37-46",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-10-22",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "descripcion": "Bomba achique 2000gph 12V",
+        "enPanolLibre": 0,
+        "libreFamilia": 1,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 3,
+        "desdeMatriz": true,
+        "requisitoId": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "snapshotId": "a21ac87e-e867-4a7b-aec0-f3a060ab9b26",
+        "configuracionSnapshotId": "a21ac87e-e867-4a7b-aec0-f3a060ab9b26",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": true,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "35A",
+      "obra": {
+        "id": "a1b72ce8-55de-4fdd-a7e8-be874dc497ff",
+        "codigo": "37-40",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-04-24",
+        "fecha_fin_estimada": "2026-09-07",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "descripcion": "Switch automático Rule 35A",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 0,
+        "enPanol": 2,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "snapshotId": "e4247379-ebeb-4477-8226-2cb1200b8dac",
+        "configuracionSnapshotId": "56ac1244-ada2-475e-bf44-93fe202dcf8c",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "35A",
+      "obra": {
+        "id": "b85fd483-b29a-4d26-a8cb-0d8ac6a9da14",
+        "codigo": "37-41",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-06-03",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "descripcion": "Switch automático Rule 35A",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 0,
+        "enPanol": 2,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "snapshotId": null,
+        "configuracionSnapshotId": "23c771d5-fba3-47e2-8899-70ce17e40511",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "35A",
+      "obra": {
+        "id": "83681efc-7406-4462-bd0e-b7ddf8899efe",
+        "codigo": "37-42",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-06-30",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "descripcion": "Switch automático Rule 35A",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 2,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "snapshotId": "430edcbe-4dc8-4c9b-94a5-b2d240d7da45",
+        "configuracionSnapshotId": "430edcbe-4dc8-4c9b-94a5-b2d240d7da45",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "35A",
+      "obra": {
+        "id": "f275f6dd-9695-458e-b29c-a093cdfa8380",
+        "codigo": "37-43",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-06-25",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "descripcion": "Switch automático Rule 35A",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 3,
+        "desdeMatriz": true,
+        "requisitoId": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "snapshotId": "037fde96-16be-4048-ae3f-1d9017770246",
+        "configuracionSnapshotId": "037fde96-16be-4048-ae3f-1d9017770246",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "35A",
+      "obra": {
+        "id": "a7315fae-f0c4-451e-be31-267dd16fc840",
+        "codigo": "37-44",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-08-17",
+        "fecha_fin_estimada": "2027-01-04",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "descripcion": "Switch automático Rule 35A",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 3,
+        "desdeMatriz": true,
+        "requisitoId": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "snapshotId": "78c58c27-e499-4b18-afc9-6657bc9a219e",
+        "configuracionSnapshotId": "78c58c27-e499-4b18-afc9-6657bc9a219e",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "35A",
+      "obra": {
+        "id": "8c0af357-a698-426e-a945-2869252b014b",
+        "codigo": "37-45",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-09-14",
+        "fecha_fin_estimada": "2027-02-01",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "descripcion": "Switch automático Rule 35A",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 3,
+        "desdeMatriz": true,
+        "requisitoId": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "snapshotId": null,
+        "configuracionSnapshotId": null,
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "35A",
+      "obra": {
+        "id": "6b621141-03ec-4237-b42f-05bb7f7c2f2a",
+        "codigo": "37-46",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-10-22",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "descripcion": "Switch automático Rule 35A",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 3,
+        "desdeMatriz": true,
+        "requisitoId": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "snapshotId": "42a1f4d7-92f5-4216-94ac-d11f0c334909",
+        "configuracionSnapshotId": "42a1f4d7-92f5-4216-94ac-d11f0c334909",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "31395-4012",
+      "obra": {
+        "id": "a1b72ce8-55de-4fdd-a7e8-be874dc497ff",
+        "codigo": "37-40",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-04-24",
+        "fecha_fin_estimada": "2026-09-07",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "descripcion": "Bomba agua JABSCO automática 3GPM + prefiltro",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "snapshotId": "72c127d3-10d3-4a5a-bf24-95d0ec2a260b",
+        "configuracionSnapshotId": "72c127d3-10d3-4a5a-bf24-95d0ec2a260b",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "31395-4012",
+      "obra": {
+        "id": "b85fd483-b29a-4d26-a8cb-0d8ac6a9da14",
+        "codigo": "37-41",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-06-03",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "descripcion": "Bomba agua JABSCO automática 3GPM + prefiltro",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "snapshotId": "5d1679e4-00a3-4f55-8544-80d3fcc82a73",
+        "configuracionSnapshotId": "5d1679e4-00a3-4f55-8544-80d3fcc82a73",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "31395-4012",
+      "obra": {
+        "id": "83681efc-7406-4462-bd0e-b7ddf8899efe",
+        "codigo": "37-42",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-06-30",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "descripcion": "Bomba agua JABSCO automática 3GPM + prefiltro",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 1,
+        "enPanol": 0,
+        "pendiente": 0,
+        "desdeMatriz": true,
+        "requisitoId": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "snapshotId": null,
+        "configuracionSnapshotId": "5a4a942d-c084-45ef-836b-d65b8a219385",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "31395-4012",
+      "obra": {
+        "id": "f275f6dd-9695-458e-b29c-a093cdfa8380",
+        "codigo": "37-43",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-06-25",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "descripcion": "Bomba agua JABSCO automática 3GPM + prefiltro",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 1,
+        "pendiente": 0,
+        "desdeMatriz": true,
+        "requisitoId": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "snapshotId": null,
+        "configuracionSnapshotId": "710148e3-4a57-4df4-ac7b-93c920534d7b",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "31395-4012",
+      "obra": {
+        "id": "a7315fae-f0c4-451e-be31-267dd16fc840",
+        "codigo": "37-44",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-08-17",
+        "fecha_fin_estimada": "2027-01-04",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "descripcion": "Bomba agua JABSCO automática 3GPM + prefiltro",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 1,
+        "enPanol": 0,
+        "pendiente": 0,
+        "desdeMatriz": true,
+        "requisitoId": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "snapshotId": null,
+        "configuracionSnapshotId": "4dac5178-60bd-4875-bce5-77c1e9fb5333",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "31395-4012",
+      "obra": {
+        "id": "8c0af357-a698-426e-a945-2869252b014b",
+        "codigo": "37-45",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-09-14",
+        "fecha_fin_estimada": "2027-02-01",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "descripcion": "Bomba agua JABSCO automática 3GPM + prefiltro",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 1,
+        "pendiente": 0,
+        "desdeMatriz": true,
+        "requisitoId": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "snapshotId": null,
+        "configuracionSnapshotId": "ca1f0791-a68b-42e7-9e5d-ff12ac4849ad",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "31395-4012",
+      "obra": {
+        "id": "6b621141-03ec-4237-b42f-05bb7f7c2f2a",
+        "codigo": "37-46",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-10-22",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "descripcion": "Bomba agua JABSCO automática 3GPM + prefiltro",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "snapshotId": "b4d8bab1-b9e4-472c-b8a2-1d9c4c55cdb1",
+        "configuracionSnapshotId": "b4d8bab1-b9e4-472c-b8a2-1d9c4c55cdb1",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "43 12V",
+      "obra": {
+        "id": "b85fd483-b29a-4d26-a8cb-0d8ac6a9da14",
+        "codigo": "37-41",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-06-03",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "6d14a23a-1e7a-4661-ab6d-07e9872f9eb2",
+        "descripcion": "CONTROL BOMBA DE ACHIQUE RULE MODEL 43",
+        "enPanolLibre": 32,
+        "libreFamilia": 32,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 11,
+        "egresado": 3,
+        "enPanol": 8,
+        "pendiente": 0,
+        "desdeMatriz": false,
+        "requisitoId": "6d14a23a-1e7a-4661-ab6d-07e9872f9eb2",
+        "snapshotId": null,
+        "configuracionSnapshotId": null,
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "panol"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "43 12V",
+      "obra": {
+        "id": "a1b72ce8-55de-4fdd-a7e8-be874dc497ff",
+        "codigo": "37-40",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-04-24",
+        "fecha_fin_estimada": "2026-09-07",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "6d14a23a-1e7a-4661-ab6d-07e9872f9eb2",
+        "descripcion": "CONTROL BOMBA DE ACHIQUE RULE MODEL 43",
+        "enPanolLibre": 32,
+        "libreFamilia": 32,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 3,
+        "enPanol": 0,
+        "pendiente": 0,
+        "desdeMatriz": false,
+        "requisitoId": "6d14a23a-1e7a-4661-ab6d-07e9872f9eb2",
+        "snapshotId": null,
+        "configuracionSnapshotId": null,
+        "avisoPendiente": true,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "fuera_matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "37A",
+      "obra": {
+        "id": "a1b72ce8-55de-4fdd-a7e8-be874dc497ff",
+        "codigo": "37-40",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-04-24",
+        "fecha_fin_estimada": "2026-09-07",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "descripcion": "Switch automático Rule 37A P/Bomba de achique (Rojo)",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 1,
+        "enPanol": 0,
+        "pendiente": 0,
+        "desdeMatriz": false,
+        "requisitoId": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "snapshotId": null,
+        "configuracionSnapshotId": null,
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "fuera_matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "37A",
+      "obra": {
+        "id": "a7315fae-f0c4-451e-be31-267dd16fc840",
+        "codigo": "37-44",
+        "linea_nombre": "K37",
+        "estado": "activa",
+        "fecha_inicio": "2026-08-17",
+        "fecha_fin_estimada": "2027-01-04",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "descripcion": "Switch automático Rule 37A P/Bomba de achique (Rojo)",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 1,
+        "enPanol": 0,
+        "pendiente": 0,
+        "desdeMatriz": false,
+        "requisitoId": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "snapshotId": null,
+        "configuracionSnapshotId": null,
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "fuera_matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "4187",
+      "obra": {
+        "id": "652d5a9b-49c3-479c-aeef-28864ff6facf",
+        "codigo": "52-23",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-01-12",
+        "fecha_fin_estimada": "2026-09-28",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+        "descripcion": "BASE DE ANTEN VHF INOX GRANDE SHAKESPEARE",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 1,
+        "enPanol": 0,
+        "pendiente": 0,
+        "desdeMatriz": true,
+        "requisitoId": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+        "snapshotId": null,
+        "configuracionSnapshotId": "169d35a1-f210-4843-97e7-fdc2a5eeb91d",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "4187",
+      "obra": {
+        "id": "4e967f5d-4022-4f68-9ca5-9a6f280829f3",
+        "codigo": "52-24",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-03-30",
+        "fecha_fin_estimada": "2026-11-30",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+        "descripcion": "BASE DE ANTEN VHF INOX GRANDE SHAKESPEARE",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 1,
+        "enPanol": 0,
+        "pendiente": 0,
+        "desdeMatriz": true,
+        "requisitoId": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+        "snapshotId": null,
+        "configuracionSnapshotId": "83101450-d821-41fe-b387-1a84dbe04d1d",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "4187",
+      "obra": {
+        "id": "dcc01fcd-fdb1-4f5d-8ea7-095a6551c560",
+        "codigo": "52-25",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-05-13",
+        "fecha_fin_estimada": "2027-01-22",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+        "descripcion": "BASE DE ANTEN VHF INOX GRANDE SHAKESPEARE",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+        "snapshotId": "f52e5bda-b503-4a33-9ca0-6e0d293df9eb",
+        "configuracionSnapshotId": "f52e5bda-b503-4a33-9ca0-6e0d293df9eb",
+        "avisoPendiente": false,
+        "pedidoAbierto": true,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "4187",
+      "obra": {
+        "id": "45a7cc55-4603-4a21-b19b-9119108d82a8",
+        "codigo": "52-26",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-05-27",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+        "descripcion": "BASE DE ANTEN VHF INOX GRANDE SHAKESPEARE",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+        "snapshotId": "db50da93-6928-49dc-ba11-a200af12054e",
+        "configuracionSnapshotId": "db50da93-6928-49dc-ba11-a200af12054e",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "4187",
+      "obra": {
+        "id": "f75fef37-f0d8-4ce5-b206-32b9c3e2aa57",
+        "codigo": "52-27",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-07-13",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+        "descripcion": "BASE DE ANTEN VHF INOX GRANDE SHAKESPEARE",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+        "snapshotId": "e6880f46-c94f-4a2d-a3d0-e94ea52a51e1",
+        "configuracionSnapshotId": "e6880f46-c94f-4a2d-a3d0-e94ea52a51e1",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "4187",
+      "obra": {
+        "id": "6150fe8e-adb8-40ec-9191-99f38f191990",
+        "codigo": "52-28",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-09-03",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+        "descripcion": "BASE DE ANTEN VHF INOX GRANDE SHAKESPEARE",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+        "snapshotId": "1e309903-f9bf-436b-bed9-c74dcca10f35",
+        "configuracionSnapshotId": "1e309903-f9bf-436b-bed9-c74dcca10f35",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "10",
+      "obra": {
+        "id": "652d5a9b-49c3-479c-aeef-28864ff6facf",
+        "codigo": "52-23",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-01-12",
+        "fecha_fin_estimada": "2026-09-28",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "descripcion": "Bomba achique 2000gph 12V",
+        "enPanolLibre": 0,
+        "libreFamilia": 1,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 4,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 4,
+        "desdeMatriz": true,
+        "requisitoId": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "snapshotId": "db4ffcc1-73c4-4621-b2cc-18fbdb4a3173",
+        "configuracionSnapshotId": "db4ffcc1-73c4-4621-b2cc-18fbdb4a3173",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": true,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 4,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "10",
+      "obra": {
+        "id": "4e967f5d-4022-4f68-9ca5-9a6f280829f3",
+        "codigo": "52-24",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-03-30",
+        "fecha_fin_estimada": "2026-11-30",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "descripcion": "Bomba achique 2000gph 12V",
+        "enPanolLibre": 0,
+        "libreFamilia": 1,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 4,
+        "egresado": 4,
+        "enPanol": 0,
+        "pendiente": 0,
+        "desdeMatriz": true,
+        "requisitoId": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "snapshotId": null,
+        "configuracionSnapshotId": "c4e2ae8b-0366-4856-b626-a34bc1cfa6a5",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+        "productoDefinido": true,
+        "productoEstandar": false,
+        "requiereProductoConcreto": true,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 4,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "10",
+      "obra": {
+        "id": "dcc01fcd-fdb1-4f5d-8ea7-095a6551c560",
+        "codigo": "52-25",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-05-13",
+        "fecha_fin_estimada": "2027-01-22",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "descripcion": "Bomba achique 2000gph 12V",
+        "enPanolLibre": 0,
+        "libreFamilia": 1,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 4,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 4,
+        "desdeMatriz": true,
+        "requisitoId": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "snapshotId": "ca3f294a-1d98-4eb0-b97f-0c184e5556ca",
+        "configuracionSnapshotId": "ca3f294a-1d98-4eb0-b97f-0c184e5556ca",
+        "avisoPendiente": false,
+        "pedidoAbierto": true,
+        "productoMaterialId": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+        "productoDefinido": true,
+        "productoEstandar": false,
+        "requiereProductoConcreto": true,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 4,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "10",
+      "obra": {
+        "id": "45a7cc55-4603-4a21-b19b-9119108d82a8",
+        "codigo": "52-26",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-05-27",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "descripcion": "Bomba achique 2000gph 12V",
+        "enPanolLibre": 0,
+        "libreFamilia": 1,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 4,
+        "egresado": 2,
+        "enPanol": 0,
+        "pendiente": 2,
+        "desdeMatriz": true,
+        "requisitoId": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "snapshotId": null,
+        "configuracionSnapshotId": "4884b2ea-d661-4ee7-9ab3-3d9377646523",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": true,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 4,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "10",
+      "obra": {
+        "id": "f75fef37-f0d8-4ce5-b206-32b9c3e2aa57",
+        "codigo": "52-27",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-07-13",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "descripcion": "Bomba achique 2000gph 12V",
+        "enPanolLibre": 0,
+        "libreFamilia": 1,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 4,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 4,
+        "desdeMatriz": true,
+        "requisitoId": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "snapshotId": "01572c3c-caf1-43f9-bb01-968b709ca8af",
+        "configuracionSnapshotId": "01572c3c-caf1-43f9-bb01-968b709ca8af",
+        "avisoPendiente": false,
+        "pedidoAbierto": true,
+        "productoMaterialId": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+        "productoDefinido": true,
+        "productoEstandar": false,
+        "requiereProductoConcreto": true,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 4,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "10",
+      "obra": {
+        "id": "6150fe8e-adb8-40ec-9191-99f38f191990",
+        "codigo": "52-28",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-09-03",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "descripcion": "Bomba achique 2000gph 12V",
+        "enPanolLibre": 0,
+        "libreFamilia": 1,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 4,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 4,
+        "desdeMatriz": true,
+        "requisitoId": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "snapshotId": "4fe1c99d-a332-4840-8185-8887e96565ce",
+        "configuracionSnapshotId": "4fe1c99d-a332-4840-8185-8887e96565ce",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": true,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 4,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "35A",
+      "obra": {
+        "id": "652d5a9b-49c3-479c-aeef-28864ff6facf",
+        "codigo": "52-23",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-01-12",
+        "fecha_fin_estimada": "2026-09-28",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "descripcion": "Switch automático Rule 35A",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "snapshotId": "4377a4d0-a7a3-482a-ad61-3438978096ce",
+        "configuracionSnapshotId": "4377a4d0-a7a3-482a-ad61-3438978096ce",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "35A",
+      "obra": {
+        "id": "4e967f5d-4022-4f68-9ca5-9a6f280829f3",
+        "codigo": "52-24",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-03-30",
+        "fecha_fin_estimada": "2026-11-30",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "descripcion": "Switch automático Rule 35A",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 1,
+        "enPanol": 0,
+        "pendiente": 0,
+        "desdeMatriz": true,
+        "requisitoId": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "snapshotId": null,
+        "configuracionSnapshotId": "9ae71760-10e0-4679-b52c-618495bbaa5e",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "35A",
+      "obra": {
+        "id": "dcc01fcd-fdb1-4f5d-8ea7-095a6551c560",
+        "codigo": "52-25",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-05-13",
+        "fecha_fin_estimada": "2027-01-22",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "descripcion": "Switch automático Rule 35A",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 1,
+        "enPanol": 2,
+        "pendiente": 0,
+        "desdeMatriz": true,
+        "requisitoId": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "snapshotId": null,
+        "configuracionSnapshotId": "1466c4b7-8003-4311-bdb6-3c6de7492c60",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "35A",
+      "obra": {
+        "id": "45a7cc55-4603-4a21-b19b-9119108d82a8",
+        "codigo": "52-26",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-05-27",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "descripcion": "Switch automático Rule 35A",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "snapshotId": "c8b0d2e8-8633-4955-8166-fc108ae55e8a",
+        "configuracionSnapshotId": "c8b0d2e8-8633-4955-8166-fc108ae55e8a",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "35A",
+      "obra": {
+        "id": "f75fef37-f0d8-4ce5-b206-32b9c3e2aa57",
+        "codigo": "52-27",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-07-13",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "descripcion": "Switch automático Rule 35A",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "snapshotId": "c00d454e-d987-430e-aa3a-91fe938a6ed0",
+        "configuracionSnapshotId": "c00d454e-d987-430e-aa3a-91fe938a6ed0",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "35A",
+      "obra": {
+        "id": "6150fe8e-adb8-40ec-9191-99f38f191990",
+        "codigo": "52-28",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-09-03",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "descripcion": "Switch automático Rule 35A",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "snapshotId": "b09ae3f7-fca8-417f-a791-8c11e7a71bc2",
+        "configuracionSnapshotId": "b09ae3f7-fca8-417f-a791-8c11e7a71bc2",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "37A",
+      "obra": {
+        "id": "652d5a9b-49c3-479c-aeef-28864ff6facf",
+        "codigo": "52-23",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-01-12",
+        "fecha_fin_estimada": "2026-09-28",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "descripcion": "Switch automático Rule 37A P/Bomba de achique (Rojo)",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "snapshotId": "e23c4441-7700-4aec-ac60-585c1710a42f",
+        "configuracionSnapshotId": "e23c4441-7700-4aec-ac60-585c1710a42f",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "37A",
+      "obra": {
+        "id": "4e967f5d-4022-4f68-9ca5-9a6f280829f3",
+        "codigo": "52-24",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-03-30",
+        "fecha_fin_estimada": "2026-11-30",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "descripcion": "Switch automático Rule 37A P/Bomba de achique (Rojo)",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 1,
+        "enPanol": 0,
+        "pendiente": 0,
+        "desdeMatriz": true,
+        "requisitoId": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "snapshotId": null,
+        "configuracionSnapshotId": "615218a8-8280-48be-b826-ef050ec01616",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "37A",
+      "obra": {
+        "id": "dcc01fcd-fdb1-4f5d-8ea7-095a6551c560",
+        "codigo": "52-25",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-05-13",
+        "fecha_fin_estimada": "2027-01-22",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "descripcion": "Switch automático Rule 37A P/Bomba de achique (Rojo)",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "snapshotId": "d195c4f1-163a-40a3-9291-129ed4a01834",
+        "configuracionSnapshotId": "d195c4f1-163a-40a3-9291-129ed4a01834",
+        "avisoPendiente": false,
+        "pedidoAbierto": true,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "37A",
+      "obra": {
+        "id": "45a7cc55-4603-4a21-b19b-9119108d82a8",
+        "codigo": "52-26",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-05-27",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "descripcion": "Switch automático Rule 37A P/Bomba de achique (Rojo)",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "snapshotId": "737b75b0-9066-4746-8e3a-61e5da0e8fe7",
+        "configuracionSnapshotId": "737b75b0-9066-4746-8e3a-61e5da0e8fe7",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "37A",
+      "obra": {
+        "id": "f75fef37-f0d8-4ce5-b206-32b9c3e2aa57",
+        "codigo": "52-27",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-07-13",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "descripcion": "Switch automático Rule 37A P/Bomba de achique (Rojo)",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "snapshotId": "9cd40b43-90eb-4388-b41e-e9a3b6854555",
+        "configuracionSnapshotId": "9cd40b43-90eb-4388-b41e-e9a3b6854555",
+        "avisoPendiente": false,
+        "pedidoAbierto": true,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "37A",
+      "obra": {
+        "id": "6150fe8e-adb8-40ec-9191-99f38f191990",
+        "codigo": "52-28",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-09-03",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "descripcion": "Switch automático Rule 37A P/Bomba de achique (Rojo)",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "snapshotId": "b1bfe010-7dfa-43e1-9cb4-f1dadeb40f54",
+        "configuracionSnapshotId": "b1bfe010-7dfa-43e1-9cb4-f1dadeb40f54",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "31395-4012",
+      "obra": {
+        "id": "652d5a9b-49c3-479c-aeef-28864ff6facf",
+        "codigo": "52-23",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-01-12",
+        "fecha_fin_estimada": "2026-09-28",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "descripcion": "Bomba agua JABSCO automática 3GPM + prefiltro",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 1,
+        "enPanol": 0,
+        "pendiente": 0,
+        "desdeMatriz": true,
+        "requisitoId": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "snapshotId": null,
+        "configuracionSnapshotId": "73bc3618-2ce0-4696-b392-f580579b8926",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "31395-4012",
+      "obra": {
+        "id": "4e967f5d-4022-4f68-9ca5-9a6f280829f3",
+        "codigo": "52-24",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-03-30",
+        "fecha_fin_estimada": "2026-11-30",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "descripcion": "Bomba agua JABSCO automática 3GPM + prefiltro",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 1,
+        "enPanol": 0,
+        "pendiente": 0,
+        "desdeMatriz": true,
+        "requisitoId": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "snapshotId": null,
+        "configuracionSnapshotId": "dfd02358-6905-481a-96e3-061631b828bf",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "31395-4012",
+      "obra": {
+        "id": "dcc01fcd-fdb1-4f5d-8ea7-095a6551c560",
+        "codigo": "52-25",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-05-13",
+        "fecha_fin_estimada": "2027-01-22",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "descripcion": "Bomba agua JABSCO automática 3GPM + prefiltro",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 1,
+        "pendiente": 0,
+        "desdeMatriz": true,
+        "requisitoId": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "snapshotId": null,
+        "configuracionSnapshotId": "f411cf78-8632-429d-b587-8b16e50f8073",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "31395-4012",
+      "obra": {
+        "id": "45a7cc55-4603-4a21-b19b-9119108d82a8",
+        "codigo": "52-26",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-05-27",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "descripcion": "Bomba agua JABSCO automática 3GPM + prefiltro",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 1,
+        "enPanol": 0,
+        "pendiente": 0,
+        "desdeMatriz": true,
+        "requisitoId": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "snapshotId": null,
+        "configuracionSnapshotId": "03e43c4e-c8b1-4822-a10a-8fe24ca38922",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "31395-4012",
+      "obra": {
+        "id": "f75fef37-f0d8-4ce5-b206-32b9c3e2aa57",
+        "codigo": "52-27",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-07-13",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "descripcion": "Bomba agua JABSCO automática 3GPM + prefiltro",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "snapshotId": "5fa2c686-a863-4f95-8fe3-f8431873173e",
+        "configuracionSnapshotId": "5fa2c686-a863-4f95-8fe3-f8431873173e",
+        "avisoPendiente": false,
+        "pedidoAbierto": true,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "31395-4012",
+      "obra": {
+        "id": "6150fe8e-adb8-40ec-9191-99f38f191990",
+        "codigo": "52-28",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-09-03",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "descripcion": "Bomba agua JABSCO automática 3GPM + prefiltro",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "snapshotId": "28cc9719-47cf-4f99-a84c-8fdcb7063e2b",
+        "configuracionSnapshotId": "28cc9719-47cf-4f99-a84c-8fdcb7063e2b",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "14A",
+      "obra": {
+        "id": "652d5a9b-49c3-479c-aeef-28864ff6facf",
+        "codigo": "52-23",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-01-12",
+        "fecha_fin_estimada": "2026-09-28",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "1cea6ed1-4dc2-4ec1-8da0-7cba5c9bfa1c",
+        "descripcion": "Bomba de achique 3700 GPH",
+        "enPanolLibre": 2,
+        "libreFamilia": 2,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "1cea6ed1-4dc2-4ec1-8da0-7cba5c9bfa1c",
+        "snapshotId": "b46b9b92-1e15-43f5-8740-49d31fe4c74a",
+        "configuracionSnapshotId": "b46b9b92-1e15-43f5-8740-49d31fe4c74a",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "14A",
+      "obra": {
+        "id": "4e967f5d-4022-4f68-9ca5-9a6f280829f3",
+        "codigo": "52-24",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-03-30",
+        "fecha_fin_estimada": "2026-11-30",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "1cea6ed1-4dc2-4ec1-8da0-7cba5c9bfa1c",
+        "descripcion": "Bomba de achique 3700 GPH",
+        "enPanolLibre": 2,
+        "libreFamilia": 2,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 1,
+        "enPanol": 0,
+        "pendiente": 0,
+        "desdeMatriz": true,
+        "requisitoId": "1cea6ed1-4dc2-4ec1-8da0-7cba5c9bfa1c",
+        "snapshotId": null,
+        "configuracionSnapshotId": "f3696cd5-eb01-4b14-ad4b-987b877ed0e3",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "14A",
+      "obra": {
+        "id": "dcc01fcd-fdb1-4f5d-8ea7-095a6551c560",
+        "codigo": "52-25",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-05-13",
+        "fecha_fin_estimada": "2027-01-22",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "1cea6ed1-4dc2-4ec1-8da0-7cba5c9bfa1c",
+        "descripcion": "Bomba de achique 3700 GPH",
+        "enPanolLibre": 2,
+        "libreFamilia": 2,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "1cea6ed1-4dc2-4ec1-8da0-7cba5c9bfa1c",
+        "snapshotId": "85f3aa70-c04f-487c-aca5-c2aaf60aae05",
+        "configuracionSnapshotId": "85f3aa70-c04f-487c-aca5-c2aaf60aae05",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "14A",
+      "obra": {
+        "id": "45a7cc55-4603-4a21-b19b-9119108d82a8",
+        "codigo": "52-26",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-05-27",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "1cea6ed1-4dc2-4ec1-8da0-7cba5c9bfa1c",
+        "descripcion": "Bomba de achique 3700 GPH",
+        "enPanolLibre": 2,
+        "libreFamilia": 2,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 1,
+        "pendiente": 0,
+        "desdeMatriz": true,
+        "requisitoId": "1cea6ed1-4dc2-4ec1-8da0-7cba5c9bfa1c",
+        "snapshotId": null,
+        "configuracionSnapshotId": "07601e95-d4e2-43b3-bb3b-052e42dc5cfa",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "14A",
+      "obra": {
+        "id": "f75fef37-f0d8-4ce5-b206-32b9c3e2aa57",
+        "codigo": "52-27",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-07-13",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "1cea6ed1-4dc2-4ec1-8da0-7cba5c9bfa1c",
+        "descripcion": "Bomba de achique 3700 GPH",
+        "enPanolLibre": 2,
+        "libreFamilia": 2,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "1cea6ed1-4dc2-4ec1-8da0-7cba5c9bfa1c",
+        "snapshotId": "901c72a2-10a8-43f0-8d3b-470b9eccc554",
+        "configuracionSnapshotId": "901c72a2-10a8-43f0-8d3b-470b9eccc554",
+        "avisoPendiente": false,
+        "pedidoAbierto": true,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "14A",
+      "obra": {
+        "id": "6150fe8e-adb8-40ec-9191-99f38f191990",
+        "codigo": "52-28",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-09-03",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "1cea6ed1-4dc2-4ec1-8da0-7cba5c9bfa1c",
+        "descripcion": "Bomba de achique 3700 GPH",
+        "enPanolLibre": 2,
+        "libreFamilia": 2,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "1cea6ed1-4dc2-4ec1-8da0-7cba5c9bfa1c",
+        "snapshotId": "ed9e2642-3feb-485e-b524-1c81bccbca21",
+        "configuracionSnapshotId": "ed9e2642-3feb-485e-b524-1c81bccbca21",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "43 12V",
+      "obra": {
+        "id": "652d5a9b-49c3-479c-aeef-28864ff6facf",
+        "codigo": "52-23",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-01-12",
+        "fecha_fin_estimada": "2026-09-28",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "6d14a23a-1e7a-4661-ab6d-07e9872f9eb2",
+        "descripcion": "CONTROL BOMBA DE ACHIQUE RULE MODEL 43",
+        "enPanolLibre": 32,
+        "libreFamilia": 32,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 5,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 5,
+        "desdeMatriz": true,
+        "requisitoId": "6d14a23a-1e7a-4661-ab6d-07e9872f9eb2",
+        "snapshotId": "84f9d48c-36ab-436e-b016-066671afb81b",
+        "configuracionSnapshotId": "84f9d48c-36ab-436e-b016-066671afb81b",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 5,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "43 12V",
+      "obra": {
+        "id": "4e967f5d-4022-4f68-9ca5-9a6f280829f3",
+        "codigo": "52-24",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-03-30",
+        "fecha_fin_estimada": "2026-11-30",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "6d14a23a-1e7a-4661-ab6d-07e9872f9eb2",
+        "descripcion": "CONTROL BOMBA DE ACHIQUE RULE MODEL 43",
+        "enPanolLibre": 32,
+        "libreFamilia": 32,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 5,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 5,
+        "desdeMatriz": true,
+        "requisitoId": "6d14a23a-1e7a-4661-ab6d-07e9872f9eb2",
+        "snapshotId": "7b8e410c-a276-40d4-929a-249e25f203d2",
+        "configuracionSnapshotId": "7b8e410c-a276-40d4-929a-249e25f203d2",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 5,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "43 12V",
+      "obra": {
+        "id": "dcc01fcd-fdb1-4f5d-8ea7-095a6551c560",
+        "codigo": "52-25",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-05-13",
+        "fecha_fin_estimada": "2027-01-22",
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "6d14a23a-1e7a-4661-ab6d-07e9872f9eb2",
+        "descripcion": "CONTROL BOMBA DE ACHIQUE RULE MODEL 43",
+        "enPanolLibre": 32,
+        "libreFamilia": 32,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 5,
+        "egresado": 0,
+        "enPanol": 5,
+        "pendiente": 0,
+        "desdeMatriz": true,
+        "requisitoId": "6d14a23a-1e7a-4661-ab6d-07e9872f9eb2",
+        "snapshotId": null,
+        "configuracionSnapshotId": "7caaab55-d184-4869-acac-6ed88055e86c",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 5,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "43 12V",
+      "obra": {
+        "id": "45a7cc55-4603-4a21-b19b-9119108d82a8",
+        "codigo": "52-26",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-05-27",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "6d14a23a-1e7a-4661-ab6d-07e9872f9eb2",
+        "descripcion": "CONTROL BOMBA DE ACHIQUE RULE MODEL 43",
+        "enPanolLibre": 32,
+        "libreFamilia": 32,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 5,
+        "egresado": 0,
+        "enPanol": 5,
+        "pendiente": 0,
+        "desdeMatriz": true,
+        "requisitoId": "6d14a23a-1e7a-4661-ab6d-07e9872f9eb2",
+        "snapshotId": null,
+        "configuracionSnapshotId": "f92f2b99-52be-41b5-b326-1417aedfd081",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 5,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "43 12V",
+      "obra": {
+        "id": "f75fef37-f0d8-4ce5-b206-32b9c3e2aa57",
+        "codigo": "52-27",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-07-13",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "6d14a23a-1e7a-4661-ab6d-07e9872f9eb2",
+        "descripcion": "CONTROL BOMBA DE ACHIQUE RULE MODEL 43",
+        "enPanolLibre": 32,
+        "libreFamilia": 32,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 5,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 5,
+        "desdeMatriz": true,
+        "requisitoId": "6d14a23a-1e7a-4661-ab6d-07e9872f9eb2",
+        "snapshotId": "68bae77d-7521-4ec9-bd6d-ade09b9aefb4",
+        "configuracionSnapshotId": "68bae77d-7521-4ec9-bd6d-ade09b9aefb4",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 5,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "43 12V",
+      "obra": {
+        "id": "6150fe8e-adb8-40ec-9191-99f38f191990",
+        "codigo": "52-28",
+        "linea_nombre": "K52",
+        "estado": "activa",
+        "fecha_inicio": "2026-09-03",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "6d14a23a-1e7a-4661-ab6d-07e9872f9eb2",
+        "descripcion": "CONTROL BOMBA DE ACHIQUE RULE MODEL 43",
+        "enPanolLibre": 32,
+        "libreFamilia": 32,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 5,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 5,
+        "desdeMatriz": true,
+        "requisitoId": "6d14a23a-1e7a-4661-ab6d-07e9872f9eb2",
+        "snapshotId": "b5ac276e-81d7-4ff8-99d2-b0938a3e4ae4",
+        "configuracionSnapshotId": "b5ac276e-81d7-4ff8-99d2-b0938a3e4ae4",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 5,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "10",
+      "obra": {
+        "id": "4ca9218f-76b1-47b1-95b2-43e8c55430ce",
+        "codigo": "55-1",
+        "linea_nombre": "K55",
+        "estado": "activa",
+        "fecha_inicio": "2026-03-17",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "descripcion": "Bomba achique 2000gph 12V",
+        "enPanolLibre": 0,
+        "libreFamilia": 1,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 6,
+        "enPanol": 0,
+        "pendiente": 0,
+        "desdeMatriz": true,
+        "requisitoId": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "snapshotId": null,
+        "configuracionSnapshotId": "51dbdbd8-4f14-4ef9-87b7-d9145cbff46f",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+        "productoDefinido": true,
+        "productoEstandar": false,
+        "requiereProductoConcreto": true,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "10",
+      "obra": {
+        "id": "488b6dd4-01a3-4e57-bcd4-621f8e909f96",
+        "codigo": "55-2",
+        "linea_nombre": "K55",
+        "estado": "activa",
+        "fecha_inicio": "2026-03-17",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "descripcion": "Bomba achique 2000gph 12V",
+        "enPanolLibre": 0,
+        "libreFamilia": 1,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 3,
+        "desdeMatriz": true,
+        "requisitoId": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "snapshotId": "4c7f1498-b863-4dc3-84c6-25a23a3696e8",
+        "configuracionSnapshotId": "4c7f1498-b863-4dc3-84c6-25a23a3696e8",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": true,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "10",
+      "obra": {
+        "id": "cdddce11-3d17-4945-837c-8fc0362c26e2",
+        "codigo": "55-3",
+        "linea_nombre": "K55",
+        "estado": "activa",
+        "fecha_inicio": "2026-03-17",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "descripcion": "Bomba achique 2000gph 12V",
+        "enPanolLibre": 0,
+        "libreFamilia": 1,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 3,
+        "desdeMatriz": true,
+        "requisitoId": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "snapshotId": "8c71a1f1-6445-452e-a3c9-db13a3d5720d",
+        "configuracionSnapshotId": "8c71a1f1-6445-452e-a3c9-db13a3d5720d",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": true,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "10",
+      "obra": {
+        "id": "ebef12e9-d0c9-4a71-8516-950c1fdd8627",
+        "codigo": "55-4",
+        "linea_nombre": "K55",
+        "estado": "activa",
+        "fecha_inicio": "2026-05-04",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "descripcion": "Bomba achique 2000gph 12V",
+        "enPanolLibre": 0,
+        "libreFamilia": 1,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 3,
+        "desdeMatriz": true,
+        "requisitoId": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "snapshotId": "ad61a276-9a61-4524-8e0f-12395e721cb7",
+        "configuracionSnapshotId": "ad61a276-9a61-4524-8e0f-12395e721cb7",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": true,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "10",
+      "obra": {
+        "id": "f102348b-5921-4ab8-91a3-fa919c40fd29",
+        "codigo": "55-5",
+        "linea_nombre": "K55",
+        "estado": "activa",
+        "fecha_inicio": null,
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "descripcion": "Bomba achique 2000gph 12V",
+        "enPanolLibre": 0,
+        "libreFamilia": 1,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 3,
+        "desdeMatriz": true,
+        "requisitoId": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "snapshotId": "9f076340-62a9-47ac-8824-a4fe41eacf2e",
+        "configuracionSnapshotId": "9f076340-62a9-47ac-8824-a4fe41eacf2e",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+        "productoDefinido": true,
+        "productoEstandar": false,
+        "requiereProductoConcreto": true,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "10",
+      "obra": {
+        "id": "5d5e2bc3-fb86-4e6a-962e-e9b0c35ebd4f",
+        "codigo": "55-6",
+        "linea_nombre": "K55",
+        "estado": "activa",
+        "fecha_inicio": "2026-10-02",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "descripcion": "Bomba achique 2000gph 12V",
+        "enPanolLibre": 0,
+        "libreFamilia": 1,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 3,
+        "desdeMatriz": true,
+        "requisitoId": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "snapshotId": null,
+        "configuracionSnapshotId": null,
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": true,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "10",
+      "obra": {
+        "id": "c72625c3-b140-4a44-8b6c-eec5e945b760",
+        "codigo": "55-7",
+        "linea_nombre": "K55",
+        "estado": "activa",
+        "fecha_inicio": "2026-10-02",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "descripcion": "Bomba achique 2000gph 12V",
+        "enPanolLibre": 0,
+        "libreFamilia": 1,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 3,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 3,
+        "desdeMatriz": true,
+        "requisitoId": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "snapshotId": null,
+        "configuracionSnapshotId": null,
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": true,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 3,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "35A",
+      "obra": {
+        "id": "488b6dd4-01a3-4e57-bcd4-621f8e909f96",
+        "codigo": "55-2",
+        "linea_nombre": "K55",
+        "estado": "activa",
+        "fecha_inicio": "2026-03-17",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "descripcion": "Switch automático Rule 35A",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "snapshotId": "1f8564e2-af1e-4975-8688-f12cada0180d",
+        "configuracionSnapshotId": "1f8564e2-af1e-4975-8688-f12cada0180d",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "35A",
+      "obra": {
+        "id": "cdddce11-3d17-4945-837c-8fc0362c26e2",
+        "codigo": "55-3",
+        "linea_nombre": "K55",
+        "estado": "activa",
+        "fecha_inicio": "2026-03-17",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "descripcion": "Switch automático Rule 35A",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 3,
+        "pendiente": 0,
+        "desdeMatriz": true,
+        "requisitoId": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "snapshotId": null,
+        "configuracionSnapshotId": "bc9a057c-486d-4f4c-bd76-c64be17236e0",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "35A",
+      "obra": {
+        "id": "ebef12e9-d0c9-4a71-8516-950c1fdd8627",
+        "codigo": "55-4",
+        "linea_nombre": "K55",
+        "estado": "activa",
+        "fecha_inicio": "2026-05-04",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "descripcion": "Switch automático Rule 35A",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "snapshotId": "115d2c90-8924-4b57-96c2-9745cf6f698e",
+        "configuracionSnapshotId": "115d2c90-8924-4b57-96c2-9745cf6f698e",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "35A",
+      "obra": {
+        "id": "f102348b-5921-4ab8-91a3-fa919c40fd29",
+        "codigo": "55-5",
+        "linea_nombre": "K55",
+        "estado": "activa",
+        "fecha_inicio": null,
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "descripcion": "Switch automático Rule 35A",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "snapshotId": "dffec80e-ed6b-4eca-8ca3-f953c045c068",
+        "configuracionSnapshotId": "dffec80e-ed6b-4eca-8ca3-f953c045c068",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "35A",
+      "obra": {
+        "id": "5d5e2bc3-fb86-4e6a-962e-e9b0c35ebd4f",
+        "codigo": "55-6",
+        "linea_nombre": "K55",
+        "estado": "activa",
+        "fecha_inicio": "2026-10-02",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "descripcion": "Switch automático Rule 35A",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "snapshotId": null,
+        "configuracionSnapshotId": null,
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "35A",
+      "obra": {
+        "id": "c72625c3-b140-4a44-8b6c-eec5e945b760",
+        "codigo": "55-7",
+        "linea_nombre": "K55",
+        "estado": "activa",
+        "fecha_inicio": "2026-10-02",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "descripcion": "Switch automático Rule 35A",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "snapshotId": null,
+        "configuracionSnapshotId": null,
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "37A",
+      "obra": {
+        "id": "4ca9218f-76b1-47b1-95b2-43e8c55430ce",
+        "codigo": "55-1",
+        "linea_nombre": "K55",
+        "estado": "activa",
+        "fecha_inicio": "2026-03-17",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "descripcion": "Switch automático Rule 37A P/Bomba de achique (Rojo)",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "snapshotId": "333c7b05-7357-4458-8205-09524fe828b9",
+        "configuracionSnapshotId": "333c7b05-7357-4458-8205-09524fe828b9",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "37A",
+      "obra": {
+        "id": "488b6dd4-01a3-4e57-bcd4-621f8e909f96",
+        "codigo": "55-2",
+        "linea_nombre": "K55",
+        "estado": "activa",
+        "fecha_inicio": "2026-03-17",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "descripcion": "Switch automático Rule 37A P/Bomba de achique (Rojo)",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "snapshotId": "b0e81145-f5e9-46d1-abf2-c58e73da567c",
+        "configuracionSnapshotId": "b0e81145-f5e9-46d1-abf2-c58e73da567c",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "37A",
+      "obra": {
+        "id": "cdddce11-3d17-4945-837c-8fc0362c26e2",
+        "codigo": "55-3",
+        "linea_nombre": "K55",
+        "estado": "activa",
+        "fecha_inicio": "2026-03-17",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "descripcion": "Switch automático Rule 37A P/Bomba de achique (Rojo)",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 1,
+        "pendiente": 0,
+        "desdeMatriz": true,
+        "requisitoId": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "snapshotId": null,
+        "configuracionSnapshotId": "4d2c236b-92d0-4212-9cc8-8b6c519f7382",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "37A",
+      "obra": {
+        "id": "ebef12e9-d0c9-4a71-8516-950c1fdd8627",
+        "codigo": "55-4",
+        "linea_nombre": "K55",
+        "estado": "activa",
+        "fecha_inicio": "2026-05-04",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "descripcion": "Switch automático Rule 37A P/Bomba de achique (Rojo)",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "snapshotId": "3d4f1403-41a9-4e3b-8dd0-c1a58e9db759",
+        "configuracionSnapshotId": "3d4f1403-41a9-4e3b-8dd0-c1a58e9db759",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "37A",
+      "obra": {
+        "id": "f102348b-5921-4ab8-91a3-fa919c40fd29",
+        "codigo": "55-5",
+        "linea_nombre": "K55",
+        "estado": "activa",
+        "fecha_inicio": null,
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "descripcion": "Switch automático Rule 37A P/Bomba de achique (Rojo)",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "snapshotId": "ac29e13f-2ff7-46cb-b02b-48e03855194c",
+        "configuracionSnapshotId": "ac29e13f-2ff7-46cb-b02b-48e03855194c",
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "37A",
+      "obra": {
+        "id": "5d5e2bc3-fb86-4e6a-962e-e9b0c35ebd4f",
+        "codigo": "55-6",
+        "linea_nombre": "K55",
+        "estado": "activa",
+        "fecha_inicio": "2026-10-02",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "descripcion": "Switch automático Rule 37A P/Bomba de achique (Rojo)",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "snapshotId": null,
+        "configuracionSnapshotId": null,
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "37A",
+      "obra": {
+        "id": "c72625c3-b140-4a44-8b6c-eec5e945b760",
+        "codigo": "55-7",
+        "linea_nombre": "K55",
+        "estado": "activa",
+        "fecha_inicio": "2026-10-02",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "descripcion": "Switch automático Rule 37A P/Bomba de achique (Rojo)",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 0,
+        "enPanol": 0,
+        "pendiente": 1,
+        "desdeMatriz": true,
+        "requisitoId": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "snapshotId": null,
+        "configuracionSnapshotId": null,
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "37A",
+      "obra": {
+        "id": "c6d168bf-7d6e-4b22-a83e-398b43bc752e",
+        "codigo": "64-21",
+        "linea_nombre": "K64",
+        "estado": "activa",
+        "fecha_inicio": "2026-03-17",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "descripcion": "Switch automático Rule 37A P/Bomba de achique (Rojo)",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 1,
+        "enPanol": 0,
+        "pendiente": 0,
+        "desdeMatriz": false,
+        "requisitoId": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "snapshotId": null,
+        "configuracionSnapshotId": null,
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "fuera_matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "14A",
+      "obra": {
+        "id": "c6d168bf-7d6e-4b22-a83e-398b43bc752e",
+        "codigo": "64-21",
+        "linea_nombre": "K64",
+        "estado": "activa",
+        "fecha_inicio": "2026-03-17",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "1cea6ed1-4dc2-4ec1-8da0-7cba5c9bfa1c",
+        "descripcion": "Bomba de achique 3700 GPH",
+        "enPanolLibre": 2,
+        "libreFamilia": 2,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 2,
+        "egresado": 1,
+        "enPanol": 1,
+        "pendiente": 0,
+        "desdeMatriz": false,
+        "requisitoId": "1cea6ed1-4dc2-4ec1-8da0-7cba5c9bfa1c",
+        "snapshotId": null,
+        "configuracionSnapshotId": null,
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "panol"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "43 12V",
+      "obra": {
+        "id": "5ab13478-c3ec-41ae-918d-1b1915c24f18",
+        "codigo": "43-30",
+        "linea_nombre": "K43",
+        "estado": "activa",
+        "fecha_inicio": "2026-03-10",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "6d14a23a-1e7a-4661-ab6d-07e9872f9eb2",
+        "descripcion": "CONTROL BOMBA DE ACHIQUE RULE MODEL 43",
+        "enPanolLibre": 32,
+        "libreFamilia": 32,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 5,
+        "egresado": 5,
+        "enPanol": 0,
+        "pendiente": 0,
+        "desdeMatriz": false,
+        "requisitoId": "6d14a23a-1e7a-4661-ab6d-07e9872f9eb2",
+        "snapshotId": null,
+        "configuracionSnapshotId": null,
+        "avisoPendiente": true,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "fuera_matriz"
+        ],
+        "baseRequerido": 5,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "4187",
+      "obra": {
+        "id": "5ab13478-c3ec-41ae-918d-1b1915c24f18",
+        "codigo": "43-30",
+        "linea_nombre": "K43",
+        "estado": "activa",
+        "fecha_inicio": "2026-03-10",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+        "descripcion": "BASE DE ANTEN VHF INOX GRANDE SHAKESPEARE",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 1,
+        "enPanol": 0,
+        "pendiente": 0,
+        "desdeMatriz": false,
+        "requisitoId": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+        "snapshotId": null,
+        "configuracionSnapshotId": null,
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "panol"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "10",
+      "obra": {
+        "id": "5ab13478-c3ec-41ae-918d-1b1915c24f18",
+        "codigo": "43-30",
+        "linea_nombre": "K43",
+        "estado": "activa",
+        "fecha_inicio": "2026-03-10",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+        "descripcion": "Bomba achique 2000gph 12V · Rule",
+        "enPanolLibre": 1,
+        "libreFamilia": 1,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 2,
+        "egresado": 2,
+        "enPanol": 0,
+        "pendiente": 0,
+        "desdeMatriz": false,
+        "requisitoId": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "snapshotId": null,
+        "configuracionSnapshotId": null,
+        "avisoPendiente": true,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "fuera_matriz"
+        ],
+        "baseRequerido": 2,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "35A",
+      "obra": {
+        "id": "5ab13478-c3ec-41ae-918d-1b1915c24f18",
+        "codigo": "43-30",
+        "linea_nombre": "K43",
+        "estado": "activa",
+        "fecha_inicio": "2026-03-10",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "descripcion": "Switch automático Rule 35A",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": "Trimer"
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 1,
+        "enPanol": 0,
+        "pendiente": 0,
+        "desdeMatriz": false,
+        "requisitoId": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "snapshotId": null,
+        "configuracionSnapshotId": null,
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "fuera_matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "37A",
+      "obra": {
+        "id": "5ab13478-c3ec-41ae-918d-1b1915c24f18",
+        "codigo": "43-30",
+        "linea_nombre": "K43",
+        "estado": "activa",
+        "fecha_inicio": "2026-03-10",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "descripcion": "Switch automático Rule 37A P/Bomba de achique (Rojo)",
+        "enPanolLibre": 0,
+        "libreFamilia": 0,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 1,
+        "enPanol": 0,
+        "pendiente": 0,
+        "desdeMatriz": false,
+        "requisitoId": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "snapshotId": null,
+        "configuracionSnapshotId": null,
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "fuera_matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    },
+    {
+      "code": "14A",
+      "obra": {
+        "id": "5ab13478-c3ec-41ae-918d-1b1915c24f18",
+        "codigo": "43-30",
+        "linea_nombre": "K43",
+        "estado": "activa",
+        "fecha_inicio": "2026-03-10",
+        "fecha_fin_estimada": null,
+        "botada_real": null,
+        "bahia_pampa": null,
+        "solo_stock": false
+      },
+      "fila": {
+        "id": "1cea6ed1-4dc2-4ec1-8da0-7cba5c9bfa1c",
+        "descripcion": "Bomba de achique 3700 GPH",
+        "enPanolLibre": 2,
+        "libreFamilia": 2,
+        "proveedor": ""
+      },
+      "celda": {
+        "requerido": 1,
+        "egresado": 1,
+        "enPanol": 0,
+        "pendiente": 0,
+        "desdeMatriz": false,
+        "requisitoId": "1cea6ed1-4dc2-4ec1-8da0-7cba5c9bfa1c",
+        "snapshotId": null,
+        "configuracionSnapshotId": null,
+        "avisoPendiente": false,
+        "pedidoAbierto": false,
+        "productoMaterialId": null,
+        "productoDefinido": false,
+        "productoEstandar": false,
+        "requiereProductoConcreto": false,
+        "especificaciones": {},
+        "origenes": [
+          "fuera_matriz"
+        ],
+        "baseRequerido": 1,
+        "ajusteConfiguracion": 0,
+        "configuraciones": []
+      }
+    }
+  ],
+  "catalog": [
+    {
+      "id": "9f04de6f-b777-41f0-8876-40e62510d848",
+      "descripcion": "Switch automático Rule 35A",
+      "alias": null,
+      "codigo": null,
+      "codigo_barra": "0108540000003174",
+      "proveedor": "Trimer",
+      "unidad_medida": "unidad",
+      "categoria_id": "e67e5b92-0cba-469c-9242-62faceedaf05",
+      "es_consumible": false,
+      "es_requisito": false,
+      "activo": true,
+      "imagen_url": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/9f04de6f-b777-41f0-8876-40e62510d848/catalogadas/rule-35a-rule-a-matic-float-switch-ac0215ba97bd.jpg",
+      "notas": null
+    },
+    {
+      "id": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+      "descripcion": "Bomba achique 2000gph 12V · Rule",
+      "alias": "Rule, Bomba de achique 2000",
+      "codigo": null,
+      "codigo_barra": null,
+      "proveedor": "Trimer",
+      "unidad_medida": "unidad",
+      "categoria_id": "e67e5b92-0cba-469c-9242-62faceedaf05",
+      "es_consumible": false,
+      "es_requisito": false,
+      "activo": true,
+      "imagen_url": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/895e8fc5-60e9-44bf-baeb-54dbe2c509bb/catalogadas/rule-2000-gph-model-10-ab351c54252b.jpg",
+      "notas": "STD RULE, variante: Johnson pump 2200gph 12V\nSTD RULE, variante: Johnson pump 2200gph 12V · Creado desde variante legacy de Bomba achique 2000gph 12V"
+    },
+    {
+      "id": "d553e65c-1370-4101-a848-e71d52f864e5",
+      "descripcion": "Switch automático Rule 37A P/Bomba de achique (Rojo)",
+      "alias": null,
+      "codigo": null,
+      "codigo_barra": "0108550000001781",
+      "proveedor": null,
+      "unidad_medida": "unidad",
+      "categoria_id": "e67e5b92-0cba-469c-9242-62faceedaf05",
+      "es_consumible": false,
+      "es_requisito": false,
+      "activo": true,
+      "imagen_url": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/d553e65c-1370-4101-a848-e71d52f864e5/catalogadas/rule-37a-superswitch-float-switch-d350126484d9.jpg",
+      "notas": null
+    },
+    {
+      "id": "ca73afec-3c5d-4507-ae50-feb188081410",
+      "descripcion": "Bomba agua JABSCO automática 3GPM + prefiltro",
+      "alias": "BOMBA PAR-MAX3 12v 3.0GPM 40PSI, Bomba agua automática 3GPM + prefiltro",
+      "codigo": null,
+      "codigo_barra": "671880841801",
+      "proveedor": "Trimer",
+      "unidad_medida": "unidad",
+      "categoria_id": "fbf2b107-65f5-4038-b4f4-ea74ff18b8a5",
+      "es_consumible": false,
+      "es_requisito": false,
+      "activo": true,
+      "imagen_url": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/ca73afec-3c5d-4507-ae50-feb188081410/catalogadas/jabsco-par-max-3-12v-3gpm-40psi-with-strainer-31395-4012-3a-6d0bda124009.jpg",
+      "notas": null
+    },
+    {
+      "id": "6d14a23a-1e7a-4661-ab6d-07e9872f9eb2",
+      "descripcion": "CONTROL BOMBA DE ACHIQUE RULE MODEL 43",
+      "alias": null,
+      "codigo": null,
+      "codigo_barra": null,
+      "proveedor": "Trimer",
+      "unidad_medida": "unidad",
+      "categoria_id": "6edf5cdc-6e60-43cb-856d-0a64d26c1a6c",
+      "es_consumible": false,
+      "es_requisito": false,
+      "activo": true,
+      "imagen_url": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/6d14a23a-1e7a-4661-ab6d-07e9872f9eb2/catalogadas/rule-model-43-73bc0cc5dfdc.jpg",
+      "notas": null
+    },
+    {
+      "id": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+      "descripcion": "BASE DE ANTEN VHF INOX GRANDE SHAKESPEARE",
+      "alias": null,
+      "codigo": null,
+      "codigo_barra": null,
+      "proveedor": "Trimer",
+      "unidad_medida": "unidad",
+      "categoria_id": "b3b93f1b-a370-433b-bbcd-f82fecca61fa",
+      "es_consumible": false,
+      "es_requisito": false,
+      "activo": true,
+      "imagen_url": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/2d98e85a-bde0-421c-a0f0-61697283eee1/1790593005654-Captura-de-pantalla-2026-09-28-075634.png",
+      "notas": null
+    },
+    {
+      "id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+      "descripcion": "Bomba achique 2000gph 12V",
+      "alias": null,
+      "codigo": null,
+      "codigo_barra": "042237083326",
+      "proveedor": "Trimer",
+      "unidad_medida": "unidad",
+      "categoria_id": "e67e5b92-0cba-469c-9242-62faceedaf05",
+      "es_consumible": false,
+      "es_requisito": true,
+      "activo": true,
+      "imagen_url": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/adc7bd8f-fe7e-4cf3-bf35-5212e176c354/representativas/bomba-achique-ab351c54252b.jpg",
+      "notas": "STD RULE, variante: Johnson pump 2200gph 12V\nSTD RULE, variante: Johnson pump 2200gph 12V"
+    },
+    {
+      "id": "1cea6ed1-4dc2-4ec1-8da0-7cba5c9bfa1c",
+      "descripcion": "Bomba de achique 3700 GPH",
+      "alias": null,
+      "codigo": null,
+      "codigo_barra": "042237083357",
+      "proveedor": null,
+      "unidad_medida": "unidad",
+      "categoria_id": "fbf2b107-65f5-4038-b4f4-ea74ff18b8a5",
+      "es_consumible": false,
+      "es_requisito": false,
+      "activo": true,
+      "imagen_url": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/1cea6ed1-4dc2-4ec1-8da0-7cba5c9bfa1c/representativas/bomba-achique-ab351c54252b.jpg",
+      "notas": null
+    },
+    {
+      "id": "6a0afd2f-71a1-4159-8cc4-16e15d26ad57",
+      "descripcion": "Rule Panel Switch 43 tablero",
+      "alias": null,
+      "codigo": null,
+      "codigo_barra": null,
+      "proveedor": "Trimer",
+      "unidad_medida": "unidad",
+      "categoria_id": "6edf5cdc-6e60-43cb-856d-0a64d26c1a6c",
+      "es_consumible": false,
+      "es_requisito": false,
+      "activo": true,
+      "imagen_url": "https://fiwugzjeegzlgclfayfd.supabase.co/storage/v1/object/public/panol-materiales/6a0afd2f-71a1-4159-8cc4-16e15d26ad57/catalogadas/rule-model-43-bilge-panel-switch-73bc0cc5dfdc.jpg",
+      "notas": null
+    }
+  ],
+  "matrix": [
+    {
+      "material_id": "d553e65c-1370-4101-a848-e71d52f864e5",
+      "modelo": "52",
+      "cantidad": 1,
+      "variante": "standard",
+      "producto_predeterminado_id": null
+    },
+    {
+      "material_id": "d553e65c-1370-4101-a848-e71d52f864e5",
+      "modelo": "55",
+      "cantidad": 1,
+      "variante": "standard",
+      "producto_predeterminado_id": null
+    },
+    {
+      "material_id": "6a0afd2f-71a1-4159-8cc4-16e15d26ad57",
+      "modelo": "37",
+      "cantidad": 3,
+      "variante": "standard",
+      "producto_predeterminado_id": null
+    },
+    {
+      "material_id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+      "modelo": "37",
+      "cantidad": 3,
+      "variante": "standard",
+      "producto_predeterminado_id": null
+    },
+    {
+      "material_id": "ca73afec-3c5d-4507-ae50-feb188081410",
+      "modelo": "37",
+      "cantidad": 1,
+      "variante": "standard",
+      "producto_predeterminado_id": null
+    },
+    {
+      "material_id": "9f04de6f-b777-41f0-8876-40e62510d848",
+      "modelo": "37",
+      "cantidad": 3,
+      "variante": "standard",
+      "producto_predeterminado_id": null
+    },
+    {
+      "material_id": "9f04de6f-b777-41f0-8876-40e62510d848",
+      "modelo": "52",
+      "cantidad": 1,
+      "variante": "standard",
+      "producto_predeterminado_id": null
+    },
+    {
+      "material_id": "9f04de6f-b777-41f0-8876-40e62510d848",
+      "modelo": "55",
+      "cantidad": 1,
+      "variante": "standard",
+      "producto_predeterminado_id": null
+    },
+    {
+      "material_id": "ca73afec-3c5d-4507-ae50-feb188081410",
+      "modelo": "52",
+      "cantidad": 1,
+      "variante": "standard",
+      "producto_predeterminado_id": null
+    },
+    {
+      "material_id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+      "modelo": "55",
+      "cantidad": 3,
+      "variante": "standard",
+      "producto_predeterminado_id": null
+    },
+    {
+      "material_id": "6d14a23a-1e7a-4661-ab6d-07e9872f9eb2",
+      "modelo": "52",
+      "cantidad": 5,
+      "variante": "standard",
+      "producto_predeterminado_id": null
+    },
+    {
+      "material_id": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+      "modelo": "52",
+      "cantidad": 1,
+      "variante": "standard",
+      "producto_predeterminado_id": null
+    },
+    {
+      "material_id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+      "modelo": "52",
+      "cantidad": 4,
+      "variante": "standard",
+      "producto_predeterminado_id": null
+    },
+    {
+      "material_id": "1cea6ed1-4dc2-4ec1-8da0-7cba5c9bfa1c",
+      "modelo": "52",
+      "cantidad": 1,
+      "variante": "standard",
+      "producto_predeterminado_id": null
+    }
+  ]
+}

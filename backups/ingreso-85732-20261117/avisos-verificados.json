@@ -1,0 +1,450 @@
+[
+  {
+    "id": "2a51aae4-595f-4c69-88a6-04d9088a2739",
+    "titulo": "Tablero Rule 43 para bomba de achique 12 V · OE 85732",
+    "sede": "Chubut",
+    "estado": "enviado",
+    "purchase_request_id": null,
+    "items": [
+      {
+        "id": "629eb492-021b-42c4-82f9-093dea81ec94",
+        "codigo": "43 12V",
+        "estado": "pendiente",
+        "cantidad": "3",
+        "material_id": "6a0afd2f-71a1-4159-8cc4-16e15d26ad57",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "01d598ae-3399-47c6-b532-84172bf084c0",
+        "requisito_material_id": "6a0afd2f-71a1-4159-8cc4-16e15d26ad57",
+        "purchase_request_item_id": null
+      },
+      {
+        "id": "f0552e9f-16d8-4e3e-808e-a6a1814f3015",
+        "codigo": "43 12V",
+        "estado": "pendiente",
+        "cantidad": "1",
+        "material_id": "6a0afd2f-71a1-4159-8cc4-16e15d26ad57",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "2e467240-b75a-4504-b576-2d83ebbd40c8",
+        "requisito_material_id": "6a0afd2f-71a1-4159-8cc4-16e15d26ad57",
+        "purchase_request_item_id": null
+      }
+    ]
+  },
+  {
+    "id": "c59b7fed-6393-4b9d-a45e-c7a719111a47",
+    "titulo": "Bomba de agua Jabsco PAR-MAX3 12 V · 3 GPM · 40 PSI · OE 85732",
+    "sede": "Chubut",
+    "estado": "enviado",
+    "purchase_request_id": "6eea373d-7956-4e31-bafe-020abdc45369",
+    "items": [
+      {
+        "id": "12c86dec-5277-4122-8467-1416f5714457",
+        "codigo": "31395-4012",
+        "estado": "pendiente",
+        "cantidad": "1",
+        "material_id": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "5fa2c686-a863-4f95-8fe3-f8431873173e",
+        "requisito_material_id": "ca73afec-3c5d-4507-ae50-feb188081410",
+        "purchase_request_item_id": "cea8447e-e02d-4b03-a90a-b32dc3f861b1"
+      }
+    ]
+  },
+  {
+    "id": "98db223c-32a5-4a87-b875-b6579c064eed",
+    "titulo": "Bomba de achique Rule 3700 GPH 12 V · OE 85732",
+    "sede": "Chubut",
+    "estado": "enviado",
+    "purchase_request_id": "00c729f5-ac87-4791-a205-764ffca3a81c",
+    "items": [
+      {
+        "id": "f7acbd9f-18bb-4d07-8824-224af75cc814",
+        "codigo": "14A",
+        "estado": "pendiente",
+        "cantidad": "1",
+        "material_id": "1cea6ed1-4dc2-4ec1-8da0-7cba5c9bfa1c",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "901c72a2-10a8-43f0-8d3b-470b9eccc554",
+        "requisito_material_id": "1cea6ed1-4dc2-4ec1-8da0-7cba5c9bfa1c",
+        "purchase_request_item_id": "740c38e6-a07a-4721-a2c1-1e6f4aba0a0b"
+      },
+      {
+        "id": "f3ede5d8-6590-44ef-9a9e-d46ddbae9487",
+        "codigo": "14A",
+        "estado": "pendiente",
+        "cantidad": "1",
+        "material_id": "1cea6ed1-4dc2-4ec1-8da0-7cba5c9bfa1c",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "b46b9b92-1e15-43f5-8740-49d31fe4c74a",
+        "requisito_material_id": "1cea6ed1-4dc2-4ec1-8da0-7cba5c9bfa1c",
+        "purchase_request_item_id": null
+      }
+    ]
+  },
+  {
+    "id": "587badc4-c293-4461-a6de-b0e57987279a",
+    "titulo": "Bomba de achique Rule 2000 GPH 12 V · OE 85732",
+    "sede": "Chubut",
+    "estado": "enviado",
+    "purchase_request_id": "0ff420f3-08e2-4e4b-9bbb-536aab040485",
+    "items": [
+      {
+        "id": "2e45c32c-055d-4d62-a2ec-af925129ad38",
+        "codigo": "10",
+        "estado": "pendiente",
+        "cantidad": "4",
+        "material_id": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "ca3f294a-1d98-4eb0-b97f-0c184e5556ca",
+        "requisito_material_id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "purchase_request_item_id": "9138b978-6f4a-48d1-bf4f-d4fbc58f65fa"
+      },
+      {
+        "id": "9c564c6d-6906-4e49-af1f-c62072c0c09c",
+        "codigo": "10",
+        "estado": "pendiente",
+        "cantidad": "4",
+        "material_id": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "01572c3c-caf1-43f9-bb01-968b709ca8af",
+        "requisito_material_id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "purchase_request_item_id": "dc1d8635-459c-40bf-b2e0-764663a65386"
+      },
+      {
+        "id": "daf55c25-bf52-4acf-ac52-772113338acc",
+        "codigo": "10",
+        "estado": "pendiente",
+        "cantidad": "3",
+        "material_id": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "15f55150-e16a-4246-a1e2-bf75a1571a00",
+        "requisito_material_id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "purchase_request_item_id": null
+      },
+      {
+        "id": "ff5a620e-014a-4014-a92d-811f8de77c7c",
+        "codigo": "10",
+        "estado": "pendiente",
+        "cantidad": "2",
+        "material_id": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "1e3148a3-ff41-43fd-a4d6-17e37c43d8c9",
+        "requisito_material_id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "purchase_request_item_id": null
+      },
+      {
+        "id": "cc1cc8e8-bbb2-4452-b708-fb745d38ad2d",
+        "codigo": "10",
+        "estado": "pendiente",
+        "cantidad": "3",
+        "material_id": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "a21ac87e-e867-4a7b-aec0-f3a060ab9b26",
+        "requisito_material_id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "purchase_request_item_id": null
+      },
+      {
+        "id": "c1106314-fa73-4415-9a2c-a5463101e649",
+        "codigo": "10",
+        "estado": "pendiente",
+        "cantidad": "4",
+        "material_id": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "db4ffcc1-73c4-4621-b2cc-18fbdb4a3173",
+        "requisito_material_id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "purchase_request_item_id": null
+      },
+      {
+        "id": "88c9316a-d8d3-49b1-86c0-3c47ce557c43",
+        "codigo": "10",
+        "estado": "pendiente",
+        "cantidad": "2",
+        "material_id": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "d7973631-dc6c-4249-87f1-fb96153c9288",
+        "requisito_material_id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "purchase_request_item_id": null
+      },
+      {
+        "id": "6df8848c-78e3-4539-8837-5dfadf16f46c",
+        "codigo": "10",
+        "estado": "pendiente",
+        "cantidad": "4",
+        "material_id": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "4fe1c99d-a332-4840-8185-8887e96565ce",
+        "requisito_material_id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "purchase_request_item_id": null
+      },
+      {
+        "id": "efa9a52c-f46a-406d-a42b-c0e4523b0016",
+        "codigo": "10",
+        "estado": "pendiente",
+        "cantidad": "3",
+        "material_id": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "4c7f1498-b863-4dc3-84c6-25a23a3696e8",
+        "requisito_material_id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "purchase_request_item_id": null
+      },
+      {
+        "id": "ff494a13-9edc-451c-a0cd-c78ffb83e1cd",
+        "codigo": "10",
+        "estado": "pendiente",
+        "cantidad": "3",
+        "material_id": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "8c71a1f1-6445-452e-a3c9-db13a3d5720d",
+        "requisito_material_id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "purchase_request_item_id": null
+      },
+      {
+        "id": "a92b1fe1-bdda-479d-b583-d53c2dc03c3f",
+        "codigo": "10",
+        "estado": "pendiente",
+        "cantidad": "3",
+        "material_id": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "ad61a276-9a61-4524-8e0f-12395e721cb7",
+        "requisito_material_id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "purchase_request_item_id": null
+      },
+      {
+        "id": "af1b227f-5313-4c19-b608-50b6450c22a7",
+        "codigo": "10",
+        "estado": "pendiente",
+        "cantidad": "3",
+        "material_id": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "9f076340-62a9-47ac-8824-a4fe41eacf2e",
+        "requisito_material_id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "purchase_request_item_id": null
+      },
+      {
+        "id": "ae911929-f440-47d7-8dbc-f94feb51d94a",
+        "codigo": "10",
+        "estado": "pendiente",
+        "cantidad": "3",
+        "material_id": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "a39fbddc-205b-4c17-802e-c704f04acbfa",
+        "requisito_material_id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "purchase_request_item_id": null
+      },
+      {
+        "id": "d6f0fdc2-0ddf-42ea-8738-c3a60b831fba",
+        "codigo": "10",
+        "estado": "pendiente",
+        "cantidad": "3",
+        "material_id": "895e8fc5-60e9-44bf-baeb-54dbe2c509bb",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "4da8fd6b-c2ed-4a91-8e78-bd20e9f681f1",
+        "requisito_material_id": "adc7bd8f-fe7e-4cf3-bf35-5212e176c354",
+        "purchase_request_item_id": null
+      }
+    ]
+  },
+  {
+    "id": "f735a6b6-57cb-47e5-bb95-7aa7588422c6",
+    "titulo": "Flotante Rule-A-Matic 35A · 14 A · OE 85732",
+    "sede": "Chubut",
+    "estado": "enviado",
+    "purchase_request_id": null,
+    "items": [
+      {
+        "id": "104fe2b5-d79c-472d-9ffd-9d810ad8623f",
+        "codigo": "35A",
+        "estado": "pendiente",
+        "cantidad": "1",
+        "material_id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "58964958-2370-4027-97ad-bf0d8546286d",
+        "requisito_material_id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "purchase_request_item_id": null
+      },
+      {
+        "id": "ea20eb88-7502-4f5e-89d4-434d936965f8",
+        "codigo": "35A",
+        "estado": "pendiente",
+        "cantidad": "1",
+        "material_id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "91ec0ec3-37b7-41e7-8381-2c799a85470e",
+        "requisito_material_id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "purchase_request_item_id": null
+      },
+      {
+        "id": "f6f797f5-9103-49cf-b284-9eb242575604",
+        "codigo": "35A",
+        "estado": "pendiente",
+        "cantidad": "1",
+        "material_id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "132943ac-1670-44fb-8317-2c92e850b4b7",
+        "requisito_material_id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "purchase_request_item_id": null
+      },
+      {
+        "id": "37251ff4-54d2-431e-b9ea-3ae2b508efb0",
+        "codigo": "35A",
+        "estado": "pendiente",
+        "cantidad": "3",
+        "material_id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "037fde96-16be-4048-ae3f-1d9017770246",
+        "requisito_material_id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "purchase_request_item_id": null
+      },
+      {
+        "id": "bf2245d6-613f-4b4d-8a0d-61de864029fe",
+        "codigo": "35A",
+        "estado": "pendiente",
+        "cantidad": "3",
+        "material_id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "78c58c27-e499-4b18-afc9-6657bc9a219e",
+        "requisito_material_id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "purchase_request_item_id": null
+      },
+      {
+        "id": "78655928-6897-4012-a637-4124c3ff6574",
+        "codigo": "35A",
+        "estado": "pendiente",
+        "cantidad": "1",
+        "material_id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "4377a4d0-a7a3-482a-ad61-3438978096ce",
+        "requisito_material_id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "purchase_request_item_id": null
+      },
+      {
+        "id": "a4c9dc34-bdbe-4358-a0d9-14b9bf6d3893",
+        "codigo": "35A",
+        "estado": "pendiente",
+        "cantidad": "1",
+        "material_id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "c8b0d2e8-8633-4955-8166-fc108ae55e8a",
+        "requisito_material_id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "purchase_request_item_id": null
+      },
+      {
+        "id": "cb79c450-b18e-4ed6-bdf8-ac5e73f96bab",
+        "codigo": "35A",
+        "estado": "pendiente",
+        "cantidad": "1",
+        "material_id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "c00d454e-d987-430e-aa3a-91fe938a6ed0",
+        "requisito_material_id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "purchase_request_item_id": null
+      },
+      {
+        "id": "19c948a3-1f36-4768-b9a5-4f70fe060a1e",
+        "codigo": "35A",
+        "estado": "pendiente",
+        "cantidad": "1",
+        "material_id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "1f8564e2-af1e-4975-8688-f12cada0180d",
+        "requisito_material_id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "purchase_request_item_id": null
+      },
+      {
+        "id": "16aefa1c-cba9-4092-a199-58204ce80fb2",
+        "codigo": "35A",
+        "estado": "pendiente",
+        "cantidad": "1",
+        "material_id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "115d2c90-8924-4b57-96c2-9745cf6f698e",
+        "requisito_material_id": "9f04de6f-b777-41f0-8876-40e62510d848",
+        "purchase_request_item_id": null
+      }
+    ]
+  },
+  {
+    "id": "515fdb78-5f96-42b9-a5a3-c1e13d9f8d2f",
+    "titulo": "Flotante Rule SuperSwitch 37A · 20 A · rojo · OE 85732",
+    "sede": "Chubut",
+    "estado": "enviado",
+    "purchase_request_id": "2070df19-4038-4525-aea5-89c928e8b9c0",
+    "items": [
+      {
+        "id": "613cd7f6-04dd-400b-8f1c-b75458426be8",
+        "codigo": "37A",
+        "estado": "pendiente",
+        "cantidad": "1",
+        "material_id": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "d195c4f1-163a-40a3-9291-129ed4a01834",
+        "requisito_material_id": "d553e65c-1370-4101-a848-e71d52f864e5",
+        "purchase_request_item_id": "2b84303c-63d7-417c-a199-c59784f2043b"
+      }
+    ]
+  },
+  {
+    "id": "c957c6d9-51dd-43cb-bac1-099735d55466",
+    "titulo": "Base de antena inoxidable Shakespeare 4187 · OE 85732",
+    "sede": "Chubut",
+    "estado": "enviado",
+    "purchase_request_id": "c938eaad-10c6-4df3-8ef1-72cbc0ba6d2f",
+    "items": [
+      {
+        "id": "865c8077-b27b-4a12-8728-6cc4d192add8",
+        "codigo": "4187",
+        "estado": "pendiente",
+        "cantidad": "1",
+        "material_id": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "f52e5bda-b503-4a33-9ca0-6e0d293df9eb",
+        "requisito_material_id": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+        "purchase_request_item_id": "8066be1d-6e4a-4171-8755-c23b48ebe5de"
+      },
+      {
+        "id": "0356a227-4665-4860-89aa-955906bc1c3e",
+        "codigo": "4187",
+        "estado": "pendiente",
+        "cantidad": "1",
+        "material_id": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "db50da93-6928-49dc-ba11-a200af12054e",
+        "requisito_material_id": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+        "purchase_request_item_id": null
+      },
+      {
+        "id": "37e72a6c-dc9c-4d9c-bee3-aaf8564b47a9",
+        "codigo": "4187",
+        "estado": "pendiente",
+        "cantidad": "1",
+        "material_id": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "e6880f46-c94f-4a2d-a3d0-e94ea52a51e1",
+        "requisito_material_id": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+        "purchase_request_item_id": null
+      },
+      {
+        "id": "e576554f-d131-424a-b69d-1b4a413e2747",
+        "codigo": "4187",
+        "estado": "pendiente",
+        "cantidad": "1",
+        "material_id": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": "1e309903-f9bf-436b-bed9-c74dcca10f35",
+        "requisito_material_id": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+        "purchase_request_item_id": null
+      },
+      {
+        "id": "2885f786-a62f-4614-baec-5723d9bc263e",
+        "codigo": "4187",
+        "estado": "pendiente",
+        "cantidad": "10",
+        "material_id": "2d98e85a-bde0-421c-a0f0-61697283eee1",
+        "cantidad_recibida": null,
+        "obra_snapshot_item_id": null,
+        "requisito_material_id": null,
+        "purchase_request_item_id": null
+      }
+    ]
+  }
+]

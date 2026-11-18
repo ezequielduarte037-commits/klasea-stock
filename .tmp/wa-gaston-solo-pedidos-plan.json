@@ -1,0 +1,153 @@
+[
+  {
+    "id": "353887b4-e3fb-4764-a417-c20a72ed94cc",
+    "title": "52-25 - Encargos bastidores y tapas Mignon",
+    "status": "recibido",
+    "obra": "52-25",
+    "qty": "8 bastidores y 8 tapas",
+    "foot": "Pañol Chubut. Obra 52-25. 8 × Bastidor Cambre Mignon 6910; 8 × Tapa Cambre SXXII Mignon 4742, 2 módulos, gris.",
+    "lines": [
+      {
+        "qty": 8,
+        "desc": "Bastidor Cambre Mignon 6910",
+        "partial": false,
+        "id": "41ffd8d8-b34c-4164-b21f-023a1079582d",
+        "orderItemId": "7f41a030-c4bb-4496-9b48-ce819b7091a3"
+      },
+      {
+        "qty": 8,
+        "desc": "Tapa Cambre SXXII Mignon 4742, 2 módulos, gris",
+        "partial": false,
+        "id": "1f7708f6-ad37-40fa-9ca7-d601ec7f0b47",
+        "orderItemId": "a13e9a78-f1f8-4733-aa54-f67645fdd6c5"
+      }
+    ],
+    "followers": []
+  },
+  {
+    "id": "c938eaad-10c6-4df3-8ef1-72cbc0ba6d2f",
+    "title": "52-25 · Antena VHF, BASE DE +2",
+    "status": "cotizando",
+    "obra": "52-25",
+    "qty": "1 unidad",
+    "foot": "Pañol Chubut. Obra 52-25. Ingreso parcial del pedido. 1 × Base de antena inoxidable Shakespeare 4187.",
+    "lines": [
+      {
+        "qty": 1,
+        "desc": "Base de antena inoxidable Shakespeare 4187",
+        "partial": false,
+        "id": "865c8077-b27b-4a12-8728-6cc4d192add8",
+        "orderItemId": "8066be1d-6e4a-4171-8755-c23b48ebe5de"
+      }
+    ],
+    "followers": []
+  },
+  {
+    "id": "2070df19-4038-4525-aea5-89c928e8b9c0",
+    "title": "52-25 · Bomba achique, Switch automático",
+    "status": "nuevo",
+    "obra": "52-25",
+    "qty": "4 unidades",
+    "foot": "Pañol Chubut. Obra 52-25. Ingreso parcial del pedido. 4 × Bomba de achique Rule 2000 GPH 12 V.",
+    "lines": [
+      {
+        "qty": 4,
+        "desc": "Bomba de achique Rule 2000 GPH 12 V",
+        "partial": false,
+        "id": "2e45c32c-055d-4d62-a2ec-af925129ad38",
+        "orderItemId": "9138b978-6f4a-48d1-bf4f-d4fbc58f65fa"
+      }
+    ],
+    "followers": []
+  },
+  {
+    "id": "0ff420f3-08e2-4e4b-9bbb-536aab040485",
+    "title": "52-27 · Bomba achique 2000gph 12V · Rule",
+    "status": "recibido",
+    "obra": "52-27",
+    "qty": "4 unidades",
+    "foot": "Pañol Chubut. Obra 52-27. 4 × Bomba de achique Rule 2000 GPH 12 V.",
+    "lines": [
+      {
+        "qty": 4,
+        "desc": "Bomba de achique Rule 2000 GPH 12 V",
+        "partial": false,
+        "id": "9c564c6d-6906-4e49-af1f-c62072c0c09c",
+        "orderItemId": "dc1d8635-459c-40bf-b2e0-764663a65386"
+      }
+    ],
+    "followers": []
+  },
+  {
+    "id": "6eea373d-7956-4e31-bafe-020abdc45369",
+    "title": "52-27 · Bomba agua JABSCO automática 3GPM + prefiltro",
+    "status": "recibido",
+    "obra": "52-27",
+    "qty": "1 unidad",
+    "foot": "Pañol Chubut. Obra 52-27. 1 × Bomba de agua Jabsco PAR-MAX3 12 V · 3 GPM · 40 PSI.",
+    "lines": [
+      {
+        "qty": 1,
+        "desc": "Bomba de agua Jabsco PAR-MAX3 12 V · 3 GPM · 40 PSI",
+        "partial": false,
+        "id": "12c86dec-5277-4122-8467-1416f5714457",
+        "orderItemId": "cea8447e-e02d-4b03-a90a-b32dc3f861b1"
+      }
+    ],
+    "followers": []
+  },
+  {
+    "id": "00c729f5-ac87-4791-a205-764ffca3a81c",
+    "title": "52-27 · Bomba de achique 3700 GPH",
+    "status": "recibido",
+    "obra": "52-27",
+    "qty": "1 unidad",
+    "foot": "Pañol Chubut. Obra 52-27. 1 × Bomba de achique Rule 3700 GPH 12 V.",
+    "lines": [
+      {
+        "qty": 1,
+        "desc": "Bomba de achique Rule 3700 GPH 12 V",
+        "partial": false,
+        "id": "f7acbd9f-18bb-4d07-8824-224af75cc814",
+        "orderItemId": "740c38e6-a07a-4721-a2c1-1e6f4aba0a0b"
+      }
+    ],
+    "followers": []
+  },
+  {
+    "id": "ce2c856c-dba0-42f4-9bc2-9c8ee5f2f62a",
+    "title": "52-27 · Caja drenaje ducha 800GPH · Rule",
+    "status": "recibido",
+    "obra": "52-27",
+    "qty": "2 unidades",
+    "foot": "Pañol Chubut. Obra 52-27. 2 × Caja drenaje ducha 800GPH · Rule.",
+    "lines": [
+      {
+        "qty": 2,
+        "desc": "Caja drenaje ducha 800GPH · Rule",
+        "partial": false,
+        "id": "a481a6cd-a34a-449c-bd9a-60a85b8f9ce8",
+        "orderItemId": "e0d524fb-3ef8-4230-8445-7b4c49e41245"
+      }
+    ],
+    "followers": []
+  },
+  {
+    "id": "45b9bb64-63ff-4db9-91e8-4c1c403359dd",
+    "title": "52-27 · Filtro agua, Filtro agua",
+    "status": "recibido",
+    "obra": "52-27",
+    "qty": "2 unidades",
+    "foot": "Pañol Chubut. Obra 52-27. 2 × Filtro de agua Medium inoxidable 3/4\" con soporte plástico.",
+    "lines": [
+      {
+        "qty": 2,
+        "desc": "Filtro de agua Medium inoxidable 3/4\" con soporte plástico",
+        "partial": false,
+        "id": "f8c24a6f-5004-40d4-bb6b-fd0c9ea63fdd",
+        "orderItemId": "e94d2984-fdd9-4d14-b444-67a649229586"
+      }
+    ],
+    "followers": []
+  }
+]

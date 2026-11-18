@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, Filter, MoreHorizontal, X } from "lucide-react";
 import { C } from "@/theme";
@@ -28,6 +28,8 @@ export function ObraWorkspaceStyles() {
     .obra-workspace .obra-chips { scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, #000 92%, transparent); mask-image: linear-gradient(90deg, #000 92%, transparent); }
     .obra-workspace .obra-chips::-webkit-scrollbar { display: none; }
     .obra-workspace .obra-data-row { transition: background 140ms ease; }
+    .obra-workspace .obra-table { --obra-columnas-alto: 40px; }
+    .obra-workspace .obra-table-narrow { --obra-columnas-alto: 46px; }
     .obra-workspace .obra-index-item { transition: background 150ms ease, color 150ms ease, transform 150ms ease; }
     .obra-workspace .obra-index-item:active { transform: translateX(2px); }
     .obra-workspace .obra-page-content, .obra-workspace .obra-detail-content { animation: obra-content-in 150ms ease-out; }
@@ -51,6 +53,7 @@ export function ObraWorkspaceStyles() {
     @media (prefers-reduced-motion: reduce) { .obra-workspace *, .obra-drawer { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
     .obra-table-narrow .obra-selection { min-width: 44px !important; min-height: 44px !important; }
     @media (max-width: 899px), (pointer: coarse) {
+      .obra-workspace .obra-table { --obra-columnas-alto: 46px; }
       .obra-workspace button, .obra-workspace select, .obra-workspace input:not([type=checkbox]):not([type=file]) { min-height: 44px !important; }
       .obra-workspace input[type=checkbox] { width: 22px; height: 22px; }
       .obra-workspace .obra-pagination button, .obra-drawer button { min-width: 44px; }
@@ -183,36 +186,23 @@ function SortHeader({ label, k, orden, onOrden, align = "left", title }) {
  * se van dibujando de a 200 a medida que se baja, así una obra de 700 ítems
  * abre rápido y se puede tildar todo lo filtrado de un clic.
  */
-export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, rubro, onRubro, proveedor, onProveedor, selected, onSelectionChange, getRowView, onOpen, detailId, onImageUploaded, estadoOpciones = [], estadosSel = new Set(), onEstados = () => {}, orden, onOrden = () => {}, valorizacion, accionesSeleccion, estadosEnPie = true }) {
+export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, stickyTop = 0, rubro, onRubro, proveedor, onProveedor, selected, onSelectionChange, getRowView, onOpen, detailId, onImageUploaded, estadoOpciones = [], estadosSel = new Set(), onEstados = () => {}, orden, onOrden = () => {}, valorizacion, accionesSeleccion, estadosEnPie = true }) {
   const { isMobile } = useResponsive();
   const containerRef = useRef(null);
-  const gridRef = useRef(null);
-  const scrollRef = useRef(null);
+  const listaRef = useRef(null);
+  const filtroAnterior = useRef(filterKey);
   const [width, setWidth] = useState(1200);
-  const [listHeight, setListHeight] = useState(600);
   const [indexMode, setIndexMode] = useState("rubro");
   const [limiteState, setLimiteState] = useState({ key: filterKey, n: LOTE_FILAS });
   const [closedGroups, setClosedGroups] = useState(() => new Set());
   useEffect(() => {
-    const measure = () => {
-      if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      setWidth(rect.width);
-      const gridTop = gridRef.current?.getBoundingClientRect().top ?? rect.top;
-      setListHeight(Math.max(360, window.innerHeight - gridTop - 18));
-    };
-    const observer = new ResizeObserver(measure);
-    if (containerRef.current) { observer.observe(containerRef.current); observer.observe(containerRef.current.parentElement); }
-    window.addEventListener("resize", measure);
-    measure();
-    return () => { observer.disconnect(); window.removeEventListener("resize", measure); };
+    const contenedor = containerRef.current;
+    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
+    observer.observe(contenedor);
+    return () => observer.disconnect();
   }, []);
   const narrow = isMobile || width < 860;
   const phone = width < 560;
-  // En el celular la lista corre con la página en vez de tener su propia caja
-  // con scroll: con el encabezado de la obra arriba quedaban ~300 px para
-  // renglones (cinco ítems) y había que arrastrar en dos lugares distintos.
-  const flujo = narrow;
   const finRef = useRef(null);
   const compact = width < 1120;
   const limite = limiteState.key === filterKey ? limiteState.n : LOTE_FILAS;
@@ -232,22 +222,26 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, r
   const indexValue = indexMode === "rubro" ? rubro : proveedor;
   const onIndexChange = indexMode === "rubro" ? onRubro : onProveedor;
   const indexTotal = allRows.filter((row) => indexMode === "proveedor" ? (!rubro || rubroDeFila(row) === rubro) : coincideProveedor(row.proveedor, proveedor)).length;
-  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [filterKey]);
-  // Con la lista corriendo en la página no hay onScroll propio: el próximo
-  // tramo se dibuja cuando el aviso del final se acerca a la pantalla.
+  useEffect(() => {
+    if (filtroAnterior.current === filterKey) return;
+    filtroAnterior.current = filterKey;
+    const lista = listaRef.current;
+    const pagina = lista.closest(".materiales-page-scroll");
+    if (pagina && lista.getBoundingClientRect().top < pagina.getBoundingClientRect().top + stickyTop) {
+      lista.scrollIntoView({ block: "start" });
+    }
+  }, [filterKey, stickyTop]);
+  // El próximo tramo se dibuja cuando el final se acerca a la pantalla.
   const hayMas = recorte.end < recorte.total;
   useEffect(() => {
-    if (!flujo || !hayMas || !finRef.current) return undefined;
+    if (!hayMas || !finRef.current) return undefined;
+    const fin = finRef.current;
     const observer = new IntersectionObserver((entries) => {
       if (entries.some((e) => e.isIntersecting)) setLimiteState({ key: filterKey, n: limite + LOTE_FILAS });
-    }, { rootMargin: "600px 0px" });
-    observer.observe(finRef.current);
+    }, { root: fin.closest(".materiales-page-scroll"), rootMargin: "600px 0px" });
+    observer.observe(fin);
     return () => observer.disconnect();
-  }, [flujo, hayMas, filterKey, limite]);
-  function onScroll(event) {
-    const el = event.currentTarget;
-    if (recorte.end < recorte.total && el.scrollTop + el.clientHeight > el.scrollHeight - 600) setLimiteState({ key: filterKey, n: limite + LOTE_FILAS });
-  }
+  }, [hayMas, filterKey, limite]);
   function selectRows(rows) { onSelectionChange((current) => toggleObraSelection(current, rows)); }
   function toggleGroup(label) { setClosedGroups((current) => { const next = new Set(current); next.has(label) ? next.delete(label) : next.add(label); return next; }); }
   function onRowKey(event, row) {
@@ -256,7 +250,7 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, r
     if (event.key === " ") { event.preventDefault(); selectRows([row]); }
     if (["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) {
       event.preventDefault();
-      const elements = [...scrollRef.current.querySelectorAll(".obra-data-row")];
+      const elements = [...listaRef.current.querySelectorAll(".obra-data-row")];
       const current = elements.indexOf(event.currentTarget);
       const next = event.key === "Home" ? 0 : event.key === "End" ? elements.length - 1 : current + (event.key === "ArrowDown" ? 1 : -1);
       elements[Math.max(0, Math.min(elements.length - 1, next))]?.focus();
@@ -267,8 +261,9 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, r
   // Columnas: ☐ · Material · Proveedor · Nec. · Rec. · Entr. · Falta · Estado · Precio · ⋯
   const columns = phone ? "40px minmax(0,1fr) 92px 40px"
     : narrow ? "40px minmax(0,1fr) 64px 92px 40px"
-      : compact ? "34px minmax(200px,1fr) 70px 54px 54px 60px 96px 30px"
-        : "40px minmax(260px,1fr) minmax(120px,180px) 84px 64px 64px 70px 112px 104px 36px";
+      : compact ? "34px minmax(0,1fr) 70px 54px 54px 60px 96px 30px"
+        : "40px minmax(0,1fr) minmax(120px,160px) 84px 64px 64px 70px 112px 104px 36px";
+  const gruposTop = `calc(${stickyTop}px + var(--obra-columnas-alto))`;
   const cell = { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", padding: "0 8px" };
   const num = { ...cell, ...numberStyle, fontSize: 14 };
   const sub = { display: "block", fontSize: 11.5, color: C.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 };
@@ -279,12 +274,12 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, r
   const modoIndice = <select aria-label="Índice de la lista" value={indexMode} onChange={(event) => setIndexMode(event.target.value)} style={{ ...button, width: narrow ? "auto" : "100%", flexShrink: 0, marginBottom: narrow ? 0 : 6, fontWeight: 600, background: C.panelSolid }}><option value="rubro">Rubros</option><option value="proveedor">Proveedores</option></select>;
   const index = narrow
     ? <nav aria-label="Filtrar por rubro o proveedor" className="obra-chips" style={{ display: "flex", gap: 5, alignItems: "center", overflowX: "auto", padding: "8px 8px", borderBottom: `1px solid ${C.border}` }}>{modoIndice}{[["", indexTotal], ...indexEntries].map(([name, count]) => indexItem(name, count))}</nav>
-    : <nav aria-label="Filtrar por rubro o proveedor" className="obra-scroll" style={{ padding: "10px 16px", overflowY: "auto", minHeight: 0, borderRight: `1px solid ${C.border}`, background: "transparent" }}>
+    : <nav aria-label="Filtrar por rubro o proveedor" className="obra-scroll" style={{ position: "sticky", top: stickyTop, alignSelf: "start", maxHeight: "55dvh", padding: "10px 16px", overflowY: "auto", borderRight: `1px solid ${C.border}` }}>
       {modoIndice}
       {(indexMode === "rubro" ? proveedor : rubro) && <button type="button" onClick={() => indexMode === "rubro" ? onProveedor("") : onRubro("")} style={{ ...button, width: "100%", marginBottom: 6, color: C.blue, fontSize: 11 }} title="Quitar el otro filtro"><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{indexMode === "rubro" ? proveedor : rubro}</span><X size={12} /></button>}
       {[["", indexTotal], ...indexEntries].map(([name, count]) => indexItem(name, count))}
     </nav>;
-  const header = <div role="row" style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center", position: "sticky", top: 0, zIndex: 2, background: C.panelSolid, borderBottom: `1px solid ${C.border}`, color: C.muted, fontSize: 10.5, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", minHeight: 40 }}>
+  const header = <div role="row" style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center", position: "sticky", top: stickyTop, zIndex: 3, background: C.panelSolid, borderBottom: `1px solid ${C.border}`, color: C.muted, fontSize: 10.5, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", height: "var(--obra-columnas-alto)" }}>
     <div role="columnheader"><SelectionBox rows={visibleRows} selected={selected} onToggle={() => selectRows(visibleRows)} label={`Tildar todo lo filtrado (${visibleRows.length} ítems)`} /></div>
     <div role="columnheader" style={cell}><SortHeader label="Material" k="material" orden={orden} onOrden={onOrden} /></div>
     {!compact && <div role="columnheader" style={cell}><SortHeader label="Proveedor" k="proveedor" orden={orden} onOrden={onOrden} /></div>}
@@ -305,21 +300,17 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, r
       view.origin,
     ].filter(Boolean).join(" · ");
     return <div key={row.id} role="row" tabIndex={0} className="obra-data-row" data-row-id={row.id} aria-selected={active} onKeyDown={(event) => onRowKey(event, row)} onDoubleClick={(event) => { if (!event.target.closest("button,input,a,select")) onOpen(row, event.currentTarget); }}
-      style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center", minHeight: narrow ? 56 : 60, background: active ? C.blueL : detailId === row.id ? C.panel : "transparent", borderBottom: `1px solid ${C.border}`, cursor: "default" }}>
+      style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center", minHeight: narrow ? 56 : 60, scrollMarginBlock: `calc(${gruposTop} + ${plano ? 4 : 48}px) 48px`, background: active ? C.blueL : detailId === row.id ? C.panel : "transparent", borderBottom: `1px solid ${C.border}`, cursor: "default" }}>
       <div role="cell"><SelectionBox rows={[row]} selected={selected} onToggle={() => selectRows([row])} label={`Tildar ${row.descripcion}`} /></div>
       <div role="cell" style={{ ...cell, display: "flex", alignItems: "center", gap: 12, padding: "6px 8px" }}>
         <MaterialThumb material={view.imageMaterial} size={narrow ? 36 : 40} fallbackLabel={row.rubro?.slice(0, 1) || "M"} uploadMaterial={view.uploadMaterial} onUploaded={onImageUploaded} />
         <button type="button" onClick={(event) => onOpen(row, event.currentTarget)} style={{ display: "block", border: "none", background: "transparent", color: C.text, padding: 0, textAlign: "left", minWidth: 0, flex: 1, cursor: "pointer", fontFamily: C.sans, lineHeight: 1.3 }} title={[row.descripcion, row.codigo, view.issue].filter(Boolean).join(" · ")}>
-          {/* En el celular el nombre va en dos renglones: cortado en 20 letras no
-              se distingue "Buje de bronce 75x4…" de "Buje de bronce 90x…". */}
-          <span style={narrow
-            ? { display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", fontSize: 14, fontWeight: 500, overflowWrap: "anywhere" }
-            : { display: "block", fontSize: 15, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.descripcion}</span>
+          <span style={{ display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden", fontSize: narrow ? 14 : 15, fontWeight: 500, overflowWrap: "anywhere" }}>{row.descripcion}</span>
           {(subtexto || view.issue) && <span style={sub}>{view.issue && <span style={{ color: C.red }}>{view.issue}{subtexto ? " · " : ""}</span>}{subtexto}</span>}
           {view.stockLibre && <span style={{ ...sub, color: C.green }} title={view.stockLibre.title}>{view.stockLibre.texto}</span>}
         </button>
       </div>
-      {!compact && <div role="cell" title={row.proveedor} style={{ ...cell, whiteSpace: "nowrap", fontSize: 13.5, color: row.proveedor ? C.muted : C.dim }}>{row.proveedor || "—"}</div>}
+      {!compact && <div role="cell" title={row.proveedor} style={{ ...cell, overflowWrap: "anywhere", fontSize: 13.5, color: row.proveedor ? C.muted : C.dim }}>{row.proveedor || "-"}</div>}
       {!narrow && <div role="cell" style={num} title={view.quantityTitle}>{view.necesarioCorto} <span style={{ color: C.dim, fontFamily: C.sans, fontSize: 10.5 }}>{view.unidadCorta}</span></div>}
       {!narrow && <><div role="cell" style={{ ...num, color: view.cant.panol ? C.muted : C.dim }}>{view.cant.panol ? view.received : "·"}</div><div role="cell" style={{ ...num, color: view.cant.entregado ? C.muted : C.dim }}>{view.cant.entregado ? view.delivered : "·"}</div></>}
       {!phone && <div role="cell" style={{ ...num, color: view.falta ? view.faltaColor : C.dim, fontWeight: view.falta ? 600 : 400 }} title={view.faltaTitle}>{view.falta ? view.faltaTexto : "·"}</div>}
@@ -328,7 +319,7 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, r
       <div role="cell"><button type="button" title="Abrir detalle" aria-label={`Detalle de ${row.descripcion}`} onClick={(event) => onOpen(row, event.currentTarget)} style={{ ...button, borderColor: "transparent", padding: 4, minWidth: narrow ? 40 : 26, minHeight: narrow ? 40 : 30, background: "transparent", color: C.muted }}><MoreHorizontal size={15} /></button></div>
     </div>;
   };
-  const barraSeleccion = selected.size > 0 && <div role="region" aria-label="Acciones sobre lo tildado" className={flujo ? "obra-selbar obra-chips" : "obra-selbar"} style={{ zIndex: 5, boxSizing: "border-box", ...(flujo ? { position: "sticky", bottom: 0, overflowX: "auto", flexWrap: "nowrap", borderRadius: 0, borderWidth: "1px 0 0", paddingBottom: "max(7px, env(safe-area-inset-bottom))" } : { position: "absolute", left: "50%", bottom: 48, transform: "translateX(-50%)", width: "max-content", maxWidth: "calc(100% - 20px)", flexWrap: "wrap", borderRadius: 3 }), display: "flex", alignItems: "center", gap: 6, padding: "7px 8px 7px 12px", background: C.panelSolid, border: `1px solid ${C.blueB}`, boxShadow: "0 14px 40px var(--shadow)" }}>
+  const barraSeleccion = selected.size > 0 && <div role="region" aria-label="Acciones sobre lo tildado" className={narrow ? "obra-selbar obra-chips" : "obra-selbar"} style={{ position: "sticky", bottom: 0, zIndex: 5, display: "flex", flexWrap: narrow ? "nowrap" : "wrap", overflowX: narrow ? "auto" : "visible", alignItems: "center", gap: 6, padding: "7px 8px max(7px, env(safe-area-inset-bottom)) 12px", background: C.panelSolid, borderTop: `1px solid ${C.blueB}`, boxShadow: "0 14px 40px var(--shadow)" }}>
     <strong style={{ fontWeight: 600, fontSize: 12.5, color: C.text, marginRight: 4, whiteSpace: "nowrap" }}>{tildadosVisibles.toLocaleString("es-AR")} {tildadosVisibles === 1 ? "tildado" : "tildados"}</strong>
     {tildadosFuera > 0 && <span style={{ ...muted, fontSize: 11, whiteSpace: "nowrap" }} title="Lo tildado que quedó afuera del filtro no entra en las acciones.">+{tildadosFuera} fuera del filtro</span>}
     {accionesSeleccion}
@@ -336,29 +327,28 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, r
   </div>;
   // overflow "clip" y no "hidden": "hidden" convierte la caja en el contenedor
   // del sticky y el encabezado y el pie dejan de quedar pegados a la pantalla.
-  return <div ref={containerRef} className={narrow ? "obra-table-narrow" : undefined} data-testid="obra-lista" style={{ position: "relative", minWidth: 0, border: `1px solid ${C.border}`, borderRadius: 3, overflow: flujo ? "clip" : "hidden", background: C.panelSolid }}>
+  return <div ref={containerRef} className={narrow ? "obra-table obra-table-narrow" : "obra-table"} data-testid="obra-lista" style={{ minWidth: 0, border: `1px solid ${C.border}`, borderRadius: 3, overflow: "clip", background: C.panelSolid }}>
     {narrow && index}
-    <div ref={gridRef} style={{ display: "grid", gridTemplateColumns: narrow ? "minmax(0,1fr)" : "212px minmax(0,1fr)", height: flujo ? "auto" : listHeight, minHeight: flujo ? 0 : 360 }}>
+    <div style={{ display: "grid", gridTemplateColumns: narrow ? "minmax(0,1fr)" : "212px minmax(0,1fr)" }}>
       {!narrow && index}
-      <div style={{ display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0 }}>
-        <div ref={scrollRef} onScroll={flujo ? undefined : onScroll} className="obra-scroll" style={{ overflow: flujo ? "visible" : "auto", flex: 1, minHeight: 0 }}>
-          <div key={filterKey} className="obra-page-content" role="table" aria-label="Materiales de la obra" aria-rowcount={recorte.total} style={{ minWidth: narrow ? 0 : 640, fontSize: 12 }}>
+      <div style={{ minWidth: 0 }}>
+        <div ref={listaRef} style={{ scrollMarginTop: stickyTop }}>
+          <div key={filterKey} className="obra-page-content" role="table" aria-label="Materiales de la obra" aria-rowcount={recorte.total} style={{ fontSize: 12 }}>
             {header}
-            {recorte.groups.map((group) => <Fragment key={group.label}>
-              {!plano && <div role="row" style={{ display: "flex", alignItems: "center", minHeight: 32, background: C.panel, borderBottom: `1px solid ${C.border}` }}>
+            {recorte.groups.map((group) => <div key={group.label} role="rowgroup">
+              {!plano && <div role="row" style={{ display: "flex", alignItems: "center", minHeight: 36, position: "sticky", top: gruposTop, zIndex: 2, background: C.panelSolid2, borderBottom: `1px solid ${C.border}` }}>
                 <SelectionBox rows={group.allRows} selected={selected} onToggle={() => selectRows(group.allRows)} label={`Tildar ${group.label} (${group.allRows.length} ítems)`} />
                 <button type="button" aria-expanded={!closedGroups.has(group.label)} onClick={() => toggleGroup(group.label)} style={{ ...button, minHeight: 30, border: "none", background: "transparent", flex: 1, justifyContent: "flex-start", minWidth: 0 }}>
                   {closedGroups.has(group.label) ? <ChevronRight size={13} /> : <ChevronDown size={13} />}<span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 600 }}>{group.label}</span><span style={muted}>· {group.allRows.length}</span>
                 </button>
               </div>}
               {!closedGroups.has(group.label) && group.rows.map(fila)}
-            </Fragment>)}
+            </div>)}
           </div>
           {recorte.end < recorte.total && <div ref={finRef} style={{ padding: 14, textAlign: "center", ...muted }}>Mostrando {recorte.end.toLocaleString("es-AR")} de {recorte.total.toLocaleString("es-AR")} · seguí bajando</div>}
           {!recorte.total && <div style={{ padding: 36, textAlign: "center", color: C.muted }}>No hay ítems con esos filtros.</div>}
         </div>
-        {flujo && barraSeleccion}
-        {!(flujo && barraSeleccion) && <div className={narrow ? "obra-chips" : undefined} style={{ display: "flex", flexWrap: narrow ? "nowrap" : "wrap", overflowX: narrow ? "auto" : "visible", whiteSpace: "nowrap", gap: "4px 6px", alignItems: "center", padding: "6px 10px", borderTop: `1px solid ${C.border}`, background: C.panelSolid, fontSize: 11.5, ...(flujo ? { position: "sticky", bottom: 0, zIndex: 3, paddingBottom: "max(6px, env(safe-area-inset-bottom))" } : {}) }}>
+        {barraSeleccion || <div className={narrow ? "obra-chips" : undefined} style={{ display: "flex", flexWrap: narrow ? "nowrap" : "wrap", overflowX: narrow ? "auto" : "visible", whiteSpace: "nowrap", gap: "4px 6px", alignItems: "center", padding: "6px 10px max(6px, env(safe-area-inset-bottom))", borderTop: `1px solid ${C.border}`, background: C.panelSolid, fontSize: 11.5, position: "sticky", bottom: 0, zIndex: 3 }}>
           <span data-testid="obra-page-range" style={{ ...muted, fontVariantNumeric: "tabular-nums", marginRight: 4 }}>{recorte.total.toLocaleString("es-AR")} {recorte.total === 1 ? "ítem" : "ítems"}</span>
           {estadosEnPie && estadoOpciones.map((op) => {
             const on = estadosSel.size === 1 && estadosSel.has(op.value);
@@ -372,7 +362,6 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, r
         </div>}
       </div>
     </div>
-    {!flujo && barraSeleccion}
   </div>;
 }
 

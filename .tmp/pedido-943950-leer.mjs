@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+import { admin, must } from '../tmp/jacuzzi-client.mjs';
+const id = '943950cc-94fb-48a9-b83b-8ad5c30e878a';
+const order = await must(admin.from('purchase_requests').select('*,creator:profiles!purchase_requests_created_by_fkey(username),project:produccion_obras(codigo,estado)').eq('id', id).single());
+const items = await must(admin.from('purchase_request_items').select('*').eq('request_id', id));
+const ids = items.map(i=>i.id);
+const snaps = await must(admin.from('panol_obra_materiales_snapshot').select('*').in('purchase_request_item_id', ids));
+const envios = await must(admin.from('panol_envios').select('id,titulo,estado,sede,purchase_request_id').eq('purchase_request_id', id));
+const envItems = await must(admin.from('panol_envio_items').select('id,envio_id,cantidad,estado,purchase_request_item_id').in('purchase_request_item_id', ids));
+fs.writeFileSync('.tmp/pedido-943950-live.json', JSON.stringify({order,items,snaps,envios,envItems},null,2));
+const {creator,project,...o}=order;
+console.log(JSON.stringify({order:o,creator,project,items,snaps:snaps.map(s=>({id:s.id,obra_id:s.obra_id,estado:s.estado,cantidad:s.cantidad,material_id:s.material_id,panol_envio_item_id:s.panol_envio_item_id,stock_sede:s.stock_sede,source:s.source,descripcion:s.descripcion})),envios,envItems},null,2));

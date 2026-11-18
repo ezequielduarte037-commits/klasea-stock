@@ -1,0 +1,14 @@
+{"material":"b65969f5-6e06-4b42-be25-b2a807e5e119","codigo":"METECTAP0003"}
+{"itemVinculado":"7f41a030-c4bb-4496-9b48-ce819b7091a3","material":"b65969f5-6e06-4b42-be25-b2a807e5e119"}
+{"asignacion":"7164c155-9af8-41e4-a685-af05acee8880","codigo":"METECTAP0003","obraId":"dcc01fcd-fdb1-4f5d-8ea7-095a6551c560","cantidad":8}
+{"asignacion":"43564360-578c-4058-92ac-76b617d7b3f1","codigo":"METECTAP0003","obraId":null,"cantidad":12}
+{"material":"e6cc5686-11db-4439-80c9-fc8df92687d2","codigo":"METECTAP0065"}
+{"itemVinculado":"a13e9a78-f1f8-4733-aa54-f67645fdd6c5","material":"e6cc5686-11db-4439-80c9-fc8df92687d2"}
+{"asignacion":"82510d19-92de-4f89-8152-6cbbac786d98","codigo":"METECTAP0065","obraId":"dcc01fcd-fdb1-4f5d-8ea7-095a6551c560","cantidad":8}
+{"asignacion":"61e55791-35eb-455d-8821-4f2555423628","codigo":"METECTAP0065","obraId":null,"cantidad":12}
+{"material":"4aa381e3-60bb-4c74-a1db-ea69c237d30e","codigo":"METECTEC0084"}
+{"asignacion":"a757b118-1d9b-4f7f-b560-e11cf5600d3f","codigo":"METECTEC0084","obraId":null,"cantidad":60}
+{"material":"d0f4fd8f-2dbd-4027-bee1-48cca31ce280","codigo":"METECTEC0086"}
+{"asignacion":"1f925daa-b6f5-4091-afc1-a3de8c2ac370","codigo":"METECTEC0086","obraId":null,"cantidad":60}
+{"pedidoComprado":"353887b4-e3fb-4764-a417-c20a72ed94cc","importe":25967.44}
+{"aviso":"c763f94a-0506-4f34-9cda-d546183acd42"}

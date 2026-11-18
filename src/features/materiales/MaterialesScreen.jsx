@@ -4128,6 +4128,17 @@ function snapshotLockReason(row = {}) {
 
 export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, materiales, proveedores = [], opciones = [], ums = [], onChanged, onBack, detalleId, onAbrirDetalle, onCerrarDetalle, soloPedirACompras = false }) {
   const { isMobile } = useResponsive();
+  const filtrosRef = useRef(null);
+  const [filtrosAlto, setFiltrosAlto] = useState(0);
+  useEffect(() => {
+    const filtros = filtrosRef.current;
+    if (isMobile || !filtros) return undefined;
+    const medir = () => setFiltrosAlto(filtros.getBoundingClientRect().height);
+    const observer = new ResizeObserver(medir);
+    observer.observe(filtros);
+    medir();
+    return () => observer.disconnect();
+  }, [isMobile]);
   const [q, setQ] = useState("");
   const deferredQ = useDeferredValue(q);
   const [proveedorFilter, setProveedorFilter] = useState("");
@@ -6092,7 +6103,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
       ) : null}
 
       <TituloMateriales cantidad={kpis.items} detalle={rubroFilter || proveedorFilter || "Todos los rubros"} />
-      <div style={{ display: "grid", gap: 6, padding: "0 0 12px" }}>
+      <div ref={filtrosRef} style={{ display: "grid", gap: 6, padding: "6px 0 10px", borderBottom: `1px solid ${C.b0}`, marginBottom: 10, background: C.bg, position: isMobile ? "relative" : "sticky", top: 0, zIndex: 24 }}>
         <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
           <div style={{ position: "relative", flex: "1 1 260px", minWidth: 160 }}>
             {/* Mismo buscador que en la línea: una línea, sin caja. */}
@@ -6134,6 +6145,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
       </div>
       <ObraListaTable
         key={obra.id}
+        stickyTop={isMobile ? 0 : filtrosAlto}
         groups={groupedRows} allRows={rows} visibleRows={visibleRows} rubro={rubroFilter} onRubro={setRubroFilter} proveedor={proveedorFilter} onProveedor={setProveedorFilter}
         filterKey={JSON.stringify([obra.id, deferredQ, proveedorFilter, rubroFilter, tipoFilter, [...estadosSel].sort(), etapaFilter, groupBy, orden])}
         selected={selected} onSelectionChange={setSelected} getRowView={getObraRowView} onOpen={openObraDetail} detailId={detalleId}
@@ -10174,7 +10186,7 @@ export default function MaterialesScreen({ profile }) {
       `}</style>
 
 
-      <div style={{ flex: 1, height: "100%", overflowY: "auto", minWidth: 0 }}>
+      <div className="materiales-page-scroll" style={{ flex: 1, height: "100%", overflowY: "auto", minWidth: 0 }}>
         <div className="materiales-page-body" style={{ padding: isMobile ? "16px 14px 50px 14px" : "26px 30px 60px" }}>
           {/* Aire Azimut: rótulo chico arriba y el título fino, en mayúsculas. */}
           <div className="materiales-page-heading" style={{ marginBottom: isMobile ? 18 : 30 }}>
