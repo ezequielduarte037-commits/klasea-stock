@@ -6,7 +6,6 @@ import { ToastProvider } from "@/components/ui/Toast";
 import AppVersionGuard from "@/components/AppVersionGuard";
 import PushNotificationsProvider from "@/components/PushNotificationsProvider";
 import { clearPushForLogout } from "@/lib/pushNotifications";
-import { removeLegacyWorkers } from "@/lib/webPushSupport";
 import { ConfirmProvider } from "@/components/ui/ConfirmDialog";
 import ChangePasswordModal from "@/features/cuenta/ChangePasswordModal";
 import { C } from "@/theme";
@@ -63,20 +62,6 @@ function recargarSalteandoCache() {
   }
 }
 
-async function limpiarCachesAntiguas() {
-  try {
-    if ("serviceWorker" in navigator) {
-      await removeLegacyWorkers();
-    }
-    if ("caches" in window) {
-      const claves = await window.caches.keys();
-      await Promise.all(claves.map((clave) => window.caches.delete(clave)));
-    }
-  } catch {
-    // La recarga con URL nueva sigue siendo posible si Chrome no deja limpiar.
-  }
-}
-
 // El parametro cumplio su funcion al pedir el index; no tiene por que quedar
 // colgado en la barra ni en un link que alguien copie.
 function limpiarParametroDeRecarga() {
@@ -121,17 +106,14 @@ class PantallaCaida extends React.Component {
         <div style={{ maxWidth: 420, textAlign: "center" }}>
           <div style={{ fontSize: 19, fontWeight: 600, marginBottom: 10 }}>No se pudo cargar la pantalla</div>
           <p style={{ margin: "0 0 20px", fontSize: 14, lineHeight: 1.55, color: "var(--muted, #c0c6d0)" }}>
-            Suele pasar cuando se publicó una versión nueva con la pestaña abierta.
-            Recargá y debería entrar bien.
+            Probá volver a descargar los archivos de Klase A.
           </p>
           <button
             type="button"
-            onClick={async () => {
-              // La reparación manual conserva la marca para que, si vuelve a
-              // fallar un chunk, no entre otra vez en una recarga infinita.
-              try { sessionStorage.setItem(RECARGA_HECHA, "1"); } catch { /* modo privado */ }
-              await limpiarCachesAntiguas();
-              recargarSalteandoCache();
+            onClick={() => {
+              const { pathname, search, hash } = window.location;
+              const volver = encodeURIComponent(pathname + search + hash);
+              window.location.replace(`/reparar.html#${volver}`);
             }}
             style={{
               border: "none", background: "var(--blue, #7eb3ff)", color: "var(--inverse-text, #08090d)", borderRadius: 11,

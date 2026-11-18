@@ -21,6 +21,16 @@
     <script>
       (async function () {
         var alternativa = document.getElementById('alternativa');
+        var destino = new URL('/', window.location.origin);
+        try {
+          var ruta = decodeURIComponent(window.location.hash.slice(1));
+          if (ruta.charAt(0) === '/') {
+            var vuelta = new URL(ruta, window.location.origin);
+            if (vuelta.origin === destino.origin && vuelta.pathname !== '/reparar.html') destino = vuelta;
+          }
+        } catch (_) { /* Una ruta inválida vuelve al inicio. */ }
+        destino.searchParams.set('_v', String(Date.now()));
+        alternativa.querySelector('a').href = destino.href;
         var fin = new Promise(function (resolve) { setTimeout(resolve, 5000); });
         var limpieza = (async function () {
           try {
@@ -46,7 +56,7 @@
         })();
         await Promise.race([limpieza, fin]);
         alternativa.hidden = false;
-        window.location.replace('/?_v=' + Date.now());
+        window.location.replace(destino.href);
       })();
     </script>
   </body>
