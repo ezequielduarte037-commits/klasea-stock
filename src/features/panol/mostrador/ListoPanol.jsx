@@ -24,7 +24,7 @@ export default function ListoPanol({ resumen, onSiguiente }) {
           {asignar
             ? <>{" quedan reservados a "}<strong>{resumen.destino || "la obra"}</strong></>
             : <>{" a nombre de "}<strong>{resumen.quien || "—"}</strong>{resumen.destino ? <> · <strong>{resumen.destino}</strong></> : null}</>}
-          {!asignar && resumen.metodo !== "nfc" ? " · sin tarjeta" : ""}
+          {!asignar && resumen.metodo === "pin" ? " · autorizó Técnica" : !asignar && resumen.metodo !== "nfc" ? " · sin tarjeta" : ""}
         </div>
 
         <div className="mst-listo-items">

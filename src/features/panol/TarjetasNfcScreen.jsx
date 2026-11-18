@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  ArrowLeft, BadgeCheck, Camera, CreditCard, IdCard, Nfc,
+  ArrowLeft, BadgeCheck, Camera, CreditCard, HardHat, IdCard, Nfc,
   Loader2, RefreshCw, Search, ShieldCheck, Trash2, UserRound, Wifi, WifiOff,
 } from "lucide-react";
 import CapturaFotoModal from "@/components/CapturaFotoModal";
+import AltaExternoTarjeta from "@/features/panol/AltaExternoTarjeta";
+import AutorizarTecnica from "@/features/panol/autorizacion/AutorizarTecnica";
+import MiPinTecnica from "@/features/panol/autorizacion/MiPinTecnica";
+import { fetchMiPin } from "@/features/panol/autorizacion/autorizacionApi";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
@@ -113,6 +117,17 @@ export default function TarjetasNfcScreen() {
   const [camara, setCamara] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [completado, setCompletado] = useState(false);
+  // Dar o cambiar una tarjeta pide el PIN de Técnica, salvo que el usuario
+  // sea de Técnica o admin (la base aplica la misma regla).
+  const [miPin, setMiPin] = useState(null);
+  const [pidiendoPin, setPidiendoPin] = useState(false);
+  const [modoExterno, setModoExterno] = useState(false);
+  const necesitaPin = !miPin?.puede;
+
+  const cargarMiPin = useCallback(() => {
+    fetchMiPin().then(setMiPin).catch(() => setMiPin({ puede: false, tiene: false }));
+  }, []);
+  useEffect(() => { cargarMiPin(); }, [cargarMiPin]);
 
   useEffect(() => () => {
     if (foto?.url) URL.revokeObjectURL(foto.url);
@@ -140,11 +155,11 @@ export default function TarjetasNfcScreen() {
     }
   }, [empleado?.empleado_id, toast]);
 
-  const nfc = useNfcBridge({ enabled: !!empleado, onUid: procesarUid });
+  const nfc = useNfcBridge({ enabled: !!empleado && !modoExterno, onUid: procesarUid });
   const bridge = estadoBridge(nfc);
 
   useKeyboardWedge({
-    enabled: !!empleado,
+    enabled: !!empleado && !modoExterno,
     ignoreEditable: true,
     minLength: 4,
     timeoutMs: 70,
@@ -173,6 +188,7 @@ export default function TarjetasNfcScreen() {
     setConflicto(null);
     setFoto(null);
     setCompletado(false);
+    setPidiendoPin(false);
   }
 
   async function buscar(event) {
@@ -200,8 +216,13 @@ export default function TarjetasNfcScreen() {
     }
   }
 
-  async function guardar() {
+  async function guardar(autorizacionId = null) {
     if (!puedeGuardar) return;
+    if ((tarjetaNueva || cambiaTarjeta) && necesitaPin && !autorizacionId) {
+      setPidiendoPin(true);
+      return;
+    }
+    setPidiendoPin(false);
     setGuardando(true);
     try {
       let fotoUrl = null;
@@ -210,6 +231,7 @@ export default function TarjetasNfcScreen() {
         empleadoId: empleado.empleado_id,
         uid: uidLimpio,
         fotoUrl,
+        autorizacionId,
       });
       setEmpleado(actualizado);
       setFoto(null);
@@ -270,7 +292,7 @@ export default function TarjetasNfcScreen() {
             icon={Nfc}
             eyebrow="Pañol"
             title="Asignar tarjeta NFC"
-            subtitle="Sólo se pueden vincular personas existentes y activas en RR. HH."
+            subtitle="Personas activas en RRHH o externos nuevos. Dar o cambiar una tarjeta lo autoriza Técnica con su PIN."
             actions={
               <>
                 <span style={{
@@ -288,6 +310,11 @@ export default function TarjetasNfcScreen() {
           />
 
           <div style={{ width: "min(1080px,100%)", margin: "0 auto", padding: isMobile ? "14px 16px 36px" : "20px 28px 44px", boxSizing: "border-box" }}>
+            {miPin?.puede ? (
+              <div style={{ marginBottom: 12 }}>
+                <MiPinTecnica estado={miPin} onGuardado={cargarMiPin} toast={toast} />
+              </div>
+            ) : null}
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,minmax(0,1fr))", gap: 8, marginBottom: 14 }}>
               <Paso numero="1" titulo="Buscar por DNI" listo={pasos.persona} activo={!pasos.persona} />
               <Paso numero="2" titulo="Leer tarjeta" listo={pasos.tarjeta} activo={pasos.persona && !pasos.tarjeta} />
@@ -312,7 +339,6 @@ export default function TarjetasNfcScreen() {
                       onChange={(event) => setDni(event.target.value.replace(/\D/g, "").slice(0, 10))}
                       inputMode="numeric"
                       autoComplete="off"
-                      placeholder="Ej: 32123456"
                       style={{ ...INPUT, fontFamily: C.mono, fontSize: 15 }}
                     />
                     <button type="submit" className="nfc-btn" disabled={buscando} aria-label="Buscar empleado" style={{
@@ -325,12 +351,27 @@ export default function TarjetasNfcScreen() {
                   </div>
                   <div style={{ marginTop: 10, display: "flex", alignItems: "flex-start", gap: 7, color: C.dim, fontSize: 11.5, lineHeight: 1.45 }}>
                     <ShieldCheck size={14} style={{ color: C.green, flexShrink: 0, marginTop: 1 }} />
-                    Pañol no puede crear empleados ni modificar sus datos personales.
+                    Pañol no puede crear empleados ni cambiar sus datos. Los externos se cargan con el PIN de Técnica y RRHH completa el resto.
                   </div>
+                  <button
+                    type="button"
+                    className="ui-btn"
+                    style={{ marginTop: 12, borderStyle: "dashed" }}
+                    onClick={() => { setDni(""); limpiarSeleccion(); setModoExterno(true); }}
+                  >
+                    <HardHat size={15} /> Externo que no está en RRHH
+                  </button>
                 </form>
               </section>
 
-              {!empleado ? (
+              {modoExterno ? (
+                <AltaExternoTarjeta
+                  necesitaPin={necesitaPin}
+                  toast={toast}
+                  onCancelar={() => setModoExterno(false)}
+                  onListo={() => setModoExterno(false)}
+                />
+              ) : !empleado ? (
                 <section style={{
                   minHeight: 390, border: `1px dashed ${C.border2}`, borderRadius: 14,
                   background: C.panel, display: "grid", placeItems: "center", padding: 24,
@@ -428,6 +469,21 @@ export default function TarjetasNfcScreen() {
                     )}
                   </div>
 
+                  {pidiendoPin ? (
+                    <div style={{ padding: "12px 16px", borderTop: `1px solid ${C.border}` }}>
+                      <AutorizarTecnica
+                        titulo={cambiaTarjeta ? `Cambiar la tarjeta de ${empleado.nombre}` : `Dar tarjeta a ${empleado.nombre}`}
+                        detalle="Dar o cambiar una tarjeta lo autoriza alguien de Técnica con su PIN."
+                        tipo="tarjeta"
+                        empleadoId={empleado.empleado_id}
+                        sede={empleado.sede || null}
+                        motivo={cambiaTarjeta ? "Reemplazo de tarjeta" : "Tarjeta nueva"}
+                        onAutorizado={(aut) => guardar(aut.id)}
+                        onCancelar={() => setPidiendoPin(false)}
+                      />
+                    </div>
+                  ) : null}
+
                   <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", borderTop: `1px solid ${C.border}`, background: C.panel, flexWrap: "wrap" }}>
                     {empleado.nfc_uid && (
                       <button type="button" onClick={desvincular} disabled={guardando} style={{
@@ -445,7 +501,7 @@ export default function TarjetasNfcScreen() {
                         Cargar otra persona
                       </button>
                     )}
-                    <button type="button" onClick={guardar} disabled={!puedeGuardar} className="nfc-btn" style={{
+                    <button type="button" onClick={() => guardar()} disabled={!puedeGuardar || pidiendoPin} className="nfc-btn" style={{
                       minHeight: 40, display: "inline-flex", alignItems: "center", gap: 7,
                       border: "none", borderRadius: 10, padding: "0 16px",
                       background: puedeGuardar ? "linear-gradient(135deg,var(--violet),var(--blue))" : C.panel2,

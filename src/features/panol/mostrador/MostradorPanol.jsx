@@ -19,6 +19,7 @@ import {
 } from "@/features/panol/panolApi";
 import { PANOL_CART_STORAGE_KEY, normalizeStoredCartItem, refreshCartRequirementMetadata } from "@/features/panol/stockGrupos";
 import { buscarEmpleadoPorNfc, evaluarRetiro, normalizeNfcUid } from "@/features/rrhh/api";
+import { tarjetaObligatoria } from "@/features/panol/autorizacion/autorizacionApi";
 import { obrasDeEmpleado } from "@/features/consumibles/api";
 import { CSS_MOSTRADOR } from "@/features/consumibles/mostrador/mostradorEstilos";
 import TecladoNumerico from "@/features/consumibles/mostrador/TecladoNumerico";
@@ -177,6 +178,8 @@ export default function MostradorPanol({ sede, sedeFija = false }) {
   }, []);
 
   const asignar = modo === "asignar";
+  // Chubut: sin tarjeta sólo con PIN de Técnica (la base aplica lo mismo).
+  const exigeTarjeta = !asignar && tarjetaObligatoria(sede);
   const angosto = ancho < 820;
   const amplio = ancho >= 1240;
 
@@ -260,7 +263,7 @@ export default function MostradorPanol({ sede, sedeFija = false }) {
   const lineas = useMemo(() => lineasConDestino(cart, destino, obras, modo), [cart, destino, obras, modo]);
   const destinoTexto = textoDestino(cart, destino, obras, modo);
   const retiradoPor = persona ? etiquetaPersona(persona) : aMano ? nombreLibre.trim() : "";
-  const errorNombre = aMano ? retiradoPorNombreCompletoError(nombreLibre) : "";
+  const errorNombre = aMano ? (exigeTarjeta ? "Sin tarjeta no sale material." : retiradoPorNombreCompletoError(nombreLibre)) : "";
   const falta = asignar
     ? faltaEnDestino(cart, destino, "asignar", obras)
     : !persona && !aMano ? "Falta la tarjeta"
@@ -493,9 +496,9 @@ export default function MostradorPanol({ sede, sedeFija = false }) {
     if (!destinoTocadoRef.current) setDestino(null);
   }
 
-  function identificar(emp, metodo, uid = null) {
+  function identificar(emp, metodo, uid = null, autorizacion = null) {
     const consulta = ++consultaRef.current;
-    setPersona({ id: emp.id, nombre: emp.nombre, dni: emp.dni ?? null, fotoUrl: emp.foto_url ?? "", sede: emp.sede ?? "", metodo, uid });
+    setPersona({ id: emp.id, nombre: emp.nombre, dni: emp.dni ?? null, fotoUrl: emp.foto_url ?? "", sede: emp.sede ?? "", metodo, uid, autorizacion });
     setAMano(false);
     setNombreLibre("");
     setObrasPersona([]);
@@ -608,6 +611,11 @@ export default function MostradorPanol({ sede, sedeFija = false }) {
           retiradoPor,
           sectorDestino,
           nota: notaFinal,
+          retiro: persona ? {
+            empleado_id: persona.id,
+            nfc_uid: persona.metodo === "nfc" ? persona.uid : null,
+            autorizacion_id: persona.metodo === "pin" ? persona.autorizacion?.id ?? null : null,
+          } : null,
         });
       }
       if (!vivoRef.current) return;
@@ -978,7 +986,9 @@ export default function MostradorPanol({ sede, sedeFija = false }) {
           onNombreLibre={setNombreLibre}
           errorNombre={errorNombre}
           empleados={empleados}
-          onElegirPersona={(emp) => identificar(emp, "sin_tarjeta")}
+          onElegirPersona={(emp, aut = null) => identificar(emp, aut ? "pin" : "sin_tarjeta", null, aut)}
+          exigeTarjeta={exigeTarjeta}
+          sede={sede}
           onQuitarPersona={quitarPersona}
           lectorEstado={nfc.status}
           obrasPersona={obrasPersona}

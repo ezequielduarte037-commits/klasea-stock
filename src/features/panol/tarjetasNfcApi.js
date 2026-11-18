@@ -45,7 +45,7 @@ export async function subirFotoNfcEmpleado(empleadoId, archivo) {
   return data?.publicUrl ?? null;
 }
 
-export async function asignarTarjetaNfc({ empleadoId, uid, fotoUrl = null }) {
+export async function asignarTarjetaNfc({ empleadoId, uid, fotoUrl = null, autorizacionId = null }) {
   const clean = normalizeNfcUid(uid);
   if (!empleadoId) throw new Error("Primero buscá un empleado por DNI.");
   if (clean.length < 4) throw new Error("Apoyá una tarjeta NFC válida.");
@@ -54,9 +54,32 @@ export async function asignarTarjetaNfc({ empleadoId, uid, fotoUrl = null }) {
     p_empleado_id: empleadoId,
     p_nfc_uid: clean,
     p_foto_url: fotoUrl,
+    // Dar o cambiar una tarjeta pide el PIN de Técnica (salvo Técnica/admin).
+    p_autorizacion_id: autorizacionId,
   });
   if (error) throw error;
   return firstRow(data);
+}
+
+/**
+ * Externo nuevo (herrero, vidriero, instalador) con su tarjeta, en un paso.
+ * Queda provisorio para que RRHH complete los datos; ya puede retirar.
+ */
+export async function altaExternoConTarjeta({ id, nombre, empresa, dni = null, sede = null, uid, autorizacionId = null }) {
+  const clean = normalizeNfcUid(uid);
+  if (clean.length < 4) throw new Error("Apoyá la tarjeta que se le va a dar.");
+  const { data, error } = await supabase.rpc("panol_alta_externo_con_tarjeta", {
+    p_id: id,
+    p_nombre: nombre,
+    p_empresa: empresa,
+    p_dni: dni || null,
+    p_sede: sede || null,
+    p_nfc_uid: clean,
+    p_foto_url: null,
+    p_autorizacion_id: autorizacionId,
+  });
+  if (error) throw error;
+  return data;
 }
 
 export async function desvincularTarjetaNfc(empleadoId) {

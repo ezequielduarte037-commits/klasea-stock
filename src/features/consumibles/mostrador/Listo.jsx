@@ -26,7 +26,7 @@ export default function Listo({ resumen, onSiguiente }) {
             ? <>{" vuelven al pañol"}{resumen.quien ? <> · <strong>{resumen.quien}</strong></> : null}</>
             : <>{" a nombre de "}<strong>{resumen.quien || "—"}</strong></>}
           {resumen.destino ? <> · <strong>{resumen.destino}</strong></> : null}
-          {resumen.metodo === "sin_tarjeta" ? " · sin tarjeta" : ""}
+          {resumen.metodo === "sin_tarjeta" ? " · sin tarjeta" : resumen.metodo === "pin" ? " · autorizó Técnica" : ""}
         </div>
 
         {resumen.sinConexion ? (

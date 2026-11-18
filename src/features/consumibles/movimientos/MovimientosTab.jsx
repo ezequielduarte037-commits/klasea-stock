@@ -52,7 +52,7 @@ const tituloDia = (dia) => {
   return `${semana.charAt(0).toUpperCase()}${semana.slice(1)} ${d}/${mes}`;
 };
 const plural = (n, uno, varios) => `${n.toLocaleString("es-AR")} ${n === 1 ? uno : varios}`;
-const FIRMA = { nfc: "con tarjeta", manual: "firmó en pantalla", sin_tarjeta: "sin tarjeta" };
+const FIRMA = { nfc: "con tarjeta", manual: "firmó en pantalla", sin_tarjeta: "sin tarjeta", pin: "sin tarjeta, autorizó Técnica" };
 
 export default function MovimientosTab({ sede, irA }) {
   const verPrecios = useVerPrecios();

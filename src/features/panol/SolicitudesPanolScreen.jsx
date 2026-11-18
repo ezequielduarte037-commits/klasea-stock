@@ -581,8 +581,8 @@ function Detalle({ solicitudId, obras, puedeEditar, esPanol, isMobile, toast, on
     } catch (err) { toast?.error(err.message); }
   }
 
-  async function firmar({ empleado, metodo, nfcUid }) {
-    const resultado = await registrarRetiro(solicitudId, { empleado, metodo, nfcUid });
+  async function firmar({ empleado, metodo, nfcUid, autorizacionId = null }) {
+    const resultado = await registrarRetiro(solicitudId, { empleado, metodo, nfcUid, autorizacionId });
     const partes = [];
     if (resultado?.egresos) partes.push(`${resultado.egresos} egreso${resultado.egresos === 1 ? "" : "s"} de stock`);
     if (resultado?.consumibles) partes.push(`${resultado.consumibles} consumible${resultado.consumibles === 1 ? "" : "s"} registrado${resultado.consumibles === 1 ? "" : "s"} sin descontar`);

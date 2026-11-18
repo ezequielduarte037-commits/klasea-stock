@@ -2229,6 +2229,9 @@ export async function egresarProducto({
   variante = null,
   productoMaterialId = null,
   sourceRows = [],
+  // Quién retira: { empleado_id, nfc_uid, autorizacion_id }. Sin esto, en
+  // Chubut la base no deja egresar (salidas sólo con tarjeta).
+  retiro = null,
 } = {}) {
   const qty = Number(String(cantidad ?? "").replace(",", "."));
   const desc = String(descripcion || material?.descripcion || "").trim();
@@ -2250,6 +2253,7 @@ export async function egresarProducto({
     p_retirado_por: String(retiradoPor || "").trim() || null,
     p_sector_destino: String(sectorDestino || "").trim() || null,
     p_es_adicional: !!esAdicional,
+    p_retiro: retiro || null,
   };
   const varClean = String(variante || "").trim() || null;
   const snapshotPlan = material?.es_requisito === true || productoMaterialId
@@ -2263,6 +2267,7 @@ export async function egresarProducto({
       sectorDestino,
       destinoObraId,
       cantidades,
+      retiro,
     });
   }
   let { data, error } = await supabase.rpc("panol_egresar_producto", {
@@ -2284,6 +2289,7 @@ export async function egresarProductosCarrito({
   nota = null,
   retiradoPor = null,
   sectorDestino = null,
+  retiro = null,
 } = {}) {
   if (!Array.isArray(items) || !items.length) throw new Error("El carrito está vacío.");
   const payload = items.map((item) => ({
@@ -2329,6 +2335,7 @@ export async function egresarProductosCarrito({
         sectorDestino,
         destinoObraId: destinoReal,
         cantidades,
+        retiro,
       });
       return { cantidad: count, snapshot_ids: ids };
     }
@@ -2354,6 +2361,7 @@ export async function egresarProductosCarrito({
     p_nota: String(nota || "").trim() || null,
     p_retirado_por: String(retiradoPor || "").trim() || null,
     p_sector_destino: String(sectorDestino || "").trim() || null,
+    p_retiro: retiro || null,
   });
   if (error) throw error;
   return data;
@@ -2599,7 +2607,7 @@ export async function actualizarTituloEnvio(envioId, titulo) {
   return data;
 }
 
-export async function egresarMaterialesObra(ids = [], { nota = null, retiradoPor = null, sectorDestino = null, destinoObraId = null, cantidades = {} } = {}) {
+export async function egresarMaterialesObra(ids = [], { nota = null, retiradoPor = null, sectorDestino = null, destinoObraId = null, cantidades = {}, retiro = null } = {}) {
   const p_snapshot_ids = ids.filter(Boolean);
   if (!p_snapshot_ids.length) return 0;
   const { data, error } = await supabase.rpc("panol_egresar_obra_materiales", {
@@ -2609,6 +2617,7 @@ export async function egresarMaterialesObra(ids = [], { nota = null, retiradoPor
     p_sector_destino: String(sectorDestino || "").trim() || null,
     p_destino_obra_id: destinoObraId || null,
     p_cantidades: cantidades || {},
+    p_retiro: retiro || null,
   });
   if (error) throw error;
   return data ?? p_snapshot_ids.length;

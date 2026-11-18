@@ -4,6 +4,8 @@ import Cargando from "@/components/ui/Cargando";
 import useNfcBridge from "@/features/panol/useNfcBridge";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
 import { buscarEmpleadoPorNfc, normalizeNfcUid } from "@/features/rrhh/api";
+import AutorizarTecnica from "@/features/panol/autorizacion/AutorizarTecnica";
+import { tarjetaObligatoria } from "@/features/panol/autorizacion/autorizacionApi";
 import useRafagaLector from "../mostrador/useRafagaLector";
 import { conTimeout, pareceUidTarjeta } from "../mostrador/mostradorLogica";
 import { Hoja } from "./Hojas";
@@ -41,6 +43,9 @@ export default function Entregar({ solicitud, items = [], empleados = [], cargan
   const [resultado, setResultado] = useState(null);
   const enviandoRef = useRef(false);
   const lecturaRef = useRef(0);
+  // Chubut: sin tarjeta, Técnica autoriza con PIN; nombres a mano, no.
+  const exigeTarjeta = tarjetaObligatoria(solicitud?.sede_origen);
+  const [porAutorizar, setPorAutorizar] = useState(null);
 
   // El foco en el panel (no en la X ni en un campo): Enter confirma y el
   // lector de tarjetas que escribe como teclado no tipea adentro de un input.
@@ -121,8 +126,10 @@ export default function Entregar({ solicitud, items = [], empleados = [], cargan
     },
   });
 
-  function elegirDeRrhh(emp) {
-    setPersona({ empleado: emp, metodo: "sin_tarjeta", nfcUid: null });
+  function elegirDeRrhh(emp, autorizacion = null) {
+    if (exigeTarjeta && !autorizacion) { setPorAutorizar(emp); setTexto(""); return; }
+    setPorAutorizar(null);
+    setPersona({ empleado: emp, metodo: "sin_tarjeta", nfcUid: null, autorizacion });
     setModo("tarjeta");
     setTexto("");
     setErrorTarjeta("");
@@ -152,6 +159,7 @@ export default function Entregar({ solicitud, items = [], empleados = [], cargan
         dni: persona.dni ?? null,
         metodo: persona.metodo,
         nfcUid: persona.nfcUid,
+        autorizacionId: persona.autorizacion?.id ?? null,
       });
       setResultado(res ?? { ok: true });
       onEntregada?.(res ?? { ok: true }, persona);
@@ -225,7 +233,7 @@ export default function Entregar({ solicitud, items = [], empleados = [], cargan
             <small>
               {[
                 persona.empleado?.dni || persona.dni ? `DNI ${persona.empleado?.dni || persona.dni}` : null,
-                persona.metodo === "nfc" ? "con tarjeta" : persona.metodo === "sin_tarjeta" ? "sin tarjeta" : "no figura en RRHH",
+                persona.metodo === "nfc" ? "con tarjeta" : persona.autorizacion ? `autorizó ${persona.autorizacion.tecnico}` : persona.metodo === "sin_tarjeta" ? "sin tarjeta" : "no figura en RRHH",
               ].filter(Boolean).join(" · ")}
             </small>
           </div>
@@ -233,6 +241,17 @@ export default function Entregar({ solicitud, items = [], empleados = [], cargan
             <X size={14} /> No es
           </button>
         </div>
+      ) : porAutorizar ? (
+        <AutorizarTecnica
+          titulo={`${porAutorizar.nombre} se olvidó la tarjeta`}
+          detalle="Sin tarjeta la entrega sólo sale con el PIN de alguien de Técnica. Queda registrado quién autorizó."
+          tipo="retiro_sin_tarjeta"
+          empleadoId={porAutorizar.id}
+          sede={solicitud?.sede_origen ?? null}
+          motivo={solicitud?.numero ? `Solicitud N° ${solicitud.numero}` : null}
+          onAutorizado={(aut) => elegirDeRrhh(porAutorizar, aut)}
+          onCancelar={() => { setPorAutorizar(null); panelRef.current?.focus({ preventScroll: true }); }}
+        />
       ) : (
         <>
           <div className="sol-tarjeta-nfc">
@@ -256,7 +275,7 @@ export default function Entregar({ solicitud, items = [], empleados = [], cargan
               <div className="sol-aviso-texto">
                 <span>La solicitud dice que {sugerencia.campo === "retira" ? "retira" : "la pidió"} <strong>{sugerencia.texto}</strong>.</span>
                 <button type="button" className="ui-btn ui-btn-suave" style={{ justifySelf: "start", minHeight: 44 }} onClick={() => elegirDeRrhh(sugerencia.persona)}>
-                  Es {sugerencia.persona.nombre}, sin tarjeta
+                  Es {sugerencia.persona.nombre}, {exigeTarjeta ? "se olvidó la tarjeta" : "sin tarjeta"}
                 </button>
               </div>
             </div>
@@ -269,7 +288,7 @@ export default function Entregar({ solicitud, items = [], empleados = [], cargan
           {modo === "buscar" ? (
             <div className="sol-bloque">
               <div className="sol-bloque-titulo">
-                Sin tarjeta: nombre o DNI
+                {exigeTarjeta ? "Se olvidó la tarjeta: nombre o DNI" : "Sin tarjeta: nombre o DNI"}
                 <span className="sol-espacio" />
                 <button type="button" className="sol-enlace" onClick={() => { setModo("tarjeta"); setTexto(""); panelRef.current?.focus(); }}>Mejor la tarjeta</button>
               </div>
@@ -296,6 +315,8 @@ export default function Entregar({ solicitud, items = [], empleados = [], cargan
                     </button>
                   ))}
                 </div>
+              ) : texto.trim() && empleados.length && exigeTarjeta ? (
+                <div className="sol-muted" style={{ fontSize: 13 }}>Nadie coincide en RRHH. Sin tarjeta no se entrega: si no está en RRHH, primero hay que darle una tarjeta en Tarjetas NFC.</div>
               ) : texto.trim() && empleados.length ? (
                 <div className="sol-muted" style={{ fontSize: 13 }}>
                   Nadie coincide en RRHH.{" "}
@@ -303,7 +324,7 @@ export default function Entregar({ solicitud, items = [], empleados = [], cargan
                 </div>
               ) : null}
             </div>
-          ) : modo === "manual" ? (
+          ) : modo === "manual" && !exigeTarjeta ? (
             <div className="sol-bloque">
               <div className="sol-bloque-titulo">
                 No figura en RRHH
@@ -326,7 +347,7 @@ export default function Entregar({ solicitud, items = [], empleados = [], cargan
             </div>
           ) : (
             <button type="button" className="ui-btn" style={{ justifySelf: "start", minHeight: 44, borderStyle: "dashed" }} onClick={() => setModo("buscar")}>
-              <UserRound size={15} /> No tiene tarjeta: buscar por nombre o DNI
+              <UserRound size={15} /> {exigeTarjeta ? "Se olvidó la tarjeta: autoriza Técnica con PIN" : "No tiene tarjeta: buscar por nombre o DNI"}
             </button>
           )}
         </>

@@ -5,6 +5,8 @@ import useNfcBridge from "@/features/panol/useNfcBridge";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
 import { buscarEmpleadoPorNfc, evaluarRetiro, normalizeNfcUid } from "@/features/rrhh/api";
 import { fetchPersonasRetiro } from "@/features/panol/solicitudesPanolApi";
+import AutorizarTecnica from "@/features/panol/autorizacion/AutorizarTecnica";
+import { tarjetaObligatoria } from "@/features/panol/autorizacion/autorizacionApi";
 import { INPUT, LBL } from "@/features/produccion/comprasTokens";
 import { Cta, Ghost, Pill } from "@/features/produccion/comprasUI";
 
@@ -82,6 +84,9 @@ export default function FirmaRetiroPanol({
   const [manualId, setManualId] = useState("");
   const [filtro, setFiltro] = useState("");
   const [guardando, setGuardando] = useState(false);
+  // Chubut: sin tarjeta, Técnica autoriza con PIN. { id, tecnico, empleadoId }.
+  const [autorizacion, setAutorizacion] = useState(null);
+  const exigeTarjeta = tarjetaObligatoria(solicitud?.sede_origen);
 
   // Resuelve una tarjeta contra el maestro de RRHH. Es la misma función que usa
   // el egreso de materiales, así que una tarjeta sirve en las dos pantallas.
@@ -134,6 +139,8 @@ export default function FirmaRetiroPanol({
   const manual = personas.find((p) => p.id === manualId) || null;
   const elegido = empleado || manual;
   const metodo = empleado ? "nfc" : "manual";
+  const autorizacionVigente = autorizacion && manual && autorizacion.empleadoId === manual.id ? autorizacion : null;
+  const faltaPin = exigeTarjeta && !empleado && Boolean(manual) && !autorizacionVigente;
 
   // Reglas de retiro: se consulta recién cuando ya se sabe quién retira, porque
   // el veredicto depende de sus obras y su oficio. Si la migración todavía no
@@ -164,11 +171,12 @@ export default function FirmaRetiroPanol({
   const reparos = resultadoReglas.clave === claveReglas ? resultadoReglas.filas : [];
 
   async function confirmar() {
-    if (!elegido || guardando) return;
+    if (!elegido || guardando || faltaPin) return;
     setGuardando(true);
     try {
-      await onConfirmar({ empleado: elegido, metodo, nfcUid: empleado ? uid : null });
+      await onConfirmar({ empleado: elegido, metodo, nfcUid: empleado ? uid : null, autorizacionId: empleado ? null : autorizacionVigente?.id ?? null });
       setEmpleado(null);
+      setAutorizacion(null);
       setManualId("");
       setUid("");
       setFiltro("");
@@ -212,7 +220,7 @@ export default function FirmaRetiroPanol({
     ? "Lector NFC conectado · apoyá la tarjeta"
     : bridge.status === "connecting"
       ? "Conectando el lector NFC…"
-      : "Lector NFC desconectado · usá el UID a mano o elegí de la lista";
+      : exigeTarjeta ? "Lector NFC desconectado · reintentá o pedí el PIN de Técnica" : "Lector NFC desconectado · usá el UID a mano o elegí de la lista";
 
   return (
     <div style={{
@@ -289,17 +297,30 @@ export default function FirmaRetiroPanol({
             <div style={{ fontSize: 14, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{elegido.nombre}</div>
             <div style={{ fontSize: 11, color: C.dim, marginTop: 1 }}>
               {elegido.dni ? `DNI ${elegido.dni}` : "sin DNI cargado"}
-              {empleado ? ` · tarjeta ${uid}` : " · confirmación manual"}
+              {empleado ? ` · tarjeta ${uid}` : autorizacionVigente ? ` · autorizó ${autorizacionVigente.tecnico}` : " · confirmación manual"}
             </div>
           </div>
-          <Ghost icon={X} size="sm" onClick={() => { setEmpleado(null); setManualId(""); setUid(""); setError(""); }}>Cambiar</Ghost>
+          <Ghost icon={X} size="sm" onClick={() => { setEmpleado(null); setManualId(""); setUid(""); setError(""); setAutorizacion(null); }}>Cambiar</Ghost>
         </div>
+      )}
+
+      {faltaPin && (
+        <AutorizarTecnica
+          titulo={`${manual.nombre} se olvidó la tarjeta`}
+          detalle="Sin tarjeta el retiro sólo sale con el PIN de alguien de Técnica. Queda registrado quién autorizó."
+          tipo="retiro_sin_tarjeta"
+          empleadoId={manual.id}
+          sede={solicitud?.sede_origen ?? null}
+          motivo={solicitud?.numero ? `Solicitud N° ${solicitud.numero}` : null}
+          onAutorizado={(aut) => setAutorizacion({ ...aut, empleadoId: manual.id })}
+        />
       )}
 
       {!elegido && (
         <>
-          {/* UID a mano: sirve cuando el lector no está en esta máquina */}
-          <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
+          {/* UID a mano: sirve cuando el lector no está en esta máquina. Con la
+              tarjeta obligatoria no: escribir el número no es apoyar la tarjeta. */}
+          {!exigeTarjeta && <div style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
             <input
               value={uid}
               onChange={(e) => setUid(normalizeNfcUid(e.target.value))}
@@ -308,11 +329,11 @@ export default function FirmaRetiroPanol({
               style={{ ...INPUT, flex: "1 1 150px", minWidth: 130, padding: "7px 10px", fontSize: 12, fontFamily: C.mono }}
             />
             <Ghost icon={buscando ? Loader2 : Nfc} size="sm" onClick={() => resolver(uid)} disabled={!uid || buscando}>Validar tarjeta</Ghost>
-          </div>
+          </div>}
 
           {/* alternativa manual */}
           <div style={{ display: "grid", gap: 6 }}>
-            <span style={{ fontSize: 11.5, color: C.dim }}>o elegí a la persona de la lista (queda registrado como retiro manual):</span>
+            <span style={{ fontSize: 11.5, color: C.dim }}>{exigeTarjeta ? "¿Se olvidó la tarjeta? Elegí a la persona y autoriza alguien de Técnica con su PIN:" : "o elegí a la persona de la lista (queda registrado como retiro manual):"}</span>
             <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
               <div style={{ position: "relative", flex: "1 1 150px", minWidth: 130 }}>
                 <Search size={13} color={C.dim} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
@@ -348,7 +369,7 @@ export default function FirmaRetiroPanol({
           icon={guardando ? Loader2 : BadgeCheck}
           tono={metodo === "nfc" ? "azul" : "violeta"}
           onClick={confirmar}
-          disabled={!elegido || guardando}
+          disabled={!elegido || guardando || faltaPin}
         >
           Confirmar retiro
         </Cta>

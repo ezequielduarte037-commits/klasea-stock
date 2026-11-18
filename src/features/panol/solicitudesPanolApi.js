@@ -350,7 +350,7 @@ export async function marcarTodosPreparados(solicitudId) {
 
 // Registra quién se llevó el pedido y cómo se lo identificó. Deja la solicitud
 // en "entregado" en el mismo update: no hay retiro sin entrega.
-export async function registrarRetiro(id, { empleado = null, nombre = "", metodo = "manual", nfcUid = null } = {}) {
+export async function registrarRetiro(id, { empleado = null, nombre = "", metodo = "manual", nfcUid = null, autorizacionId = null } = {}) {
   if (!id) throw new Error("Falta la solicitud.");
   const nombreFinal = txt(empleado?.nombre ?? nombre);
   if (!nombreFinal) throw new Error("Falta identificar a la persona que retira.");
@@ -362,6 +362,8 @@ export async function registrarRetiro(id, { empleado = null, nombre = "", metodo
     p_dni: txt(empleado?.dni),
     p_metodo: metodo === "nfc" ? "nfc" : "manual",
     p_nfc_uid: txt(nfcUid),
+    // PIN de Técnica cuando se olvidó la tarjeta (Chubut).
+    p_autorizacion_id: autorizacionId || null,
   });
   if (error) throw error;
   if (data?.ok === false) throw new Error(data.message || "No se pudo confirmar el retiro.");

@@ -9,6 +9,7 @@ import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
 import { openEgresoDisplayWindow, publishEgresoDisplay, resetEgresoDisplay } from "@/features/panol/egresoDisplay";
 import { vincularCodigo } from "@/features/panol/kioscoApi";
 import { buscarEmpleadoPorNfc, normalizeNfcUid } from "@/features/rrhh/api";
+import { tarjetaObligatoria } from "@/features/panol/autorizacion/autorizacionApi";
 import { guardarPesoUnitarioDirecto } from "@/features/materiales/api";
 import {
   anularMovimiento,
@@ -592,7 +593,7 @@ export default function MostradorTab({ sede }) {
     setAutoConfirmar(false);
   }
 
-  function identificar(emp, metodo, uid = null) {
+  function identificar(emp, metodo, uid = null, autorizacion = null) {
     if (!editable()) return;
     cortarAuto();
     controlRef.current = transicionControl(controlRef.current, { tipo: "identificar", auto: metodo === "nfc" && !devolucion });
@@ -610,6 +611,8 @@ export default function MostradorTab({ sede }) {
       provisorio: emp.provisorio === true,
       metodo,
       uid,
+      // PIN de Técnica cuando se olvidó la tarjeta: { id, tecnico }.
+      autorizacion,
       carritoId: controlRef.current.carritoId,
     });
     setInfoPersona({ ...INFO_VACIA, cargando: true, desde, hasta });
@@ -722,7 +725,7 @@ export default function MostradorTab({ sede }) {
       if (!original) {
         const dest = destinoForzado === undefined ? destino : destinoForzado;
         const empleado = persona ? { id: persona.id, nombre: persona.nombre, dni: persona.dni } : null;
-        const metodoFirma = persona?.metodo === "nfc" ? "nfc" : "sin_tarjeta";
+        const metodoFirma = persona?.metodo === "nfc" ? "nfc" : persona?.metodo === "pin" ? "pin" : "sin_tarjeta";
         let cupoActual = excedidos;
         if (!devolucion && carrito.some((l) => Number(porId.get(l.materialId)?.config?.cupo_diario) > 0)) {
           const operacionesActuales = await cola.leer();
@@ -744,7 +747,12 @@ export default function MostradorTab({ sede }) {
         const datos = devolucion ? null : datosParaRetiro({ carrito, porId, empleado, metodoFirma, sede, lote, destino: dest, excedidos: cupoActual, autorizaCupo, externo: Boolean(persona?.externo) });
         const filas = devolucion
           ? armarFilasDevolucion({ carrito, porId, empleado, metodoFirma, sede, lote, obraId: dest?.tipo === "obra" ? dest.obraId : null, nota: notaDevolucion }, { nuevoId })
-          : notasDelRetiro(armarFilasRetiro(datos), datos);
+          : notasDelRetiro(armarFilasRetiro(datos), datos).map((f) => ({
+            ...f,
+            // La base comprueba que la tarjeta sea de esa persona (o el PIN).
+            nfc_uid: persona?.metodo === "nfc" ? persona.uid ?? null : null,
+            retiro_autorizacion_id: persona?.metodo === "pin" ? persona.autorizacion?.id ?? null : null,
+          }));
         const destTxt = textoDestino(dest, obrasPorId);
         original = crearOperacion({ id: lote, borradorId: carritoId, tipo: modo, filas, creadoAt: new Date().toISOString(),
           resumen: resumenDelRegistro({ tipo: modo, carrito, porId, persona, destinoTexto: destTxt }),
@@ -1216,7 +1224,9 @@ export default function MostradorTab({ sede }) {
           onVolver={volverAMarcar}
           onQuitarPersona={quitarPersona}
           empleados={empleadosConEmpresa}
-          onElegirPersona={(emp) => identificar(emp, "sin_tarjeta")}
+          onElegirPersona={(emp, aut = null) => identificar(emp, aut ? "pin" : "sin_tarjeta", null, aut)}
+          exigeTarjeta={!devolucion && tarjetaObligatoria(sede)}
+          sede={sede}
           empresasExternas={externos.empresas}
           onAltaExterno={darDeAltaExterno}
           lectorEstado={nfc.status}

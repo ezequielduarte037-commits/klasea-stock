@@ -157,7 +157,7 @@ export async function elegirProducto(renglon, item) {
  * perdió la respuesta y se reintenta, contesta `ya_entregada` sin registrar
  * de nuevo.
  */
-export async function entregarSolicitud({ solicitudId, empleado = null, nombre = null, dni = null, metodo = "nfc", nfcUid = null } = {}) {
+export async function entregarSolicitud({ solicitudId, empleado = null, nombre = null, dni = null, metodo = "nfc", nfcUid = null, autorizacionId = null } = {}) {
   if (!solicitudId) throw new Error("Falta la solicitud.");
   const { data, error } = await supabase.rpc("consumibles_entregar_solicitud", {
     p_solicitud_id: solicitudId,
@@ -166,6 +166,8 @@ export async function entregarSolicitud({ solicitudId, empleado = null, nombre =
     p_dni: empleado?.dni ?? dni ?? null,
     p_metodo: metodo,
     p_nfc_uid: nfcUid || null,
+    // PIN de Técnica cuando se olvidó la tarjeta (Chubut).
+    p_autorizacion_id: autorizacionId || null,
   });
   if (error) throw error;
   return data;

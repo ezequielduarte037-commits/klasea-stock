@@ -97,7 +97,7 @@ export default function UltimosMovimientos({ sede, version = 0, pendientes = 0, 
               {items.length > 4 ? <span> y {items.length - 4} más</span> : null}
             </div>
             <div className="mst-mov-sub">
-              {[g.destino, g.carril === "planificado" ? "lista planificada" : null, g.metodoFirma === "sin_tarjeta" ? "sin tarjeta" : null].filter(Boolean).join(" · ")}
+              {[g.destino, g.carril === "planificado" ? "lista planificada" : null, g.metodoFirma === "sin_tarjeta" ? "sin tarjeta" : g.metodoFirma === "pin" ? "autorizó Técnica" : null].filter(Boolean).join(" · ")}
               {g.anulado ? <span style={{ color: "var(--red)" }}>{` · Anulado${motivo ? `: ${motivo}` : ""}`}</span> : null}
             </div>
           </div>

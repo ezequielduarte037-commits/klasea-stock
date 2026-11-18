@@ -3,6 +3,7 @@ import { ArrowLeft, Check, LoaderCircle, MessageSquarePlus, Nfc, Search, ShieldA
 import Cargando from "@/components/ui/Cargando";
 import { SECTORES } from "@/features/panol/solicitudesPanolApi";
 import CampoTexto from "@/features/consumibles/mostrador/CampoTexto";
+import AutorizarTecnica from "@/features/panol/autorizacion/AutorizarTecnica";
 import { Avatar } from "@/features/consumibles/mostrador/Piezas";
 import { fmtNum, normalizarTexto } from "@/features/consumibles/mostrador/mostradorLogica";
 import { buscarPersonas, hayStockLibre, obraCerrada, productoElegido, totalUnidades } from "./mostradorPanolLogica";
@@ -45,8 +46,12 @@ export default function FirmaPanol({
   onConfirmar,
   onVolver,
   onRafaga,
+  // Chubut: sin tarjeta sólo con el PIN de Técnica, y nada de nombres a mano.
+  exigeTarjeta = false,
+  sede = null,
 }) {
   const asignar = modo === "asignar";
+  const [porAutorizar, setPorAutorizar] = useState(null);
   const raizRef = useRef(null);
   const [buscando, setBuscando] = useState(false);
   const [texto, setTexto] = useState("");
@@ -60,9 +65,17 @@ export default function FirmaPanol({
   const porId = useMemo(() => new Map(lineas.map((l) => [l.key, l])), [lineas]);
 
   function elegirPersona(emp) {
-    setBuscando(false);
     setTexto("");
+    if (exigeTarjeta) { setPorAutorizar(emp); return; }
+    setBuscando(false);
     onElegirPersona(emp);
+  }
+
+  function autorizado(aut) {
+    const emp = porAutorizar;
+    setPorAutorizar(null);
+    setBuscando(false);
+    onElegirPersona(emp, aut);
   }
 
   function alTeclear(e) {
@@ -90,7 +103,7 @@ export default function FirmaPanol({
         <button type="button" className="ui-btn" disabled={guardando} onClick={onVolver} aria-label="Agregar o editar productos">
           <ArrowLeft size={15} /> <span className="mpn-largo">Agregar o editar productos</span><span className="mpn-corto">Productos</span>
         </button>
-        <h2>{asignar ? "¿A qué obra se reserva?" : persona ? `Firmado con ${persona.metodo === "nfc" ? "tarjeta" : "nombre"}` : "Firmá el retiro"}</h2>
+        <h2>{asignar ? "¿A qué obra se reserva?" : persona ? `Firmado con ${persona.metodo === "nfc" ? "tarjeta" : persona.metodo === "pin" ? "PIN de Técnica" : "nombre"}` : "Firmá el retiro"}</h2>
         <span className="mst-num" style={{ fontSize: 15, fontWeight: 700, color: asignar ? "var(--teal)" : "var(--blue)" }}>
           {fmtNum(totalUnidades(cart))}
         </span>
@@ -109,8 +122,19 @@ export default function FirmaPanol({
           ) : null}
 
           <fieldset disabled={guardando} style={{ display: "contents", border: 0, padding: 0, margin: 0, minWidth: 0 }}>
-            {!asignar ? (
+            {!asignar && porAutorizar && !persona ? (
+              <AutorizarTecnica
+                titulo={`${porAutorizar.nombre} se olvidó la tarjeta`}
+                detalle="Sin tarjeta el retiro sólo sale con el PIN de alguien de Técnica. Queda registrado quién autorizó."
+                tipo="retiro_sin_tarjeta"
+                empleadoId={porAutorizar.id}
+                sede={sede}
+                onAutorizado={autorizado}
+                onCancelar={() => { setPorAutorizar(null); raizRef.current?.focus(); }}
+              />
+            ) : !asignar ? (
               <Quien
+                exigeTarjeta={exigeTarjeta}
                 persona={persona}
                 aMano={aMano}
                 onAMano={onAMano}
@@ -231,7 +255,7 @@ export default function FirmaPanol({
   );
 }
 
-function Quien({ persona, aMano, onAMano, nombreLibre, onNombreLibre, errorNombre, buscando, setBuscando, texto, setTexto, candidatos, elegirPersona, onQuitarPersona, lectorEstado, raizRef, onRafaga }) {
+function Quien({ exigeTarjeta = false, persona, aMano, onAMano, nombreLibre, onNombreLibre, errorNombre, buscando, setBuscando, texto, setTexto, candidatos, elegirPersona, onQuitarPersona, lectorEstado, raizRef, onRafaga }) {
   if (persona) {
     return (
       <div className="mst-persona">
@@ -240,7 +264,7 @@ function Quien({ persona, aMano, onAMano, nombreLibre, onNombreLibre, errorNombr
           <div className="mst-persona-nombre">{persona.nombre}</div>
           <div className="mst-persona-sub">
             {persona.dni ? <span>DNI <span className="mst-num">{persona.dni}</span></span> : null}
-            <span>{persona.metodo === "nfc" ? "con tarjeta" : "sin tarjeta"}</span>
+            <span>{persona.metodo === "nfc" ? "con tarjeta" : persona.metodo === "pin" ? `autorizó ${persona.autorizacion?.tecnico || "Técnica"}` : "sin tarjeta"}</span>
             {persona.sede ? <span>{persona.sede}</span> : null}
           </div>
         </div>
@@ -251,7 +275,7 @@ function Quien({ persona, aMano, onAMano, nombreLibre, onNombreLibre, errorNombr
     );
   }
 
-  if (aMano) {
+  if (aMano && !exigeTarjeta) {
     return (
       <div className="mst-bloque">
         <div className="mst-bloque-titulo">
@@ -280,7 +304,7 @@ function Quien({ persona, aMano, onAMano, nombreLibre, onNombreLibre, errorNombr
       {buscando ? (
         <div className="mst-bloque">
           <div className="mst-bloque-titulo">
-            Sin tarjeta: nombre o DNI
+            {exigeTarjeta ? "Se olvidó la tarjeta: nombre o DNI" : "Sin tarjeta: nombre o DNI"}
             <button type="button" onClick={() => { setBuscando(false); setTexto(""); raizRef.current?.focus(); }}>Mejor la tarjeta</button>
           </div>
           <div style={{ position: "relative" }}>
@@ -309,13 +333,17 @@ function Quien({ persona, aMano, onAMano, nombreLibre, onNombreLibre, errorNombr
           ) : texto.trim() ? (
             <div className="mst-vacio" style={{ padding: 12 }}>Nadie coincide en RRHH.</div>
           ) : null}
-          <button type="button" className="ui-btn" style={{ justifySelf: "start", borderStyle: "dashed" }} onClick={() => { setBuscando(false); onAMano(true, texto); }}>
-            <UserRound size={15} /> No está en RRHH: escribir nombre y apellido
-          </button>
+          {exigeTarjeta ? (
+            <div style={{ fontSize: 12, color: "var(--dim)" }}>Después autoriza alguien de Técnica con su PIN. Si no está en RRHH, primero hay que darle una tarjeta en Tarjetas NFC.</div>
+          ) : (
+            <button type="button" className="ui-btn" style={{ justifySelf: "start", borderStyle: "dashed" }} onClick={() => { setBuscando(false); onAMano(true, texto); }}>
+              <UserRound size={15} /> No está en RRHH: escribir nombre y apellido
+            </button>
+          )}
         </div>
       ) : (
         <button type="button" className="ui-btn" style={{ justifySelf: "start", minHeight: 44, borderStyle: "dashed" }} onClick={() => setBuscando(true)}>
-          <UserRound size={15} /> No tiene tarjeta: buscar por nombre o DNI
+          <UserRound size={15} /> {exigeTarjeta ? "Se olvidó la tarjeta: autoriza Técnica con PIN" : "No tiene tarjeta: buscar por nombre o DNI"}
         </button>
       )}
     </>

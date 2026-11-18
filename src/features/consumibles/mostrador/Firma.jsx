@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Check, HardHat, LoaderCircle, Nfc, Search, ShieldAlert, Split, TriangleAlert, UserRound, X } from "lucide-react";
 import Cargando from "@/components/ui/Cargando";
 import { SECTORES } from "@/features/panol/solicitudesPanolApi";
+import AutorizarTecnica from "@/features/panol/autorizacion/AutorizarTecnica";
 import CampoTexto from "./CampoTexto";
 import { LineaCarrito } from "./Carrito";
 import { agruparRetirosDeHoy, faltaComentarioOtro, fmtNum, normalizarTexto, puedeRepartir, totalUnidades } from "./mostradorLogica";
@@ -58,6 +59,9 @@ export default function Firma({
   empresasExternas = [],
   onAltaExterno,
   edicionCarrito,
+  // Chubut: sin tarjeta sólo con el PIN de Técnica. Pampa y devoluciones, no.
+  exigeTarjeta = false,
+  sede = null,
 }) {
   const devolucion = modo === "devolucion";
   const [altaExterno, setAltaExterno] = useState(false);
@@ -65,6 +69,7 @@ export default function Firma({
   const [buscando, setBuscando] = useState(false);
   const [texto, setTexto] = useState("");
   const [cambiando, setCambiando] = useState(false);
+  const [porAutorizar, setPorAutorizar] = useState(null);
 
   // Cada vez que cambia la persona, el foco vuelve al panel: Enter confirma y
   // el lector de tarjetas puede leer de nuevo.
@@ -96,10 +101,18 @@ export default function Firma({
     : Boolean(persona) && Boolean(destino) && !faltaComentario && !bloqueado;
 
   function elegirPersona(emp) {
-    setBuscando(false);
     setAltaExterno(false);
     setTexto("");
+    if (exigeTarjeta) { setPorAutorizar(emp); return; }
+    setBuscando(false);
     onElegirPersona(emp);
+  }
+
+  function autorizado(aut) {
+    const emp = porAutorizar;
+    setPorAutorizar(null);
+    setBuscando(false);
+    onElegirPersona(emp, aut);
   }
 
   function alTeclear(e) {
@@ -140,7 +153,7 @@ export default function Firma({
         <button type="button" className="ui-btn" disabled={guardando || Boolean(operacion)} onClick={onVolver}>
           <ArrowLeft size={15} /> Agregar o editar productos
         </button>
-        <h2>{devolucion ? "¿Quién lo devuelve?" : persona ? "Firmado con " + (persona.metodo === "nfc" ? "tarjeta" : "nombre") : "Firmá el retiro"}</h2>
+        <h2>{devolucion ? "¿Quién lo devuelve?" : persona ? "Firmado con " + (persona.metodo === "nfc" ? "tarjeta" : persona.metodo === "pin" ? "PIN de Técnica" : "nombre") : "Firmá el retiro"}</h2>
         <span className="mst-num" style={{ fontSize: 15, fontWeight: 700, color: devolucion ? "var(--teal)" : "var(--blue)" }}>
           {fmtNum(totalUnidades(carrito))}
         </span>
@@ -179,10 +192,20 @@ export default function Firma({
                 </div>
               </div>
 
-              {buscando || info?.errorTarjeta ? (
+              {porAutorizar ? (
+                <AutorizarTecnica
+                  titulo={`${porAutorizar.nombre} se olvidó la tarjeta`}
+                  detalle="Sin tarjeta el retiro sólo sale con el PIN de alguien de Técnica. Queda registrado quién autorizó."
+                  tipo="retiro_sin_tarjeta"
+                  empleadoId={porAutorizar.id}
+                  sede={sede}
+                  onAutorizado={autorizado}
+                  onCancelar={() => { setPorAutorizar(null); raizRef.current?.focus(); }}
+                />
+              ) : buscando || info?.errorTarjeta ? (
                 <div className="mst-bloque">
                   <div className="mst-bloque-titulo">
-                    Sin tarjeta: nombre o DNI
+                    {exigeTarjeta ? "Se olvidó la tarjeta: nombre o DNI" : "Sin tarjeta: nombre o DNI"}
                     <button type="button" onClick={() => { setBuscando(false); setTexto(""); raizRef.current?.focus(); }}>Mejor la tarjeta</button>
                   </div>
                   <div style={{ position: "relative" }}>
@@ -225,11 +248,11 @@ export default function Firma({
                       <HardHat size={15} /> No está registrado: cargar provisorio
                     </button>
                   )) : null}
-                  <div style={{ fontSize: 12, color: "var(--dim)" }}>Queda registrado como firmado sin tarjeta.</div>
+                  <div style={{ fontSize: 12, color: "var(--dim)" }}>{exigeTarjeta ? "Después autoriza alguien de Técnica con su PIN." : "Queda registrado como firmado sin tarjeta."}</div>
                 </div>
               ) : (
                 <button type="button" className="ui-btn" style={{ justifySelf: "start", minHeight: 44, borderStyle: "dashed" }} onClick={() => setBuscando(true)}>
-                  <UserRound size={15} /> No tiene tarjeta: buscar por nombre o DNI
+                  <UserRound size={15} /> {exigeTarjeta ? "Se olvidó la tarjeta: autoriza Técnica con PIN" : "No tiene tarjeta: buscar por nombre o DNI"}
                 </button>
               )}
             </>
@@ -240,7 +263,7 @@ export default function Firma({
                 <div className="mst-persona-nombre">{persona.nombre}</div>
                 <div className="mst-persona-sub">
                   {persona.dni ? <span>DNI <span className="mst-num">{persona.dni}</span></span> : null}
-                  <span>{persona.metodo === "nfc" ? "con tarjeta" : "sin tarjeta"}</span>
+                  <span>{persona.metodo === "nfc" ? "con tarjeta" : persona.metodo === "pin" ? `autorizó ${persona.autorizacion?.tecnico || "Técnica"}` : "sin tarjeta"}</span>
                   {persona.externo ? <span className="mst-externo">Externo{persona.empresa ? ` · ${persona.empresa}` : ""}</span> : persona.sede ? <span>{persona.sede}</span> : null}
                   {persona.provisorio && <span className="mst-externo">Provisorio · pendiente de RRHH / Técnica</span>}
                 </div>
