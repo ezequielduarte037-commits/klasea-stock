@@ -191,6 +191,13 @@ export function fmtFecha(fechaISO, { anio = true } = {}) {
   return d.toLocaleDateString("es-AR", anio ? { day: "2-digit", month: "2-digit", year: "2-digit" } : { day: "2-digit", month: "short" });
 }
 
+export function fmtHora(ts) {
+  if (!ts) return "";
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+}
+
 // Destinos que no son obras y se usaron varias veces (VARIOS, USO SEMANAL…),
 // para ofrecerlos en la lista. Quedan afuera los traslados entre galpones —
 // eso se hace en Traslados— y lo que se escribió una sola vez.

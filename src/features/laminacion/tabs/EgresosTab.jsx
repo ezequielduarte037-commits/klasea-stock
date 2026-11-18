@@ -3,14 +3,10 @@ import { AlertTriangle, ArrowLeftRight, ArrowUpFromLine, Check, History, Search,
 import SelectorObra from "../SelectorObra";
 import SelectorPersona from "../SelectorPersona";
 import { useEmpleadosRrhh } from "../empleadosRrhh";
-import { buscarObra, destinosFrecuentes, desmoldeDe, fmtFecha, fmtNum, hoyISO, num } from "../obras";
+import { buscarObra, destinosFrecuentes, desmoldeDe, fmtFecha, fmtHora, fmtNum, hoyISO, num } from "../obras";
 import { Aviso, Bloque, Cifra, Estado, Mini, Vacio } from "../ui";
 
 const FORM_VACIO = () => ({ material_id: "", cantidad: "", fecha: hoyISO(), destino: "", nombre_persona: "", observaciones: "" });
-
-function horaDe(ts) {
-  return ts ? new Date(ts).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }) : "";
-}
 
 export default function EgresosTab({
   sede, materiales, movimientos, pedidos, stockPorMaterial, obras, puedeCargar,
@@ -125,7 +121,7 @@ export default function EgresosTab({
                   sede={sede}
                 />
               </label>
-              <label className="lam-campo c2"><span>Fecha</span>
+              <label className="lam-campo c2"><span>Fecha de egreso</span>
                 <input className="ui-input" type="date" value={form.fecha} onChange={(e) => setForm((f) => ({ ...f, fecha: e.target.value }))} />
               </label>
               <label className="lam-campo c6"><span>Observaciones</span>
@@ -206,16 +202,27 @@ export default function EgresosTab({
             <div className="lam-tabla">
               <table className="lam-t">
                 <thead>
-                  <tr><th>Fecha</th><th>Material</th><th className="der">Cantidad</th><th>Obra / destino</th><th>Persona</th><th>Observaciones</th></tr>
+                  <tr>
+                    <th title="Fecha en que salió el material indicada por el pañolero">Fecha egreso</th>
+                    <th title="Fecha y hora en que se realizó el movimiento en el sistema">Fecha movimiento</th>
+                    <th>Material</th>
+                    <th className="der">Cantidad</th>
+                    <th>Obra / destino</th>
+                    <th>Persona</th>
+                    <th>Observaciones</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {egresos.slice(0, limite).map((m) => {
                     const o = buscarObra(obras, m.destino || m.obra);
                     return (
                       <tr key={m.id}>
+                        <td className="mono" style={{ whiteSpace: "nowrap" }}>
+                          {fmtFecha(m.fecha || m.created_at)}
+                        </td>
                         <td style={{ whiteSpace: "nowrap" }}>
-                          <div className="mono">{fmtFecha(m.fecha || m.created_at)}</div>
-                          <div className="chico mono">{horaDe(m.created_at)}</div>
+                          <div className="mono">{fmtFecha(m.created_at || m.fecha)}</div>
+                          <div className="chico mono">{fmtHora(m.created_at)}</div>
                         </td>
                         <td><div className="nom">{m.laminacion_materiales?.nombre ?? "—"}</div></td>
                         <td className="der"><span className="lam-cant" data-tono="violeta">−{fmtNum(m.cantidad)} <small>{m.laminacion_materiales?.unidad}</small></span></td>

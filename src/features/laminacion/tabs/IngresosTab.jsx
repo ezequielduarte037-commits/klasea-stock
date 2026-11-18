@@ -1,14 +1,10 @@
 import { useMemo, useState } from "react";
 import { Archive, ArchiveRestore, ArrowDownToLine, Check, ChevronRight, History, Inbox, Package, Plus, Search } from "lucide-react";
 import SelectorObra from "../SelectorObra";
-import { agruparPorOrden, buscarObra, fmtFecha, fmtNum, hoyISO, num } from "../obras";
+import { agruparPorOrden, buscarObra, fmtFecha, fmtHora, fmtNum, hoyISO, num } from "../obras";
 import { Bloque, Cifra, Estado, Mini, Tag, Vacio } from "../ui";
 
 const FORM_VACIO = () => ({ material_id: "", cantidad: "", fecha: hoyISO(), proveedor: "", obra: "", observaciones: "" });
-
-function horaDe(ts) {
-  return ts ? new Date(ts).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }) : "";
-}
 
 export default function IngresosTab({
   sede, materiales, movimientos, pedidos, pedidosPendientes, stockPorMaterial, obras, puedeCargar,
@@ -243,7 +239,7 @@ export default function IngresosTab({
                   placeholder="Stock o la obra para la que llega…"
                 />
               </div>
-              <label className="lam-campo c2"><span>Fecha</span>
+              <label className="lam-campo c2"><span>Fecha de ingreso</span>
                 <input className="ui-input" type="date" value={form.fecha} onChange={(e) => setForm((f) => ({ ...f, fecha: e.target.value }))} />
               </label>
               <label className="lam-campo"><span>Proveedor</span>
@@ -297,16 +293,27 @@ export default function IngresosTab({
             <div className="lam-tabla">
               <table className="lam-t">
                 <thead>
-                  <tr><th>Fecha</th><th>Material</th><th className="der">Cantidad</th><th>Proveedor</th><th>Obra</th><th>Observaciones</th></tr>
+                  <tr>
+                    <th title="Fecha en que ingresó el material indicada por el pañolero">Fecha ingreso</th>
+                    <th title="Fecha y hora en que se realizó el movimiento en el sistema">Fecha movimiento</th>
+                    <th>Material</th>
+                    <th className="der">Cantidad</th>
+                    <th>Proveedor</th>
+                    <th>Obra</th>
+                    <th>Observaciones</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {ingresos.slice(0, limite).map((m) => {
                     const obra = buscarObra(obras, m.obra);
                     return (
                       <tr key={m.id}>
+                        <td className="mono" style={{ whiteSpace: "nowrap" }}>
+                          {fmtFecha(m.fecha || m.created_at)}
+                        </td>
                         <td style={{ whiteSpace: "nowrap" }}>
-                          <div className="mono">{fmtFecha(m.fecha || m.created_at)}</div>
-                          <div className="chico mono">{horaDe(m.created_at)}</div>
+                          <div className="mono">{fmtFecha(m.created_at || m.fecha)}</div>
+                          <div className="chico mono">{fmtHora(m.created_at)}</div>
                         </td>
                         <td><div className="nom">{m.laminacion_materiales?.nombre ?? "—"}</div></td>
                         <td className="der"><span className="lam-cant" data-tono="verde">+{fmtNum(m.cantidad)} <small>{m.laminacion_materiales?.unidad}</small></span></td>

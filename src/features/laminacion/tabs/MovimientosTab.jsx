@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { ArrowDownUp, Download, Layers, Search, X } from "lucide-react";
-import { buscarObra, descargarCSV, fmtFecha, fmtNum, num } from "../obras";
+import { buscarObra, descargarCSV, fmtFecha, fmtHora, fmtNum, num } from "../obras";
 import { Bloque, Estado, Vacio } from "../ui";
 
 const TIPOS = {
@@ -26,8 +26,8 @@ export default function MovimientosTab({ sede, materiales, movimientos, obras })
         .filter(Boolean).join(" ").toLowerCase().includes(qq));
     }
     rows.sort((a, b) => {
-      const da = new Date(a.fecha || a.created_at).getTime();
-      const db = new Date(b.fecha || b.created_at).getTime();
+      const da = new Date(a.created_at || a.fecha).getTime();
+      const db = new Date(b.created_at || b.fecha).getTime();
       return orden === "asc" ? da - db : db - da;
     });
     return rows;
@@ -44,8 +44,9 @@ export default function MovimientosTab({ sede, materiales, movimientos, obras })
   function exportar(soloFiltrados) {
     const datos = soloFiltrados ? filtrados : movimientos;
     const filas = datos.map((m) => ({
-      Fecha: m.fecha || m.created_at ? new Date(m.fecha || m.created_at).toLocaleDateString("es-AR") : "—",
-      Hora: m.created_at ? new Date(m.created_at).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) : "—",
+      Fecha: fmtFecha(m.fecha || m.created_at),
+      Fecha_movimiento: fmtFecha(m.created_at || m.fecha),
+      Hora_movimiento: fmtHora(m.created_at) || "—",
       Tipo: TIPOS[m.tipo]?.label ?? m.tipo,
       Material: m.laminacion_materiales?.nombre ?? "—",
       Cantidad: m.tipo === "egreso" ? -num(m.cantidad) : num(m.cantidad),
@@ -113,7 +114,17 @@ export default function MovimientosTab({ sede, materiales, movimientos, obras })
             <div className="lam-tabla">
               <table className="lam-t">
                 <thead>
-                  <tr><th>Fecha</th><th>Tipo</th><th>Material</th><th className="der">Cantidad</th><th>Proveedor / destino</th><th>Persona</th><th>Obra</th><th>Observaciones</th></tr>
+                  <tr>
+                    <th title="Fecha de ingreso o egreso indicada por el pañolero">Fecha</th>
+                    <th title="Fecha y hora en que se realizó el movimiento en el sistema">Fecha movimiento</th>
+                    <th>Tipo</th>
+                    <th>Material</th>
+                    <th className="der">Cantidad</th>
+                    <th>Proveedor / destino</th>
+                    <th>Persona</th>
+                    <th>Obra</th>
+                    <th>Observaciones</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {filtrados.slice(0, limite).map((m) => {
@@ -123,6 +134,10 @@ export default function MovimientosTab({ sede, materiales, movimientos, obras })
                     return (
                       <tr key={m.id}>
                         <td className="mono" style={{ whiteSpace: "nowrap" }}>{fmtFecha(m.fecha || m.created_at)}</td>
+                        <td style={{ whiteSpace: "nowrap" }}>
+                          <div className="mono">{fmtFecha(m.created_at || m.fecha)}</div>
+                          <div className="chico mono">{fmtHora(m.created_at)}</div>
+                        </td>
                         <td><Estado tono={t.tono}>{t.label}</Estado></td>
                         <td><div className="nom">{m.laminacion_materiales?.nombre ?? "—"}</div></td>
                         <td className="der">
