@@ -4539,7 +4539,9 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
   const snapshotRows = useMemo(() => snapshot
     .filter((row) => !esFilaDeConsumible(row, consumibleIds))
     .map((row) => snapshotRowToView(row, materialById, categorias))
-    .filter((row) => !row.materialId || !exclusionMaterialIds.has(row.materialId)),
+    // Quitar un material de la obra saca la fila de la matriz, no el adicional
+    // del mismo material: si no, un adicional ya entregado volvía a "pendiente".
+    .filter((row) => !row.materialId || !exclusionMaterialIds.has(row.materialId) || esRenglonAdicional(row)),
   [snapshot, consumibleIds, materialById, categorias, exclusionMaterialIds]);
   const rows = useMemo(() => mergeMatrixAndSnapshotRows(obraRows, snapshotRows), [obraRows, snapshotRows]);
   const liveMergeKeys = useMemo(() => new Set(obraRows.map((row, index) => snapshotMergeKey(row, index)).filter(Boolean)), [obraRows]);
