@@ -6,6 +6,7 @@ import {PGlite} from '../../tmp/torneria-db-test/node_modules/@electric-sql/pgli
 const db=new PGlite();
 const U='00000000-0000-0000-0000-000000000001',O='00000000-0000-0000-0000-000000000002',M='00000000-0000-0000-0000-000000000003',S='00000000-0000-0000-0000-000000000004';
 const migration=await readFile(new URL('../migrations/20261019140000_materiales_pedidos_adicionales_cantidad.sql',import.meta.url),'utf8');
+const reusaRenglon=await readFile(new URL('../migrations/20261119120000_pedido_adicional_reusa_renglon_de_matriz.sql',import.meta.url),'utf8');
 await db.exec(`
  create role anon;create role authenticated;
  create schema auth;create function auth.uid() returns uuid language sql as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
@@ -29,6 +30,8 @@ await db.exec(`alter table panol_obra_materiales_snapshot add column tipo_pedido
  create trigger trg_snapshot_set_tipo before insert or update on panol_obra_materiales_snapshot for each row execute function panol_snapshot_set_tipo();`);
 await db.exec(migration);
 await db.exec(migration); // idempotencia de la instalación
+await db.exec(reusaRenglon);
+await db.exec(reusaRenglon);
 const q=async(sql,args=[]) => (await db.query(sql,args)).rows;
 const item=(quantity=4,snapshot_id=S)=>({snapshot_id,description:'LUZ DE PARRILLA',quantity,unit:'unidad',material_id:M,requisito_material_id:M,especificaciones:{color:'cálida'},supplier_components:[],notes:'Extra cockpit'});
 const pedir=async(items,token=crypto.randomUUID(),titulo='37-40 - Luces adicionales')=>(await q('select materiales_pedir_adicional_obra($1,$2,$3,$4,$5) as resultado',[O,titulo,JSON.stringify(items),JSON.stringify(items),token]))[0].resultado;
@@ -109,6 +112,29 @@ test('la recepción de una parte conserva la cantidad pedida y marca parcial',as
  const nuevo=await pedir([{...item(3,s.id),addon_id:a.id}]);
  const [otro]=await q('select * from panol_obra_materiales_snapshot where purchase_request_id=$1',[nuevo.request.id]);
  assert.notEqual(otro.id,s.id);assert.equal(Number(otro.cantidad),3);assert.equal(otro.recepcion_estado,null);
+});
+
+test('un renglón de matriz o condicionante sin pedir se engancha al pedido adicional, sin duplicarse',async()=>{
+ for(const source of ['matriz','condicionante']){
+  const id=crypto.randomUUID();
+  await q("insert into panol_obra_materiales_snapshot(id,obra_id,material_id,requisito_material_id,descripcion,cantidad,unidad,tipo,source,estado) values($1,$2,$3,$3,'Grifería negra',1,'unidad',$4,$4,'pendiente')",[id,O,M,source]);
+  const antes=(await q('select (select count(*) from panol_obra_materiales_snapshot)::int s,(select count(*) from panol_obra_addons)::int a'))[0];
+  const r=await pedir([{...item(1,id),especificaciones:{}}]);
+  assert.deepEqual((await q('select (select count(*) from panol_obra_materiales_snapshot)::int s,(select count(*) from panol_obra_addons)::int a'))[0],antes);
+  const [s]=await q('select * from panol_obra_materiales_snapshot where id=$1',[id]);
+  const [linea]=await q('select * from purchase_request_items where request_id=$1',[r.request.id]);
+  assert.equal(s.source,source);assert.equal(s.tipo,source);assert.equal(s.estado,'pedido');
+  assert.equal(s.purchase_request_id,r.request.id);assert.equal(s.purchase_request_item_id,linea.id);
+  assert.equal(Number(s.cantidad),1);assert.equal(s.tipo_pedido,'adicional');
+ }
+});
+
+test('si se pide más de lo que pide la matriz, el renglón toma la cantidad pedida',async()=>{
+ const id=crypto.randomUUID();
+ await q("insert into panol_obra_materiales_snapshot(id,obra_id,material_id,requisito_material_id,descripcion,cantidad,unidad,tipo,source,estado) values($1,$2,$3,$3,'Percha',2,'unidad','base','matriz','pendiente')",[id,O,M]);
+ await pedir([item(3,id)]);
+ const [s]=await q('select * from panol_obra_materiales_snapshot where id=$1',[id]);
+ assert.equal(Number(s.cantidad),3);assert.equal(s.source,'matriz');assert.deepEqual(s.especificaciones,{color:'cálida'});
 });
 
 test('sin sesión no se permiten altas ni pedidos',async()=>{

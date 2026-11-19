@@ -7803,8 +7803,22 @@ function obraRecepcionResumenLabel(resumen) {
   return `${resumen.pendiente || 0}/${resumen.total} pend.`;
 }
 
+// es_adicional lo pone la base según el tipo del pedido (trigger
+// panol_snapshot_set_tipo): un renglón de la matriz o de un condicionante que se
+// compró en un pedido "Adicional" sigue siendo la necesidad de la matriz. Si se
+// lo tomara como adicional se separaría de su fila y la lista lo mostraría dos
+// veces (37-43, grifería negra, 17/11/2026).
+function esRenglonDeMatriz(row) {
+  return ["matriz", "condicionante"].includes(String(row?.source || "").toLowerCase());
+}
+
+function esRenglonAdicional(row) {
+  if (row?.tipo === "addon" || row?.source === "addon" || row?.source === "adicional_obra") return true;
+  return row?.es_adicional === true && !esRenglonDeMatriz(row);
+}
+
 function snapshotBucket(row) {
-  const key = row?.es_adicional === true ? "addon" : row?.tipo || "base";
+  const key = esRenglonAdicional(row) ? "addon" : row?.tipo || "base";
   if (key === "linea_eje") return { key, label: row?.tipo_label || "Linea eje", color: C.violet };
   if (key === "variante") return { key, label: row?.tipo_label || "Variante", color: C.cyan };
   if (key === "condicionante") return { key, label: row?.tipo_label || "Condicionante", color: C.violet };
@@ -7841,7 +7855,7 @@ function snapshotRowToView(row, materialById = new Map(), categorias = []) {
   const pedidoOriginal = originalSnapshotLabel(row.descripcion, requisito?.descripcion || producto?.descripcion);
   const obs = mergeNotes(producto?.notas || material?.notas || "", mergeNotes(row.notas || "", pedidoOriginal));
   const reason = reviewReasonForText(`${descripcion || ""} ${codigo || ""} ${obs || ""}`);
-  const esAdicional = row.es_adicional === true || row.tipo === "addon" || row.source === "addon";
+  const esAdicional = esRenglonAdicional(row);
   return {
     id: row.id,
     snapshotId: row.id,
@@ -8162,8 +8176,42 @@ function pickSnapshotForMerge(current, candidate) {
   return candidateDate >= currentDate ? candidate : current;
 }
 
+// Un renglón viejo guardado como requisito genérico + producto elegido (p. ej.
+// "Juego monocomando cocina" → NEGRO) queda huérfano cuando la matriz pasa a
+// pedir ese producto directo (condicionante "Grifería negra"). Si el requisito
+// ya no está en la matriz pero el producto sí, el renglón cubre esa fila: si no,
+// la lista lo mostraba "Fuera de matriz" en pañol y la fila nueva pedía comprar
+// otro (37-43/37-44 grifería, 55-x TV, 37-46 malacate).
+function claveConProductoDeMatriz(liveKeys) {
+  return (row, index) => {
+    const key = snapshotMergeKey(row, index);
+    const productoId = row?.productoMaterialId;
+    if (!productoId || liveKeys.has(key) || esRenglonAdicional(row) || isAddonRow(row)) return key;
+    const productoKey = `material:${productoId}`;
+    return liveKeys.has(productoKey) ? productoKey : key;
+  };
+}
+
+function comoRenglonDelProducto(row) {
+  return {
+    ...row,
+    materialId: row.productoMaterialId,
+    requisitoMaterialId: row.productoMaterialId,
+    material: row.producto || row.material,
+    productoMaterialId: null,
+    producto: null,
+    productoConfiguracionOrigen: null,
+  };
+}
+
 function mergeMatrixAndSnapshotRows(liveRows = [], snapshotRows = []) {
   if (!snapshotRows.length) return liveRows;
+  const liveKeys = new Set(liveRows.map((row, index) => snapshotMergeKey(row, index)));
+  const keyOf = claveConProductoDeMatriz(liveKeys);
+  snapshotRows = snapshotRows.map((row, index) => {
+    const key = keyOf(row, index);
+    return key !== snapshotMergeKey(row, index) ? comoRenglonDelProducto(row) : row;
+  });
   snapshotRows = separarRecepcionesDeMatriz(liveRows, snapshotRows, {
     keyOf: snapshotMergeKey,
     esSoloMovimiento: isLedgerOnlySnapshot,
