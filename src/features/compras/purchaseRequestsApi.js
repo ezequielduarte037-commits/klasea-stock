@@ -1,5 +1,7 @@
 import { supabase } from "@/supabaseClient";
 import { mergeDocumentAttachments } from "@/features/materiales/productDocuments";
+import { fetchDolarOficial } from "@/lib/dolarOficial";
+import { referenciasCompra } from "./costosCompra";
 
 export const PURCHASE_PHOTOS_BUCKET = "purchase-request-photos";
 
@@ -432,6 +434,44 @@ export async function guardarCostosCompra(requestId, { items, actualAmount, conf
   if (error) throw error;
   if (!data?.request?.id || !Array.isArray(data.items)) throw new Error("No se pudo guardar el detalle de precios.");
   return data;
+}
+
+async function fetchHistorialPreciosCompra(requestId, materialIds) {
+  const historial = [];
+  const pageSize = 500;
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase.from("purchase_request_items")
+      .select("material_id,catalog_source,quantity,unit,actual_amount,request:purchase_requests!inner(status)")
+      .in("material_id", materialIds)
+      .neq("request_id", requestId)
+      .neq("status", "cancelado")
+      .gt("actual_amount", 0)
+      .in("request.status", ["comprado", "recibido"])
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    historial.push(...data);
+    if (data.length < pageSize) return historial;
+  }
+}
+
+export async function fetchReferenciasCompra(requestId, items) {
+  const vinculados = items.filter((item) => item.material_id);
+  if (!vinculados.length) return { referencias: {}, cotizacion: null, consultaIncompleta: false };
+  const ids = [...new Set(vinculados.map((item) => item.material_id))];
+  const idsPanol = [...new Set(vinculados.filter((item) => !item.catalog_source || item.catalog_source === "panol")
+    .map((item) => item.material_id))];
+  const [historial, catalogo] = await Promise.allSettled([
+    fetchHistorialPreciosCompra(requestId, ids),
+    idsPanol.length
+      ? supabase.from("panol_materiales").select("id,precio_unitario,moneda,unidad_medida").in("id", idsPanol)
+      : { data: [] },
+  ]);
+  const referencias = referenciasCompra(vinculados, historial.value ?? [], catalogo.value?.data ?? []);
+  const cotizacion = Object.values(referencias).some((ref) => ref.moneda === "USD") ? await fetchDolarOficial() : null;
+  const consultaIncompleta = historial.status === "rejected" || catalogo.status === "rejected" || Boolean(catalogo.value?.error);
+  return { referencias, cotizacion, consultaIncompleta };
 }
 
 export async function addRequestFollower(requestId, userId) {
