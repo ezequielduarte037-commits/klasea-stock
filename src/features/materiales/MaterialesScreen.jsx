@@ -78,6 +78,7 @@ import { aporteDeFilaLedger, cantidadesDeFila, estadoObraForRow } from "./obra/e
 import { esFilaDeConsumible } from "./obra/consumiblesDeObra";
 import PanelConsumiblesDeObra from "./obra/PanelConsumiblesDeObra";
 import { separarRecepcionesDeMatriz } from "./obra/recepcionesDeMatriz";
+import { sumarFueraDeMatriz } from "./obra/fueraDeMatriz";
 import PedidoObraModal from "./obra/PedidoObraModal";
 import CambioEstadoLoteModal from "./obra/CambioEstadoLoteModal";
 import { enParalelo, esInstalado, estadoParaGuardar } from "./obra/cambioEstadoLote";
@@ -8221,6 +8222,7 @@ function mergeMatrixAndSnapshotRows(liveRows = [], snapshotRows = []) {
   });
   const merged = new Map();
   const snapshotsByKey = new Map();
+  const filasPorKey = new Map();
 
   liveRows.forEach((row, index) => {
     merged.set(snapshotMergeKey(row, index), row);
@@ -8258,11 +8260,15 @@ function mergeMatrixAndSnapshotRows(liveRows = [], snapshotRows = []) {
       return;
     }
     snapshotsByKey.set(key, pickSnapshotForMerge(snapshotsByKey.get(key), row));
+    if (!filasPorKey.has(key)) filasPorKey.set(key, []);
+    filasPorKey.get(key).push(row);
   });
 
   snapshotsByKey.forEach((row, key) => {
     const live = merged.get(key);
-    merged.set(key, live ? mergeSnapshotIntoLive(live, row) : row);
+    // Fuera de matriz no hay renglón que pida una cantidad: se suman todos los
+    // ingresos en vez de quedarse con uno (ver obra/fueraDeMatriz.js).
+    merged.set(key, live ? mergeSnapshotIntoLive(live, row) : sumarFueraDeMatriz(row, filasPorKey.get(key)));
   });
 
   return [...merged.entries()]
@@ -8275,7 +8281,7 @@ function mergeMatrixAndSnapshotRows(liveRows = [], snapshotRows = []) {
       if (!(egresado > 0) && !(panolLedger > 0) && !(entregadoConteo > 0)) return row;
       return {
         ...row,
-        ...(egresado > 0 ? { egresadoLedger: egresado } : {}),
+        ...(egresado > 0 ? { egresadoLedger: egresado + (row.filasSumadas ? toNum(row.egresadoLedger) || 0 : 0) } : {}),
         ...(panolLedger > 0 ? { panolLedger } : {}),
         ...(entregadoConteo > 0 ? { entregadoConteo } : {}),
       };
