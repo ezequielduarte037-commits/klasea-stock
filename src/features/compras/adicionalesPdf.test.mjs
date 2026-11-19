@@ -110,3 +110,17 @@ test("si el desglose no suma el importe del renglón, avisa", async () => {
   assert.equal(avisos.length, 1);
   assert.match(avisos[0], /suma \$ 90,00/);
 });
+
+test("un desglose sin importes es la lista de ítems: va abajo del renglón, con o sin importe, y sin anexo", async () => {
+  const equipos = { emisor: "", comprobantes: [{ numero: "1 Stereo Fusion MS-RA210" }, { numero: "2 Parlantes Fusion XS-F65CWB" }] };
+  const sinImporte = renglon({ id: "audio", detail: "Equipo de audio", amount: null, desglose: equipos });
+  const conImporte = renglon({ id: "audio2", detail: "Equipo de audio", amount: 500, desglose: equipos });
+  const detalle = prepararDetalle([sinImporte, conImporte]);
+  assert.deepEqual(detalle.sinImporte[0].items, ["1 Stereo Fusion MS-RA210", "2 Parlantes Fusion XS-F65CWB"]);
+  assert.deepEqual(detalle.monedas[0].filas[0].items, ["1 Stereo Fusion MS-RA210", "2 Parlantes Fusion XS-F65CWB"]);
+  assert.equal(detalle.anexos.length, 0);
+
+  const { bytes, avisos } = await construirDetalleAdicionales({ board: { name: "37-42" }, rows: [sinImporte, conImporte], fecha: "2026-11-19" });
+  assert.deepEqual(avisos, []);
+  assert.ok(bytes.length > 0);
+});

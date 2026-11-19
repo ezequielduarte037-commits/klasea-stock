@@ -172,6 +172,16 @@ export function leerDesglose(valor) {
   return { emisor: String(crudo.emisor ?? "").trim(), comprobantes };
 }
 
+/**
+ * Un desglose sin importes ni fechas no son comprobantes: es la lista de lo
+ * que forma el renglón (p. ej. los equipos de un "Equipo de audio"). Va
+ * abajo de la descripción, en la misma tabla, y no como anexo.
+ */
+export function esListaDeItems(desglose) {
+  const comprobantes = desglose?.comprobantes ?? [];
+  return comprobantes.length > 0 && comprobantes.every((c) => c.importe == null && !c.fecha);
+}
+
 export function sumaDesglose(desglose) {
   return Math.round((desglose?.comprobantes ?? []).reduce((t, c) => t + Number(c.importe || 0), 0) * 100) / 100;
 }
@@ -231,6 +241,7 @@ export function prepararDetalle(rows, { compraDe = () => null, incluirSinImporte
       importe: item.amount == null || item.amount === "" ? null : Number(item.amount),
       moneda: item.currency === "USD" ? "USD" : "ARS",
       desglose,
+      items: desglose && esListaDeItems(desglose) ? desglose.comprobantes.map((c) => c.numero) : [],
       adjunto: item.adjunto_path
         ? { path: item.adjunto_path, nombre: item.adjunto_nombre || "comprobantes.pdf" }
         : null,
@@ -257,7 +268,7 @@ export function prepararDetalle(rows, { compraDe = () => null, incluirSinImporte
   const anexos = [];
   for (const m of monedas) {
     for (const r of m.filas) {
-      if (!r.desglose) continue;
+      if (!r.desglose || r.items.length) continue;
       r.anexo = { letra: LETRAS_ANEXO[anexos.length] ?? String(anexos.length + 1), renglon: r };
       anexos.push(r.anexo);
     }
@@ -442,7 +453,10 @@ export async function construirDetalleAdicionales({
     // renglones son de la descripción y cuántos del aviso del anexo.
     fuente("normal", 9.5, INK);
     const cuerpo = filas.map((r) => {
-      const principal = doc.splitTextToSize(textoPdf(r.descripcion), anchoDesc - 14);
+      const principal = [
+        ...doc.splitTextToSize(textoPdf(r.descripcion), anchoDesc - 14),
+        ...(r.items ?? []).flatMap((texto) => doc.splitTextToSize(textoPdf(`- ${texto}`), anchoDesc - 14)),
+      ];
       const extra = r.anexo
         ? doc.splitTextToSize(textoPdf(`${resumenDesglose(r.desglose)}. Ver desglose en el Anexo ${r.anexo.letra} ›`), anchoDesc - 14)
         : [];

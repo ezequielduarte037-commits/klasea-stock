@@ -42,6 +42,7 @@ import {
 import {
   construirDetalleAdicionales,
   diferenciaDesglose,
+  esListaDeItems,
   leerDesglose,
   nombreArchivoDetalle,
   sumaDesglose,
@@ -478,8 +479,10 @@ function RowExtras({ item, onVerAdjunto }) {
       {desglose && (
         <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
           <ListOrdered size={11} />
-          {desglose.comprobantes.length} comprobante{desglose.comprobantes.length === 1 ? "" : "s"} · suman {money(sumaDesglose(desglose), item.currency)}
-          {diferencia !== 0 && item.amount != null && (
+          {esListaDeItems(desglose)
+            ? `${desglose.comprobantes.length} ítem${desglose.comprobantes.length === 1 ? "" : "s"} · van abajo del renglón en el informe`
+            : <>{desglose.comprobantes.length} comprobante{desglose.comprobantes.length === 1 ? "" : "s"} · suman {money(sumaDesglose(desglose), item.currency)}</>}
+          {!esListaDeItems(desglose) && diferencia !== 0 && item.amount != null && (
             <span style={{ color: C.red, fontWeight: 650 }}>· no coincide con el importe</span>
           )}
         </span>
