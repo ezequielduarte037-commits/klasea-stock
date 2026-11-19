@@ -5,7 +5,7 @@ import { supabase } from "@/supabaseClient";
 import { C } from "@/theme";
 import useNfcBridge from "@/features/panol/useNfcBridge";
 import useKeyboardWedge from "@/features/panol/useKeyboardWedge";
-import { EMPLEADO_SELECT, definirEmpleadoExterno, fetchAsignacionesVigentes, fetchConfig, fetchOficios, guardarAltaEmpleado, isMissingColumn, normalizeNfcUid, SEDES, subirFotoEmpleado } from "./api";
+import { EMPLEADO_SELECT, definirEmpleadoExterno, fetchAsignacionesVigentes, fetchOficios, guardarAltaEmpleado, isMissingColumn, normalizeNfcUid, SEDES, subirFotoEmpleado } from "./api";
 import { empleadosDeVista } from "./altas";
 import NuevoOficioModal from "./NuevoOficioModal";
 import { SeguimientoPersonaModal } from "./PresentismoTab";
@@ -60,7 +60,7 @@ function NfcBadge({ uid }) {
   );
 }
 
-export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdmin, puedeGestionarAltas = esAdmin, initialQuery = "", initialView = "activos" }) {
+export default function EmpleadosTab({ empleados, contratistas, config, onChanged, esAdmin, puedeGestionarAltas = esAdmin, initialQuery = "", initialView = "activos" }) {
   const [q, setQ] = useState(initialQuery);
   const [filtroGrupo, setFiltroGrupo] = useState("todos");
   const [filtroSede, setFiltroSede] = useState("todas");
@@ -71,9 +71,6 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
   const [modal, setModal] = useState(null);     // null | {emp|null}
   const [showContratistas, setShowContratistas] = useState(false);
   const [seguimiento, setSeguimiento] = useState(null); // null | empleado
-  // El modal necesita la config de RRHH (tolerancia de tarde) igual que en
-  // Presentismo; se pide recien cuando alguien abre el seguimiento.
-  const [configRrhh, setConfigRrhh] = useState(null);
   const [err, setErr] = useState(null);
   const [selIds, setSelIds] = useState(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -558,7 +555,6 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
                       title="Ver e imprimir la asistencia de esta persona entre dos fechas"
                       onClick={() => {
                         setSeguimiento(e);
-                        if (!configRrhh) fetchConfig().then(setConfigRrhh).catch(() => setConfigRrhh({}));
                       }}
                     >
                       <CalendarSearch size={12} /> Seguimiento
@@ -610,7 +606,7 @@ export default function EmpleadosTab({ empleados, contratistas, onChanged, esAdm
       {seguimiento && (
         <SeguimientoPersonaModal
           empleados={empleados}
-          config={configRrhh ?? {}}
+          config={config}
           empleadoInicial={seguimiento}
           onClose={() => setSeguimiento(null)}
         />

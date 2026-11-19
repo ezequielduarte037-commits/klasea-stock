@@ -6,7 +6,8 @@ import { BarChart3, Briefcase, CalendarCheck2, Clock3, Upload, UsersRound } from
 import { useResponsive } from "@/hooks/useResponsive";
 import { canManageOficiosYObras, canManagePresentismo, canViewEmpleados } from "@/lib/permissions";
 import PageHeader from "@/components/ui/PageHeader";
-import { fetchConfig, fetchContratistas, fetchEmpleados, isMissingTable } from "./api";
+import { fetchConfig, fetchContratistas, fetchEmpleados, isMissingTable, saveConfig } from "./api";
+import { PREFIJO_CIERRE } from "./feriados";
 import DashboardTab from "./DashboardTab";
 import EmpleadosTab from "./EmpleadosTab";
 import ExtrasTab from "./ExtrasTab";
@@ -81,6 +82,16 @@ export default function RrhhScreen({ profile }) {
   const tabsVisibles = TABS.filter(t => esAdmin || BASICAS.includes(t.key) || (verEmpleados && t.key === "empleados") || (puedeEditarOficiosYObras && t.key === "oficios"));
   const haySinAsignar = (empleados ?? []).some(e => e.grupo === "sin_asignar" && e.activo !== false);
 
+  async function cambiarCierre(fecha, cerrado) {
+    await saveConfig(`${PREFIJO_CIERRE}${fecha}`, cerrado);
+    setConfig((actual) => {
+      const cierresNoLaborables = new Set(actual.cierresNoLaborables);
+      if (cerrado) cierresNoLaborables.add(fecha);
+      else cierresNoLaborables.delete(fecha);
+      return { ...actual, cierresNoLaborables };
+    });
+  }
+
   return (
     <div className="rrhh-root">
       <style>{CSS}</style>
@@ -112,9 +123,9 @@ export default function RrhhScreen({ profile }) {
             <Cargando />
           ) : (
             <>
-              {tab === "presentismo" && <PresentismoTab empleados={confirmados} contratistas={contratistas} config={config} canEdit={puedeEditarPresentismo} canArchiveEmployees={esAdmin} onChanged={cargar} />}
+              {tab === "presentismo" && <PresentismoTab empleados={confirmados} contratistas={contratistas} config={config} canEdit={puedeEditarPresentismo} canArchiveEmployees={esAdmin} onChanged={cargar} onCierreChange={esAdmin ? cambiarCierre : undefined} />}
               {tab === "extras" && <ExtrasTab empleados={confirmados} contratistas={contratistas} config={config} onConfigChange={cargar} esAdmin={esAdmin} />}
-              {tab === "empleados" && <EmpleadosTab empleados={empleados} contratistas={contratistas} onChanged={cargar} esAdmin={esAdmin} puedeGestionarAltas={puedeGestionarAltasEmpleados} initialQuery={searchParams.get("q") || ""} initialView={searchParams.get("vista") || "activos"} />}
+              {tab === "empleados" && <EmpleadosTab empleados={empleados} contratistas={contratistas} config={config} onChanged={cargar} esAdmin={esAdmin} puedeGestionarAltas={puedeGestionarAltasEmpleados} initialQuery={searchParams.get("q") || ""} initialView={searchParams.get("vista") || "activos"} />}
               {tab === "oficios" && <OficiosObrasTab empleados={confirmados} esAdmin={puedeEditarOficiosYObras} isMobile={isMobile} onChanged={cargar} />}
               {tab === "importar" && <ImportarTab empleados={empleados} onImported={cargar} />}
               {tab === "dashboard" && <DashboardTab empleados={confirmados} config={config} onNavigate={setTab} />}

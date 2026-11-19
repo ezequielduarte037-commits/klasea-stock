@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import { C } from "@/theme";
 import {
   addDays, diaSemana, downloadCsv, duracionMin, fetchMarcaciones, fmtFecha, fmtFechaCorta,
-  hhmm, hoyIso, minToHM, SEDES, timeToMin,
+  hhmm, hoyIso, minToHM, resumenFeriado, SEDES, timeToMin,
 } from "./api";
 import { BTN, Cargando, ErrorBox, GrupoBadge, INP, KpiCard, Td, Th } from "./ui";
+import { estadoDiaEspecial } from "./feriados";
+import useFeriados from "./useFeriados";
 
 const EXTRA_DESDE = "16:00";
 const INICIO_CONTEO = "07:00";
@@ -91,6 +93,7 @@ function styleId(kind) {
   if (kind === "group") return 5;
   if (kind === "extra") return 6;
   if (kind === "empty") return 7;
+  if (kind === "feriado") return 8;
   return 0;
 }
 
@@ -133,20 +136,21 @@ function stylesXml() {
     <font><b/><sz val="11"/><color rgb="FF000000"/><name val="Calibri"/></font>
     <font><sz val="11"/><color rgb="FF666666"/><name val="Calibri"/></font>
   </fonts>
-  <fills count="6">
+  <fills count="7">
     <fill><patternFill patternType="none"/></fill>
     <fill><patternFill patternType="gray125"/></fill>
     <fill><patternFill patternType="solid"><fgColor rgb="FFE7E6E6"/><bgColor indexed="64"/></patternFill></fill>
     <fill><patternFill patternType="solid"><fgColor rgb="FFD9EAD3"/><bgColor indexed="64"/></patternFill></fill>
     <fill><patternFill patternType="solid"><fgColor rgb="FFD9EAF7"/><bgColor indexed="64"/></patternFill></fill>
     <fill><patternFill patternType="solid"><fgColor rgb="FFFFF2CC"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFF4CCCC"/><bgColor indexed="64"/></patternFill></fill>
   </fills>
   <borders count="2">
     <border><left/><right/><top/><bottom/><diagonal/></border>
     <border><left style="thin"><color rgb="FFB7B7B7"/></left><right style="thin"><color rgb="FFB7B7B7"/></right><top style="thin"><color rgb="FFB7B7B7"/></top><bottom style="thin"><color rgb="FFB7B7B7"/></bottom><diagonal/></border>
   </borders>
   <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-  <cellXfs count="8">
+  <cellXfs count="9">
     <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/>
     <xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
     <xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1"/>
@@ -155,6 +159,7 @@ function stylesXml() {
     <xf numFmtId="0" fontId="1" fillId="4" borderId="1" xfId="0" applyFill="1" applyFont="1" applyBorder="1"/>
     <xf numFmtId="0" fontId="0" fillId="5" borderId="1" xfId="0" applyFill="1" applyBorder="1"/>
     <xf numFmtId="0" fontId="2" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="1" fillId="6" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>
   </cellXfs>
   <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
   <dxfs count="0"/>
@@ -325,8 +330,8 @@ function exportStyledXlsx(filename, sheets) {
 
 function buildExtrasSheet({ title, periodo, rows, includeJefe }) {
   const headers = includeJefe
-    ? ["Fecha", "DNI", "Empleado", "Sede", "Jefe", "Entrada", "Salida", "Horas", "Horas extra", "Observaciones"]
-    : ["Fecha", "DNI", "Empleado", "Sede", "Entrada", "Salida", "Horas", "Horas extra", "Observaciones"];
+    ? ["Fecha", "DNI", "Empleado", "Sede", "Jefe", "Entrada", "Salida", "Horas", "Horas extra", "Horas de feriado", "Observaciones"]
+    : ["Fecha", "DNI", "Empleado", "Sede", "Entrada", "Salida", "Horas", "Horas extra", "Horas de feriado", "Observaciones"];
   const aoa = [];
   const kinds = [];
   const add = (row, kind = "normal") => {
@@ -337,7 +342,7 @@ function buildExtrasSheet({ title, periodo, rows, includeJefe }) {
   add(["Reporte de horas extra"], "title");
   add([`Hora de exportacion: ${new Date().toLocaleString("es-AR")}`], "meta");
   add([`Periodo: ${periodo}`], "meta");
-  add([`Regla: L-V desde ${EXTRA_DESDE}; sabados desde ${INICIO_CONTEO}; minimo ${EXTRA_MINIMA_MIN} minutos`], "meta");
+  add([`Extras L-V desde ${EXTRA_DESDE}, sábados desde ${INICIO_CONTEO}. Feriados por tiempo registrado, sin redondeo.`], "meta");
   add([title], "section");
   add(headers, "header");
 
@@ -356,8 +361,8 @@ function buildExtrasSheet({ title, periodo, rows, includeJefe }) {
         row.sede,
       ];
       if (includeJefe) base.push(row.jefe);
-      base.push(row.entrada, row.salida, row.horas, row.extra, row.obs);
-      add(base, "extra");
+      base.push(row.entrada, row.salida, row.horas, row.extra, row.horasFeriado, row.obs);
+      add(base, row.kind ?? "extra");
     }
   }
 
@@ -375,7 +380,8 @@ function buildExtrasSheet({ title, periodo, rows, includeJefe }) {
     cols: [
       12,
       14,
-      28,
+      19,
+      62,
       12,
       ...(includeJefe ? [28] : []),
       12,
@@ -391,46 +397,58 @@ export default function ExtrasTab({ empleados, contratistas }) {
   const hoy = hoyIso();
   const [desde, setDesde] = useState(addDays(hoy, -13));
   const [hasta, setHasta] = useState(hoy);
-  const [marcas, setMarcas] = useState(null);
-  const [error, setError] = useState(null);
+  const [consulta, setConsulta] = useState(null);
   const [filtroGrupo, setFiltroGrupo] = useState("todos");
   const [filtroSede, setFiltroSede] = useState("todas");
   const [q, setQ] = useState("");
   const [openId, setOpenId] = useState(null);
+  const rango = `${desde}:${hasta}`;
+  const marcas = consulta?.rango === rango ? consulta.marcas : null;
+  const error = consulta?.rango === rango ? consulta.error : null;
+  const { feriados, cargandoFeriados, errorFeriados, reintentarFeriados } = useFeriados(desde, hasta);
 
   useEffect(() => {
+    if (desde > hasta) return;
     let alive = true;
-    setMarcas(null); setError(null);
     fetchMarcaciones(desde, hasta)
-      .then(rows => { if (alive) setMarcas(rows); })
-      .catch(e => { if (alive) setError(e); });
+      .then(rows => {
+        if (alive) setConsulta({ rango, marcas: rows });
+      })
+      .catch(e => { if (alive) setConsulta({ rango, error: e }); });
     return () => { alive = false; };
-  }, [desde, hasta]);
+  }, [desde, hasta, rango]);
 
   const empById = useMemo(() => new Map((empleados ?? []).map(e => [e.id, e])), [empleados]);
 
   // Agregado por empleado
   const filas = useMemo(() => {
-    if (!marcas) return null;
+    if (!marcas || cargandoFeriados || errorFeriados) return null;
     const map = new Map();
     for (const m of marcas) {
       if (filtroSede !== "todas" && m.sede !== filtroSede) continue;
       const emp = empById.get(m.empleado_id);
       if (!emp || emp.ficha === false) continue;
-      const min = duracionMin(m);
-      if (min == null) continue; // sin salida: no se puede computar
-      const extra = extraOperativaMin(m);
+      const dia = feriados.get(m.fecha);
+      const feriado = dia?.tipo === "feriado" ? dia : null;
+      const { entrada, salida, min } = feriado ? resumenFeriado(m)
+        : { entrada: m.entrada, salida: m.salida, min: duracionMin(m) };
+      if (min == null && !feriado) continue;
+      const extra = feriado ? 0 : extraOperativaMin(m);
       let row = map.get(emp.id);
-      if (!row) { row = { emp, dias: 0, totalMin: 0, extraMin: 0, detalle: [] }; map.set(emp.id, row); }
+      if (!row) { row = { emp, dias: 0, totalMin: 0, extraMin: 0, feriadoMin: 0, feriadosIncompletos: 0, detalle: [] }; map.set(emp.id, row); }
       row.dias += 1;
-      row.totalMin += min;
+      row.totalMin += min ?? 0;
       row.extraMin += extra;
-      row.detalle.push({ fecha: m.fecha, min, extra, entrada: m.entrada, salida: m.salida, sede: m.sede });
+      if (feriado) {
+        if (min == null) row.feriadosIncompletos += 1;
+        else row.feriadoMin += min;
+      }
+      row.detalle.push({ key: m.id, fecha: m.fecha, min, extra, feriado, entrada, salida, sede: m.sede });
     }
     return [...map.values()]
-      .filter(r => r.extraMin >= EXTRA_MINIMA_MIN)
+      .filter(r => r.extraMin >= EXTRA_MINIMA_MIN || r.detalle.some(d => d.feriado))
       .sort((a, b) => b.extraMin - a.extraMin || safeText(a.emp.nombre).localeCompare(safeText(b.emp.nombre), "es"));
-  }, [marcas, empById, filtroSede]);
+  }, [marcas, cargandoFeriados, errorFeriados, feriados, empById, filtroSede]);
 
   const filtradas = useMemo(() => {
     if (!filas) return null;
@@ -450,8 +468,9 @@ export default function ExtrasTab({ empleados, contratistas }) {
     if (!filtradas) return null;
     return {
       extra: filtradas.reduce((a, r) => a + r.extraMin, 0),
-      conExtra: filtradas.filter(r => r.extraMin > 0).length,
-      personas: filtradas.length,
+      conExtra: filtradas.filter(r => r.extraMin >= EXTRA_MINIMA_MIN).length,
+      feriado: filtradas.reduce((a, r) => a + r.feriadoMin, 0),
+      feriadosIncompletos: filtradas.reduce((a, r) => a + r.feriadosIncompletos, 0),
     };
   }, [filtradas]);
 
@@ -459,12 +478,13 @@ export default function ExtrasTab({ empleados, contratistas }) {
     if (!filtradas) return;
     downloadCsv(
       `horas_extras_${desde}_${hasta}.csv`,
-      ["DNI", "Nombre", "Sede", "Grupo", "Contratista", "Días", "Horas totales", "Horas extra"],
+      ["DNI", "Nombre", "Sede", "Grupo", "Contratista", "Días", "Horas totales", "Horas extra", "Horas de feriado", "Fichadas incompletas en feriado"],
       filtradas.map(r => [
         r.emp.dni, r.emp.nombre,
         filtroSede === "todas" ? "Todas" : filtroSede,
         r.emp.grupo === "casa" ? "Casa" : r.emp.grupo === "contratista" ? "Contratista" : "Sin asignar",
         r.emp.contratista?.nombre ?? "", r.dias, minToHM(r.totalMin), minToHM(r.extraMin),
+        minToHM(r.feriadoMin), r.feriadosIncompletos,
       ]),
     );
   }
@@ -472,13 +492,14 @@ export default function ExtrasTab({ empleados, contratistas }) {
   function rowsEmpleado(r, includeJefe = false) {
     const out = [{
       kind: "group",
-      label: `${r.emp.nombre} - Total extra ${minToHM(r.extraMin)} - ${r.dias} dia${r.dias !== 1 ? "s" : ""}`,
+      label: `${r.emp.nombre} · Extras ${minToHM(r.extraMin)} · Feriados ${minToHM(r.feriadoMin)}`,
     }];
     const detalles = [...r.detalle]
-      .filter(d => d.extra > 0)
+      .filter(d => d.extra > 0 || d.feriado)
       .sort((a, b) => a.fecha.localeCompare(b.fecha));
     for (const d of detalles) {
       out.push({
+        kind: d.feriado ? "feriado" : "extra",
         fecha: d.fecha,
         dni: r.emp.dni ?? "",
         empleado: r.emp.nombre ?? "",
@@ -486,9 +507,11 @@ export default function ExtrasTab({ empleados, contratistas }) {
         jefe: includeJefe ? nombreContratista(r.emp) : "",
         entrada: d.entrada ?? "",
         salida: d.salida ?? "",
-        horas: minToHM(d.min),
-        extra: minToHM(d.extra),
-        obs: d.extra < EXTRA_MINIMA_MIN ? "Suma por acumulado del periodo" : "",
+        horas: d.min == null ? "" : minToHM(d.min),
+        extra: d.feriado ? "" : minToHM(d.extra),
+        horasFeriado: d.feriado && d.min != null ? minToHM(d.min) : "",
+        obs: d.feriado ? `${estadoDiaEspecial(d.feriado, true, d.min == null)} · ${d.feriado.nombre}`
+          : d.extra < EXTRA_MINIMA_MIN ? "Suma por acumulado del periodo" : "",
       });
     }
     return out;
@@ -520,9 +543,12 @@ export default function ExtrasTab({ empleados, contratistas }) {
     }
 
     const periodo = `${fmtFecha(desde)} - ${fmtFecha(hasta)}`;
+    const sinAsignar = ordenadas.filter(row => row.emp.grupo !== "casa" && row.emp.grupo !== "contratista" && row.detalle.some(d => d.feriado))
+      .flatMap(r => rowsEmpleado(r));
     exportStyledXlsx(`horas_extras_${desde}_${hasta}.xlsx`, [
       { name: "Casa", ...buildExtrasSheet({ title: "GENTE DE LA CASA", periodo, rows: casaRows, includeJefe: false }) },
       { name: "Contratistas", ...buildExtrasSheet({ title: "CONTRATISTAS", periodo, rows: contratistaRows, includeJefe: true }) },
+      ...(sinAsignar.length ? [{ name: "Sin asignar", ...buildExtrasSheet({ title: "PERSONAL SIN ASIGNAR", periodo, rows: sinAsignar }) }] : []),
     ]);
   }
 
@@ -544,8 +570,8 @@ export default function ExtrasTab({ empleados, contratistas }) {
           {SEDES.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
         <input style={{ ...INP, flex: 1, minWidth: 140 }} placeholder="Buscar…" value={q} onChange={e => setQ(e.target.value)} />
-        <button style={BTN} onClick={exportarXlsx}>⬇ XLSX</button>
-        <button style={BTN} onClick={exportar}>⬇ CSV</button>
+        <button style={BTN} onClick={exportarXlsx} disabled={!filtradas}>⬇ XLSX</button>
+        <button style={BTN} onClick={exportar} disabled={!filtradas}>⬇ CSV</button>
       </div>
 
       <div style={{ fontSize: 12, color: C.t2, margin: "-4px 0 14px", lineHeight: 1.6 }}>
@@ -553,12 +579,15 @@ export default function ExtrasTab({ empleados, contratistas }) {
       </div>
 
       {error && <ErrorBox error={error} />}
-      {!error && filtradas == null && <Cargando />}
+      {errorFeriados && <ErrorBox error={errorFeriados} onRetry={reintentarFeriados} />}
+      {desde > hasta && <ErrorBox error={new Error("La fecha final debe ser igual o posterior a la inicial.")} />}
+      {!error && !errorFeriados && desde <= hasta && filtradas == null && <Cargando />}
 
       {filtradas != null && (
         <>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
             <KpiCard label="Horas extra del rango" value={minToHM(totales.extra)} color={totales.extra > 0 ? C.cyan : C.green} />
+            <KpiCard label="Horas de feriado" value={minToHM(totales.feriado)} color={C.red} sub={totales.feriadosIncompletos > 0 ? `${totales.feriadosIncompletos} fichadas incompletas` : ""} />
             <KpiCard label="Personas con extras" value={totales.conExtra} sub={`minimo ${EXTRA_MINIMA_MIN} min`} />
             <KpiCard label="Corte L-V" value={EXTRA_DESDE} sub="sabado todo extra" />
           </div>
@@ -571,7 +600,7 @@ export default function ExtrasTab({ empleados, contratistas }) {
                 <thead>
                   <tr>
                     <Th>Empleado</Th><Th>Grupo</Th>
-                    <Th right>Días</Th><Th right>Horas</Th><Th right>Extras</Th><Th> </Th>
+                    <Th right>Días</Th><Th right>Horas</Th><Th right>Extras</Th><Th right>Horas de feriado</Th><Th> </Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -603,20 +632,25 @@ function FilaExtra({ r, open, onToggle }) {
         <Td right mono color={r.extraMin > 0 ? C.cyan : C.t2} style={{ fontWeight: r.extraMin > 0 ? 600 : 400 }}>
           {minToHM(r.extraMin)}
         </Td>
+        <Td right mono color={r.feriadoMin > 0 || r.feriadosIncompletos > 0 ? C.red : C.t2}>
+          {minToHM(r.feriadoMin)}
+          {r.feriadosIncompletos > 0 && <div style={{ fontSize: 10 }}>{r.feriadosIncompletos} sin revisar</div>}
+        </Td>
         <Td color={C.t2}>{open ? "▾" : "▸"}</Td>
       </tr>
       {open && (
         <tr>
-          <td colSpan={6} style={{ padding: "4px 12px 12px", borderBottom: `1px solid ${C.b0}`, background: "rgba(255,255,255,0.015)" }}>
+          <td colSpan={7} style={{ padding: "4px 12px 12px", borderBottom: `1px solid ${C.b0}`, background: "rgba(255,255,255,0.015)" }}>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {r.detalle.map(d => (
-                <div key={d.fecha} style={{
+                <div key={d.key} title={d.feriado?.nombre} style={{
                   fontSize: 11, fontFamily: C.mono, padding: "4px 9px", borderRadius: 6,
-                  background: d.extra > 0 ? "rgba(34,211,238,0.08)" : C.s0,
-                  border: `1px solid ${d.extra > 0 ? "rgba(34,211,238,0.25)" : C.b0}`,
-                  color: d.extra > 0 ? C.cyan : C.t2,
+                  background: d.feriado ? C.redL : d.extra > 0 ? "rgba(34,211,238,0.08)" : C.s0,
+                  border: `1px solid ${d.feriado ? C.redB : d.extra > 0 ? "rgba(34,211,238,0.25)" : C.b0}`,
+                  color: d.feriado ? C.red : d.extra > 0 ? C.cyan : C.t2,
                 }}>
                   {fmtFechaCorta(d.fecha)} · {hhmm(d.entrada) || "—"}{d.salida ? `–${hhmm(d.salida)}` : " · sin salida"}{d.extra > 0 && ` (+${minToHM(d.extra)})`}
+                  {d.feriado && ` · ${estadoDiaEspecial(d.feriado, true, d.min == null)}${d.min == null ? "" : ` · ${minToHM(d.min)}`}`}
                 </div>
               ))}
             </div>

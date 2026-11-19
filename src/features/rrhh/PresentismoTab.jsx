@@ -41,11 +41,14 @@ import {
   hhmm,
   hoyIso,
   minToHM,
+  resumenFeriado,
   SEDES,
   timeToMin,
 } from "./api";
 import { BTN, BTN_PRIMARY, Cargando, ErrorBox, GrupoBadge, INP, KpiCard, Td, Th } from "./ui";
 import { exportSeguimientoPdf } from "./seguimientoPdf";
+import { esCierre, estadoDiaEspecial } from "./feriados";
+import useFeriados from "./useFeriados";
 
 const keyJust = (empleadoId, fecha) => `${empleadoId}::${fecha}`;
 const XLSX_YELLOW = "FFFF00";
@@ -182,8 +185,8 @@ function buildFichasSheet({ title, periodo, rows, includeJefe }) {
       14,
       12,
       ...(includeJefe ? [28] : []),
-      18,
-      32,
+      46,
+      57,
     ],
   };
 }
@@ -223,7 +226,7 @@ function styleId(kind) {
   if (kind === "group") return 5;
   if (kind === "tarde") return 6;
   if (kind === "ausente_justificado") return 9;
-  if (kind === "ausente") return 7;
+  if (kind === "ausente" || kind === "feriado") return 7;
   if (kind === "empty") return 8;
   return 0;
 }
@@ -465,7 +468,7 @@ function exportStyledXlsx(filename, sheets) {
   downloadBlob(filename, zipStore(files));
 }
 
-export default function PresentismoTab({ empleados, contratistas, config, canEdit = false, canArchiveEmployees = false, onChanged }) {
+export default function PresentismoTab({ empleados, contratistas, config, canEdit = false, canArchiveEmployees = false, onChanged, onCierreChange }) {
   const hoy = hoyIso();
   const [modo, setModo] = useState("dia");
   const [fecha, setFecha] = useState(hoy);
@@ -486,11 +489,20 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
   const [justModal, setJustModal] = useState(null);
   const [ausenciaModal, setAusenciaModal] = useState(false);
   const [seguimientoOpen, setSeguimientoOpen] = useState(false);
+  const [rangoCargado, setRangoCargado] = useState(null);
+  const [cierreGuardando, setCierreGuardando] = useState(false);
+  const [errorCierre, setErrorCierre] = useState(null);
 
   const d1 = modo === "dia" ? fecha : desde;
   const d2 = modo === "dia" ? fecha : hasta;
+  const { feriados, cargandoFeriados, errorFeriados, reintentarFeriados } = useFeriados(d1, d2);
+  const diasEspeciales = [...feriados.values()].filter((dia) => dia.fecha >= d1 && dia.fecha <= d2)
+    .sort((a, b) => a.fecha.localeCompare(b.fecha));
+  const diaSeleccionado = modo === "dia" ? feriados.get(fecha) : null;
+  const cerrado = esCierre(diaSeleccionado, config.cierresNoLaborables);
 
   useEffect(() => {
+    if (!d1 || !d2 || d1 > d2) return;
     let alive = true;
     Promise.all([fetchMarcaciones(d1, d2), fetchJustificaciones(d1, d2)])
       .then(([rows, justs]) => {
@@ -498,6 +510,7 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
         setError(null);
         setMarcas(rows);
         setJustificaciones(justs);
+        setRangoCargado(`${d1}:${d2}`);
       })
       .catch(e => { if (alive) setError(e); });
     return () => { alive = false; };
@@ -508,37 +521,43 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
   const tardeMin = timeToMin(config.tolerancia_tarde) ?? 430;
 
   const filas = useMemo(() => {
-    if (!marcas) return null;
+    if (!marcas || rangoCargado !== `${d1}:${d2}` || cargandoFeriados || errorFeriados) return null;
     const out = [];
     for (const m of marcas) {
       const emp = empById.get(m.empleado_id);
       if (!emp || emp.ficha === false) continue;
-      const entrada = hhmm(m.entrada);
-      const salida = hhmm(m.salida);
-      const min = duracionMin(m);
-      const esDiaHabil = diaSemana(m.fecha) !== 0;
+      const diaEspecial = feriados.get(m.fecha);
+      const dia = tramosDelDia(m.fichadas);
+      const { entrada, salida, min } = diaEspecial?.tipo === "feriado" ? resumenFeriado(m, dia)
+        : { entrada: hhmm(m.entrada), salida: hhmm(m.salida), min: duracionMin(m) };
+      const esDiaHabil = diaSemana(m.fecha) !== 0 && !esCierre(diaEspecial, config.cierresNoLaborables);
+      const tarde = esDiaHabil && entrada != null && timeToMin(entrada) > tardeMin;
+      const sinEntrada = !entrada && !!salida;
+      const sinSalida = !!entrada && !salida;
       out.push({
         key: m.id,
-        marcacion: m,
+        marcacion: { ...m, entrada, salida },
         emp,
         fecha: m.fecha,
         sede: m.sede,
         entrada,
         salida,
         min,
-        sinEntrada: !entrada && !!salida,
-        sinSalida: !!entrada && !salida,
-        tarde: esDiaHabil && entrada != null && timeToMin(entrada) > tardeMin,
+        diaEspecial,
+        sinEntrada,
+        sinSalida,
+        tarde,
+        anomalia: sinEntrada || sinSalida || tarde || (diaEspecial?.tipo === "feriado" && min == null),
         fichadas: Array.isArray(m.fichadas) ? m.fichadas : [],
         // entrada/salida sólo guardan la primera y la última fichada, así que un
         // día partido —salió al médico y volvió— se veía igual que uno corrido.
         // Acá se reconstruye desde las fichadas crudas.
-        dia: tramosDelDia(m.fichadas),
+        dia,
         justificacion: justByKey.get(keyJust(emp.id, m.fecha)) ?? null,
       });
     }
     return out;
-  }, [marcas, empById, tardeMin, justByKey]);
+  }, [marcas, rangoCargado, d1, d2, cargandoFeriados, errorFeriados, feriados, config.cierresNoLaborables, empById, tardeMin, justByKey]);
 
   const filtradas = useMemo(() => {
     if (!filas) return null;
@@ -549,7 +568,7 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
       const qq = q.toLowerCase();
       rows = rows.filter(r => safeText(r.emp.nombre).toLowerCase().includes(qq) || safeText(r.emp.dni).includes(qq));
     }
-    if (soloAnomalias) rows = rows.filter(r => r.sinEntrada || r.sinSalida || r.tarde);
+    if (soloAnomalias) rows = rows.filter(r => r.anomalia);
     if (soloConSalidas) rows = rows.filter(r => r.dia?.ausencias?.length > 0);
     return [...rows].sort((a, b) =>
       a.fecha !== b.fecha ? a.fecha.localeCompare(b.fecha) : safeText(a.emp.nombre).localeCompare(safeText(b.emp.nombre), "es"));
@@ -560,7 +579,7 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
     return vistaRapida === "tarde" ? filtradas.filter(row => row.tarde) : filtradas;
   }, [filtradas, vistaRapida]);
 
-  const ausentes = useMemo(() => {
+  const sinFichadas = useMemo(() => {
     if (modo !== "dia" || !filas) return [];
     const presentes = new Set(
       filas
@@ -578,6 +597,7 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
       .map(emp => ({ emp, justificacion: justByKey.get(keyJust(emp.id, fecha)) ?? null }))
       .sort((a, b) => safeText(a.emp.nombre).localeCompare(safeText(b.emp.nombre), "es"));
   }, [modo, filas, fecha, empleados, filtroSede, filtroGrupo, q, justByKey]);
+  const ausentes = cerrado ? [] : sinFichadas;
 
   const stats = useMemo(() => {
     if (!filtradas) return null;
@@ -586,14 +606,14 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
       presentes: personas.size,
       casa: new Set(filtradas.filter(r => r.emp.grupo === "casa").map(r => r.emp.id)).size,
       contr: new Set(filtradas.filter(r => r.emp.grupo === "contratista").map(r => r.emp.id)).size,
-      anomalias: filtradas.filter(r => r.sinEntrada || r.sinSalida || r.tarde).length,
+      anomalias: filtradas.filter(r => r.anomalia).length,
       conSalidas: filtradas.filter(r => r.dia?.ausencias?.length > 0).length,
       // El tiempo total afuera, que es el dato que RRHH termina necesitando.
       minutosFuera: filtradas.reduce((total, r) => total
         + (r.dia?.ausencias ?? []).reduce((suma, a) => suma + (a.minutos || 0), 0), 0),
-      ausentesJustificados: ausentes.filter(r => r.justificacion).length,
+      ausentesJustificados: cerrado ? 0 : sinFichadas.filter(r => r.justificacion).length,
     };
-  }, [filtradas, ausentes]);
+  }, [filtradas, cerrado, sinFichadas]);
 
   async function guardarRevision(data, values) {
     const { empleadoId, fecha: fechaJust, motivo, entrada, salida, horariosCambiaron, motivoCambio } = values;
@@ -657,6 +677,18 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
     onChanged?.();
   }
 
+  async function cambiarCierre(dia, cerrar) {
+    setCierreGuardando(true);
+    setErrorCierre(null);
+    try {
+      await onCierreChange(dia.fecha, cerrar);
+    } catch (e) {
+      setErrorCierre(e);
+    } finally {
+      setCierreGuardando(false);
+    }
+  }
+
   function exportar() {
     if (!filtradas) return;
     const presentRows = filtradas.map(r => [
@@ -669,11 +701,11 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
       r.entrada ?? "",
       r.salida ?? "",
       r.min != null ? minToHM(r.min) : "",
-      r.justificacion ? "presente (justificada)" : "presente",
-      [r.sinEntrada ? "sin entrada" : null, r.sinSalida ? "sin salida" : null, r.tarde ? "tarde" : null].filter(Boolean).join(", "),
+      r.diaEspecial ? estadoDiaEspecial(r.diaEspecial, true, r.min == null) : r.justificacion ? "presente (justificada)" : "presente",
+      [r.diaEspecial?.nombre, r.sinEntrada ? "sin entrada" : null, r.sinSalida ? "sin salida" : null, r.tarde ? "tarde" : null].filter(Boolean).join(", "),
       r.justificacion?.motivo ?? "",
     ]);
-    const absentRows = modo === "dia" ? ausentes.map(r => [
+    const absentRows = modo === "dia" ? sinFichadas.map(r => [
       fmtFecha(fecha),
       r.emp.dni,
       r.emp.nombre,
@@ -683,9 +715,9 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
       "",
       "",
       "",
-      r.justificacion ? "ausente justificada" : "ausente injustificada",
-      "",
-      r.justificacion?.motivo ?? "",
+      cerrado ? estadoDiaEspecial(diaSeleccionado) : r.justificacion ? "ausente justificada" : "ausente injustificada",
+      cerrado ? diaSeleccionado.nombre : "",
+      cerrado ? "" : r.justificacion?.motivo ?? "",
     ]) : [];
 
     downloadCsv(
@@ -717,37 +749,40 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
     const toPresentRow = (r) => {
       const names = splitNombreCompleto(r.emp.nombre);
       const obs = [
+        r.diaEspecial?.nombre,
         r.tarde ? "Tarde" : null,
         r.sinEntrada ? "Sin entrada" : null,
         r.sinSalida ? "Sin salida" : null,
         r.justificacion?.motivo || null,
       ].filter(Boolean).join(" · ");
       return {
-        kind: r.tarde ? "tarde" : "normal",
+        kind: r.diaEspecial?.tipo === "feriado" ? "feriado" : r.tarde ? "tarde" : "normal",
         fecha: r.fecha,
         ...names,
         entrada: r.entrada || "",
         salida: r.salida || "",
         sede: r.sede ?? r.emp.sede ?? "",
         jefe: nombreContratista(r.emp),
-        estado: r.sinEntrada ? "SIN ENTRADA" : r.sinSalida ? "SIN SALIDA" : r.tarde ? "TARDE" : "OK",
+        estado: r.diaEspecial ? estadoDiaEspecial(r.diaEspecial, true, r.min == null) : r.sinEntrada ? "SIN ENTRADA" : r.sinSalida ? "SIN SALIDA" : r.tarde ? "TARDE" : "OK",
         observaciones: obs,
       };
     };
 
     const toAbsentRow = (emp, fechaIso) => {
       const justificacion = justByKey.get(keyJust(emp.id, fechaIso));
+      const dia = feriados.get(fechaIso);
+      const esDiaCerrado = esCierre(dia, config.cierresNoLaborables);
       const names = splitNombreCompleto(emp.nombre);
       return {
-        kind: justificacion ? "ausente_justificado" : "ausente",
+        kind: esDiaCerrado ? (dia.tipo === "feriado" ? "feriado" : "normal") : justificacion ? "ausente_justificado" : "ausente",
         fecha: fechaIso,
         ...names,
-        entrada: "AUSENTE",
+        entrada: esDiaCerrado ? "" : "AUSENTE",
         salida: "",
         sede: emp.sede ?? "",
         jefe: nombreContratista(emp),
-        estado: justificacion ? "AUSENTE JUSTIFICADO" : "AUSENTE",
-        observaciones: justificacion?.motivo ?? "",
+        estado: esDiaCerrado ? estadoDiaEspecial(dia) : justificacion ? "AUSENTE JUSTIFICADO" : "AUSENTE",
+        observaciones: esDiaCerrado ? dia.nombre : justificacion?.motivo ?? "",
       };
     };
 
@@ -859,8 +894,8 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
           </div>
         )}
         <div style={{ flex: 1 }} />
-        <button className="presentismo-export" style={{ ...BTN_PRIMARY, display: "inline-flex", alignItems: "center", gap: 7 }} onClick={exportarXlsx}><FileSpreadsheet size={15} /> Excel</button>
-        <button className="presentismo-export" style={{ ...BTN, display: "inline-flex", alignItems: "center", gap: 7 }} onClick={exportar}><Download size={15} /> CSV</button>
+        <button className="presentismo-export" style={{ ...BTN_PRIMARY, display: "inline-flex", alignItems: "center", gap: 7 }} onClick={exportarXlsx} disabled={!filas}><FileSpreadsheet size={15} /> Excel</button>
+        <button className="presentismo-export" style={{ ...BTN, display: "inline-flex", alignItems: "center", gap: 7 }} onClick={exportar} disabled={!filtradas}><Download size={15} /> CSV</button>
         </div>
 
         <div className="presentismo-toolbar-row">
@@ -889,15 +924,34 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
       </div>
 
       {error && <ErrorBox error={error} />}
-      {!error && filtradas == null && <Cargando />}
+      {errorFeriados && <ErrorBox error={errorFeriados} onRetry={reintentarFeriados} />}
+      {errorCierre && <ErrorBox error={errorCierre} />}
+      {d1 > d2 && <ErrorBox error={new Error("La fecha final debe ser igual o posterior a la inicial.")} />}
+      {!error && !errorFeriados && d1 <= d2 && filtradas == null && <Cargando />}
 
       {filtradas != null && (
         <>
+          {diasEspeciales.map((dia) => {
+            const feriado = dia.tipo === "feriado";
+            const cierre = esCierre(dia, config.cierresNoLaborables);
+            return (
+              <div key={dia.fecha} style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 8, padding: "8px 12px", borderRadius: 8, color: feriado ? C.red : C.t1, background: feriado ? C.redL : C.s0, border: `1px solid ${feriado ? C.redB : C.b0}` }}>
+                <CalendarDays size={15} />
+                <strong>{fmtFechaCorta(dia.fecha)} · {estadoDiaEspecial(dia)} · {dia.nombre}</strong>
+                {!feriado && (onCierreChange ? (
+                  <label style={{ display: "inline-flex", alignItems: "center", gap: 5, marginLeft: "auto" }}>
+                    <input type="checkbox" checked={cierre} disabled={cierreGuardando} onChange={(e) => cambiarCierre(dia, e.target.checked)} />
+                    Astillero cerrado
+                  </label>
+                ) : <span>{cierre ? "Astillero cerrado" : "Jornada habitual"}</span>)}
+              </div>
+            );
+          })}
           <div className="presentismo-summary">
             <KpiCard icon={UserCheck} label={modo === "dia" ? "Presentes" : "Personas"} value={stats.presentes} color={C.green} />
             <KpiCard label="Casa" value={stats.casa} color={C.blue} />
             <KpiCard label="Contratistas" value={stats.contr} color={C.cyan} />
-            {modo === "dia" && <KpiCard label="Ausentes" value={ausentes.length} color={ausentes.length ? C.red : C.green} sub={stats.ausentesJustificados ? `${stats.ausentesJustificados} just.` : ""} />}
+            {modo === "dia" && <KpiCard label="Ausentes" value={ausentes.length} color={ausentes.length ? C.red : C.green} sub={cerrado ? estadoDiaEspecial(diaSeleccionado) : stats.ausentesJustificados ? `${stats.ausentesJustificados} just.` : ""} />}
             <KpiCard icon={AlertTriangle} label="Anomalías" value={stats.anomalias} color={stats.anomalias ? C.cyan : C.green} sub="entrada, salida o demora" />
             <KpiCard
               icon={LogOut}
@@ -963,8 +1017,8 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
                 </thead>
                 <tbody>
                   {filasVista.map(r => (
-                    <tr className="presentismo-table-row" key={r.key}>
-                      {modo === "rango" && <Td mono color={C.t2}>{fmtFechaCorta(r.fecha)}</Td>}
+                    <tr className="presentismo-table-row" key={r.key} style={r.diaEspecial?.tipo === "feriado" ? { background: C.redL } : undefined}>
+                      {modo === "rango" && <Td mono color={r.diaEspecial?.tipo === "feriado" ? C.red : C.t2}>{fmtFechaCorta(r.fecha)}</Td>}
                       <Td>
                         <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
                           <EmpleadoAvatar emp={r.emp} size={30} justified={!!r.justificacion} />
@@ -978,8 +1032,9 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
                       <Td><GrupoBadge grupo={r.emp.grupo} contratistaNombre={r.emp.contratista?.nombre} /></Td>
                       <Td right mono color={r.tarde ? C.cyan : C.t0}>{r.entrada ?? "—"}</Td>
                       <Td right mono>{r.salida ?? "—"}</Td>
-                      <Td right mono color={r.min != null ? C.t0 : C.t2}>{r.min != null ? minToHM(r.min) : "—"}</Td>
+                      <Td right mono color={r.diaEspecial?.tipo === "feriado" ? C.red : r.min != null ? C.t0 : C.t2}>{r.min != null ? minToHM(r.min) : "-"}</Td>
                       <Td style={{ whiteSpace: "normal", minWidth: 190 }}>
+                        {r.diaEspecial && <span title={r.diaEspecial.nombre} style={{ fontSize: 10, fontWeight: 650, color: r.diaEspecial.tipo === "feriado" ? C.red : C.t1, marginRight: 6 }}>{estadoDiaEspecial(r.diaEspecial, true, r.min == null)}</span>}
                         {r.tarde && <span style={{ fontSize: 10, fontWeight: 600, color: C.cyan, background: C.cyanL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Tarde</span>}
                         {r.sinEntrada && <span style={{ fontSize: 10, fontWeight: 600, color: C.red, background: C.redL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Sin entrada</span>}
                         {r.sinSalida && <span style={{ fontSize: 10, fontWeight: 600, color: C.red, background: C.redL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Sin salida</span>}
@@ -1129,6 +1184,9 @@ export function SeguimientoPersonaModal({ empleados, config, empleadoInicial = n
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [imprimiendo, setImprimiendo] = useState(false);
+  const [consultaCargada, setConsultaCargada] = useState(null);
+  const consulta = `${empleadoId}:${desde}:${hasta}`;
+  const { feriados, cargandoFeriados, errorFeriados, reintentarFeriados } = useFeriados(empleadoId ? desde : "", hasta);
 
   async function imprimir() {
     if (!empleado || !historial.length) return;
@@ -1171,6 +1229,7 @@ export function SeguimientoPersonaModal({ empleados, config, empleadoInicial = n
         if (!alive) return;
         setMarcaciones(marks ?? []);
         setJustificaciones(justs ?? []);
+        setConsultaCargada(consulta);
       })
       .catch((reason) => {
         if (alive) setError(reason?.message || "No se pudo cargar el seguimiento.");
@@ -1180,44 +1239,52 @@ export function SeguimientoPersonaModal({ empleados, config, empleadoInicial = n
       });
 
     return () => { alive = false; };
-  }, [empleadoId, desde, hasta]);
+  }, [empleadoId, desde, hasta, consulta]);
 
   const historial = useMemo(() => {
-    if (!empleado) return [];
+    if (!empleado || consultaCargada !== consulta || cargandoFeriados || errorFeriados) return [];
     const marksByDate = new Map((marcaciones ?? []).map((mark) => [mark.fecha, mark]));
     const justByDate = new Map((justificaciones ?? []).map((justificacion) => [justificacion.fecha, justificacion]));
     const tardeMin = timeToMin(config?.tolerancia_tarde) ?? 430;
 
     return rangoFechas(desde, hasta)
-      .filter((day) => diaSemana(day) !== 0 && diaSemana(day) !== 6)
+      .filter((day) => (diaSemana(day) !== 0 && diaSemana(day) !== 6)
+        || esCierre(feriados.get(day), config?.cierresNoLaborables))
       .reverse()
       .map((day) => {
         const marcacion = marksByDate.get(day) ?? null;
         const justificacion = justByDate.get(day) ?? null;
-        const entrada = hhmm(marcacion?.entrada);
-        const salida = hhmm(marcacion?.salida);
+        const diaEspecial = feriados.get(day);
+        const cerrado = esCierre(diaEspecial, config?.cierresNoLaborables);
+        const { entrada, salida, min: minutos } = marcacion && diaEspecial?.tipo === "feriado" ? resumenFeriado(marcacion)
+          : { entrada: hhmm(marcacion?.entrada), salida: hhmm(marcacion?.salida), min: marcacion ? duracionMin(marcacion) : null };
         const tarde = entrada != null && timeToMin(entrada) > tardeMin;
-        const incompleta = !!marcacion && (!entrada || !salida);
-        const tipo = !marcacion ? (justificacion ? "justificada" : "ausente") : (incompleta ? "incompleta" : (tarde ? "tarde" : "presente"));
+        const incompleta = !!marcacion && minutos == null;
+        const tipo = cerrado ? diaEspecial.tipo
+          : !marcacion ? (justificacion ? "justificada" : "ausente")
+            : incompleta ? "incompleta" : tarde ? "tarde" : "presente";
 
         return {
           fecha: day,
           tipo,
+          diaEspecial,
+          incompleta,
           marcacion,
           justificacion,
           entrada,
           salida,
-          minutos: marcacion ? duracionMin(marcacion) : null,
+          minutos,
         };
       });
-  }, [config?.tolerancia_tarde, desde, empleado, justificaciones, marcaciones, hasta]);
+  }, [config?.tolerancia_tarde, config?.cierresNoLaborables, desde, empleado, justificaciones, marcaciones, hasta, consultaCargada, consulta, cargandoFeriados, errorFeriados, feriados]);
 
   const resumen = useMemo(() => ({
     presentes: historial.filter((row) => row.marcacion).length,
     tardes: historial.filter((row) => row.tipo === "tarde").length,
     ausentes: historial.filter((row) => row.tipo === "ausente").length,
     justificadas: historial.filter((row) => row.tipo === "justificada").length,
-  }), [historial]);
+    diasHabiles: historial.filter((row) => !esCierre(row.diaEspecial, config?.cierresNoLaborables)).length,
+  }), [historial, config?.cierresNoLaborables]);
 
   const estadoUi = {
     presente: { label: "Presente", color: C.green, background: C.greenL, border: C.greenB },
@@ -1225,6 +1292,8 @@ export function SeguimientoPersonaModal({ empleados, config, empleadoInicial = n
     incompleta: { label: "Marcacion incompleta", color: C.blue, background: C.blueL, border: C.blueB },
     justificada: { label: "Ausencia justificada", color: C.green, background: C.greenL, border: C.greenB },
     ausente: { label: "Ausente", color: C.red, background: C.redL, border: C.redB },
+    feriado: { color: C.red, background: C.redL, border: C.redB },
+    no_laborable: { color: C.t1, background: C.s0, border: C.b0 },
   };
 
   function seleccionar(emp) {
@@ -1290,13 +1359,15 @@ export function SeguimientoPersonaModal({ empleados, config, empleadoInicial = n
                 <label style={{ display: "grid", gap: 4, color: C.t2, fontSize: 10, fontWeight: 600 }}>HASTA
                   <input type="date" value={hasta} onChange={(event) => { const next = event.target.value; if (next && next >= desde) { setLoading(true); setError(""); } setHasta(next); }} style={{ ...INP, fontSize: 12 }} />
                 </label>
-                <span style={{ color: C.t2, fontSize: 10, alignSelf: "end", paddingBottom: 8 }}>No incluye sabados ni domingos.</span>
+                <span style={{ color: C.t2, fontSize: 10, alignSelf: "end", paddingBottom: 8 }}>Incluye los feriados aunque caigan en fin de semana.</span>
               </div>
 
               {hasta < desde && <div style={{ marginBottom: 10, padding: "8px 10px", borderRadius: 8, color: C.red, background: C.redL, border: `1px solid ${C.redB}`, fontSize: 11 }}>La fecha final debe ser igual o posterior a la inicial.</div>}
               {error && <div style={{ marginBottom: 10, padding: "8px 10px", borderRadius: 8, color: C.red, background: C.redL, border: `1px solid ${C.redB}`, fontSize: 11 }}>{error}</div>}
 
-              {loading ? <div style={{ padding: 34, textAlign: "center", color: C.t2, fontSize: 12 }}>Cargando seguimiento...</div> : (
+              {errorFeriados && <ErrorBox error={errorFeriados} onRetry={reintentarFeriados} />}
+              {!errorFeriados && (loading || cargandoFeriados || (!error && desde && hasta && desde <= hasta && consultaCargada !== consulta)) && <Cargando />}
+              {!errorFeriados && !loading && !cargandoFeriados && consultaCargada === consulta && (
                 <>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", overflow: "hidden", border: `1px solid ${C.b0}`, borderRadius: 10, marginBottom: 12 }}>
                     {[
@@ -1315,13 +1386,17 @@ export function SeguimientoPersonaModal({ empleados, config, empleadoInicial = n
                   <div style={{ border: `1px solid ${C.b0}`, borderRadius: 10, overflow: "hidden" }}>
                     {historial.map((row) => {
                       const ui = estadoUi[row.tipo];
-                      const detalle = row.marcacion
+                      const etiqueta = esCierre(row.diaEspecial, config?.cierresNoLaborables)
+                        ? estadoDiaEspecial(row.diaEspecial, !!row.marcacion, row.incompleta)
+                        : ui.label;
+                      const horario = row.marcacion
                         ? `${row.entrada || "sin entrada"} - ${row.salida || "sin salida"}${row.minutos != null ? ` (${minToHM(row.minutos)})` : ""}`
-                        : row.justificacion?.motivo || "Sin marcacion registrada";
+                        : esCierre(row.diaEspecial, config?.cierresNoLaborables) ? "" : row.justificacion?.motivo || "Sin marcacion registrada";
+                      const detalle = [row.diaEspecial?.nombre, horario].filter(Boolean).join(" · ");
                       return (
                         <div key={row.fecha} style={{ minHeight: 48, padding: "8px 10px", display: "flex", alignItems: "center", gap: 10, borderBottom: `1px solid ${C.b0}` }}>
                           <span style={{ width: 70, color: C.t2, fontSize: 10, fontFamily: C.mono, flexShrink: 0 }}>{fmtFechaCorta(row.fecha)}</span>
-                          <span style={{ color: ui.color, background: ui.background, border: `1px solid ${ui.border}`, borderRadius: 999, padding: "3px 7px", fontSize: 9, fontWeight: 650, flexShrink: 0 }}>{ui.label}</span>
+                          <span style={{ color: ui.color, background: ui.background, border: `1px solid ${ui.border}`, borderRadius: 999, padding: "3px 7px", fontSize: 9, fontWeight: 650, flexShrink: 0 }}>{etiqueta}</span>
                           <span title={detalle} style={{ minWidth: 0, color: C.t1, fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{detalle}</span>
                         </div>
                       );

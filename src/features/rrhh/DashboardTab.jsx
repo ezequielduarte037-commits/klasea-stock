@@ -9,9 +9,11 @@ import {
 } from "recharts";
 import { C } from "@/theme";
 import {
-  addDays, diaSemana, duracionMin, fetchJustificaciones, fetchMarcaciones, hoyIso, minToHM, SEDES, timeToMin,
+  addDays, diaSemana, duracionMin, fetchJustificaciones, fetchMarcaciones, hoyIso, minToHM, resumenFeriado, SEDES, timeToMin,
 } from "./api";
 import { Cargando, ErrorBox, GrupoBadge, INP, KpiCard } from "./ui";
+import { esCierre, estadoDiaEspecial } from "./feriados";
+import useFeriados from "./useFeriados";
 
 const PERIODOS = [
   { value: 7, label: "7 dias" },
@@ -98,6 +100,9 @@ export default function DashboardTab({ empleados, config, onNavigate }) {
   const [refrescando, setRefrescando] = useState(false);
 
   const desde = useMemo(() => addDays(hoy, -(dias - 1)), [hoy, dias]);
+  const { feriados, cargandoFeriados, errorFeriados, reintentarFeriados } = useFeriados(desde, hoy);
+  const diaEspecialHoy = feriados.get(hoy);
+  const cerradoHoy = esCierre(diaEspecialHoy, config.cierresNoLaborables);
   const cargar = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setMarcas(null);
     setError(null);
@@ -129,42 +134,49 @@ export default function DashboardTab({ empleados, config, onNavigate }) {
     const activos = (empleados ?? []).filter(aceptaEmpleado);
     const rows = marcas
       .map(m => ({ m, emp: empById.get(m.empleado_id) }))
-      .filter(({ emp }) => aceptaEmpleado(emp));
+      .filter(({ emp }) => aceptaEmpleado(emp))
+      .map(({ m, emp }) => ({
+        m,
+        emp,
+        minutos: feriados.get(m.fecha)?.tipo === "feriado" ? resumenFeriado(m).min : duracionMin(m),
+      }));
     const justByKey = new Map((justificaciones ?? []).map(j => [`${j.empleado_id}:${j.fecha}`, j]));
     const rowsHoy = rows.filter(({ m }) => m.fecha === hoy);
     const presentes = new Set(rowsHoy.map(({ emp }) => emp.id));
-    const ausentes = diaSemana(hoy) === 0 ? [] : activos.filter(emp => !presentes.has(emp.id) && !justByKey.has(`${emp.id}:${hoy}`));
-    const justificados = diaSemana(hoy) === 0 ? [] : activos.filter(emp => !presentes.has(emp.id) && justByKey.has(`${emp.id}:${hoy}`));
-    const tardanzasHoy = rowsHoy.filter(({ m }) => {
+    const ausentes = cerradoHoy || diaSemana(hoy) === 0 ? [] : activos.filter(emp => !presentes.has(emp.id) && !justByKey.has(`${emp.id}:${hoy}`));
+    const justificados = cerradoHoy || diaSemana(hoy) === 0 ? [] : activos.filter(emp => !presentes.has(emp.id) && justByKey.has(`${emp.id}:${hoy}`));
+    const tardanzasHoy = cerradoHoy ? [] : rowsHoy.filter(({ m }) => {
       const entrada = timeToMin(m.entrada);
       return entrada != null && entrada > tardeMin;
     });
-    const incompletasHoy = rowsHoy.filter(({ m }) => !m.entrada || !m.salida);
+    const incompletasHoy = rowsHoy.filter(({ minutos }) => minutos == null);
 
     const porDia = new Map();
     for (let index = 0; index < dias; index += 1) {
       const fecha = addDays(desde, index);
       porDia.set(fecha, { fecha, presentes: new Set(), horasMin: 0, tardanzas: 0 });
     }
-    for (const { m, emp } of rows) {
+    for (const { m, emp, minutos } of rows) {
       const day = porDia.get(m.fecha);
       if (!day) continue;
       day.presentes.add(emp.id);
-      day.horasMin += duracionMin(m) ?? 0;
+      day.horasMin += minutos ?? 0;
       const entrada = timeToMin(m.entrada);
-      if (entrada != null && entrada > tardeMin) day.tardanzas += 1;
+      if (!esCierre(feriados.get(m.fecha), config.cierresNoLaborables) && entrada != null && entrada > tardeMin) day.tardanzas += 1;
     }
     const serie = [...porDia.values()].map(day => ({
       dia: diaCorto(day.fecha), presentes: day.presentes.size, horas: Math.round(day.horasMin / 60), tardanzas: day.tardanzas,
     }));
-    const totalMin = rows.reduce((sum, { m }) => sum + (duracionMin(m) ?? 0), 0);
-    const promedioPresentes = serie.length ? Math.round(serie.reduce((sum, day) => sum + day.presentes, 0) / serie.length) : 0;
+    const totalMin = rows.reduce((sum, { minutos }) => sum + (minutos ?? 0), 0);
+    const diasSinCierre = [...porDia.values()].filter((day) => !esCierre(feriados.get(day.fecha), config.cierresNoLaborables));
+    const promedioPresentes = diasSinCierre.length
+      ? Math.round(diasSinCierre.reduce((sum, day) => sum + day.presentes.size, 0) / diasSinCierre.length) : 0;
 
     const porContr = new Map();
-    for (const { m, emp } of rows) {
+    for (const { emp, minutos } of rows) {
       if (emp.grupo !== "contratista") continue;
       const nombre = emp.contratista?.nombre ?? "Sin asignar";
-      porContr.set(nombre, (porContr.get(nombre) ?? 0) + (duracionMin(m) ?? 0));
+      porContr.set(nombre, (porContr.get(nombre) ?? 0) + (minutos ?? 0));
     }
     const horasContr = [...porContr.entries()]
       .map(([nombre, min]) => ({ nombre: nombre.length > 18 ? `${nombre.slice(0, 17)}...` : nombre, horas: Math.round(min / 60) }))
@@ -173,7 +185,7 @@ export default function DashboardTab({ empleados, config, onNavigate }) {
 
     const topTardes = new Map();
     for (const { m, emp } of rows) {
-      if (diaSemana(m.fecha) === 0) continue;
+      if (diaSemana(m.fecha) === 0 || esCierre(feriados.get(m.fecha), config.cierresNoLaborables)) continue;
       const entrada = timeToMin(m.entrada);
       if (entrada != null && entrada > tardeMin) topTardes.set(emp.id, (topTardes.get(emp.id) ?? 0) + 1);
     }
@@ -189,10 +201,11 @@ export default function DashboardTab({ empleados, config, onNavigate }) {
       casa: rowsHoy.filter(({ emp }) => emp.grupo === "casa").length,
       contratistas: rowsHoy.filter(({ emp }) => emp.grupo === "contratista").length,
     };
-  }, [marcas, justificaciones, empleados, empById, hoy, desde, dias, tardeMin, filtroSede, filtroGrupo, busqueda]);
+  }, [marcas, justificaciones, empleados, empById, hoy, desde, dias, tardeMin, filtroSede, filtroGrupo, busqueda, feriados, cerradoHoy, config.cierresNoLaborables]);
 
   if (error) return <ErrorBox error={error} onRetry={cargar} />;
-  if (!data) return <Cargando />;
+  if (errorFeriados) return <ErrorBox error={errorFeriados} onRetry={reintentarFeriados} />;
+  if (!data || cargandoFeriados) return <Cargando />;
 
   const card = { padding: "0 0 10px" };
   const tooltipStyle = { background: C.panelSolid, border: `1px solid ${C.b1}`, borderRadius: 8, fontSize: 12, fontFamily: C.sans };
@@ -255,6 +268,12 @@ export default function DashboardTab({ empleados, config, onNavigate }) {
         </div>
       </Panel>
 
+      {diaEspecialHoy && (
+        <div style={{ padding: "9px 12px", marginBottom: 10, borderRadius: 8, border: `1px solid ${diaEspecialHoy.tipo === "feriado" ? C.redB : C.b0}`, background: diaEspecialHoy.tipo === "feriado" ? C.redL : C.s0, color: diaEspecialHoy.tipo === "feriado" ? C.red : C.t1, fontSize: 13 }}>
+          <strong>{estadoDiaEspecial(diaEspecialHoy)} · {diaEspecialHoy.nombre}</strong>
+          {diaEspecialHoy.tipo === "no_laborable" && (cerradoHoy ? " · Astillero cerrado" : " · Jornada habitual")}
+        </div>
+      )}
       <div className="rrhh-dashboard-kpis" style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 9, marginBottom: 12 }}>
         <KpiCard icon={UserRoundCheck} label="Presentes" value={data.presentes} color={C.green} sub={`${data.casa} casa · ${data.contratistas} contratistas`} />
         <KpiCard icon={UserRoundX} label="Ausentes" value={data.ausentes.length} color={data.ausentes.length ? C.red : C.green} sub={data.ausentes.length ? "requiere seguimiento" : "sin pendientes"} />

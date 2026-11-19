@@ -5,6 +5,7 @@ import {
   ABAJO, GRIS, MARGEN, ROJO, cifras, encabezado, encabezadoContinuacion, fechaRotulo, pie, tablaKlasea,
 } from "@/lib/pdfKlasea";
 import { minToHM } from "./api";
+import { estadoDiaEspecial } from "./feriados";
 
 // Informe de asistencia de una persona, para imprimir o adjuntar al legajo.
 // Mismo papel que el resto (lib/pdfKlasea): cabecera, cifras y tabla.
@@ -44,8 +45,9 @@ const ESTADO_LABEL = {
 function detalleDeFila(row) {
   if (row.marcacion) {
     const horas = row.minutos != null ? ` (${minToHM(row.minutos)})` : "";
-    return `${row.entrada || "sin entrada"} – ${row.salida || "sin salida"}${horas}`;
+    return [row.diaEspecial?.nombre, `${row.entrada || "sin entrada"} - ${row.salida || "sin salida"}${horas}`].filter(Boolean).join(" · ");
   }
+  if (row.tipo === "feriado" || row.tipo === "no_laborable") return row.diaEspecial.nombre;
   return row.justificacion?.motivo || "Sin marcación registrada";
 }
 
@@ -79,13 +81,13 @@ export async function construirSeguimientoPdf({ empleado, desde, hasta, historia
       { rotulo: "Tardes", valor: String(resumen.tardes ?? 0) },
       { rotulo: "Ausentes", valor: String(ausentes), color: ausentes > 0 ? ROJO : undefined },
       { rotulo: "Justificadas", valor: String(resumen.justificadas ?? 0) },
-      { rotulo: "Días hábiles", valor: String(historial.length) },
+      { rotulo: "Días hábiles", valor: String(resumen.diasHabiles ?? historial.length) },
     ],
   });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.5);
   doc.setTextColor(...GRIS);
-  doc.text("No incluye sábados ni domingos.", MARGEN, y + 14);
+  doc.text("Incluye los feriados aunque caigan en fin de semana.", MARGEN, y + 14);
 
   // ── Detalle ────────────────────────────────────────────────────────────────
   // En pantalla se lista del dia mas nuevo al mas viejo; en papel se lee mejor
@@ -98,7 +100,10 @@ export async function construirSeguimientoPdf({ empleado, desde, hasta, historia
     head: [["Fecha", "Día", "Estado", "Detalle"]],
     body: filas.map((row) => {
       const { corta, dia } = fechaYDia(row.fecha);
-      return [corta, dia, ESTADO_LABEL[row.tipo] || row.tipo, detalleDeFila(row)];
+      const estado = row.tipo === "feriado" || row.tipo === "no_laborable"
+        ? estadoDiaEspecial(row.diaEspecial, !!row.marcacion, row.incompleta)
+        : ESTADO_LABEL[row.tipo] || row.tipo;
+      return [corta, dia, estado, detalleDeFila(row)];
     }),
     columnStyles: {
       0: { cellWidth: 52 },
@@ -109,7 +114,7 @@ export async function construirSeguimientoPdf({ empleado, desde, hasta, historia
     // Una ausencia tiene que saltar a la vista sin leer la fila entera.
     didParseCell: (data) => {
       if (data.section !== "body") return;
-      if (filas[data.row.index]?.tipo === "ausente") {
+      if (["ausente", "feriado"].includes(filas[data.row.index]?.tipo)) {
         data.cell.styles.textColor = ROJO;
         if (data.column.index === 2) data.cell.styles.fontStyle = "bold";
       }

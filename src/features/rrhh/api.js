@@ -2,6 +2,7 @@
 // Tablas: rrhh_contratistas, rrhh_empleados, rrhh_marcaciones, rrhh_import_batches, rrhh_config.
 
 import { supabase } from "@/supabaseClient";
+import { PREFIJO_CIERRE } from "./feriados";
 
 const EMPLEADO_BASE_SELECT =
   "id, dni, nombre, grupo, sede, ficha, activo, notas, contratista_id, provisorio, externo, alta_origen, alta_creado_por, alta_confirmado_por, alta_confirmado_at, contratista:rrhh_contratistas(id, nombre)";
@@ -209,6 +210,9 @@ export async function fetchConfig() {
     tolerancia_tarde: String(cfg.tolerancia_tarde ?? "07:10"), // después: pierde presentismo
     hora_inicio: horaInicio,
     hora_fin: horaFin,
+    cierresNoLaborables: new Set(Object.keys(cfg)
+      .filter((clave) => clave.startsWith(PREFIJO_CIERRE) && String(cfg[clave]) === "true")
+      .map((clave) => clave.slice(PREFIJO_CIERRE.length))),
   };
 }
 
@@ -510,6 +514,24 @@ export function duracionMin(m) {
   const s = timeToMin(m.salida);
   if (e == null || s == null) return null;
   return Math.max(0, s - e);
+}
+
+export function resumenFeriado(m, dia = tramosDelDia(m.fichadas)) {
+  let entrada = hhmm(m.entrada);
+  let salida = hhmm(m.salida);
+  // Los horarios corregidos por RRHH son los que se usan para liquidar.
+  if (!m.editado_por && !dia.impar && dia.tramos.length) {
+    // Dos fichadas válidas en feriado pueden estar a menos de una hora.
+    entrada = dia.tramos[0].desde;
+    salida = dia.tramos.at(-1).hasta;
+  }
+  const inicio = timeToMin(entrada);
+  const fin = timeToMin(salida);
+  if (inicio == null || fin == null || fin <= inicio || (!m.editado_por && dia.impar)) {
+    return { entrada, salida, min: null };
+  }
+  const fuera = m.editado_por ? 0 : dia.ausencias.reduce((minutos, hueco) => minutos + hueco.minutos, 0);
+  return { entrada, salida, min: Math.max(0, fin - inicio - fuera) };
 }
 
 // Las extras cuentan en bloques de media hora: menos de 30 min no cuenta y se redondea
