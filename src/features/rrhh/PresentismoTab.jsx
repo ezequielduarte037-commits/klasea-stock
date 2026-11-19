@@ -40,6 +40,7 @@ import {
   guardarJustificacion,
   hhmm,
   hoyIso,
+  jornadaDelDia,
   minToHM,
   resumenFeriado,
   SEDES,
@@ -48,9 +49,9 @@ import {
 import { BTN, BTN_PRIMARY, Cargando, ErrorBox, GrupoBadge, INP, KpiCard, Td, Th } from "./ui";
 import { exportSeguimientoPdf } from "./seguimientoPdf";
 import { esCierre, estadoDiaEspecial } from "./feriados";
+import { claveJornada as keyJust, filasAusentesDelRango } from "./presentismoRango";
 import useFeriados from "./useFeriados";
 
-const keyJust = (empleadoId, fecha) => `${empleadoId}::${fecha}`;
 const XLSX_YELLOW = "FFFF00";
 const XLSX_RED = "FFC7CE";
 const XLSX_GREEN = "C6EFCE";
@@ -125,6 +126,18 @@ function rangoFechas(desde, hasta) {
     cur = addDays(cur, 1);
   }
   return out;
+}
+
+function compararFilas(a, b) {
+  return a.fecha.localeCompare(b.fecha) || safeText(a.emp.nombre).localeCompare(safeText(b.emp.nombre), "es");
+}
+
+function coincidePersona(emp, busqueda) {
+  return safeText(emp.nombre).toLowerCase().includes(busqueda) || safeText(emp.dni).includes(busqueda);
+}
+
+function diaConAsistenciaEsperada(fecha, hoy, feriado, config) {
+  return fecha <= hoy && !esCierre(feriado, config.cierresNoLaborables) && jornadaDelDia(fecha, config) > 0;
 }
 
 function buildFichasSheet({ title, periodo, rows, includeJefe }) {
@@ -495,6 +508,8 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
 
   const d1 = modo === "dia" ? fecha : desde;
   const d2 = modo === "dia" ? fecha : hasta;
+  const busqueda = q.trim().toLowerCase();
+  const mostrarAusenciasRango = modo === "rango" && Boolean(busqueda) && !soloAnomalias && !soloConSalidas;
   const { feriados, cargandoFeriados, errorFeriados, reintentarFeriados } = useFeriados(d1, d2);
   const diasEspeciales = [...feriados.values()].filter((dia) => dia.fecha >= d1 && dia.fecha <= d2)
     .sort((a, b) => a.fecha.localeCompare(b.fecha));
@@ -564,20 +579,28 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
     let rows = filas;
     if (filtroSede !== "todas") rows = rows.filter(r => r.sede === filtroSede);
     rows = rows.filter(r => sameGrupo(r, filtroGrupo));
-    if (q.trim()) {
-      const qq = q.toLowerCase();
-      rows = rows.filter(r => safeText(r.emp.nombre).toLowerCase().includes(qq) || safeText(r.emp.dni).includes(qq));
-    }
+    if (busqueda) rows = rows.filter(r => coincidePersona(r.emp, busqueda));
     if (soloAnomalias) rows = rows.filter(r => r.anomalia);
     if (soloConSalidas) rows = rows.filter(r => r.dia?.ausencias?.length > 0);
-    return [...rows].sort((a, b) =>
-      a.fecha !== b.fecha ? a.fecha.localeCompare(b.fecha) : safeText(a.emp.nombre).localeCompare(safeText(b.emp.nombre), "es"));
-  }, [filas, filtroSede, filtroGrupo, q, soloAnomalias, soloConSalidas]);
+    return [...rows].sort(compararFilas);
+  }, [filas, filtroSede, filtroGrupo, busqueda, soloAnomalias, soloConSalidas]);
 
-  const filasVista = useMemo(() => {
-    if (!filtradas) return null;
-    return vistaRapida === "tarde" ? filtradas.filter(row => row.tarde) : filtradas;
-  }, [filtradas, vistaRapida]);
+  const ausenciasRango = useMemo(() => {
+    if (!mostrarAusenciasRango || !filas) return [];
+    const personas = (empleados ?? []).filter(emp => (filtroSede === "todas" || emp.sede === filtroSede)
+      && sameGrupo(emp, filtroGrupo) && coincidePersona(emp, busqueda));
+    if (!personas.length) return [];
+    const dias = rangoFechas(d1, d2 < hoy ? d2 : hoy)
+      .filter((dia) => diaConAsistenciaEsperada(dia, hoy, feriados.get(dia), config));
+    return filasAusentesDelRango({ dias, empleados: personas, marcaciones: filas, justificaciones: justByKey });
+  }, [mostrarAusenciasRango, filas, empleados, filtroSede, filtroGrupo, busqueda, d1, d2, hoy, feriados, config, justByKey]);
+
+  const registros = useMemo(
+    () => ausenciasRango.length ? [...filtradas, ...ausenciasRango].sort(compararFilas) : filtradas,
+    [filtradas, ausenciasRango],
+  );
+  const filasVista = vistaRapida === "tarde" ? filtradas?.filter(row => row.tarde) : registros;
+  const tituloRegistros = mostrarAusenciasRango && vistaRapida === "marcaciones" ? "Asistencia" : "Marcaciones";
 
   const sinFichadas = useMemo(() => {
     if (modo !== "dia" || !filas) return [];
@@ -589,23 +612,20 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
     let rows = (empleados ?? []).filter(e => e.activo !== false && e.ficha !== false && !presentes.has(e.id));
     if (filtroSede !== "todas") rows = rows.filter(e => e.sede === filtroSede);
     rows = rows.filter(e => sameGrupo(e, filtroGrupo));
-    if (q.trim()) {
-      const qq = q.toLowerCase();
-      rows = rows.filter(e => safeText(e.nombre).toLowerCase().includes(qq) || safeText(e.dni).includes(qq));
-    }
+    if (busqueda) rows = rows.filter(e => coincidePersona(e, busqueda));
     return rows
       .map(emp => ({ emp, justificacion: justByKey.get(keyJust(emp.id, fecha)) ?? null }))
       .sort((a, b) => safeText(a.emp.nombre).localeCompare(safeText(b.emp.nombre), "es"));
-  }, [modo, filas, fecha, empleados, filtroSede, filtroGrupo, q, justByKey]);
+  }, [modo, filas, fecha, empleados, filtroSede, filtroGrupo, busqueda, justByKey]);
   const ausentes = cerrado ? [] : sinFichadas;
 
   const stats = useMemo(() => {
     if (!filtradas) return null;
-    const personas = new Set(filtradas.map(r => r.emp.id));
+    const personas = new Set(registros.map(r => r.emp.id));
     return {
       presentes: personas.size,
-      casa: new Set(filtradas.filter(r => r.emp.grupo === "casa").map(r => r.emp.id)).size,
-      contr: new Set(filtradas.filter(r => r.emp.grupo === "contratista").map(r => r.emp.id)).size,
+      casa: new Set(registros.filter(r => r.emp.grupo === "casa").map(r => r.emp.id)).size,
+      contr: new Set(registros.filter(r => r.emp.grupo === "contratista").map(r => r.emp.id)).size,
       anomalias: filtradas.filter(r => r.anomalia).length,
       conSalidas: filtradas.filter(r => r.dia?.ausencias?.length > 0).length,
       // El tiempo total afuera, que es el dato que RRHH termina necesitando.
@@ -613,7 +633,7 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
         + (r.dia?.ausencias ?? []).reduce((suma, a) => suma + (a.minutos || 0), 0), 0),
       ausentesJustificados: cerrado ? 0 : sinFichadas.filter(r => r.justificacion).length,
     };
-  }, [filtradas, cerrado, sinFichadas]);
+  }, [filtradas, registros, cerrado, sinFichadas]);
 
   async function guardarRevision(data, values) {
     const { empleadoId, fecha: fechaJust, motivo, entrada, salida, horariosCambiaron, motivoCambio } = values;
@@ -659,7 +679,7 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
       return [...next.values()];
     });
     setAusenciaModal(false);
-    setVistaRapida("ausentes");
+    setVistaRapida(modo === "dia" ? "ausentes" : "marcaciones");
   }
 
   async function borrarEmpleado(emp) {
@@ -690,8 +710,8 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
   }
 
   function exportar() {
-    if (!filtradas) return;
-    const presentRows = filtradas.map(r => [
+    if (!registros) return;
+    const registroRows = registros.map(r => [
       fmtFecha(r.fecha),
       r.emp.dni,
       r.emp.nombre,
@@ -701,7 +721,9 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
       r.entrada ?? "",
       r.salida ?? "",
       r.min != null ? minToHM(r.min) : "",
-      r.diaEspecial ? estadoDiaEspecial(r.diaEspecial, true, r.min == null) : r.justificacion ? "presente (justificada)" : "presente",
+      r.ausencia ? (r.justificacion ? "ausente justificada" : "ausente injustificada")
+        : r.diaEspecial ? estadoDiaEspecial(r.diaEspecial, true, r.min == null)
+          : r.justificacion ? "presente (justificada)" : "presente",
       [r.diaEspecial?.nombre, r.sinEntrada ? "sin entrada" : null, r.sinSalida ? "sin salida" : null, r.tarde ? "tarde" : null].filter(Boolean).join(", "),
       r.justificacion?.motivo ?? "",
     ]);
@@ -723,26 +745,22 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
     downloadCsv(
       `presentismo_${d1}_${d2}.csv`,
       ["Fecha", "DNI", "Nombre", "Sede", "Grupo", "Contratista", "Entrada", "Salida", "Horas", "Estado", "Observacion", "Motivo justificacion"],
-      [...presentRows, ...absentRows],
+      [...registroRows, ...absentRows],
     );
   }
 
   function exportarXlsx() {
     if (!filas) return;
 
-    const query = q.trim().toLowerCase();
     const fechas = rangoFechas(d1, d2);
     const presentes = new Map();
-    for (const r of filas) presentes.set(`${r.fecha}::${r.emp.id}`, r);
+    for (const r of filas) presentes.set(keyJust(r.emp.id, r.fecha), r);
 
     const pasaFiltrosBase = (emp, sede) => {
       if (emp.activo === false || emp.ficha === false) return false;
       if (filtroSede !== "todas" && sede !== filtroSede) return false;
       if (!sameGrupo(emp, filtroGrupo)) return false;
-      if (query) {
-        const haystack = `${safeText(emp.nombre)} ${safeText(emp.dni)}`.toLowerCase();
-        if (!haystack.includes(query)) return false;
-      }
+      if (busqueda && !coincidePersona(emp, busqueda)) return false;
       return emp.grupo === "casa" || emp.grupo === "contratista";
     };
 
@@ -799,8 +817,13 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
       });
 
     for (const fechaIso of fechas) {
+      const diaEspecial = feriados.get(fechaIso);
+      const omitirSinMarcacion = modo === "rango" && busqueda
+        && !esCierre(diaEspecial, config.cierresNoLaborables)
+        && !diaConAsistenciaEsperada(fechaIso, hoy, diaEspecial, config);
       for (const emp of empleadosOrdenados) {
-        const r = presentes.get(`${fechaIso}::${emp.id}`);
+        const r = presentes.get(keyJust(emp.id, fechaIso));
+        if (!r && omitirSinMarcacion) continue;
         const sede = r?.sede ?? emp.sede ?? "";
         if (!pasaFiltrosBase(emp, sede)) continue;
 
@@ -952,6 +975,7 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
             <KpiCard label="Casa" value={stats.casa} color={C.blue} />
             <KpiCard label="Contratistas" value={stats.contr} color={C.cyan} />
             {modo === "dia" && <KpiCard label="Ausentes" value={ausentes.length} color={ausentes.length ? C.red : C.green} sub={cerrado ? estadoDiaEspecial(diaSeleccionado) : stats.ausentesJustificados ? `${stats.ausentesJustificados} just.` : ""} />}
+            {mostrarAusenciasRango && <KpiCard label="Ausencias" value={ausenciasRango.length} color={ausenciasRango.length ? C.red : C.green} />}
             <KpiCard icon={AlertTriangle} label="Anomalías" value={stats.anomalias} color={stats.anomalias ? C.cyan : C.green} sub="entrada, salida o demora" />
             <KpiCard
               icon={LogOut}
@@ -964,7 +988,7 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
 
           <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", marginBottom: 12 }}>
             <button type="button" style={{ ...selSt(vistaRapida === "marcaciones"), display: "inline-flex", alignItems: "center", gap: 6 }} onClick={() => setVistaRapida("marcaciones")}>
-              <Users size={14} /> Marcaciones
+              <Users size={14} /> {mostrarAusenciasRango ? "Asistencia" : "Marcaciones"}
             </button>
             {modo === "dia" && (
               <button type="button" style={{ ...selSt(vistaRapida === "ausentes"), display: "inline-flex", alignItems: "center", gap: 6, color: vistaRapida === "ausentes" ? C.red : C.t2 }} onClick={() => setVistaRapida("ausentes")}>
@@ -986,14 +1010,14 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
           </div>
 
           {vistaRapida !== "ausentes" && (filasVista.length === 0 ? (
-            <div style={{ color: C.t2, fontSize: 13, padding: "40px 0", textAlign: "center" }}>Sin marcaciones para este filtro.</div>
+            <div style={{ color: C.t2, fontSize: 13, padding: "40px 0", textAlign: "center" }}>{tituloRegistros === "Asistencia" ? "Sin registros para este filtro." : "Sin marcaciones para este filtro."}</div>
           ) : (
             <div style={{ background: C.panelSolid, border: `1px solid ${C.b0}`, borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,.03)" }}>
               <div style={{ minHeight: 47, padding: "10px 13px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, borderBottom: `1px solid ${C.b0}` }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
                   <Users size={16} color={C.blue} />
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: C.t0 }}>Marcaciones</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.t0 }}>{tituloRegistros}</div>
                     <div style={{ fontSize: 10, color: C.t2, marginTop: 2 }}>{filasVista.length} registros visibles</div>
                   </div>
                 </div>
@@ -1011,7 +1035,7 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
                     <Th right>Entrada</Th>
                     <Th right>Salida</Th>
                     <Th right>Horas</Th>
-                    <Th>Obs.</Th>
+                    <Th>{tituloRegistros === "Asistencia" ? "Estado y obs." : "Obs."}</Th>
                     {canArchiveEmployees && <Th>Acciones</Th>}
                   </tr>
                 </thead>
@@ -1034,6 +1058,11 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
                       <Td right mono>{r.salida ?? "—"}</Td>
                       <Td right mono color={r.diaEspecial?.tipo === "feriado" ? C.red : r.min != null ? C.t0 : C.t2}>{r.min != null ? minToHM(r.min) : "-"}</Td>
                       <Td style={{ whiteSpace: "normal", minWidth: 190 }}>
+                        {r.ausencia && (
+                          <span title={r.justificacion?.motivo} style={{ fontSize: 10, fontWeight: 650, color: r.justificacion ? C.green : C.red, background: r.justificacion ? C.greenL : C.redL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>
+                            {r.justificacion ? "Ausente justificado" : "Ausente"}
+                          </span>
+                        )}
                         {r.diaEspecial && <span title={r.diaEspecial.nombre} style={{ fontSize: 10, fontWeight: 650, color: r.diaEspecial.tipo === "feriado" ? C.red : C.t1, marginRight: 6 }}>{estadoDiaEspecial(r.diaEspecial, true, r.min == null)}</span>}
                         {r.tarde && <span style={{ fontSize: 10, fontWeight: 600, color: C.cyan, background: C.cyanL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Tarde</span>}
                         {r.sinEntrada && <span style={{ fontSize: 10, fontWeight: 600, color: C.red, background: C.redL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Sin entrada</span>}
@@ -1058,7 +1087,7 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
                           </span>
                         )}
                         {r.marcacion?.editado_por && <span title="Horario corregido manualmente" style={{ fontSize: 10, fontWeight: 600, color: C.blue, background: C.blueL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Manual</span>}
-                        {r.justificacion && <span title={r.justificacion.motivo} style={{ fontSize: 10, fontWeight: 600, color: C.green, background: C.greenL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Justificada</span>}
+                        {r.justificacion && !r.ausencia && <span title={r.justificacion.motivo} style={{ fontSize: 10, fontWeight: 600, color: C.green, background: C.greenL, borderRadius: 5, padding: "2px 5px", marginRight: 5 }}>Justificada</span>}
                         <button
                           className="presentismo-action"
                           type="button"
@@ -1066,7 +1095,7 @@ export default function PresentismoTab({ empleados, contratistas, config, canEdi
                           onClick={() => setJustModal({ emp: r.emp, fecha: r.fecha, actual: r.justificacion, marcacion: r.marcacion })}
                         >
                           <Clock3 size={12} style={{ marginRight: 4, verticalAlign: "-2px" }} />
-                          {r.justificacion ? "Revisar" : "Corregir / justificar"}
+                          {r.justificacion ? "Revisar" : r.ausencia ? "Justificar ausencia" : "Corregir / justificar"}
                         </button>
                       </Td>
                       {canArchiveEmployees && (
