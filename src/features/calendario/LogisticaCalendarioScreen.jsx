@@ -40,6 +40,7 @@ import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import { C } from "@/theme";
 import { supabase } from "@/supabaseClient";
+import { cargarFeriadosAnio } from "@/features/rrhh/feriados";
 import {
   actualizarEstadoMovimiento,
   actualizarSolicitudLogistica,
@@ -1523,7 +1524,7 @@ export default function LogisticaCalendarioScreen({ profile }) {
   const [rows, setRows] = useState([]);
   const [milestones, setMilestones] = useState([]);
   const [weather, setWeather] = useState({});
-  const [nationalHolidays, setNationalHolidays] = useState(() => new Map());
+  const [officialHolidays, setOfficialHolidays] = useState(() => new Map());
   const [obras, setObras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -1543,7 +1544,6 @@ export default function LogisticaCalendarioScreen({ profile }) {
   const [requestModal, setRequestModal] = useState(null);
   const [manualModal, setManualModal] = useState(false);
   const [coordination, setCoordination] = useState(null);
-  const visibleYear = view === "semana" ? parseDate(weekStartDate).getFullYear() : month.getFullYear();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1591,29 +1591,6 @@ export default function LogisticaCalendarioScreen({ profile }) {
   }, []);
 
   useEffect(() => {
-    let alive = true;
-    fetch(`https://nolaborables.com.ar/api/v2/feriados/${visibleYear}`)
-      .then((response) => {
-        if (!response.ok) throw new Error("No se pudieron consultar los feriados.");
-        return response.json();
-      })
-      .then((list) => {
-        if (!alive || !Array.isArray(list)) return;
-        setNationalHolidays((current) => {
-          const next = new Map(current);
-          list.forEach((holiday) => {
-            if (typeof holiday?.dia !== "number" || typeof holiday?.mes !== "number") return;
-            const date = `${visibleYear}-${String(holiday.mes).padStart(2, "0")}-${String(holiday.dia).padStart(2, "0")}`;
-            next.set(date, holiday.motivo || "Feriado nacional");
-          });
-          return next;
-        });
-      })
-      .catch(() => {});
-    return () => { alive = false; };
-  }, [visibleYear]);
-
-  useEffect(() => {
     const channel = supabase.channel("calendario-logistica-ui")
       .on("postgres_changes", { event: "*", schema: "public", table: "calendario_eventos" }, load)
       .subscribe();
@@ -1643,16 +1620,45 @@ export default function LogisticaCalendarioScreen({ profile }) {
   const advancedFilterCount = [dateFrom, dateTo, obraFilter !== "todos", providerFilter !== "todos"].filter(Boolean).length;
   const hasAnyFilters = !!query || status !== "todos" || transport !== "todos" || advancedFilterCount > 0;
   const holidays = useMemo(() => {
-    const combined = new Map(nationalHolidays);
+    const combined = new Map(officialHolidays);
     milestones
       .filter((row) => row.tipo === "feriado" && row.fecha)
       .forEach((row) => combined.set(row.fecha, row.titulo || "Feriado"));
     return combined;
-  }, [milestones, nationalHolidays]);
+  }, [milestones, officialHolidays]);
 
+  const agendaFrom = dateFrom || TODAY;
   const agendaRows = useMemo(() => filtered
-    .filter((row) => row.estado !== "cancelado" && (dateFrom ? displayDate(row) >= dateFrom : displayDate(row) >= TODAY))
-    .sort((a, b) => `${displayDate(a)}${displayTime(a)}`.localeCompare(`${displayDate(b)}${displayTime(b)}`)), [dateFrom, filtered]);
+    .filter((row) => row.estado !== "cancelado" && displayDate(row) >= agendaFrom)
+    .sort((a, b) => `${displayDate(a)}${displayTime(a)}`.localeCompare(`${displayDate(b)}${displayTime(b)}`)), [agendaFrom, filtered]);
+  const lastAgendaDate = agendaRows.length ? displayDate(agendaRows.at(-1)) : agendaFrom;
+  const agendaHolidayEnd = dateTo || `${lastAgendaDate.slice(0, 4)}-12-31`;
+  const firstHolidayYear = view === "semana" ? Number(weekStartDate.slice(0, 4))
+    : view === "agenda" ? Number(agendaFrom.slice(0, 4)) : month.getFullYear();
+  const lastHolidayYear = view === "semana" ? Number(dateAdd(weekStartDate, 6).slice(0, 4))
+    : view === "agenda" ? Number(agendaHolidayEnd.slice(0, 4)) : firstHolidayYear;
+
+  useEffect(() => {
+    if (view !== "agenda" && view !== "semana" && view !== "calendario") return;
+    let alive = true;
+    const firstYear = Math.max(2016, firstHolidayYear);
+    if (lastHolidayYear - firstYear > 100) return;
+    for (let year = firstYear; year <= lastHolidayYear; year += 1) {
+      // Cada año se carga por su cuenta para las semanas que cruzan Año Nuevo.
+      cargarFeriadosAnio(year).then((list) => {
+        if (!alive) return;
+        setOfficialHolidays((current) => {
+          const next = new Map(current);
+          for (const day of list) {
+            if (day.tipo === "feriado") next.set(day.fecha, day.nombre);
+          }
+          return next;
+        });
+      }).catch(() => {});
+    }
+    return () => { alive = false; };
+  }, [firstHolidayYear, lastHolidayYear, view]);
+
   const groups = useMemo(() => {
     const acc = {};
     agendaRows.forEach((row) => {
@@ -1661,14 +1667,19 @@ export default function LogisticaCalendarioScreen({ profile }) {
     });
     if (status === "todos" && transport === "todos" && obraFilter === "todos" && providerFilter === "todos") {
       const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
-      milestones.filter((row) => row.tipo !== "feriado" && row.fecha >= (dateFrom || TODAY) && (!dateTo || row.fecha <= dateTo)).forEach((row) => {
+      milestones.filter((row) => row.tipo !== "feriado" && row.fecha >= agendaFrom && (!dateTo || row.fecha <= dateTo)).forEach((row) => {
         const haystack = [row.titulo, row.obra, row.notas, row.tipo].join(" ").toLowerCase();
         if (words.length && !words.every((word) => haystack.includes(word))) return;
         (acc[row.fecha] ||= { movements: [], legacy: [] }).legacy.push(row);
       });
+      for (const [date, holiday] of holidays) {
+        if (date < agendaFrom || date > agendaHolidayEnd) continue;
+        const label = `feriado ${holiday.toLowerCase()}`;
+        if (words.every((word) => label.includes(word))) acc[date] ||= { movements: [], legacy: [] };
+      }
     }
     return acc;
-  }, [agendaRows, dateFrom, dateTo, milestones, obraFilter, providerFilter, query, status, transport]);
+  }, [agendaFrom, agendaHolidayEnd, agendaRows, dateTo, holidays, milestones, obraFilter, providerFilter, query, status, transport]);
   const metrics = useMemo(() => ({
     pending: rows.filter((row) => row.estado === "solicitado").length,
     proposals: rows.filter((row) => row.estado === "fecha_propuesta").length,
@@ -1854,12 +1865,13 @@ export default function LogisticaCalendarioScreen({ profile }) {
               <div className="log-view-enter" style={{ display: "grid", gap: 20 }}>
                 {Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([date, dateRows], groupIndex) => {
                   const holiday = holidays.get(date);
+                  const count = dateRows.movements.length + dateRows.legacy.length;
                   return <section className="log-day-group" key={date} style={{ animationDelay: `${Math.min(groupIndex, 8) * 40}ms` }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 9 }}>
                       <span style={{ minWidth: date === TODAY ? 48 : 0, padding: date === TODAY ? "5px 9px" : 0, borderRadius: 8, border: date === TODAY ? `1px solid ${C.blueB}` : 0, background: date === TODAY ? C.blueL : "transparent", color: date === TODAY ? C.blue : C.text, fontSize: 12, fontWeight: 750, textTransform: "capitalize" }}>{date === TODAY ? "Hoy" : fmtDate(date, true)}</span>
                       {holiday && <span title={holiday} style={{ maxWidth: 280, padding: "4px 8px", borderRadius: 7, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, fontSize: 9.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Feriado · {holiday}</span>}
                       <span style={{ flex: 1, height: 1, background: C.border }} />
-                      <span style={{ height: 23, minWidth: 23, padding: "0 7px", borderRadius: 99, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, display: "grid", placeItems: "center", fontFamily: C.mono, fontSize: 9.5 }}>{dateRows.movements.length + dateRows.legacy.length}</span>
+                      {count > 0 && <span style={{ height: 23, minWidth: 23, padding: "0 7px", borderRadius: 99, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, display: "grid", placeItems: "center", fontFamily: C.mono, fontSize: 9.5 }}>{count}</span>}
                     </div>
                     <div style={{ display: "grid", gap: 7 }}>
                       {dateRows.movements.map((row, index) => <MovementCard key={row.id} row={row} onOpen={setSelected} compact={isMobile} index={index} mergeHint={mergeableIds.has(row.id)} />)}
