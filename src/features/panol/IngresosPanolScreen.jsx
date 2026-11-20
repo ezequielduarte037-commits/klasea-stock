@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowDownToLine, FileScan, Inbox } from "lucide-react";
+import { ArrowDownToLine, Inbox } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import { hasAdminAccess } from "@/lib/permissions";
 import { canonicalPanolSede } from "@/features/panol/panolApi";
@@ -12,9 +12,9 @@ import MostradorIngresos from "@/features/panol/ingresos/MostradorIngresos";
  * de los barcos), gemelo del de egresos. Recibir lo de un pedido y lo que
  * llega sin pedido es la misma pantalla.
  *
- * Lo que no es del día a día (leer un remito con IA, el archivo de remitos,
- * repartir un renglón entre obras, las novedades de un pedido) sigue en
- * /recepcion-panol, "Pedidos y remitos".
+ * El remito se escanea desde el mismo mostrador. Lo que no es del día a día
+ * (el archivo de remitos, el escáner de la PC, repartir un renglón entre
+ * obras) sigue en /recepcion-panol, "Pedidos y remitos".
  *
  * La sede es la del equipo (la misma de los mostradores de egresos y
  * consumibles). El pañolero con sede en su perfil no la elige.
@@ -52,9 +52,6 @@ export default function IngresosPanolScreen({ profile }) {
                 ))}
               </div>
             )}
-            <Link to="/recepcion-panol?tab=scanner" className="ui-btn" title="Escanear el remito y que la IA lo lea">
-              <FileScan size={15} aria-hidden="true" /> <span className="egp-largo">Escanear remito</span>
-            </Link>
             <Link to="/recepcion-panol?tab=recepcion" className="ui-btn" title="Todos los pedidos, el archivo de remitos y el ingreso completo">
               <Inbox size={15} aria-hidden="true" /> <span className="egp-largo">Pedidos y remitos</span>
             </Link>

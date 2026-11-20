@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Camera, History, Maximize2, Minimize2, RotateCcw, ScanBarcode, X } from "lucide-react";
+import { Camera, FileScan, History, Maximize2, Minimize2, RotateCcw, ScanBarcode, X } from "lucide-react";
 import Cargando from "@/components/ui/Cargando";
 import { useToast } from "@/components/ui/Toast";
 import { plegarMenu } from "@/lib/menuLateral";
@@ -21,11 +21,13 @@ import {
   cambiarObra,
   cambiarVariante,
   cantidadDe,
+  cargarRemito,
   fijarCantidad,
   materialesPorCodigo,
   planDeIngreso,
   problemasDelCarrito,
   quitarLinea,
+  referenciaDeRemito,
   refrescarCarrito,
   renglonesDeMaterial,
   renglonesPorCodigo,
@@ -35,8 +37,10 @@ import {
   sumarSinFicha,
   sumarSinPedido,
   ultimaLinea,
+  vinculosDelRemito,
 } from "./ingresosLogica";
-import { fetchPedidosEnCamino, fetchUltimosIngresos, guardarNovedad, registrarIngreso } from "./ingresosApi";
+import { fetchPedidosEnCamino, fetchUltimosIngresos, guardarNovedad, registrarIngreso, vincularRemito } from "./ingresosApi";
+import { EscanearRemito, RemitoEnCarrito } from "./PiezasRemito";
 import {
   BotoneraIngreso, CarritoIngreso, ConfirmarIngreso, ElegirObra, ElegirRenglon, ListoIngreso,
   NovedadRenglon, PieConfirmar, SinFicha, UltimosIngresos,
@@ -53,8 +57,10 @@ import { CSS_INGRESO } from "./estilosIngreso";
  *   2. CONFIRMAR. Lo que llega sin pedido pide el número de remito. Enter.
  *   3. LISTO.     Resumen unos segundos y vuelve a empezar.
  *
- * Lo que necesita más que eso (leer el remito con IA, repartir un renglón
- * entre obras, precios, novedades de un pedido) sigue en Pedidos y remitos.
+ * El remito se puede escanear acá mismo: la IA lo lee y sus renglones entran
+ * al carrito con la misma regla del lector (primero a los pedidos). Lo que
+ * necesita más (repartir un renglón entre obras, precios, el archivo de
+ * remitos) sigue en Pedidos y remitos.
  *
  * Sin cola sin conexión: panol_marcar_items y panol_crear_envio no son
  * idempotentes y un reintento podría ingresar dos veces.
@@ -64,6 +70,7 @@ const FOCO_KEY = "klasea.panol.mostrador.foco";
 const LISTO_MS = 4500;
 const ENTERAS = new Set(["unidad", "unidades", "u", "un", "uni", "par", "pares", "juego", "juegos", "kit", "kits", "caja", "cajas", "rollo", "rollos"]);
 const carritoKey = (sede) => `klasea:panol-ingreso-carrito.${sede}`;
+const remitoKey = (sede) => `klasea:panol-ingreso-remito.${sede}`;
 
 function leerJson(clave, porDefecto) {
   try {
@@ -111,7 +118,12 @@ export default function MostradorIngresos({ sede, profile }) {
   const [resaltado, setResaltado] = useState(0);
   const [capa, setCapa] = useState(null);
   const [camara, setCamara] = useState(false);
-  const [referencia, setReferencia] = useState("");
+  // El remito escaneado cuyas líneas están en el carrito: { id, referencia, archivoUrl }.
+  const [remito, setRemito] = useState(() => {
+    const v = leerJson(remitoKey(sede), null);
+    return v && v.id ? v : null;
+  });
+  const [referencia, setReferencia] = useState(() => remito?.referencia || "");
   const [guardando, setGuardando] = useState(false);
   const [guardandoNovedad, setGuardandoNovedad] = useState(false);
   const [errorOperacion, setErrorOperacion] = useState("");
@@ -216,6 +228,7 @@ export default function MostradorIngresos({ sede, profile }) {
   }, [envios, pedidos]);
 
   useEffect(() => { guardarJson(carritoKey(sede), cart, !cart.length); }, [cart, sede]);
+  useEffect(() => { guardarJson(remitoKey(sede), remito, !remito); }, [remito, sede]);
 
   // ── El campo del lector ───────────────────────────────────────────────────
   const cambiarTexto = useCallback((v) => {
@@ -446,13 +459,24 @@ export default function MostradorIngresos({ sede, profile }) {
     setErrorOperacion("");
     const plan = planDeIngreso(items, { sede, referencia });
     try {
-      await registrarIngreso({ ...plan, actor: profile });
+      const hecho = await registrarIngreso({ ...plan, actor: profile });
+      // Los renglones del remito quedan marcados en el envío donde entraron.
+      // El stock ya quedó: si esto falla, sólo falta la marca en el remito.
+      if (remito) {
+        const vinculos = vinculosDelRemito(items, { envioCreado: hecho?.creado || null });
+        if (vinculos.length) {
+          await vincularRemito(remito.id, vinculos).catch(() => {
+            toast.warning("El ingreso quedó, pero el remito no quedó marcado como ingresado. Revisalo en Pedidos y remitos.");
+          });
+        }
+      }
       if (!vivoRef.current) return;
       const resumen = resumenDelIngreso(items, { obras, sede, referencia });
       if (plan.crear && plan.crear.items.some((i) => !i.material_id)) {
         toast.info("Lo que entró sin ficha queda para Técnica en «Productos a crear».");
       }
       aplicarCarrito([]);
+      setRemito(null);
       setListo(resumen);
       setPaso("listo");
       setRefrescando(true);
@@ -494,6 +518,7 @@ export default function MostradorIngresos({ sede, profile }) {
   // ── Otras acciones ────────────────────────────────────────────────────────
   function vaciar() {
     aplicarCarrito([]);
+    setRemito(null);
     empezarDeNuevo();
     enfocarCampo();
   }
@@ -540,9 +565,57 @@ export default function MostradorIngresos({ sede, profile }) {
     }
   }
 
+  /** Los renglones que la IA leyó del remito, al carrito (primero a los pedidos). */
+  function cargarDelRemito(receipt, { duplicado = false } = {}) {
+    if (!editable()) return;
+    if (remito?.id === receipt.id) { setCapa(null); toast.info("Ese remito ya está en el carrito."); return; }
+    if (remito && cartRef.current.some((l) => l.remitoItems?.length)) {
+      toast.warning(`En el carrito está el ${remito.referencia}: confirmalo o vacialo antes de cargar otro.`);
+      return;
+    }
+    if (!catalogo || !envios) { toast.info("Todavía estoy trayendo los pedidos y el catálogo. Probá de nuevo en un momento."); return; }
+    const { cart: siguiente, resumen } = cargarRemito(cartRef.current, receipt.items || [], { pedidos, catalogo });
+    const entraron = resumen.aPedidos + resumen.sinPedido + resumen.sinFicha;
+    const nombre = referenciaDeRemito(receipt);
+    if (!entraron) {
+      toast.warning(resumen.yaIngresados
+        ? `${nombre} ya se ingresó.`
+        : resumen.consumibles.length
+          ? `${nombre} es de consumibles: va por Consumibles → Ingresos.`
+          : `La IA no encontró renglones con cantidad en ${nombre}. Cargalo a mano.`);
+      return;
+    }
+    aplicarCarrito(siguiente);
+    setRemito({ id: receipt.id, referencia: nombre, archivoUrl: receipt.archivo_url || null });
+    if (!referencia.trim()) setReferencia(nombre);
+    setCapa(null);
+    const partes = [
+      resumen.aPedidos ? `${resumen.aPedidos} a pedidos` : "",
+      resumen.sinPedido ? `${resumen.sinPedido} sin pedido` : "",
+      resumen.sinFicha ? `${resumen.sinFicha} sin ficha` : "",
+    ].filter(Boolean).join(", ");
+    toast.success(`${duplicado ? "Ya estaba escaneado. " : ""}${nombre}: ${partes}. Revisá las cantidades antes de confirmar.`);
+    const avisos = [
+      resumen.consumibles.length ? `${resumen.consumibles.length} de consumibles no entraron (van por Consumibles → Ingresos)` : "",
+      resumen.sinCantidad.length ? `${resumen.sinCantidad.length} sin cantidad: cargalos a mano` : "",
+      resumen.yaIngresados ? `${resumen.yaIngresados} ya se habían ingresado` : "",
+    ].filter(Boolean);
+    if (avisos.length) toast.warning(`${avisos.join(" · ")}.`);
+  }
+
   // ── Capas ─────────────────────────────────────────────────────────────────
   let capaVista = null;
-  if (capa?.tipo === "novedad") {
+  if (capa?.tipo === "remito") {
+    capaVista = (
+      <EscanearRemito
+        sede={sede}
+        esTactil={esTactil}
+        remitoActual={remito}
+        onLeido={cargarDelRemito}
+        onCerrar={() => setCapa(null)}
+      />
+    );
+  } else if (capa?.tipo === "novedad") {
     capaVista = (
       <NovedadRenglon
         key={capa.renglon.id}
@@ -663,6 +736,10 @@ export default function MostradorIngresos({ sede, profile }) {
         </div>
 
         <div className="mst-estados">
+          <button type="button" className="mst-icono-btn ing-remito-btn" disabled={guardando || cargando} onClick={() => setCapa({ tipo: "remito" })} aria-label="Escanear remito" title="Escanear el remito y que la IA cargue los renglones">
+            <FileScan size={16} aria-hidden="true" />
+            {!angosto ? <span>Escanear remito</span> : null}
+          </button>
           {esTactil || angosto ? (
             <button type="button" className="mst-icono-btn" onClick={() => setCamara(true)} aria-label="Escanear con la cámara" title="Escanear con la cámara">
               <Camera size={16} />
@@ -720,6 +797,7 @@ export default function MostradorIngresos({ sede, profile }) {
 
         <div className="mst-col mst-col-carrito">
           <fieldset disabled={guardando} style={{ border: 0, padding: 0, margin: 0, minWidth: 0, display: "contents" }}>
+            {remito ? <RemitoEnCarrito remito={remito} onSoltar={() => setRemito(null)} /> : null}
             <CarritoIngreso
               cart={cart}
               obras={obras}

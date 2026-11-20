@@ -7,6 +7,14 @@ import {
   marcarItems,
 } from "@/features/panol/panolApi";
 import { notifyWaUpdate } from "@/features/compras/purchaseRequestsApi";
+import {
+  archivarRemito,
+  fetchScannedReceipts,
+  leerRemitoConIA,
+  linkScannedReceiptToIngreso,
+  remitoSinLeer,
+  scannerReceiptFileUrl,
+} from "@/features/panol/remitosScannerApi";
 import { mensajeDeNovedad } from "./ingresosLogica";
 
 /**
@@ -168,4 +176,52 @@ export async function guardarNovedad({ renglon, estado = null, nota = "" }) {
   // El estado ya quedó; el mensaje es para que Compras lo vea en el historial.
   const comentado = await comentarEnvio(renglon.envioId, `Novedad · ${mensaje}`).then(() => true, () => false);
   return { comentado };
+}
+
+// ── Remitos escaneados ──────────────────────────────────────────────────────
+// Las mismas piezas del escáner de remitos (remitosScannerApi): el papel se
+// guarda siempre y después la IA lo lee. Acá sólo cambia a dónde van los
+// renglones leídos: al carrito del mostrador, no al ingreso completo.
+
+const REMITO_CERRADO = new Set(["ingresado", "archivado"]);
+
+/** Los remitos de la sede que se escanearon y todavía no se terminaron de ingresar. */
+export async function fetchRemitosPorIngresar(sede) {
+  const lista = await fetchScannedReceipts({ sede, limit: 40 });
+  return lista.filter((r) => r.es_consumible !== true
+    && !REMITO_CERRADO.has(r.recepcion_estado)
+    && !((r.items || []).length && r.items.every((it) => it.scanner_ingreso_envio_id)));
+}
+
+/**
+ * Guarda el archivo y lo lee. Devuelve el remito con sus renglones, o el
+ * motivo por el que la IA no pudo (el papel queda guardado igual).
+ */
+export async function escanearRemito(file, { sede }) {
+  const { receipt, lectura, duplicado } = await archivarRemito(file, { sede });
+  if (duplicado) {
+    if (remitoSinLeer(receipt)) return releerRemito(receipt);
+    return { ok: true, receipt, duplicado: true, dudas: [] };
+  }
+  if (lectura && !lectura.ok) return { ok: false, receipt, mensaje: lectura.mensaje };
+  return { ok: true, receipt: lectura?.receipt || receipt, duplicado: false, dudas: lectura?.dudas || [] };
+}
+
+/** Lee (o relee) un remito ya guardado que no tiene renglones. */
+export async function releerRemito(receipt) {
+  const lectura = await leerRemitoConIA(receipt);
+  if (!lectura.ok) return { ok: false, receipt: lectura.receipt || receipt, mensaje: lectura.mensaje };
+  return { ok: true, receipt: lectura.receipt, duplicado: false, dudas: lectura.dudas || [] };
+}
+
+export { remitoSinLeer, scannerReceiptFileUrl };
+
+/**
+ * Marca los renglones del remito como ingresados en el envío donde quedaron.
+ * Va en orden: cada llamada recalcula el estado del remito con todo lo anterior.
+ */
+export async function vincularRemito(remitoId, vinculos = []) {
+  for (const v of vinculos) {
+    await linkScannedReceiptToIngreso(remitoId, v.envioId, v.items);
+  }
 }

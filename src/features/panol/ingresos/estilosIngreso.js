@@ -38,6 +38,33 @@ export const CSS_INGRESO = `
 }
 .mst.ing .ing-novedad-btn:hover { border-color: var(--border-2); background: var(--panel); color: var(--violet); }
 .mst.ing .ing-novedad-opcion.is-rechazado.is-elegida { border-color: var(--red); background: var(--red-soft); }
+.mst.ing .ing-remito-btn { width: auto; padding: 0 12px; gap: 7px; display: inline-flex; align-items: center; font: inherit; font-size: 13px; font-weight: 600; color: var(--text); }
+.mst.ing.is-angosto .ing-remito-btn { padding: 0; width: 40px; justify-content: center; }
+.mst.ing .ing-remito-botones { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.mst.ing .ing-remito-boton {
+  display: grid; justify-items: start; gap: 4px; padding: 16px; min-height: 110px; text-align: left;
+  border: 1px solid var(--border-2); border-radius: 14px; background: var(--panel-solid); color: var(--text); font: inherit;
+}
+.mst.ing .ing-remito-boton svg { color: var(--blue); margin-bottom: 4px; }
+.mst.ing .ing-remito-boton strong { font-size: 16px; font-weight: 650; }
+.mst.ing .ing-remito-boton span { font-size: 12.5px; color: var(--dim); }
+.mst.ing .ing-remito-boton:hover { border-color: var(--blue); }
+.mst.ing .ing-remito-boton.is-principal { border-color: var(--blue-border); background: var(--blue-soft); }
+.mst.ing .ing-remito-leyendo { display: flex; align-items: center; gap: 14px; padding: 18px; border: 1px solid var(--blue-border); border-radius: 14px; background: var(--blue-soft); color: var(--blue); }
+.mst.ing .ing-remito-leyendo div { display: grid; gap: 2px; }
+.mst.ing .ing-remito-leyendo strong { font-size: 15px; color: var(--text); }
+.mst.ing .ing-remito-leyendo span { font-size: 12.5px; color: var(--muted); }
+.mst.ing .ing-remito-vacio { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--dim); padding: 6px 2px; }
+.mst.ing .ing-remito-lista { display: grid; gap: 6px; }
+.mst.ing .ing-remito-fila { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-solid); }
+.mst.ing .ing-remito-texto { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.mst.ing .ing-remito-texto strong { font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mst.ing .ing-remito-texto span { font-size: 12px; color: var(--dim); }
+.mst.ing .ing-remito-carrito {
+  display: flex; align-items: center; gap: 8px; margin: 0 0 8px; padding: 6px 6px 6px 10px;
+  border: 1px solid var(--blue-border); border-radius: 10px; background: var(--blue-soft); color: var(--blue); font-size: 13px;
+}
+.mst.ing .ing-remito-carrito-texto { flex: 1; min-width: 0; color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mst.ing .ing-mov { display: block; color: inherit; text-decoration: none; }
 .mst.ing .ing-mov:hover { background: var(--panel); }
 .mst.ing.is-angosto .ing-pedido-cab .ui-btn { flex: 1; justify-content: center; }

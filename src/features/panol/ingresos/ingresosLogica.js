@@ -309,6 +309,12 @@ export function quitarLinea(cart = [], key) {
   return cart.filter((l) => l.key !== key);
 }
 
+/** Dos líneas que quedaron iguales se juntan: suman y conservan de qué renglones del remito vienen. */
+function juntarLineas(destino, otra) {
+  const remitoItems = [...new Set([...(destino.remitoItems || []), ...(otra.remitoItems || [])])];
+  return { ...destino, cantidad: texto(cantidadDe(destino) + cantidadDe(otra)), ...(remitoItems.length ? { remitoItems } : {}) };
+}
+
 /** Cambia la obra (o stock) de una línea sin pedido. Si ya había otra igual, se juntan. */
 export function cambiarObra(cart = [], key, obraId = null) {
   const l = cart.find((x) => x.key === key);
@@ -321,7 +327,7 @@ export function cambiarObra(cart = [], key, obraId = null) {
   if (otra) {
     return cart
       .filter((x) => x.key !== key)
-      .map((x) => (x.key === nueva ? { ...x, cantidad: texto(cantidadDe(x) + cantidadDe(l)) } : x));
+      .map((x) => (x.key === nueva ? juntarLineas(x, l) : x));
   }
   return cart.map((x) => (x.key === key ? { ...x, key: nueva, obraId: obraId || null } : x));
 }
@@ -335,7 +341,7 @@ export function cambiarVariante(cart = [], key, variante = "") {
   if (otra) {
     return cart
       .filter((x) => x.key !== key)
-      .map((x) => (x.key === nueva ? { ...x, cantidad: texto(cantidadDe(x) + cantidadDe(l)) } : x));
+      .map((x) => (x.key === nueva ? juntarLineas(x, l) : x));
   }
   return cart.map((x) => (x.key === key ? { ...x, key: nueva, variante: variante || "" } : x));
 }
@@ -519,4 +525,125 @@ export function mensajeDeNovedad(r = {}, estado = null, nota = "") {
   const que = estado ? NOVEDADES[estado]?.corto : r.llego > 0 && r.pedido != null ? `llegaron ${texto(r.llego)} de ${texto(r.pedido)}` : "novedad";
   const extra = String(nota || "").trim();
   return `${r.descripcion}: ${que}${extra ? `. ${extra}` : ""}`;
+}
+
+// ── Remito escaneado ─────────────────────────────────────────────────────────
+
+/** "Remito 0001-00012345 · Proveedor": el texto que va como referencia del ingreso. */
+export function referenciaDeRemito(remito = {}) {
+  const numeroRemito = String(remito.numero || "").trim();
+  const proveedor = String(remito.proveedor || "").trim();
+  const titulo = String(remito.titulo || "").trim();
+  if (!numeroRemito && !proveedor) return titulo || "Remito escaneado";
+  return [`Remito${numeroRemito ? ` ${numeroRemito}` : ""}`, proveedor].filter(Boolean).join(" · ");
+}
+
+function conRemito(cart, key, itemId) {
+  return cart.map((l) => (l.key === key
+    ? { ...l, remitoItems: [...new Set([...(l.remitoItems || []), itemId])] }
+    : l));
+}
+
+function renglonesPorDescripcion(pedidos = [], descripcion = "") {
+  const buscado = normalizarTexto(descripcion);
+  if (!buscado) return [];
+  const out = [];
+  for (const p of pedidos) for (const r of p.renglones) if (normalizarTexto(r.descripcion) === buscado) out.push(r);
+  return out;
+}
+
+/**
+ * Carga los renglones que la IA leyó de un remito, con la misma regla que el
+ * lector: lo que tiene un renglón esperando va a ese pedido (repartido en
+ * orden, hasta lo que falta de cada uno) y lo que sobra entra sin pedido al
+ * stock. Lo que no está en el catálogo entra sin ficha (Productos a crear).
+ *
+ * Cuando la IA dudó del producto (`scanner_material_sugerido_id` sin
+ * `material_id`), la sugerencia sólo se usa si hay un renglón de ese producto
+ * esperando: un pedido abierto lo confirma. Si no, entra sin ficha.
+ *
+ * Los consumibles no entran: van por Consumibles → Ingresos.
+ * Cada línea guarda de qué renglones del remito viene (`remitoItems`) para
+ * marcarlos ingresados al confirmar.
+ */
+export function cargarRemito(cart = [], items = [], { pedidos = [], catalogo = [] } = {}) {
+  const porId = new Map(catalogo.map((m) => [m.id, m]));
+  const resumen = { aPedidos: 0, sinPedido: 0, sinFicha: 0, dudosos: 0, consumibles: [], sinCantidad: [], yaIngresados: 0 };
+  let c = cart;
+  // Lo que ya está en el carrito para ese renglón; uno frenado (ya recibido en otro equipo) no admite más.
+  const enCarrito = (r) => {
+    const l = c.find((x) => x.key === `r:${r.id}`);
+    if (!l) return 0;
+    return l.yaRecibido ? Infinity : cantidadDe(l);
+  };
+
+  for (const it of items) {
+    if (it.scanner_ingreso_envio_id) { resumen.yaIngresados += 1; continue; }
+    const descripcion = String(it.descripcion || it.descripcion_original || "").trim();
+    const cant = numero(it.cantidad);
+    if (!(cant > 0)) { resumen.sinCantidad.push(descripcion || "Renglón sin descripción"); continue; }
+    const unidad = it.scanner_unidad || "unidad";
+    const sugerido = !it.material_id && it.scanner_material_sugerido_id ? porId.get(it.scanner_material_sugerido_id) || null : null;
+    const material = it.material_id
+      ? porId.get(it.material_id) || { id: it.material_id, descripcion, unidad }
+      : null;
+    if ((material || sugerido)?.es_consumible) { resumen.consumibles.push(descripcion); continue; }
+
+    const candidatos = material
+      ? renglonesDeMaterial(pedidos, material.id)
+      : sugerido
+        ? renglonesDeMaterial(pedidos, sugerido.id)
+        : renglonesPorDescripcion(pedidos, descripcion);
+    let resto = cant;
+    let fueAPedido = false;
+    for (const r of candidatos) {
+      if (resto <= 0) break;
+      // Un renglón sin cantidad pedida recibe todo, si todavía no tiene nada en el carrito.
+      const lugar = r.falta == null ? (enCarrito(r) > 0 ? 0 : resto) : redondo(r.falta - enCarrito(r));
+      if (!(lugar > 0)) continue;
+      const toma = Math.min(lugar, resto);
+      c = conRemito(sumarRenglon(c, r, toma), `r:${r.id}`, it.id);
+      resto = redondo(resto - toma);
+      fueAPedido = true;
+    }
+    if (fueAPedido) {
+      resumen.aPedidos += 1;
+      if (sugerido) resumen.dudosos += 1;
+    }
+    if (resto > 0) {
+      if (material) {
+        c = sumarSinPedido(c, material, { cantidad: resto });
+        c = conRemito(c, `m:${material.id}:${STOCK}:`, it.id);
+        if (!fueAPedido) resumen.sinPedido += 1;
+      } else {
+        c = sumarSinFicha(c, { descripcion, cantidad: resto, unidad });
+        c = conRemito(c, `n:${normalizarTexto(descripcion)}:${codeKey("")}:${STOCK}`, it.id);
+        if (!fueAPedido) resumen.sinFicha += 1;
+      }
+    }
+  }
+  return { cart: c, resumen };
+}
+
+/**
+ * Qué renglón del remito quedó en qué envío, para marcarlo ingresado: los de
+ * un pedido en el envío de ese pedido, los sin pedido en el envío nuevo.
+ * Si un renglón del remito se repartió, cuenta el primer envío.
+ */
+export function vinculosDelRemito(cart = [], { envioCreado = null } = {}) {
+  const porItem = new Map();
+  for (const l of cart) {
+    if (!(cantidadDe(l) > 0)) continue;
+    const envioId = l.tipo === "pedido" ? l.envioId : envioCreado;
+    if (!envioId) continue;
+    for (const id of l.remitoItems || []) {
+      if (!porItem.has(id)) porItem.set(id, { envioId, materialId: l.materialId || null });
+    }
+  }
+  const porEnvio = new Map();
+  for (const [id, v] of porItem) {
+    if (!porEnvio.has(v.envioId)) porEnvio.set(v.envioId, []);
+    porEnvio.get(v.envioId).push({ scanner_item_id: id, material_id: v.materialId });
+  }
+  return [...porEnvio.entries()].map(([envioId, items]) => ({ envioId, items }));
 }

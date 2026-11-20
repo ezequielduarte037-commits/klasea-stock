@@ -19,6 +19,11 @@ import {
   sumarSinFicha,
   sumarSinPedido,
   agruparUltimos,
+  cargarRemito,
+  cambiarVariante,
+  planDeIngreso as plan2,
+  referenciaDeRemito,
+  vinculosDelRemito,
 } from "./ingresosLogica.js";
 
 const terminal = { id: "m1", descripcion: "Terminal preaislado ojal 6mm", codigo: "TP6", codigo_barra: "7790001", unidad: "unidad" };
@@ -160,4 +165,67 @@ test("novedades: sin nada recibido cambia el estado; con parte recibida sólo av
   assert.equal(opcionesDeNovedad(cable).modo, "mensaje");
   assert.equal(mensajeDeNovedad(cable, null, "el resto la semana que viene"), "Cable 6mm: llegaron 40 de 100. el resto la semana que viene");
   assert.equal(mensajeDeNovedad(terminalR, "rechazado"), "Terminal preaislado ojal 6mm: rechazado");
+});
+
+test("un remito escaneado va primero a los renglones que lo esperan y lo que sobra a stock", () => {
+  const pedidos = armarPedidos(envios);
+  const catalogo = [terminal, { id: "m9", descripcion: "Tornillo", unidad: "unidad" }, { id: "mc", descripcion: "Lija", es_consumible: true }];
+  const items = [
+    { id: "s1", descripcion: "TERMINAL OJAL 6", cantidad: "60", material_id: "m1" },
+    { id: "s2", descripcion: "Cable 6mm", cantidad: "60" },
+    { id: "s3", descripcion: "Tornillo", cantidad: "10", material_id: "m9" },
+    { id: "s4", descripcion: "Lija al agua 220", cantidad: "5", material_id: "mc" },
+    { id: "s5", descripcion: "Pieza rara", cantidad: "2", scanner_unidad: "unidad" },
+    { id: "s6", descripcion: "Sin cantidad", cantidad: "" },
+    { id: "s7", descripcion: "Ya entró", cantidad: "1", material_id: "m9", scanner_ingreso_envio_id: "e0" },
+  ];
+  const { cart, resumen } = cargarRemito([], items, { pedidos, catalogo });
+  const linea = (k) => cart.find((l) => l.key === k);
+  // 50 al renglón del pedido, los 10 de más a stock sin pedido.
+  assert.equal(linea("r:i1").cantidad, "50");
+  assert.deepEqual(linea("r:i1").remitoItems, ["s1"]);
+  assert.equal(linea("m:m1:stock:").cantidad, "10");
+  // Sin producto en el catálogo pero con la descripción exacta del renglón.
+  assert.equal(linea("r:i2").cantidad, "60");
+  assert.equal(linea("m:m9:stock:").cantidad, "10");
+  assert.ok(cart.some((l) => l.tipo === "nuevo" && l.label === "Pieza rara" && l.remitoItems[0] === "s5"));
+  assert.equal(resumen.aPedidos, 2);
+  assert.equal(resumen.sinPedido, 1);
+  assert.equal(resumen.sinFicha, 1);
+  assert.deepEqual(resumen.consumibles, ["Lija al agua 220"]);
+  assert.deepEqual(resumen.sinCantidad, ["Sin cantidad"]);
+  assert.equal(resumen.yaIngresados, 1);
+
+  // Lo que ya estaba en el carrito cuenta: no se pasa de lo que falta.
+  const otra = cargarRemito(sumarRenglon([], pedidos[1].renglones.find((r) => r.id === "i1"), 45), [{ id: "t1", cantidad: "8", material_id: "m1" }], { pedidos, catalogo });
+  assert.equal(otra.cart.find((l) => l.key === "r:i1").cantidad, "50");
+  assert.equal(otra.cart.find((l) => l.key === "m:m1:stock:").cantidad, "3");
+});
+
+test("una sugerencia dudosa de la IA sólo vale si un pedido la espera", () => {
+  const pedidos = armarPedidos(envios);
+  const { cart, resumen } = cargarRemito([], [
+    { id: "d1", descripcion: "TERM. 6", cantidad: "5", scanner_material_sugerido_id: "m1" },
+    { id: "d2", descripcion: "Algo parecido", cantidad: "1", scanner_material_sugerido_id: "m9" },
+  ], { pedidos, catalogo: [terminal, { id: "m9", descripcion: "Tornillo" }] });
+  assert.equal(cart.find((l) => l.key === "r:i1").cantidad, "5");
+  assert.equal(resumen.dudosos, 1);
+  assert.ok(cart.some((l) => l.tipo === "nuevo" && l.label === "Algo parecido"));
+});
+
+test("al confirmar, cada renglón del remito queda en su envío", () => {
+  const pedidos = armarPedidos(envios);
+  let { cart } = cargarRemito([], [
+    { id: "s1", cantidad: "60", material_id: "m1" },
+    { id: "s3", cantidad: "2", material_id: "m9" },
+  ], { pedidos, catalogo: [terminal, { id: "m9", descripcion: "Tornillo", variantes: ["A"] }] });
+  cart = cambiarVariante(cart, "m:m9:stock:", "A");
+  const v = vinculosDelRemito(cart, { envioCreado: "nuevo" });
+  assert.deepEqual(v, [
+    { envioId: "e1", items: [{ scanner_item_id: "s1", material_id: "m1" }] },
+    { envioId: "nuevo", items: [{ scanner_item_id: "s3", material_id: "m9" }] },
+  ]);
+  assert.ok(plan2(cart, { sede: "Chubut", referencia: "R" }).crear.items.length === 2);
+  assert.equal(referenciaDeRemito({ numero: "0001-123", proveedor: "Janored" }), "Remito 0001-123 · Janored");
+  assert.equal(referenciaDeRemito({}), "Remito escaneado");
 });
