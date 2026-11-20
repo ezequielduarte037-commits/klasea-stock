@@ -381,3 +381,47 @@ update panol_obra_materiales_snapshot s set requisito_material_id=a.req,
   from atar a where s.id=a.sid;
 
 commit;
+
+-- ═════════ Quinta pasada (más ingresos y retiros parciales, 20/11) ═════════
+begin;
+select set_config('app.audit_origin','depuracion_duplicados',true);
+select set_config('app.audit_note','Ingreso atado al requisito de la matriz (20/11/2026)',true);
+
+create temp table atar5(obra text, sid uuid, req uuid) on commit drop;
+insert into atar5 values
+ ('37-40','ff5be2c3-8b52-4b9c-ba89-889fc478d28b','d14c321f-8e0b-42df-9180-44f72374ef30'), -- caja de piso (retiro parcial)
+ ('37-40','f6eb5154-eff8-4264-a312-8b6b9ab395ae','4095c16e-4b0f-4924-92ad-067b49548242'), -- tira LED cob
+ ('37-40','65bb946f-39ee-461b-b6cc-7f6ee882b420','800cbfc4-117c-40f4-869c-f1577e23524a'), -- plotter Simrad
+ ('37-40','68b0cf79-100b-4ece-836d-f18d03060e48','d786e85d-e73b-4a9c-807e-66b4cb8df5d4'), -- monocomando ducha FV Libby
+ ('37-41','1c4462b9-de1c-458c-8930-1280f6435b0f','d14c321f-8e0b-42df-9180-44f72374ef30'), -- caja de piso (retiro parcial)
+ ('37-43','43bf51fa-44f0-4788-ad31-2c92f62d3866','d14c321f-8e0b-42df-9180-44f72374ef30'), -- caja de piso (retiro parcial)
+ ('52-24','4f12d08b-5757-433d-ae53-bced81e1369b','7438ec40-44cc-4697-9e82-7fbaeb227954'), -- cava 8 botellas
+ ('52-25','734206f5-8939-4f62-9e76-9766f92fa669','ebe74b34-00c9-454e-ab61-dbd70826c4d1'), -- escalera planchada Levy
+ ('52-25','3f650cfc-e7be-4844-8332-275b5aae8b4c','29687db1-d64d-4f74-bd3c-fb8a51af0a57'), -- ánodo timón
+ ('52-25','a8dd02bc-ad17-4cfa-a421-f35c4dc92889','9821b887-9f3c-447e-b161-e19e3b54c053'), -- fabricadora de hielo
+ ('55-4','d9881a98-0e5d-40c9-9123-e6af1aaba2d3','f60a174a-e250-4f29-b084-d7b19e4e2f12'); -- bisagra codo 9 Häfele
+
+do $$
+declare n int;
+begin
+  select count(*) into n from atar5 a
+    join panol_obra_materiales_snapshot s on s.id=a.sid
+    join produccion_obras o on o.id=s.obra_id and o.codigo=a.obra
+    join panol_materiales m on m.id=a.req
+   where s.source not in ('matriz','condicionante','addon','adicional_obra')
+     and coalesce(s.requisito_material_id,s.material_id) is distinct from a.req;
+  if n<>11 then raise exception 'Cambiaron los ingresos desde la revisión: sólo % de 11 siguen sueltos.', n; end if;
+end $$;
+
+update panol_obra_materiales_snapshot s set requisito_material_id=a.req, material_id=coalesce(s.material_id, a.req)
+  from atar5 a where s.id=a.sid;
+
+-- Los retiros parciales de un ingreso ya atado siguen a su ingreso.
+update panol_obra_materiales_snapshot h set requisito_material_id=m.requisito_material_id
+  from panol_obra_materiales_snapshot m
+ where h.source='historial_retiro_parcial' and h.obra_id=m.obra_id and h.material_id=m.material_id
+   and h.requisito_material_id=h.material_id and m.requisito_material_id<>m.material_id
+   and m.source in ('remito','compra','manual','transferencia_ingreso','stock_general')
+   and m.id in (select sid from atar5);
+
+commit;
