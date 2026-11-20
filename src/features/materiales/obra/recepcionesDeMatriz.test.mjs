@@ -34,6 +34,12 @@ test("un remito sin matriz sigue como material propio; adicionales y movimientos
  const a=separarRecepcionesDeMatriz([base],[remito()],{keyOf:r=>r.materialId,esSoloMovimiento:()=>false,tieneAdicional:()=>true});
  assert.equal(a[0].soloMovimientoDeMatriz,undefined);
 });
+test("la recepción de una compra acredita como un remito y no cambia lo que pide la matriz",()=>{
+ const compra=remito({id:"compra-1",source:"compra",snapshot_tipo:"compra",cantidad:20,recepcion_cantidad_recibida:"20",panol_envio_item_id:null});
+ const plan={...base,cantidad:22,snapshot_estado:"pendiente",estadoObra:"pendiente",purchase_request_id:null};
+ const rows=separar([compra],[plan]);assert.equal(rows[0].soloMovimientoDeMatriz,true);
+ const q=cantidades(plan,rows);assert.deepEqual([q.necesita,q.panol,q.faltaComprar],[22,20,2]);
+});
 test("un ingreso anulado no suma stock ni reemplaza la necesidad",()=>{
  const [row]=separar([remito({obs:"[anulado]"})]);assert.equal(row.omitirMovimientoDeMatriz,true);assert.equal(cantidades(base,[row]).panol,0);
 });

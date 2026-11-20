@@ -1,6 +1,10 @@
 import { rowIsAnulado } from "../../panol/panolMovimientos.js";
 
-const esRemito = (row) => row?.source === "remito" || row?.snapshot_tipo === "remito";
+// La recepción de una compra para la obra (source "compra") es un ingreso
+// igual que un remito: Pañol y las revisiones ya la cuentan así. Si no, se
+// quedaba con la fila y su cantidad pasaba a ser lo que "pide" la matriz (55-4:
+// 20 bisagras compradas tapaban las 22 que pide la matriz).
+const esRemito = (row) => ["remito", "compra"].includes(row?.source) || ["remito", "compra"].includes(row?.snapshot_tipo);
 const esAdicional = (row) => row?.es_adicional === true || ["addon", "adicional_obra"].includes(row?.source) || row?.bucket?.key === "addon";
 
 /** Una recepción acredita mercadería; nunca cambia lo que requiere la matriz. */

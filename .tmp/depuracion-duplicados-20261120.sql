@@ -327,3 +327,57 @@ delete from panol_obra_material_exclusiones e using produccion_obras o
  where o.id=e.obra_id and o.codigo='52-24' and e.material_id='ad170c62-bcdb-42b6-8674-8a016ef23e92';
 
 commit;
+
+-- ═════════ Cuarta pasada (ingresos con producto, matriz con requisito, 20/11) ═════════
+-- El ingreso (remito, compra, carga manual, transferencia) quedó con el
+-- producto como requisito, así que no se unía al renglón de la matriz: la obra
+-- mostraba el ingreso "Fuera de matriz" y la matriz pidiendo comprar lo mismo.
+-- Se ata el ingreso al requisito; el producto queda como está.
+begin;
+select set_config('app.audit_origin','depuracion_duplicados',true);
+select set_config('app.audit_note','Ingreso atado al requisito de la matriz (20/11/2026)',true);
+
+create temp table atar(obra text, sid uuid, req uuid) on commit drop;
+insert into atar values
+ ('37-41','1e3152c9-cd4c-4e06-b728-6625cf7b301d','d14c321f-8e0b-42df-9180-44f72374ef30'), -- caja de piso Urben
+ ('37-41','f2011cdb-a3bc-4f84-9be4-6c6bc2aea88b','bd48be34-9bab-4972-94fd-b15b5beb871a'), -- cierre Perko gallina
+ ('37-41','00e58215-81f8-4c15-932a-176f73fad46a','4095c16e-4b0f-4924-92ad-067b49548242'), -- tira LED cob
+ ('37-41','408890ad-05b3-4229-8b97-c3b455821d8e','d786e85d-e73b-4a9c-807e-66b4cb8df5d4'), -- monocomando ducha FV Libby
+ ('37-43','61283edf-2734-42cb-925f-473f057291a9','d14c321f-8e0b-42df-9180-44f72374ef30'), -- caja de piso Urben
+ ('37-43','8f157c70-c908-4588-b329-21cab83ae0ad','57943495-9c5a-48db-a1fe-45a5feb4e1a1'), -- caja porta batería
+ ('37-43','b775bace-b1f5-4043-90f3-4076044ab38e','4095c16e-4b0f-4924-92ad-067b49548242'), -- tira LED cob
+ ('37-43','98dde53f-5f99-4e45-aadb-5f77287dbb42','bfeb4389-0683-4a7f-a2e5-d9304280b6cd'), -- monocomando ducha negro (carga manual)
+ ('37-44','06dc1809-7c1d-4b41-8eb4-1c3e099ef9cb','d14c321f-8e0b-42df-9180-44f72374ef30'), -- caja de piso Urben
+ ('37-44','5325e1b6-4d98-4e80-953c-31c17d745b1f','bfeb4389-0683-4a7f-a2e5-d9304280b6cd'), -- monocomando ducha negro (carga manual)
+ ('37-45','723adcdb-34f9-4984-9dd6-6104045b5625','d786e85d-e73b-4a9c-807e-66b4cb8df5d4'), -- monocomando ducha FV Libby
+ ('52-23','3d379f43-4b90-4eb4-ae0a-8b392f4da2f7','d14c321f-8e0b-42df-9180-44f72374ef30'), -- caja de piso Urben
+ ('52-23','9cf2f25c-3667-4e4c-8b5f-8ac86201bd08','9821b887-9f3c-447e-b161-e19e3b54c053'), -- fabricadora de hielo
+ ('52-23','35f81592-81a3-4f23-a27e-35694080d913','29687db1-d64d-4f74-bd3c-fb8a51af0a57'), -- ánodo timón
+ ('52-24','950009b1-85fe-4a99-b5f5-3fc0c7ecdc8d','7438ec40-44cc-4697-9e82-7fbaeb227954'), -- cava 8 botellas
+ ('52-24','e16329b5-b4d5-4a1b-9b60-22c44fbb4aa6','9821b887-9f3c-447e-b161-e19e3b54c053'), -- fabricadora de hielo
+ ('55-1','1cbac44c-9061-400a-b858-46bc297fdddd','f60a174a-e250-4f29-b084-d7b19e4e2f12'), -- bisagra codo 9
+ ('55-2','7ec11902-a5c6-4b88-8e67-8d1866874245','d14c321f-8e0b-42df-9180-44f72374ef30'), -- caja de piso Orbis
+ ('55-2','2d3d8a35-0018-43e0-9f9b-8a1aae3d401c','57afcf61-77e6-4a62-9acb-3471c395d8df'), -- ánodo eje
+ ('55-2','d6822899-3867-461d-b72e-48d66a3fe611','29687db1-d64d-4f74-bd3c-fb8a51af0a57'), -- ánodo timón
+ ('55-3','9198f6a9-a212-4341-90d2-1c804daf97b2','57afcf61-77e6-4a62-9acb-3471c395d8df'), -- ánodo eje
+ ('55-4','0c6cd9aa-4a70-45ca-98a6-697f28825297','0ecee772-6a45-4a95-8efe-61627217f643'), -- bisagra codo 0 Häfele
+ ('55-4','11ebb8d8-d284-4205-88b6-cf99393d47c4','f60a174a-e250-4f29-b084-d7b19e4e2f12'), -- bisagra codo 9 Häfele
+ ('55-4','6add3108-6ab5-49ea-b424-9000a2737a4e','4c86f102-b183-4a4c-87c2-f7bdb4f55a9c'); -- bisagra piano Häfele
+
+do $$
+declare n int;
+begin
+  select count(*) into n from atar a
+    join panol_obra_materiales_snapshot s on s.id=a.sid
+    join produccion_obras o on o.id=s.obra_id and o.codigo=a.obra
+    join panol_materiales m on m.id=a.req
+   where s.source not in ('matriz','condicionante','addon','adicional_obra')
+     and coalesce(s.requisito_material_id,s.material_id) is distinct from a.req;
+  if n<>24 then raise exception 'Cambiaron los ingresos desde la revisión: sólo % de 24 siguen sueltos.', n; end if;
+end $$;
+
+update panol_obra_materiales_snapshot s set requisito_material_id=a.req,
+  material_id=coalesce(s.material_id, a.req)
+  from atar a where s.id=a.sid;
+
+commit;
