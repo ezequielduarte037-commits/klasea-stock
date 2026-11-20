@@ -97,7 +97,7 @@ const esEditable = (el) => {
   return tag === "input" || tag === "textarea" || tag === "select" || Boolean(el?.isContentEditable);
 };
 
-export default function MostradorIngresos({ sede, profile }) {
+export default function MostradorIngresos({ sede, profile, pedidoInicial = null }) {
   const toast = useToast();
   const raizRef = useRef(null);
   const campoRef = useRef(null);
@@ -116,7 +116,7 @@ export default function MostradorIngresos({ sede, profile }) {
     const v = leerJson(carritoKey(sede), []);
     return Array.isArray(v) ? v : [];
   });
-  const [pedidoId, setPedidoId] = useState(null);
+  const [pedidoId, setPedidoId] = useState(pedidoInicial);
   const [texto, setTexto] = useState("");
   const [textoBusqueda, setTextoBusqueda] = useState("");
   const [resaltado, setResaltado] = useState(0);

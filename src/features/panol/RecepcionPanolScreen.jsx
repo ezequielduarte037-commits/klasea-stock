@@ -3,19 +3,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
-  AlertTriangle,
   ArrowDownToLine,
-  CheckCircle2,
   ChevronDown,
-  ChevronRight,
-  PackageCheck,
   PackageOpen,
   PackagePlus,
   Printer,
   RefreshCw,
   RotateCcw,
   Scale,
-  Search,
   Trash2,
   Warehouse,
   X,
@@ -23,12 +18,9 @@ import {
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import PageHeader from "@/components/ui/PageHeader";
-import Cargando from "@/components/ui/Cargando";
-import { EmptyState } from "@/components/ui/motion";
-import {
-  fetchEnvios, ENVIO_ESTADO_META, ITEM_ESTADO_META, resumenItems, SEDES_PANOL,
-} from "@/features/panol/panolApi";
-import PanolEnvioDetail from "@/features/panol/PanolEnvioDetail";
+import BandejaPedidos from "@/features/panol/pedidos/BandejaPedidos";
+import PedidoDetalle from "@/features/panol/pedidos/PedidoDetalle";
+import { CSS_PEDIDOS } from "@/features/panol/pedidos/estilosPedidos";
 import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
 import CrearProductoTab from "@/features/panol/CrearProductoTab";
 import { puedeCrearProductosDeBarco } from "@/features/panol/productosACrear";
@@ -43,21 +35,6 @@ const GLASS = {
   WebkitBackdropFilter: "var(--glass-filter)",
 };
 
-const STATE_FILTERS = [
-  ["activos", "Por recibir"],
-  ["enviado", "Enviados"],
-  ["parcial", "Parciales"],
-  ["recibido", "Recibidos"],
-  ["todos", "Todos"],
-];
-
-const PRIO_FILTERS = [
-  ["todas", "Todas"],
-  ["urgente", "Urgente"],
-  ["alta", "Alta"],
-  ["media", "Media"],
-  ["baja", "Baja"],
-];
 const PANOL_TAB_STORAGE_KEY = "klasea.panol.recepcion.tab";
 // Las pestañas de remitos ("scanner" y "remitos") se mudaron a /remitos-panol:
 // guardar papeles no es parte de recibir pedidos.
@@ -72,24 +49,6 @@ const TABS_MAS = [
   { key: "consumibles", label: "Consumibles", hint: "Tornillos, lijas y el resto del fondo", Icon: Scale },
   { key: "crear", label: "Crear producto", hint: "Alta rápida al catálogo, no a la matriz", Icon: PackagePlus },
 ];
-
-const ENVIO_TONO = {
-  borrador: { color: C.dim, bg: C.panel2, border: C.border },
-  enviado: { color: C.cyan, bg: C.cyanL, border: C.cyanB },
-  en_preparacion: { color: C.blue, bg: C.blueL, border: C.blueB },
-  parcial: { color: C.violet, bg: C.violetL, border: C.violetB },
-  recibido: { color: C.green, bg: C.greenL, border: C.greenB },
-  cerrado: { color: C.dim, bg: C.panel2, border: C.border },
-  cancelado: { color: C.red, bg: C.redL, border: C.redB },
-};
-const ITEM_TONO = {
-  pendiente: C.dim,
-  recibido: C.green,
-  parcial: C.violet,
-  sin_info: C.blue,
-  falta_stock: C.cyan,
-  rechazado: C.red,
-};
 
 const CSS_RECEPCION = `
   .rp-tabs { display: flex; align-items: center; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
@@ -246,286 +205,6 @@ function readStoredPanolTab(urlTab = "") {
   return PANOL_TABS.has(value) ? value : "recepcion";
 }
 
-const PRIO_META = {
-  baja: { label: "Baja", color: C.dim },
-  media: { label: "Media", color: C.blue },
-  alta: { label: "Alta", color: C.violet },
-  urgente: { label: "Urgente", color: C.red },
-};
-
-const SEGMENTS = [
-  ["recibido", "recibidos"],
-  ["parcial", "parciales"],
-  ["falta_stock", "faltantes"],
-  ["sin_info", "sin info"],
-  ["rechazado", "rechazados"],
-  ["pendiente", "pendientes"],
-];
-
-const CLOSED_ENVIO_STATES = new Set(["recibido", "cerrado", "cancelado"]);
-const PRIORITY_WEIGHT = { urgente: 4, alta: 3, media: 2, baja: 1 };
-
-function fmtFecha(ts) {
-  if (!ts) return "-";
-  return new Date(ts).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "2-digit" });
-}
-
-function rowSearchText(envio) {
-  return [
-    envio.titulo,
-    envio.obra?.codigo,
-    envio.destino,
-    envio.sede,
-    envio.prioridad,
-    envio.estado,
-    envio.observaciones,
-  ].filter(Boolean).join(" ").toLowerCase();
-}
-
-function actionResumen(envio) {
-  const resumen = resumenItems(envio.items || []);
-  const parciales = resumen.by?.parcial || 0;
-  const accion = (resumen.pendientes || 0) + parciales + (resumen.problemas || 0);
-  const completoPorItems = resumen.total > 0 && accion === 0 && resumen.recibidos === resumen.total;
-  return { ...resumen, parciales, accion, completoPorItems };
-}
-
-function needsReception(envio) {
-  if (CLOSED_ENVIO_STATES.has(envio.estado)) return false;
-  const r = actionResumen(envio);
-  if (r.completoPorItems) return false;
-  return r.total === 0 || r.accion > 0;
-}
-
-function compareReceptionPriority(a, b) {
-  const ra = actionResumen(a);
-  const rb = actionResumen(b);
-  const problemDiff = (rb.problemas || 0) - (ra.problemas || 0);
-  if (problemDiff) return problemDiff;
-  const pendingDiff = (rb.accion || 0) - (ra.accion || 0);
-  if (pendingDiff) return pendingDiff;
-  const prioDiff = (PRIORITY_WEIGHT[b.prioridad] || 0) - (PRIORITY_WEIGHT[a.prioridad] || 0);
-  if (prioDiff) return prioDiff;
-  return new Date(a.created_at || 0) - new Date(b.created_at || 0);
-}
-
-function SelectFilter({ label, value, onChange, options }) {
-  return (
-    <label style={{ display: "grid", gap: 4, minWidth: 128 }}>
-      <span style={{ color: C.dim, fontSize: 11, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase" }}>{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="ui-input"
-        style={{ minHeight: 36, padding: "0 10px", fontSize: 13, fontWeight: 600, cursor: "pointer", width: "auto" }}
-      >
-        {options.map(([v, text]) => <option key={v} value={v}>{text}</option>)}
-      </select>
-    </label>
-  );
-}
-
-function FilterChip({ active, onClick, children, tone }) {
-  return (
-    <button
-      type="button"
-      className="ui-chip"
-      onClick={onClick}
-      style={{
-        minHeight: 34,
-        cursor: "pointer",
-        borderColor: active ? (tone?.border || C.blueB) : C.border,
-        background: active ? (tone?.bg || C.blueL) : "transparent",
-        color: active ? (tone?.color || C.blue) : C.muted,
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-function ProgressSegments({ resumen, height = 7 }) {
-  if (!resumen?.total) {
-    return <div style={{ height, borderRadius: 99, background: C.panel2 }} />;
-  }
-  return (
-    <div style={{
-      height,
-      borderRadius: 99,
-      background: C.panel2,
-      overflow: "hidden",
-      display: "flex",
-      border: `1px solid ${C.border}`,
-    }}>
-      {SEGMENTS.map(([estado]) => {
-        const n = resumen.by?.[estado] || 0;
-        if (!n) return null;
-        const meta = ITEM_ESTADO_META[estado] || ITEM_ESTADO_META.pendiente;
-        return (
-          <div
-            key={estado}
-            title={`${meta.label}: ${n}`}
-            style={{ width: `${(n / resumen.total) * 100}%`, background: ITEM_TONO[estado] || meta.color, minWidth: n ? 3 : 0 }}
-          />
-        );
-      })}
-    </div>
-  );
-}
-
-function StatusPill({ estado }) {
-  const meta = ENVIO_ESTADO_META[estado] ?? { label: estado, color: C.dim };
-  const tono = ENVIO_TONO[estado] || { color: meta.color || C.dim, bg: C.panel2, border: C.border };
-  return (
-    <span className="ui-chip" style={{
-      color: tono.color,
-      background: tono.bg,
-      borderColor: tono.border,
-      fontSize: 11,
-      letterSpacing: "0.06em",
-      textTransform: "uppercase",
-    }}>
-      <span style={{ width: 5, height: 5, borderRadius: "50%", background: tono.color }} />
-      {meta.label}
-    </span>
-  );
-}
-
-function PriorityPill({ prioridad }) {
-  const meta = PRIO_META[prioridad] ?? PRIO_META.media;
-  return (
-    <span style={{
-      color: meta.color,
-      fontSize: 11,
-      fontWeight: 600,
-      letterSpacing: "0.06em",
-      textTransform: "uppercase",
-      whiteSpace: "nowrap",
-    }}>
-      {meta.label}
-    </span>
-  );
-}
-
-function DesktopRow({ envio, onOpen }) {
-  const resumen = actionResumen(envio);
-  const problemas = resumen.problemas || 0;
-  const pendientes = resumen.pendientes || 0;
-  const parciales = resumen.parciales || 0;
-  const origen = envio.origen === "compra" ? "Compras" : "Manual";
-  const pendienteTexto = [
-    pendientes > 0 ? `${pendientes} pend.` : null,
-    parciales > 0 ? `${parciales} parcial${parciales === 1 ? "" : "es"}` : null,
-  ].filter(Boolean).join(" · ");
-
-  return (
-    <button
-      type="button"
-      onClick={() => onOpen(envio.id)}
-      style={{
-        width: "100%",
-        display: "grid",
-        gridTemplateColumns: "minmax(280px, 1fr) 116px 116px minmax(190px, 240px) 120px 98px 34px",
-        alignItems: "center",
-        gap: 12,
-        padding: "12px 14px",
-        border: `1px solid ${problemas ? C.redB : C.border}`,
-        background: problemas ? "var(--red-soft)" : C.panelSolid,
-        borderRadius: 12,
-        color: C.text,
-        textAlign: "left",
-        cursor: "pointer",
-        fontFamily: C.sans,
-      }}
-    >
-      <div style={{ minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-          <div style={{
-            width: 7,
-            height: 28,
-            borderRadius: 99,
-            background: ENVIO_TONO[envio.estado]?.color || C.dim,
-            flexShrink: 0,
-          }} />
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {envio.titulo}
-            </div>
-            <div style={{ color: C.dim, fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {envio.obra?.codigo ? `Obra ${envio.obra.codigo}` : envio.destino || "Sin obra/destino"} · pedido {origen}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ display: "grid", gap: 4 }}>
-        <span style={{ color: C.dim, fontSize: 11, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase" }}>Sede</span>
-        <span style={{ color: C.text, fontSize: 12, fontWeight: 650 }}>{envio.sede}</span>
-      </div>
-
-      <StatusPill estado={envio.estado} />
-
-      <div style={{ display: "grid", gap: 6, minWidth: 0 }}>
-        <ProgressSegments resumen={resumen} />
-        <div style={{ display: "flex", gap: 8, color: C.dim, fontSize: 11, minWidth: 0 }}>
-          <span style={{ color: C.green, fontWeight: 650 }}>{resumen.recibidos}/{resumen.total}</span>
-          <span>recibidos</span>
-          {pendienteTexto && <span>{pendienteTexto}</span>}
-          {problemas > 0 && <span style={{ color: C.red, fontWeight: 700 }}>{problemas} problema{problemas === 1 ? "" : "s"}</span>}
-        </div>
-      </div>
-
-      <PriorityPill prioridad={envio.prioridad} />
-
-      <div style={{ color: C.dim, fontSize: 12, fontFamily: C.mono }}>{fmtFecha(envio.created_at)}</div>
-
-      <ChevronRight size={18} style={{ color: C.dim, justifySelf: "end" }} />
-    </button>
-  );
-}
-
-function MobileCard({ envio, onOpen }) {
-  const resumen = actionResumen(envio);
-  const problemas = resumen.problemas || 0;
-  const accion = resumen.accion || 0;
-  return (
-    <button
-      type="button"
-      onClick={() => onOpen(envio.id)}
-      style={{
-        width: "100%",
-        textAlign: "left",
-        cursor: "pointer",
-        background: problemas ? "var(--red-soft)" : C.panelSolid,
-        border: `1px solid ${problemas ? C.redB : C.border}`,
-        borderLeft: `4px solid ${ENVIO_TONO[envio.estado]?.color || C.dim}`,
-        borderRadius: 12,
-        padding: 13,
-        display: "grid",
-        gap: 10,
-        fontFamily: C.sans,
-      }}
-    >
-      <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: C.text, lineHeight: 1.2 }}>{envio.titulo}</div>
-          <div style={{ color: C.dim, fontSize: 12, marginTop: 4 }}>
-            {envio.obra?.codigo ? `Obra ${envio.obra.codigo} · ` : ""}{envio.sede} · {fmtFecha(envio.created_at)}
-          </div>
-        </div>
-        <StatusPill estado={envio.estado} />
-      </div>
-      <ProgressSegments resumen={resumen} />
-      <div style={{ display: "flex", justifyContent: "space-between", color: C.dim, fontSize: 12 }}>
-        <span><strong style={{ color: C.green }}>{resumen.recibidos}/{resumen.total}</strong> recibidos</span>
-        {problemas > 0
-          ? <span style={{ color: C.red, fontWeight: 700 }}>{problemas} problemas</span>
-          : accion > 0 ? <span style={{ color: C.violet, fontWeight: 700 }}>{accion} por revisar</span> : <PriorityPill prioridad={envio.prioridad} />}
-      </div>
-    </button>
-  );
-}
-
 export default function RecepcionPanolScreen({ profile }) {
   const nav = useNavigate();
   const { isMobile } = useResponsive();
@@ -551,14 +230,11 @@ export default function RecepcionPanolScreen({ profile }) {
     ? { ...t, label: "Producto pendiente", hint: "Ingresar un producto nuevo para que Técnica lo confirme" }
     : t) : TABS_MAS;
 
-  const [envios, setEnvios] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [sel, setSel] = useState(null);
+  // Sube cada vez que algo cambió los pedidos (un ingreso, volver de la ficha): la bandeja se relee.
+  const [version, setVersion] = useState(0);
+  const recargar = useCallback(() => setVersion((v) => v + 1), []);
+  const [sel, setSel] = useState(() => (requestedTab === "recepcion" && requestedEnvio ? requestedEnvio : null));
   const [ingresoKey, setIngresoKey] = useState(0); // bump → remonta el form inline de ingreso (reset/retomar)
-  const [fSede, setFSede] = useState(sedeLocked || "todas");
-  const [fEstado, setFEstado] = useState("activos");
-  const [fPrio, setFPrio] = useState("todas");
-  const [q, setQ] = useState("");
   const [tab, setTabState] = useState(() => {
     const inicial = readStoredPanolTab(requestedTab);
     return inicial;
@@ -596,20 +272,6 @@ export default function RecepcionPanolScreen({ profile }) {
     [modalPrefill, sedeLocked, tab, soloConsumibles, searchParams],
   );
 
-  const cargar = useCallback(async () => {
-    setLoading(true);
-    try {
-      const sede = sedeLocked || (fSede !== "todas" ? fSede : null);
-      setEnvios(await fetchEnvios({ sede }));
-    } catch (e) {
-      toast.error(e.message || "No se pudieron cargar los pedidos.");
-    } finally {
-      setLoading(false);
-    }
-  }, [sedeLocked, fSede, toast]);
-
-  useEffect(() => { cargar(); }, [cargar]);
-
   // Links viejos (menú guardado, notificaciones, buscador) a las pestañas de
   // remitos: van a la pantalla nueva, con la búsqueda si la traían.
   useEffect(() => {
@@ -623,48 +285,18 @@ export default function RecepcionPanolScreen({ profile }) {
     if (requestedTab === "egresos") nav("/egresos-panol", { replace: true });
   }, [nav, requestedTab]);
 
-  useEffect(() => {
+  // Si la URL pide otra pestaña u otro pedido (un link, el buscador, una
+  // notificación), la pantalla se acomoda en el mismo render.
+  const [pedidoEnUrl, setPedidoEnUrl] = useState({ tab: requestedTab, envio: requestedEnvio });
+  if (pedidoEnUrl.tab !== requestedTab || pedidoEnUrl.envio !== requestedEnvio) {
+    setPedidoEnUrl({ tab: requestedTab, envio: requestedEnvio });
     const value = readStoredPanolTab(requestedTab);
-    if (value !== tab) {
-      setTabState(value);
-      if (typeof window !== "undefined") window.localStorage.setItem(PANOL_TAB_STORAGE_KEY, value);
-    }
-  }, [requestedTab, tab]);
-
-  useEffect(() => {
+    if (value !== tab) setTabState(value);
     if (requestedTab === "recepcion" && requestedEnvio) setSel(requestedEnvio);
-  }, [requestedEnvio, requestedTab]);
-
-  const filtrados = useMemo(() => {
-    let rows = envios;
-    if (fEstado === "activos") rows = rows.filter(needsReception);
-    else if (fEstado !== "todos") rows = rows.filter((e) => e.estado === fEstado);
-    if (fPrio !== "todas") rows = rows.filter((e) => e.prioridad === fPrio);
-    const term = q.trim().toLowerCase();
-    if (term) rows = rows.filter((e) => rowSearchText(e).includes(term));
-    return [...rows].sort(compareReceptionPriority);
-  }, [envios, fEstado, fPrio, q]);
-
-  const kpis = useMemo(() => {
-    let pendientes = 0;
-    let parciales = 0;
-    let problemas = 0;
-    let recibidos = 0;
-    let accionItems = 0;
-    for (const e of envios) {
-      const r = actionResumen(e);
-      pendientes += r.pendientes;
-      parciales += r.parciales;
-      problemas += r.problemas;
-      accionItems += r.accion;
-      if (e.estado === "recibido" || r.completoPorItems) recibidos += 1;
-    }
-    const activos = envios.filter(needsReception).length;
-    const enviados = envios.filter((e) => e.estado === "enviado").length;
-    const parcialesEnvio = envios.filter((e) => e.estado === "parcial").length;
-    const recibidosEstado = envios.filter((e) => e.estado === "recibido").length;
-    return { total: envios.length, activos, pendientes, problemas, recibidos, parciales, accionItems, enviados, parcialesEnvio, recibidosEstado };
-  }, [envios]);
+  }
+  useEffect(() => {
+    try { window.localStorage.setItem(PANOL_TAB_STORAGE_KEY, tab); } catch { /* sin almacenamiento */ }
+  }, [tab]);
 
   // El aviso flotante de pendientes ahora vive en NotificacionesBell global.
 
@@ -678,35 +310,29 @@ export default function RecepcionPanolScreen({ profile }) {
 
   if (sel) {
     return shell(
-      <PanolEnvioDetail
-        envioId={sel}
-        initialMaterialId={requestedMaterial}
-        initialItemId={requestedItem}
-        profile={profile}
-        canReceive={canReceive}
-        isManager={isManager}
-        onBack={() => {
-          setSel(null);
-          const nextParams = new URLSearchParams(searchParams);
-          nextParams.delete("envio");
-          nextParams.delete("material");
-          nextParams.delete("item");
-          setSearchParams(nextParams, { replace: true });
-          cargar();
-        }}
-      />,
+      <div className="pdd-root">
+        <style>{CSS_PEDIDOS}</style>
+        <PedidoDetalle
+          key={sel}
+          envioId={sel}
+          materialInicial={requestedMaterial}
+          itemInicial={requestedItem}
+          profile={profile}
+          canReceive={canReceive}
+          isManager={isManager}
+          onBack={() => {
+            setSel(null);
+            const nextParams = new URLSearchParams(searchParams);
+            nextParams.delete("envio");
+            nextParams.delete("material");
+            nextParams.delete("item");
+            setSearchParams(nextParams, { replace: true });
+            recargar();
+          }}
+        />
+      </div>,
     );
   }
-
-  const cuentaEstado = {
-    activos: kpis.activos,
-    enviado: kpis.enviados,
-    parcial: kpis.parcialesEnvio,
-    // Igual que el filtro: estado "recibido". kpis.recibidos suma además los
-    // que tienen todo recibido pero otro estado, y no coincidía con la lista.
-    recibido: kpis.recibidosEstado,
-    todos: kpis.total,
-  };
 
   return shell(
     <>
@@ -726,7 +352,7 @@ export default function RecepcionPanolScreen({ profile }) {
               Imprimible
             </button>
             {tab === "recepcion" && (
-              <button type="button" className="ui-btn ui-btn-icono" onClick={cargar} disabled={loading} title="Actualizar">
+              <button type="button" className="ui-btn ui-btn-icono" onClick={recargar} title="Actualizar" aria-label="Actualizar">
                 <RefreshCw size={15} />
               </button>
             )}
@@ -745,120 +371,10 @@ export default function RecepcionPanolScreen({ profile }) {
       </PageHeader>
 
       {tab === "recepcion" ? (
-        <>
-      <div style={{
-        background: C.topbarSoft,
-        ...GLASS,
-        borderBottom: `1px solid ${C.border}`,
-        padding: isMobile ? "10px 12px" : "10px 18px",
-        display: "grid",
-        gap: 10,
-        flexShrink: 0,
-      }}>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <div style={{ position: "relative", flex: "1 1 260px", minWidth: isMobile ? "100%" : 260 }}>
-            <Search size={15} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: C.dim, pointerEvents: "none" }} />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar pedido, obra, destino, sede…"
-              className="ui-input"
-              style={{ paddingLeft: 34, paddingRight: 34 }}
-            />
-            {q && (
-              <button
-                type="button"
-                onClick={() => setQ("")}
-                title="Limpiar"
-                className="ui-btn ui-btn-fantasma ui-btn-icono"
-                style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)", minHeight: 32, width: 32 }}
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-          <SelectFilter label="Prioridad" value={fPrio} onChange={setFPrio} options={PRIO_FILTERS} />
-          {!sedeLocked && (
-            <SelectFilter label="Sede" value={fSede} onChange={setFSede} options={[["todas", "Todas"], ...SEDES_PANOL.map((s) => [s, s])]} />
-          )}
+        <div className="pdd-root">
+          <style>{CSS_PEDIDOS}</style>
+          <BandejaPedidos sedeFija={sedeLocked} onAbrir={setSel} version={version} />
         </div>
-
-        <div className="rp-filtros">
-          {STATE_FILTERS.map(([valor, texto]) => {
-            const activo = fEstado === valor;
-            const tono = valor === "activos" ? { color: C.violet, bg: C.violetL, border: C.violetB }
-              : valor === "recibido" ? { color: C.green, bg: C.greenL, border: C.greenB }
-              : valor === "parcial" ? { color: C.violet, bg: C.violetL, border: C.violetB }
-              : valor === "enviado" ? { color: C.cyan, bg: C.cyanL, border: C.cyanB }
-              : null;
-            return (
-              <FilterChip key={valor} active={activo} onClick={() => setFEstado(valor)} tone={tono}>
-                {texto}
-                <span className="rp-chip-cuenta">{cuentaEstado[valor] ?? 0}</span>
-              </FilterChip>
-            );
-          })}
-          {kpis.problemas > 0 && (
-            <span className="ui-chip" style={{ color: C.red, background: C.redL, borderColor: C.redB }}>
-              <AlertTriangle size={12} />
-              {kpis.problemas} novedad{kpis.problemas === 1 ? "" : "es"}
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-        {!isMobile && (
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(280px, 1fr) 116px 116px minmax(190px, 240px) 120px 98px 34px",
-            gap: 12,
-            padding: "11px 32px 9px",
-            borderBottom: `1px solid ${C.border}`,
-            background: C.bg,
-            color: C.dim,
-            fontSize: 11,
-            fontWeight: 600,
-            letterSpacing: "0.07em",
-            textTransform: "uppercase",
-            flexShrink: 0,
-          }}>
-            <span>Pedido</span>
-            <span>Sede</span>
-            <span>Estado</span>
-            <span>Recepción</span>
-            <span>Prioridad</span>
-            <span>Fecha</span>
-            <span />
-          </div>
-        )}
-
-        <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? 12 : "12px 18px 18px" }}>
-          {loading ? (
-            <Cargando llenar texto="Cargando pedidos…" />
-          ) : filtrados.length === 0 ? (
-            <EmptyState
-              icon={CheckCircle2}
-              color={C.green}
-              title={fEstado === "activos" ? "Todo al día en recepción" : "No hay pedidos para este filtro"}
-              subtitle={fEstado === "activos"
-                ? "Los pedidos ya recibidos quedan guardados en el filtro Recibidos."
-                : isManager ? "Podés crear un pedido nuevo o cambiar los filtros." : "Cuando compras envíe algo a tu pañol, aparece acá."}
-              style={{ margin: "18px auto", maxWidth: 520, background: C.panel }}
-            />
-          ) : (
-            <div style={{ display: "grid", gap: 8 }}>
-              {filtrados.map((envio) => (
-                isMobile
-                  ? <MobileCard key={envio.id} envio={envio} onOpen={setSel} />
-                  : <DesktopRow key={envio.id} envio={envio} onOpen={setSel} />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-        </>
       ) : tab === "consumibles" ? (
         <ConsumiblesPanolTab isMobile={isMobile} toast={toast} sedeLocked={sedeLocked} canReceive={canReceive} isAdmin={isAdmin} />
       ) : tab === "crear" && !soloConsumibles ? (
@@ -981,7 +497,7 @@ export default function RecepcionPanolScreen({ profile }) {
                   setModalPrefill(null);
                   setIngresoKey((k) => k + 1);
                   refreshPendientes();
-                  if (saved) cargar();
+                  if (saved) recargar();
                   if (volverAlScanner) nav("/remitos-panol?vista=archivo");
                   else if (saved && tab === "crear") setTab("ingresar");
                 }}

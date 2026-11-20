@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { ArrowDownToLine, FileText, Inbox } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import { hasAdminAccess } from "@/lib/permissions";
@@ -25,6 +25,9 @@ export default function IngresosPanolScreen({ profile }) {
   const sedePerfil = canonicalPanolSede(profile?.sede);
   const sedeFija = role === "panol" && sedePerfil ? sedePerfil : null;
   const [sedeElegida, setSedeElegida] = useState(() => sedeDelEquipo());
+  // "Recibir en el mostrador" desde la ficha de un pedido llega con ?pedido=.
+  const [params] = useSearchParams();
+  const pedidoInicial = params.get("pedido") || null;
   const sede = sedeFija || sedeElegida;
   const puedeRegistrar = hasAdminAccess(profile) || role === "compras" || role === "panol";
 
@@ -81,7 +84,7 @@ export default function IngresosPanolScreen({ profile }) {
             </div>
           </div>
         ) : (
-          <MostradorIngresos key={sede} sede={sede} profile={profile} />
+          <MostradorIngresos key={`${sede}-${pedidoInicial || ""}`} sede={sede} profile={profile} pedidoInicial={pedidoInicial} />
         )}
       </main>
     </div>
