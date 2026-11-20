@@ -118,6 +118,10 @@ function qtyForScan(value) {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+function fmtCantidad(n) {
+  return String(Math.round(n * 100) / 100).replace(".", ",");
+}
+
 function barcodesOfItem(item) {
   const out = new Set();
   const push = (value) => {
@@ -164,6 +168,18 @@ function scanReceiptForItem(item) {
     label: next >= ordered ? `Recibido completo (${next}/${ordered})` : `Parcial (${next}/${ordered})`,
   };
 }
+
+// Lo que de este renglón ya es stock en el pañol. El stock sólo cuenta los
+// renglones recibidos o parciales: pasarlo a otro estado lo saca del stock.
+function cantidadYaEnStock(item) {
+  if (item?.estado === "parcial") return qtyForScan(item?.cantidad_recibida) ?? 0;
+  if (item?.estado === "recibido") return qtyForScan(item?.cantidad_recibida) ?? qtyForScan(item?.cantidad) ?? 1;
+  return 0;
+}
+
+// Estados que dicen "esto no llegó": no se le ponen a un renglón del que ya
+// llegó algo, porque sacarían del stock lo que está en el estante.
+const ESTADOS_NO_LLEGO = new Set(["falta_stock", "sin_info", "rechazado"]);
 
 function isScanComplete(item) {
   if (item?.estado !== "recibido") return false;
@@ -1034,6 +1050,26 @@ export default function PanolEnvioDetail({ envioId, initialMaterialId = "", init
 
   async function aplicar(estado, ids, opts = {}) {
     if (!ids.length) return;
+    if (estado !== "recibido" && estado !== "parcial") {
+      const conStock = items.filter((item) => ids.includes(item.id) && cantidadYaEnStock(item) > 0);
+      if (conStock.length && ESTADOS_NO_LLEGO.has(estado)) {
+        const it = conStock[0];
+        toast.error(
+          `De "${it.descripcion}" ya entraron ${fmtCantidad(cantidadYaEnStock(it))} al pañol: no se puede marcar como "${ITEM_ESTADO_META[estado]?.label || estado}" porque saldrían del stock. `
+          + "Si falta el resto, dejalo en parcial y contalo en el historial del pedido.",
+          { duration: 9000 },
+        );
+        return;
+      }
+      if (conStock.length && estado === "pendiente") {
+        const n = conStock.reduce((s, item) => s + cantidadYaEnStock(item), 0);
+        const ok = window.confirm(
+          `Volver a pendiente saca del stock lo que ya entró (${fmtCantidad(n)} en total).\n\n`
+          + "Hacelo sólo si el ingreso se cargó por error. ¿Volver a pendiente?",
+        );
+        if (!ok) return;
+      }
+    }
     if (estado === "parcial" && !String(opts.cantidadRecibida ?? "").trim()) {
       pedirParcial(ids);
       return;
