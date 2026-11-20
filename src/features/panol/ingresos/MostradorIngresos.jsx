@@ -36,10 +36,10 @@ import {
   sumarSinPedido,
   ultimaLinea,
 } from "./ingresosLogica";
-import { fetchPedidosEnCamino, fetchUltimosIngresos, registrarIngreso } from "./ingresosApi";
+import { fetchPedidosEnCamino, fetchUltimosIngresos, guardarNovedad, registrarIngreso } from "./ingresosApi";
 import {
   BotoneraIngreso, CarritoIngreso, ConfirmarIngreso, ElegirObra, ElegirRenglon, ListoIngreso,
-  PieConfirmar, SinFicha, UltimosIngresos,
+  NovedadRenglon, PieConfirmar, SinFicha, UltimosIngresos,
 } from "./PiezasIngreso";
 import { CSS_INGRESO } from "./estilosIngreso";
 
@@ -113,6 +113,7 @@ export default function MostradorIngresos({ sede, profile }) {
   const [camara, setCamara] = useState(false);
   const [referencia, setReferencia] = useState("");
   const [guardando, setGuardando] = useState(false);
+  const [guardandoNovedad, setGuardandoNovedad] = useState(false);
   const [errorOperacion, setErrorOperacion] = useState("");
   const [listo, setListo] = useState(null);
   const [foco, setFoco] = useState(() => leerJson(FOCO_KEY, false) === true);
@@ -518,9 +519,42 @@ export default function MostradorIngresos({ sede, profile }) {
     enfocarCampo();
   }
 
+  async function registrarNovedad(renglon, { estado, nota }) {
+    if (guardandoNovedad) return;
+    setGuardandoNovedad(true);
+    try {
+      const r = await guardarNovedad({ renglon, estado, nota });
+      if (!vivoRef.current) return;
+      // Lo rechazado deja de esperarse: si estaba en el carrito, sale.
+      if (estado === "rechazado") aplicarCarrito(quitarLinea(cartRef.current, `r:${renglon.id}`));
+      setCapa(null);
+      toast.success(estado
+        ? `${renglon.descripcion}: ${estado === "pendiente" ? "vuelve a esperarse" : "novedad guardada"}.${r.comentado ? "" : " No se pudo dejar el mensaje en el pedido."}`
+        : "Mensaje enviado al pedido.");
+      setRefrescando(true);
+      cargar();
+    } catch (err) {
+      if (vivoRef.current) toast.error(err?.message || "No se pudo guardar la novedad.");
+    } finally {
+      if (vivoRef.current) setGuardandoNovedad(false);
+    }
+  }
+
   // ── Capas ─────────────────────────────────────────────────────────────────
   let capaVista = null;
-  if (capa?.tipo === "teclado") {
+  if (capa?.tipo === "novedad") {
+    capaVista = (
+      <NovedadRenglon
+        key={capa.renglon.id}
+        renglon={capa.renglon}
+        sede={sede}
+        guardando={guardandoNovedad}
+        onGuardar={(datos) => registrarNovedad(capa.renglon, datos)}
+        onCerrar={() => { if (!guardandoNovedad) setCapa(null); }}
+        onRafaga={(c) => { setCapa(null); procesarCodigo(c); }}
+      />
+    );
+  } else if (capa?.tipo === "teclado") {
     const l = cart.find((x) => x.key === capa.key);
     if (l) {
       capaVista = (
@@ -678,6 +712,7 @@ export default function MostradorIngresos({ sede, profile }) {
                 onTodoElPedido={todoElPedido}
                 onMaterial={(m) => entraMaterial(m)}
                 onSinFicha={(descripcion) => setCapa({ tipo: "sinFicha", descripcion })}
+                onNovedad={(renglon) => setCapa({ tipo: "novedad", renglon })}
               />
             </fieldset>
           ) : null}

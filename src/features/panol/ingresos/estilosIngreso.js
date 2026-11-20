@@ -30,6 +30,14 @@ export const CSS_INGRESO = `
 }
 .mst.ing .ing-destino:hover { border-color: var(--blue); color: var(--blue); }
 .mst.ing .ing-linea-frenada { background: var(--red-soft); }
+.mst.ing .ing-estado.is-falta_stock { color: var(--cyan); border-color: var(--cyan-border); background: var(--cyan-soft); }
+.mst.ing .ing-estado.is-sin_info { color: var(--blue); border-color: var(--blue-border); background: var(--blue-soft); }
+.mst.ing .ing-novedad-btn {
+  display: grid; place-items: center; width: 34px; height: 34px; flex-shrink: 0;
+  border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--dim);
+}
+.mst.ing .ing-novedad-btn:hover { border-color: var(--border-2); background: var(--panel); color: var(--violet); }
+.mst.ing .ing-novedad-opcion.is-rechazado.is-elegida { border-color: var(--red); background: var(--red-soft); }
 .mst.ing .ing-mov { display: block; color: inherit; text-decoration: none; }
 .mst.ing .ing-mov:hover { background: var(--panel); }
 .mst.ing.is-angosto .ing-pedido-cab .ui-btn { flex: 1; justify-content: center; }

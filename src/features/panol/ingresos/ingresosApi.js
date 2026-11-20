@@ -1,11 +1,13 @@
 import { supabase } from "@/supabaseClient";
 import {
+  comentarEnvio,
   crearEnvio,
   enLotesDeIds,
   fetchLinkedPurchaseRequestForEnvio,
   marcarItems,
 } from "@/features/panol/panolApi";
 import { notifyWaUpdate } from "@/features/compras/purchaseRequestsApi";
+import { mensajeDeNovedad } from "./ingresosLogica";
 
 /**
  * Lecturas y escrituras del mostrador de ingresos. Las escrituras son las
@@ -149,4 +151,21 @@ export async function registrarIngreso({ recibir = [], crear = null, actor = nul
   }));
 
   return hecho;
+}
+
+/**
+ * Una novedad de un renglón. Con `estado` cambia el renglón (falta stock, sin
+ * info, rechazado o de vuelta a pendiente) y deja el mensaje en el historial
+ * del pedido; sin `estado` (ya llegó una parte) sólo deja el mensaje.
+ */
+export async function guardarNovedad({ renglon, estado = null, nota = "" }) {
+  const mensaje = mensajeDeNovedad(renglon, estado, nota);
+  if (!estado) {
+    await comentarEnvio(renglon.envioId, `Novedad · ${mensaje}`);
+    return { comentado: true };
+  }
+  await marcarItems([renglon.id], estado, { nota: String(nota || "").trim() || null });
+  // El estado ya quedó; el mensaje es para que Compras lo vea en el historial.
+  const comentado = await comentarEnvio(renglon.envioId, `Novedad · ${mensaje}`).then(() => true, () => false);
+  return { comentado };
 }

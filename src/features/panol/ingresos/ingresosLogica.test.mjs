@@ -149,3 +149,15 @@ test("refrescar: si otro equipo lo recibió, la línea queda frenada", async () 
   assert.equal(frenado[0].yaRecibido, true);
   assert.match(problemasDelCarrito(frenado)[0].texto, /ya se recibió/);
 });
+
+test("novedades: sin nada recibido cambia el estado; con parte recibida sólo avisa", async () => {
+  const { opcionesDeNovedad, mensajeDeNovedad } = await import("./ingresosLogica.js");
+  const [, e1] = armarPedidos(envios);
+  const terminalR = e1.renglones.find((r) => r.id === "i1");
+  const cable = e1.renglones.find((r) => r.id === "i2");
+  assert.deepEqual(opcionesDeNovedad(terminalR), { modo: "estado", estados: ["falta_stock", "sin_info", "rechazado"] });
+  assert.deepEqual(opcionesDeNovedad({ ...terminalR, estado: "falta_stock" }).estados, ["sin_info", "rechazado", "pendiente"]);
+  assert.equal(opcionesDeNovedad(cable).modo, "mensaje");
+  assert.equal(mensajeDeNovedad(cable, null, "el resto la semana que viene"), "Cable 6mm: llegaron 40 de 100. el resto la semana que viene");
+  assert.equal(mensajeDeNovedad(terminalR, "rechazado"), "Terminal preaislado ojal 6mm: rechazado");
+});

@@ -491,3 +491,32 @@ export function agruparUltimos(items = [], { limite = 20 } = {}) {
   }
   return [...grupos.values()].sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, limite);
 }
+
+// ── Novedades de un renglón ─────────────────────────────────────────────────
+
+export const NOVEDADES = {
+  falta_stock: { titulo: "No vino, llega después", corto: "llega después", detalle: "El proveedor no lo tenía o lo manda en otra entrega. Sigue esperando." },
+  sin_info: { titulo: "Falta información", corto: "falta info", detalle: "No se sabe si viene o falta un dato para recibirlo. Sigue esperando." },
+  rechazado: { titulo: "Vino mal: rechazado", corto: "rechazado", detalle: "Se devuelve o no sirve. Deja de esperarse; Compras resuelve." },
+  pendiente: { titulo: "Sacar la novedad", corto: "esperando", detalle: "Vuelve a esperarse como cualquier renglón." },
+};
+
+/**
+ * Qué se puede marcar en un renglón. Si ya llegó una parte NO se cambia el
+ * estado: la cuenta del stock (rowCountsAsStock) sólo mira recibido/parcial, y
+ * pasar un parcial a "falta stock" dejaría de contar lo que ya está en el
+ * pañol. En ese caso la novedad va como mensaje a Compras.
+ */
+export function opcionesDeNovedad(r = {}) {
+  if ((r.llego || 0) > 0) return { modo: "mensaje", estados: [] };
+  const estados = ["falta_stock", "sin_info", "rechazado"].filter((e) => e !== r.estado);
+  if (NOVEDADES[r.estado] && r.estado !== "pendiente") estados.push("pendiente");
+  return { modo: "estado", estados };
+}
+
+/** El mensaje que queda en el historial del pedido. */
+export function mensajeDeNovedad(r = {}, estado = null, nota = "") {
+  const que = estado ? NOVEDADES[estado]?.corto : r.llego > 0 && r.pedido != null ? `llegaron ${texto(r.llego)} de ${texto(r.pedido)}` : "novedad";
+  const extra = String(nota || "").trim();
+  return `${r.descripcion}: ${que}${extra ? `. ${extra}` : ""}`;
+}

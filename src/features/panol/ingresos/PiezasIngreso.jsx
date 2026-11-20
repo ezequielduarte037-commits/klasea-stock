@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowDownToLine, ArrowLeft, Check, ExternalLink, LoaderCircle, Minus, PackageCheck, PackagePlus, Plus, RotateCcw,
-  Search, ShoppingBasket, TriangleAlert, Warehouse, X,
+  MessageSquareWarning, Search, ShoppingBasket, TriangleAlert, Warehouse, X,
 } from "lucide-react";
 import { DrawnCheck } from "@/components/ui/motion";
 import { FotoItem } from "@/features/consumibles/mostrador/Piezas";
@@ -10,7 +10,7 @@ import CampoTexto from "@/features/consumibles/mostrador/CampoTexto";
 import { fmtNum, normalizarTexto } from "@/features/consumibles/mostrador/mostradorLogica";
 import { Hoja } from "@/features/panol/mostrador/CapasPanol";
 import {
-  agruparUltimos, cantidadDe, carritoAgrupado, comparaConPedido, destinoDelRenglon, totalUnidades,
+  NOVEDADES, agruparUltimos, cantidadDe, carritoAgrupado, comparaConPedido, destinoDelRenglon, opcionesDeNovedad, totalUnidades,
 } from "./ingresosLogica";
 
 // "faltan 2" se entiende solo; "faltan 2 unidad" no. Los metros y kilos sí.
@@ -53,6 +53,7 @@ export function BotoneraIngreso({
   onTodoElPedido,
   onMaterial,
   onSinFicha,
+  onNovedad,
 }) {
   const pedido = pedidos.find((p) => p.id === pedidoId) || null;
 
@@ -69,7 +70,7 @@ export function BotoneraIngreso({
           {renglones.length ? (
             <div className="mst-resultados" role="listbox" aria-label="Renglones por llegar">
               {renglones.map((r, idx) => (
-                <FilaRenglon key={r.id} r={r} sede={sede} conPedido activa={idx === resaltado} enCarrito={enCarrito.get(`r:${r.id}`)} onResaltar={() => onResaltar?.(idx)} onTocar={onRenglon} />
+                <FilaRenglon key={r.id} r={r} sede={sede} conPedido activa={idx === resaltado} enCarrito={enCarrito.get(`r:${r.id}`)} onResaltar={() => onResaltar?.(idx)} onTocar={onRenglon} onNovedad={onNovedad} />
               ))}
             </div>
           ) : <div className="mst-vacio">Ningún pedido en camino espera «{texto.trim()}».</div>}
@@ -123,7 +124,7 @@ export function BotoneraIngreso({
           </div>
           <div className="mst-resultados" role="list">
             {pedido.renglones.map((r) => (
-              <FilaRenglon key={r.id} r={r} sede={sede} enCarrito={enCarrito.get(`r:${r.id}`)} onTocar={onRenglon} />
+              <FilaRenglon key={r.id} r={r} sede={sede} enCarrito={enCarrito.get(`r:${r.id}`)} onTocar={onRenglon} onNovedad={onNovedad} />
             ))}
           </div>
         </section>
@@ -191,7 +192,8 @@ function RielPedidos({ pedidos, pedidoId, onPedido }) {
   );
 }
 
-function FilaRenglon({ r, sede, conPedido = false, activa = false, enCarrito = 0, onResaltar, onTocar }) {
+function FilaRenglon({ r, sede, conPedido = false, activa = false, enCarrito = 0, onResaltar, onTocar, onNovedad }) {
+  const novedad = r.estado !== "pendiente" && r.estado !== "parcial" ? NOVEDADES[r.estado] : null;
   const sub = [destinoDelRenglon(r, sede), r.codigo, conPedido ? r.envioTitulo : null].filter(Boolean).join(" · ");
   const completo = r.falta != null && enCarrito >= r.falta - 0.0001;
   return (
@@ -208,7 +210,13 @@ function FilaRenglon({ r, sede, conPedido = false, activa = false, enCarrito = 0
         {activa ? <span className="mst-res-enter" aria-hidden="true">Enter</span> : null}
       </button>
       <span className="mpn-prod-fin">
+        {novedad ? <span className={`ing-estado is-${r.estado}`}>{novedad.corto}</span> : null}
         <span className="ing-falta">{faltaTexto(r)}</span>
+        {onNovedad ? (
+          <button type="button" className="ing-novedad-btn" onClick={() => onNovedad(r)} aria-label={`Novedad de ${r.descripcion}`} title="No vino, vino mal o falta información">
+            <MessageSquareWarning size={15} />
+          </button>
+        ) : null}
         <button
           type="button"
           className={`mpn-saldo${enCarrito ? " is-en-carrito" : ""}${completo ? " is-completo" : ""}`}
@@ -712,5 +720,67 @@ export function UltimosIngresos({ items = [], sede, onActualizar, cargando = fal
         </Link>
       ))}
     </section>
+  );
+}
+
+/** Novedad de un renglón: no vino, vino mal o falta información. */
+export function NovedadRenglon({ renglon: r, sede, guardando = false, onGuardar, onCerrar, onRafaga }) {
+  const { modo, estados } = opcionesDeNovedad(r);
+  const [estado, setEstado] = useState(modo === "estado" ? estados[0] : null);
+  const [nota, setNota] = useState("");
+  const soloMensaje = modo === "mensaje";
+  const puede = !guardando && (soloMensaje ? nota.trim().length >= 3 : Boolean(estado));
+  const guardar = () => { if (puede) onGuardar({ estado: soloMensaje ? null : estado, nota }); };
+  return (
+    <Hoja
+      titulo={r.descripcion}
+      sub={`${r.envioTitulo} · ${destinoDelRenglon(r, sede)} · ${faltaTexto(r)}`}
+      onCerrar={onCerrar}
+      pie={(
+        <>
+          <button type="button" className="ui-btn" disabled={guardando} onClick={onCerrar}>Cancelar</button>
+          <button type="button" className="ui-btn ui-btn-primario" disabled={!puede} onClick={guardar}>
+            {guardando ? <LoaderCircle size={15} className="mst-gira" /> : <MessageSquareWarning size={15} aria-hidden="true" />}
+            {soloMensaje ? "Avisar a Compras" : "Guardar la novedad"}
+          </button>
+        </>
+      )}
+    >
+      <div style={{ display: "grid", gap: 14 }}>
+        {soloMensaje ? (
+          <p style={{ margin: 0, fontSize: 13.5, color: "var(--muted)", lineHeight: 1.5 }}>
+            Ya llegaron <strong>{fmtNum(r.llego)}</strong> de {fmtNum(r.pedido)}. Lo recibido queda en stock y el renglón sigue esperando el resto: la novedad va como mensaje al pedido.
+          </p>
+        ) : (
+          <div role="radiogroup" aria-label="Qué pasó" style={{ display: "grid", gap: 8 }}>
+            {estados.map((e) => (
+              <button
+                key={e}
+                type="button"
+                role="radio"
+                aria-checked={estado === e}
+                className={`mpn-destino-opcion ing-novedad-opcion is-${e}${estado === e ? " is-elegida" : ""}`}
+                onClick={() => setEstado(e)}
+              >
+                <strong>{NOVEDADES[e].titulo}</strong>
+                <span>{NOVEDADES[e].detalle}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="mst-bloque">
+          <label className="mst-bloque-titulo" htmlFor="ing-novedad-nota">{soloMensaje ? "Qué pasó" : "Nota para Compras (opcional)"}</label>
+          <CampoTexto
+            id="ing-novedad-nota"
+            value={nota}
+            onChange={setNota}
+            onRafaga={onRafaga}
+            maxLength={300}
+            autoFocus={soloMensaje}
+            onEnter={(e) => { e.preventDefault(); guardar(); }}
+          />
+        </div>
+      </div>
+    </Hoja>
   );
 }
