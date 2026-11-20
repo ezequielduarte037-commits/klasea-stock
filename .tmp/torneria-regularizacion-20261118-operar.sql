@@ -14,29 +14,29 @@ begin
   end if;
 
   perform 1 from public.torneria_operacion_items oi
-    join t_regularizar v on v.componente_id=oi.id
+    join t_regularizar plan on plan.componente_id=oi.id
     order by oi.id for update of oi;
   perform 1 from public.panol_envio_items ei
     where id in (select aviso_pendiente from t_regularizar union select aviso_recibido from t_regularizar)
     order by id for update;
 
   if exists (
-    select 1 from t_regularizar v
+    select 1 from t_regularizar plan
     where not exists (
       select 1 from public.torneria_operacion_items oi
       join public.torneria_operaciones op on op.id=oi.operacion_id
       join public.torneria_items i on i.id=oi.item_id and i.proceso_id=op.proceso_id
       join public.torneria_procesos p on p.id=i.proceso_id
       join public.produccion_obras o on o.id=p.obra_id
-      where oi.id=v.componente_id and op.id=v.operacion_id and i.id=v.item_id and p.obra_id=v.obra_id
-        and o.codigo=v.obra and o.estado='activa' and p.estado='activo'
+      where oi.id=plan.componente_id and op.id=plan.operacion_id and i.id=plan.item_id and p.obra_id=plan.obra_id
+        and o.codigo=plan.obra and o.estado='activa' and p.estado='activo'
         and op.activa and op.tipo='torneria' and op.destino='Torneria'
-        and op.origen=case when v.modo='directo' then 'Proveedor' else 'Astillero' end
+        and op.origen=case when plan.modo='directo' then 'Proveedor' else 'Astillero' end
         and i.activo and not i.no_lleva and not i.es_resultado
-        and i.material_id=v.material_id and i.cantidad=v.cantidad
-        and i.purchase_request_item_id is not distinct from v.compra_item
-        and i.purchase_request_id is not distinct from v.compra_id
-        and oi.cantidad_requerida=v.cantidad_viaje and oi.cantidad_enviada=0 and oi.cantidad_recibida=0
+        and i.material_id=plan.material_id and i.cantidad=plan.cantidad
+        and i.purchase_request_item_id is not distinct from plan.compra_item
+        and i.purchase_request_id is not distinct from plan.compra_id
+        and oi.cantidad_requerida=plan.cantidad_viaje and oi.cantidad_enviada=0 and oi.cantidad_recibida=0
         and not exists (select 1 from public.torneria_movimiento_items mi where mi.operacion_item_id=oi.id)
     )
   ) then raise exception 'Cambió el circuito o ya hay una salida para un renglón'; end if;
@@ -106,21 +106,22 @@ begin
   );
 
   if exists (
-    select 1 from t_regularizar v
-    join public.torneria_operacion_items oi on oi.id=v.componente_id
-    left join public.panol_obra_materiales_snapshot s on s.id=v.snapshot_fisico
-    where oi.cantidad_enviada is distinct from v.cantidad_viaje or oi.cantidad_recibida<>0
-       or (v.modo<>'directo' and (s.estado is distinct from 'egresado' or s.cantidad_egresada is distinct from v.cantidad
+    select 1 from t_regularizar plan
+    join public.torneria_operacion_items oi on oi.id=plan.componente_id
+    left join public.panol_obra_materiales_snapshot s on s.id=plan.snapshot_fisico
+    where oi.cantidad_enviada is distinct from plan.cantidad_viaje or oi.cantidad_recibida<>0
+       or (plan.modo<>'directo' and (s.estado is distinct from 'egresado' or s.cantidad_egresada is distinct from plan.cantidad
          or s.sector_destino is distinct from 'Tornería' or public.torneria_stock_recibido(s)>0))
   ) then raise exception 'La salida no dejó el circuito y el stock en el estado esperado'; end if;
 end;
 $$;
 
-select f.resultado->>'flete_id' as regularizacion, v.obra, v.descripcion, v.modo,
-       v.cantidad as cantidad_material, oi.cantidad_enviada as cantidad_circuito, oi.cantidad_recibida as regreso,
+select f.resultado->>'flete_id' as regularizacion, plan.obra, plan.descripcion, plan.modo,
+       plan.cantidad as cantidad_material, oi.cantidad_enviada as cantidad_circuito, oi.cantidad_recibida as regreso,
        s.estado as estado_panol, s.cantidad_egresada as egreso_panol
-from t_regularizar v
-join public.torneria_operacion_items oi on oi.id=v.componente_id
-left join public.panol_obra_materiales_snapshot s on s.id=v.snapshot_fisico
+from t_regularizar plan
+join public.torneria_operacion_items oi on oi.id=plan.componente_id
+left join public.panol_obra_materiales_snapshot s on s.id=plan.snapshot_fisico
 cross join t_flete f
-order by v.obra, v.descripcion;
+order by plan.obra, plan.descripcion;
+
