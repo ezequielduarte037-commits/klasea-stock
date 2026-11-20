@@ -8158,6 +8158,10 @@ function compareMatrizRows(a, b) {
 }
 
 function snapshotMergePriority(row) {
+  // Un retiro parcial es historia de su ingreso: nunca representa lo que pide
+  // la fila. Si ganaba, su cantidad (lo retirado) pasaba a ser la necesidad
+  // (37-40: caja de piso pedía 4 y figuraba 1).
+  if (String(row?.source || "").toLowerCase() === "historial_retiro_parcial") return -1;
   let score = 0;
   if (row?.productoMaterialId) score += 1200;
   if (String(row?.variante || "").trim()) score += 1000;

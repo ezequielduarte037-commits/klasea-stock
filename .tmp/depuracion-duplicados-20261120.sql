@@ -425,3 +425,114 @@ update panol_obra_materiales_snapshot h set requisito_material_id=m.requisito_ma
    and m.id in (select sid from atar5);
 
 commit;
+
+-- ═════════ Sexta pasada (todos los ingresos del mismo producto, 20/11) ═════════
+-- Atar un ingreso dejaba sueltos los otros ingresos del mismo producto en la
+-- obra (otros remitos, sus retiros parciales): aparecían de a uno en cada
+-- barrido. Acá se atan todos los renglones de ese producto en esa obra, y
+-- además los que el catálogo ya declara como producto de un requisito de la
+-- matriz de la obra (panol_requisito_productos).
+begin;
+select set_config('app.audit_origin','depuracion_duplicados',true);
+select set_config('app.audit_note','Ingreso atado al requisito de la matriz (20/11/2026)',true);
+
+create temp table atar6(sid uuid, req uuid) on commit drop;
+insert into atar6 values
+ ('7e44f991-c049-485b-8c0d-7fec3ea4a37d','4095c16e-4b0f-4924-92ad-067b49548242'), -- 37-40 tira LED
+ ('d8c126ce-74a6-489a-ae17-5d2d9586b7fc','d14c321f-8e0b-42df-9180-44f72374ef30'), -- 37-40 caja de piso Orbis
+ ('bab0c2f6-4f7e-449b-ba7b-fd2d729254f7','d14c321f-8e0b-42df-9180-44f72374ef30'), -- 37-42 caja de piso Orbis
+ ('52fd9e10-94c0-427e-8956-14fe90315178','57943495-9c5a-48db-a1fe-45a5feb4e1a1'), -- 37-42 caja porta batería
+ ('e2b45925-a9c5-41dc-ac93-ba5472fd7fdb','4095c16e-4b0f-4924-92ad-067b49548242'), -- 37-42 tira LED
+ ('ac978e8b-5eaf-4b96-8dd7-f7623c15931f','800cbfc4-117c-40f4-869c-f1577e23524a'), -- 37-42 plotter Garmin Echomap
+ ('498dc82b-524b-44b0-8e01-6d6a774426a9','d786e85d-e73b-4a9c-807e-66b4cb8df5d4'), -- 37-42 monocomando FV Libby
+ ('008ba397-aa3f-45ec-8c96-d3dc59868b54','1f97ee1c-1237-4663-95bc-d574e2d3ad38'), -- 37-42 ánodo eje
+ ('1edd88c7-4c83-4e21-ad04-cf80e223d498','29687db1-d64d-4f74-bd3c-fb8a51af0a57'), -- 37-42 ánodo timón
+ ('222f6a89-de56-48b0-9a44-86446a713d73','29687db1-d64d-4f74-bd3c-fb8a51af0a57'), -- 52-26 ánodo timón
+ ('601dba7b-2104-4678-b4c3-f489695ef776','d14c321f-8e0b-42df-9180-44f72374ef30'), -- 55-2 caja de piso Orbis
+ ('ce4a3d2e-7a86-4114-aadf-8067c8721a06','4095c16e-4b0f-4924-92ad-067b49548242'); -- 55-3 tira LED (retiro parcial)
+
+-- Los de las pasadas anteriores, para arrastrar a sus hermanos.
+insert into atar6
+select a.sid, a.req from (values (1)) z, lateral (
+  select s.id sid, s.requisito_material_id req from panol_obra_materiales_snapshot s
+   where s.id in (
+    '1e3152c9-cd4c-4e06-b728-6625cf7b301d','f2011cdb-a3bc-4f84-9be4-6c6bc2aea88b','00e58215-81f8-4c15-932a-176f73fad46a','408890ad-05b3-4229-8b97-c3b455821d8e',
+    '61283edf-2734-42cb-925f-473f057291a9','8f157c70-c908-4588-b329-21cab83ae0ad','b775bace-b1f5-4043-90f3-4076044ab38e','98dde53f-5f99-4e45-aadb-5f77287dbb42',
+    '06dc1809-7c1d-4b41-8eb4-1c3e099ef9cb','5325e1b6-4d98-4e80-953c-31c17d745b1f','723adcdb-34f9-4984-9dd6-6104045b5625','3d379f43-4b90-4eb4-ae0a-8b392f4da2f7',
+    '9cf2f25c-3667-4e4c-8b5f-8ac86201bd08','35f81592-81a3-4f23-a27e-35694080d913','950009b1-85fe-4a99-b5f5-3fc0c7ecdc8d','e16329b5-b4d5-4a1b-9b60-22c44fbb4aa6',
+    '1cbac44c-9061-400a-b858-46bc297fdddd','7ec11902-a5c6-4b88-8e67-8d1866874245','2d3d8a35-0018-43e0-9f9b-8a1aae3d401c','d6822899-3867-461d-b72e-48d66a3fe611',
+    '9198f6a9-a212-4341-90d2-1c804daf97b2','0c6cd9aa-4a70-45ca-98a6-697f28825297','11ebb8d8-d284-4205-88b6-cf99393d47c4','6add3108-6ab5-49ea-b424-9000a2737a4e',
+    'ff5be2c3-8b52-4b9c-ba89-889fc478d28b','f6eb5154-eff8-4264-a312-8b6b9ab395ae','65bb946f-39ee-461b-b6cc-7f6ee882b420','68b0cf79-100b-4ece-836d-f18d03060e48',
+    '1c4462b9-de1c-458c-8930-1280f6435b0f','43bf51fa-44f0-4788-ad31-2c92f62d3866','4f12d08b-5757-433d-ae53-bced81e1369b','734206f5-8939-4f62-9e76-9766f92fa669',
+    '3f650cfc-e7be-4844-8332-275b5aae8b4c','a8dd02bc-ad17-4cfa-a421-f35c4dc92889','d9881a98-0e5d-40c9-9123-e6af1aaba2d3')
+) a;
+
+-- Productos que el catálogo declara para un requisito de la matriz de la obra
+-- (sin el blower de 3", que no es el extractor de 4").
+insert into atar6
+select s.id, rp.requisito_material_id
+  from produccion_obras o
+  join panol_obra_materiales_snapshot s on s.obra_id=o.id
+  join panol_requisito_productos rp on rp.producto_material_id=s.material_id and coalesce(rp.activo,true)
+  join panol_material_modelo mm on mm.material_id=rp.requisito_material_id and mm.modelo=split_part(o.codigo,'-',1)
+  join panol_materiales rm on rm.id=rp.requisito_material_id and rm.es_requisito
+ where o.estado='activa' and o.codigo ~ '^(37|52|55)-'
+   and s.source not in ('matriz','condicionante','addon','adicional_obra')
+   and coalesce(s.requisito_material_id,s.material_id) <> rp.requisito_material_id
+   and s.material_id <> '6864fa83-e55a-4e23-aae9-aaa77d0f8430'
+   and not exists (select 1 from panol_material_modelo d where d.material_id=s.material_id and d.modelo=split_part(o.codigo,'-',1))
+   and not exists (select 1 from panol_obra_material_exclusiones e where e.obra_id=o.id and e.material_id=rp.requisito_material_id);
+
+do $$
+declare n int; v_amb int;
+begin
+  select count(*) into v_amb from (select sid from atar6 group by sid having count(distinct req)>1) x;
+  if v_amb>0 then raise exception '% ingresos apuntan a más de un requisito.', v_amb; end if;
+  select count(distinct sid) into n from atar6;
+  if n<50 then raise exception 'Esperaba unos 57 ingresos y hay %.', n; end if;
+end $$;
+
+update panol_obra_materiales_snapshot s set requisito_material_id=a.req, material_id=coalesce(s.material_id,a.req)
+  from (select distinct sid, req from atar6) a where s.id=a.sid and s.requisito_material_id is distinct from a.req;
+
+-- Hermanos: el mismo producto en la misma obra, todavía con el producto como requisito.
+update panol_obra_materiales_snapshot h set requisito_material_id=a.req
+  from (select distinct sid, req from atar6) a join panol_obra_materiales_snapshot v on v.id=a.sid
+ where h.obra_id=v.obra_id and h.material_id=v.material_id and h.id<>v.id
+   and coalesce(h.requisito_material_id,h.material_id)=h.material_id
+   and h.source not in ('matriz','condicionante','addon','adicional_obra');
+
+commit;
+
+-- ═════════ Séptima pasada (sensores de nivel agua/comb., 20/11) ═════════
+begin;
+select set_config('app.audit_origin','depuracion_duplicados',true);
+select set_config('app.audit_note','Ingreso atado al requisito de la matriz (20/11/2026)',true);
+
+create temp table atar7(sid uuid, req uuid) on commit drop;
+insert into atar7 values
+ ('d2619430-444c-4d31-8d8a-9c04bea0cd2a','77ef9107-f058-4861-add9-ba86a5645549'), -- 37-40 sensor 28"
+ ('06338546-5f5b-45e2-9a72-3c85b33adb18','e642376a-416a-4c0c-9c89-3fa3d260a3c6'), -- 37-41 sensor 8"
+ ('0852327b-7f29-4c3d-8ac9-453fc2a54715','77ef9107-f058-4861-add9-ba86a5645549'), -- 37-41 sensor 28"
+ ('58a3dd68-f344-4f28-bd81-e1ddb773c7c7','e642376a-416a-4c0c-9c89-3fa3d260a3c6'), -- 37-43 sensor 8"
+ ('ded6a47b-57c2-4955-979c-2bc2c32c23da','77ef9107-f058-4861-add9-ba86a5645549'), -- 37-43 sensor 28"
+ ('4c02daba-089a-489a-a0df-6274e269ddac','e642376a-416a-4c0c-9c89-3fa3d260a3c6'), -- 37-45 sensor 8"
+ ('290e7bb3-7809-4d85-9f1a-73baed367718','77ef9107-f058-4861-add9-ba86a5645549'), -- 37-45 sensor 28"
+ ('00eedafb-6fc0-4914-a654-fb385c091add','737e57e3-9656-4111-bdf3-191d4362c7c5'); -- 55-2 sensor 115 cm
+
+do $$
+declare n int;
+begin
+  select count(*) into n from atar7 a join panol_obra_materiales_snapshot s on s.id=a.sid
+   where s.source not in ('matriz','condicionante','addon','adicional_obra') and coalesce(s.requisito_material_id,s.material_id)<>a.req;
+  if n<>8 then raise exception 'Sólo % de 8 sensores siguen sueltos.', n; end if;
+end $$;
+
+update panol_obra_materiales_snapshot s set requisito_material_id=a.req, material_id=coalesce(s.material_id,a.req)
+  from atar7 a where s.id=a.sid;
+update panol_obra_materiales_snapshot h set requisito_material_id=a.req
+  from atar7 a join panol_obra_materiales_snapshot v on v.id=a.sid
+ where h.obra_id=v.obra_id and h.material_id=v.material_id and h.id<>v.id
+   and coalesce(h.requisito_material_id,h.material_id)=h.material_id
+   and h.source not in ('matriz','condicionante','addon','adicional_obra');
+commit;
