@@ -312,7 +312,7 @@ export default function SelectorDestinosRemito({
         disabled={disabled}
         maxLength={60}
         aria-label="Buscar un barco o una carpeta"
-        placeholder={cargando ? "Cargando barcos…" : "Buscar barco o carpeta, o escribir una nueva…"}
+        placeholder={cargando ? "Cargando barcos…" : "Buscar o crear carpeta"}
         style={{
           width: "100%",
           border: `1px solid ${hayElegido ? C.blueB : C.border2}`,
