@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
+  ArrowDownToLine,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -65,7 +66,7 @@ const PANOL_TAB_STORAGE_KEY = "klasea.panol.recepcion.tab";
 const PANOL_TABS = new Set(["recepcion", "scanner", "remitos", "ingresar", "consumibles", "crear"]);
 
 const TABS_PRINCIPALES = [
-  { key: "recepcion", label: "Recepción" },
+  { key: "recepcion", label: "Pedidos" },
   { key: "scanner", label: "Remitos", Icon: ScanLine },
 ];
 const TABS_MAS = [
@@ -706,10 +707,14 @@ export default function RecepcionPanolScreen({ profile }) {
       <PageHeader
         icon={Warehouse}
         eyebrow="Pañol"
-        title="Recepción de materiales"
+        title="Pedidos y remitos"
         subtitle={sedeLocked ? `Pañol ${sedeLocked}` : "Bandeja operativa · Pampa y Chubut"}
         actions={(
           <>
+            <button type="button" className="ui-btn ui-btn-primario" onClick={() => nav("/ingresos-panol")} title="El mostrador de entrada: lo de los pedidos y lo que llega sin pedido, con el lector">
+              <ArrowDownToLine size={15} />
+              Ingresar materiales
+            </button>
             <button type="button" className="ui-btn ui-btn-suave" onClick={() => setSolicitudOpen(true)} title="Imprimir solicitud manual para pañol">
               <Printer size={15} />
               Imprimible

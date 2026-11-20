@@ -1,0 +1,152 @@
+import { supabase } from "@/supabaseClient";
+import {
+  crearEnvio,
+  enLotesDeIds,
+  fetchLinkedPurchaseRequestForEnvio,
+  marcarItems,
+} from "@/features/panol/panolApi";
+import { notifyWaUpdate } from "@/features/compras/purchaseRequestsApi";
+
+/**
+ * Lecturas y escrituras del mostrador de ingresos. Las escrituras son las
+ * mismas de siempre (panol_marcar_items para recibir un renglón de un pedido,
+ * panol_crear_envio con origen "remito" para lo que llega sin pedido): sólo
+ * cambia la pantalla.
+ */
+
+const CERRADOS = "(recibido,cerrado,cancelado)";
+
+/**
+ * Los envíos abiertos de la sede con sus renglones, cada renglón con la obra
+ * del requerimiento al que apunta y la ficha del producto (ubicación y
+ * códigos de barras, para que el lector lo reconozca). En lotes: todos los
+ * pedidos abiertos juntos son varios cientos de renglones.
+ */
+export async function fetchPedidosEnCamino(sede) {
+  let q = supabase
+    .from("panol_envios")
+    .select("id,titulo,sede,estado,prioridad,origen,obra_id,purchase_request_id,created_at,obra:produccion_obras(id,codigo),items:panol_envio_items(*)")
+    .not("estado", "in", CERRADOS)
+    .order("created_at", { ascending: true });
+  if (sede) q = q.eq("sede", sede);
+  const { data, error } = await q;
+  if (error) throw error;
+  const envios = data ?? [];
+  const items = envios.flatMap((e) => e.items || []);
+
+  const snapshotIds = items.map((it) => it.obra_snapshot_item_id).filter(Boolean);
+  const materialIds = items.map((it) => it.material_id).filter(Boolean);
+
+  const [snapshots, materiales, codigos] = await Promise.all([
+    enLotesDeIds(snapshotIds, async (lote) => {
+      const r = await supabase
+        .from("panol_obra_materiales_snapshot")
+        .select("id, obra_id, obra:produccion_obras!panol_obra_materiales_snapshot_obra_id_fkey(id,codigo)")
+        .in("id", lote);
+      return r.error ? [] : r.data;
+    }).catch(() => []),
+    enLotesDeIds(materialIds, async (lote) => {
+      const r = await supabase
+        .from("panol_materiales")
+        .select("id,codigo_barra,codigo,descripcion,unidad_medida,ubicacion,ubicacion_obs,imagen_url,es_consumible")
+        .in("id", lote);
+      if (r.error) throw r.error;
+      return r.data;
+    }),
+    enLotesDeIds(materialIds, async (lote) => {
+      const r = await supabase
+        .from("panol_material_codigos_barra")
+        .select("material_id,codigo,activo")
+        .in("material_id", lote)
+        .eq("activo", true);
+      return r.error ? [] : r.data;
+    }).catch(() => []),
+  ]);
+
+  const porSnapshot = new Map(snapshots.map((s) => [s.id, s]));
+  const codigosPorMaterial = new Map();
+  for (const c of codigos) {
+    if (!codigosPorMaterial.has(c.material_id)) codigosPorMaterial.set(c.material_id, []);
+    codigosPorMaterial.get(c.material_id).push(c);
+  }
+  const porMaterial = new Map(materiales.map((m) => [m.id, { ...m, codigos_barra: codigosPorMaterial.get(m.id) ?? [] }]));
+
+  return envios.map((e) => ({
+    ...e,
+    items: (e.items || []).map((it) => {
+      const fila = porSnapshot.get(it.obra_snapshot_item_id);
+      return {
+        ...it,
+        material: porMaterial.get(it.material_id) || null,
+        obra_id: fila ? fila.obra_id : e.obra_id,
+        obra_codigo: (fila ? fila.obra?.codigo : e.obra?.codigo) || "",
+        stock_general: fila ? !fila.obra_id : !it.obra_snapshot_item_id && !e.obra_id && !it.purchase_request_item_id,
+      };
+    }),
+  }));
+}
+
+/** Lo último que entró en la sede (recibido o parcial), para la columna de la derecha. */
+export async function fetchUltimosIngresos(sede, { limite = 80 } = {}) {
+  let q = supabase
+    .from("panol_envio_items")
+    .select("id,envio_id,descripcion,cantidad,cantidad_recibida,unidad,estado,marcado_at,updated_at,created_at,envio:panol_envios!inner(id,titulo,sede,origen)")
+    .in("estado", ["recibido", "parcial"])
+    .order("updated_at", { ascending: false })
+    .limit(limite);
+  if (sede) q = q.eq("envio.sede", sede);
+  const { data, error } = await q;
+  if (error) throw error;
+  return data ?? [];
+}
+
+/**
+ * Registra el ingreso. Primero lo que llegó sin pedido (un envío nuevo, todo
+ * de una vez), después cada renglón de pedido. Devuelve lo que se hizo para
+ * poder decir qué quedó si algo falla a mitad de camino.
+ */
+export async function registrarIngreso({ recibir = [], crear = null, actor = null } = {}) {
+  const hecho = { creado: null, recibidos: [] };
+
+  if (crear) {
+    hecho.creado = await crearEnvio({
+      titulo: crear.titulo,
+      sede: crear.sede,
+      origen: crear.origen,
+      prioridad: "media",
+      items: crear.items,
+    });
+  }
+
+  // Los pedidos de Compras avisan por WhatsApp cuando se completan: se mira
+  // cómo estaban antes y cómo quedaron.
+  const envios = [...new Set(recibir.map((r) => r.envioId))];
+  const antes = new Map();
+  await Promise.all(envios.map(async (id) => {
+    const linked = await fetchLinkedPurchaseRequestForEnvio(id).catch(() => null);
+    if (linked) antes.set(id, linked);
+  }));
+
+  for (const r of recibir) {
+    await marcarItems([r.id], r.estado, { cantidadRecibida: r.cantidadRecibida });
+    hecho.recibidos.push(r.id);
+  }
+
+  await Promise.all([...antes.entries()].map(async ([envioId, prev]) => {
+    if (prev.status === "recibido") return;
+    const despues = await fetchLinkedPurchaseRequestForEnvio(envioId).catch(() => null);
+    if (despues?.status !== "recibido") return;
+    notifyWaUpdate({
+      requestId: despues.id,
+      eventType: "received",
+      actorId: actor?.id || null,
+      payload: {
+        quantity: despues.received_quantity || "",
+        notes: despues.receipt_notes || "Recepcionado por Pañol.",
+        actorName: actor?.username || "Pañol",
+      },
+    });
+  }));
+
+  return hecho;
+}

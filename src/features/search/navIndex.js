@@ -41,9 +41,15 @@ export const NAV_SECTIONS = [
     roles: PANOL,
   },
   {
-    id: "panol-recepcion", label: "Recepcionar", modulo: "Pañol", path: "/recepcion-panol?tab=recepcion", Icon: PackageSearch,
-    hint: "Lo que Compras mandó a recibir en tu sede.",
-    keywords: "recepcion recibir recepcionar llego llegada entrega envio pedido pendiente",
+    id: "panol-ingresos", label: "Ingresar materiales", modulo: "Pañol", path: "/ingresos-panol", Icon: PackageSearch,
+    hint: "El mostrador de entrada: pedidos en camino y lo que llega sin pedido.",
+    keywords: "ingreso ingresar entrada recepcion recibir recepcionar llego llegada remito mercaderia pedido pendiente mostrador lector",
+    roles: PANOL,
+  },
+  {
+    id: "panol-recepcion", label: "Pedidos y remitos", modulo: "Pañol", path: "/recepcion-panol?tab=recepcion", Icon: PackageSearch,
+    hint: "Todos los pedidos a pañol, con su historial y novedades.",
+    keywords: "pedidos envios avisos historial novedades recibidos parciales bandeja recepcion",
     roles: PANOL,
   },
   {
@@ -59,9 +65,9 @@ export const NAV_SECTIONS = [
     roles: PANOL,
   },
   {
-    id: "panol-ingresar", label: "Ingreso directo", modulo: "Pañol", path: "/recepcion-panol?tab=ingresar", Icon: Boxes,
-    hint: "Cargar mercadería a mano, con remito o desde un borrador.",
-    keywords: "ingreso ingresar entrada alta cargar mercaderia stock sumar recibir",
+    id: "panol-ingresar", label: "Ingreso completo", modulo: "Pañol", path: "/recepcion-panol?tab=ingresar", Icon: Boxes,
+    hint: "El formulario largo: leer el remito con IA, repartir entre obras, borradores.",
+    keywords: "ingreso completo formulario borrador ia leer remito repartir obras precios",
     roles: PANOL,
   },
   {

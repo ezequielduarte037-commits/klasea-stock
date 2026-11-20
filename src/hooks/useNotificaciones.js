@@ -480,7 +480,7 @@ export default function useNotificaciones(profile) {
         clave: `recepcion:${envio.id}`, tipo: "recepcion", gravedad: gravedadRecepcion(envio),
         titulo: "Recepción pendiente",
         detalle: `${envio.titulo || "Envío a recepción"}${destino ? ` — ${destino}` : ""}${envio.sede ? ` · ${envio.sede}` : ""}`,
-        actor: null, fecha: fmtDateValue(envio), ruta: "/recepcion-panol?tab=recepcion", requiereAccion: true,
+        actor: null, fecha: fmtDateValue(envio), ruta: "/ingresos-panol", requiereAccion: true,
         why: "sede-panol", meta: { envio },
       });
     }

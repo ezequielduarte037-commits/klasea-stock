@@ -196,6 +196,7 @@ const SolicitudesPanolScreen = pantalla(() => import("@/features/panol/Solicitud
 const StockPanolScreen = pantalla(() => import("@/features/panol/StockPanolScreen"));
 const CatalogoMaestroScreen = pantalla(() => import("@/features/catalogo/CatalogoMaestroScreen"));
 const EgresosPanolScreen = pantalla(() => import("@/features/panol/EgresosPanolScreen"));
+const IngresosPanolScreen = pantalla(() => import("@/features/panol/IngresosPanolScreen"));
 const ConsumiblesScreen = pantalla(() => import("@/features/consumibles/ConsumiblesScreen"));
 const ListaManianaScreen = pantalla(() => import("@/features/consumibles/lista/ListaManianaScreen"));
 const PortalProveedorScreen = pantalla(() => import("@/features/proveedores/PortalProveedorScreen"));
@@ -683,6 +684,7 @@ export default function App() {
           <Route path="/inicio-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["panol"]}><PanolOperativoHome {...A} /></RequireRole></RequireAuth>} />
           <Route path="/inicio-panol/tarjetas" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><TarjetasNfcScreen {...A} /></RequireRole></RequireAuth>} />
           <Route path="/recepcion-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><RecepcionPanolScreen {...A} /></RequireRole></RequireAuth>} />
+          <Route path="/ingresos-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><IngresosPanolScreen {...A} /></RequireRole></RequireAuth>} />
           <Route path="/egresos-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><EgresosPanolScreen {...A} /></RequireRole></RequireAuth>} />
           <Route path="/stock-panol" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol"]}><StockPanolScreen {...A} /></RequireRole></RequireAuth>} />
           <Route path="/motores-y-grupos" element={<RequireAuth session={session}><RequireRole profile={profile} allow={["admin","oficina","tecnica","panol","compras"]}><EquiposScreen {...A} /></RequireRole></RequireAuth>} />

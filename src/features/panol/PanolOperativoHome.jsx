@@ -172,19 +172,19 @@ export default function PanolOperativoHome({ profile }) {
       : "Entrá directo al trabajo que vas a hacer.";
 
   const indicadores = [
-    { clave: "recibir", label: "Ítems por recibir", valor: summary.openItems, tono: "violeta", to: "/recepcion-panol?tab=recepcion" },
+    { clave: "recibir", label: "Ítems por recibir", valor: summary.openItems, tono: "violeta", to: "/ingresos-panol" },
     { clave: "borradores", label: "Ingresos en borrador", valor: drafts.length, tono: "azul", to: "/recepcion-panol?tab=ingresar" },
     { clave: "compras", label: "Pedidos a compras", valor: requests.length, tono: requestUrgent ? "rojo" : "violeta", destacar: requestUrgent > 0, to: "/compras" },
     { clave: "ubicacion", label: "Sin ubicación", valor: sinUbicacion, tono: "cian", to: "/stock-panol?tab=mapa" },
   ];
 
   const acciones = [
-    { to: "/recepcion-panol?tab=recepcion", Icono: PackageCheck, titulo: "Recepcionar", tono: "verde",
-      descripcion: summary.activos.length ? `${plural(summary.activos.length, "pedido", "pedidos")} por revisar` : "No hay pedidos esperando" },
+    { to: "/ingresos-panol", Icono: PackageCheck, titulo: "Ingresar", tono: "verde",
+      descripcion: summary.activos.length ? `${plural(summary.activos.length, "pedido", "pedidos")} en camino` : "Lo que llega, con o sin pedido" },
     { to: "/recepcion-panol?tab=scanner", Icono: FileScan, titulo: "Escanear remito", tono: "violeta",
       descripcion: "USB · lectura IA · revisión antes del stock" },
-    { to: "/recepcion-panol?tab=ingresar", Icono: PackagePlus, titulo: "Ingreso directo", tono: "azul",
-      descripcion: drafts.length ? `${plural(drafts.length, "borrador", "borradores")} para retomar` : "Carga manual, ajuste o remito ya digital" },
+    { to: "/recepcion-panol?tab=ingresar", Icono: PackagePlus, titulo: "Ingreso completo", tono: "azul",
+      descripcion: drafts.length ? `${plural(drafts.length, "borrador", "borradores")} para retomar` : "Reparto por obra, lectura con IA o borradores" },
     { to: "/egresos-panol", Icono: ScanLine, titulo: "Egresar", tono: "rojo",
       descripcion: "Buscar, escanear o abrir el carrito" },
     { to: "/stock-panol?tab=sobrantes", Icono: ClipboardList, titulo: "Sobrantes de obra", tono: "cian",
