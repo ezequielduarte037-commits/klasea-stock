@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Bot,
   Building2,
   ChevronRight,
   ExternalLink,
@@ -28,7 +27,7 @@ import {
   reasignarObrasDeRemito,
   urlDeRemito,
 } from "@/features/panol/remitosArchivoApi";
-import { actualizarDatosDeRemito, borrarRemitoEscaneado, leerRemitoConIA } from "@/features/panol/remitosScannerApi";
+import { actualizarDatosDeRemito, borrarRemitoEscaneado } from "@/features/panol/remitosScannerApi";
 import { fetchObrasEgreso } from "@/features/panol/panolApi";
 import { carpetaDeObra, carpetaParaMostrar, normalizarCarpetas } from "@/features/panol/carpetaRemitos";
 import SelectorDestinosRemito from "@/features/panol/SelectorDestinosRemito";
@@ -67,11 +66,18 @@ const SIN_OBRA = "__sin_obra__";
 const SIN_PROVEEDOR = "__sin_proveedor__";
 const SIN_CARPETA = "__sin_carpeta__";
 
+// El archivo es para guardar y encontrar papeles, no para ingresar stock: lo
+// que importa es que cada remito esté en su lugar. "Sin clasificar" son los que
+// no tienen barco ni carpeta propia; "Con ingreso", los que un ingreso del
+// mostrador dejó atados a lo que entró.
 const FILTROS = [
   ["todos", "Todos"],
-  ["sin_leer", "Falta leer"],
-  ["leidos", "Con renglones"],
+  ["sin_clasificar", "Sin clasificar"],
+  ["con_ingreso", "Con ingreso"],
 ];
+
+const sinClasificar = (r) => !(r.obras || []).length && !(r.carpetas || []).length;
+const conIngreso = (r) => Boolean(r.panol_envio_id);
 
 const VISTAS = [
   { valor: "obra", etiqueta: "Por obra", raiz: "Todas las líneas", Icono: Ship },
@@ -436,8 +442,8 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
   const filtrados = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
     return remitos.filter((r) => {
-      if (filtro === "sin_leer" && !r.sinLeer) return false;
-      if (filtro === "leidos" && r.sinLeer) return false;
+      if (filtro === "sin_clasificar" && !sinClasificar(r)) return false;
+      if (filtro === "con_ingreso" && !conIngreso(r)) return false;
       if (!q) return true;
       const destinos = (r.obras || []).flatMap((obra) => [obra.codigo, obra.linea_nombre]);
       return [r.proveedor, r.numero, r.titulo, r.notas, ...destinos, ...(r.carpetas || []), r.carpeta_local, r.archivo_nombre, r.sede]
@@ -445,7 +451,7 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
     });
   }, [remitos, busqueda, filtro]);
 
-  const totalSinLeer = useMemo(() => remitos.filter((r) => r.sinLeer).length, [remitos]);
+  const totalSinClasificar = useMemo(() => remitos.filter(sinClasificar).length, [remitos]);
 
   /**
    * Los nodos del nivel 1 y del nivel 2, segun por donde se este entrando.
@@ -520,24 +526,6 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (e) {
       toast.error(e.message || "No se pudo abrir el remito.");
-    } finally {
-      setOcupado("");
-    }
-  }
-
-  /** Manda a leer un remito que se guardó sin renglones. */
-  async function leer(remito) {
-    setOcupado(`leer-${remito.id}`);
-    try {
-      const lectura = await leerRemitoConIA(remito.id);
-      if (!lectura.ok) {
-        toast.warning(lectura.mensaje);
-        return;
-      }
-      toast.success(`Leído: ${lectura.vinculados}/${lectura.total} renglones vinculados. Ingresalo desde Escanear.`);
-      await cargar({ silencioso: true });
-    } catch (e) {
-      toast.error(e.message || "No se pudo leer el remito.");
     } finally {
       setOcupado("");
     }
@@ -667,12 +655,12 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
         })}
       </div>
 
-      {/* Filtros. "Falta leer" es el que importa: son los papeles guardados que
-          todavia no tienen renglones y por eso no se pueden ingresar al stock. */}
+      {/* Filtros. "Sin clasificar" es el que importa: un papel sin barco ni
+          carpeta está guardado pero cuesta encontrarlo. Se arregla con el lápiz. */}
       <div className="panol-archivo-filtros" style={{ marginBottom: 12 }}>
         {FILTROS.map(([valor, etiqueta]) => {
           const activo = filtro === valor;
-          const cuenta = valor === "sin_leer" ? totalSinLeer : null;
+          const cuenta = valor === "sin_clasificar" ? totalSinClasificar : null;
           return (
             <button
               key={valor}
@@ -845,14 +833,8 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
                     <span style={{ color: C.text, fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {remito.titulo || remito.proveedor || "Sin proveedor"}
                     </span>
-                    {remito.solo_archivo ? (
-                      <Chip color={C.cyan} soft={C.cyanL} border={C.cyanB} title="Se guardó como documento, sin mover stock">archivo</Chip>
-                    ) : null}
-                    {remito.sinLeer ? (
-                      <Chip color={C.violet} soft={C.violetL} border={C.violetB} title="El PDF está guardado pero no tiene renglones cargados">falta leer</Chip>
-                    ) : null}
-                    {remito.recepcion_estado === "ingresado" && remito.panol_envio_id ? (
-                      <Chip color={C.green} soft={C.greenL} border={C.greenB} title="Generó un ingreso de stock">ingresado</Chip>
+                    {remito.panol_envio_id ? (
+                      <Chip color={C.green} soft={C.greenL} border={C.greenB} title="Un ingreso de materiales quedó atado a este remito">con ingreso</Chip>
                     ) : null}
                   </div>
                   <div style={{ color: C.dim, fontSize: 11, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -903,14 +885,6 @@ export default function RemitosArchivoTab({ isMobile = false, puedeReasignar = f
                   </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                  {/* También para los "solo archivo": guardarlos sin leer fue
-                      una decisión del momento, y a veces después hace falta
-                      cargar el stock. Leer no mueve nada por sí solo. */}
-                  {remito.sinLeer ? (
-                    <MiniBoton onClick={() => leer(remito)} disabled={Boolean(ocupado)} title="Leer los renglones con IA para poder ingresarlo">
-                      {ocupado === `leer-${remito.id}` ? <LoaderCircle size={12} className="spin" /> : <Bot size={12} />} Leer
-                    </MiniBoton>
-                  ) : null}
                   <MiniBoton onClick={() => abrir(remito)} disabled={!remito.archivo_url || Boolean(ocupado)} title="Abrir el PDF original">
                     {ocupado === `abrir-${remito.id}` ? <LoaderCircle size={12} className="spin" /> : <ExternalLink size={12} />} Ver
                   </MiniBoton>

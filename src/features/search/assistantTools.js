@@ -107,7 +107,7 @@ export const HERRAMIENTAS = [
     label: "Remitos escaneados",
     roles: GESTION_PANOL,
     sujeto: ["remito", "remitos", "comprobante", "comprobantes"],
-    ruta: "/recepcion-panol?tab=remitos",
+    ruta: "/remitos-panol?vista=archivo",
     rutaLabel: "Abrir el archivo de remitos",
     async correr({ periodo, terminos }) {
       let query = supabase

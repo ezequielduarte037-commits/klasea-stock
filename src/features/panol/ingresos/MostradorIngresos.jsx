@@ -22,8 +22,10 @@ import {
   cambiarVariante,
   cantidadDe,
   cargarRemito,
+  enviosDelIngreso,
   fijarCantidad,
   materialesPorCodigo,
+  obrasDelIngreso,
   planDeIngreso,
   problemasDelCarrito,
   quitarLinea,
@@ -39,7 +41,9 @@ import {
   ultimaLinea,
   vinculosDelRemito,
 } from "./ingresosLogica";
-import { fetchPedidosEnCamino, fetchUltimosIngresos, guardarNovedad, registrarIngreso, vincularRemito } from "./ingresosApi";
+import {
+  atarRemitoAlIngreso, fetchPedidosEnCamino, fetchRemitosGuardados, fetchUltimosIngresos, guardarNovedad, registrarIngreso, vincularRemito,
+} from "./ingresosApi";
 import { EscanearRemito, RemitoEnCarrito } from "./PiezasRemito";
 import {
   BotoneraIngreso, CarritoIngreso, ConfirmarIngreso, ElegirObra, ElegirRenglon, ListoIngreso,
@@ -124,6 +128,9 @@ export default function MostradorIngresos({ sede, profile }) {
     return v && v.id ? v : null;
   });
   const [referencia, setReferencia] = useState(() => remito?.referencia || "");
+  // El remito guardado en la pantalla Remitos que se eligió al confirmar.
+  const [remitoArchivado, setRemitoArchivado] = useState(null);
+  const [remitosGuardados, setRemitosGuardados] = useState(null);
   const [guardando, setGuardando] = useState(false);
   const [guardandoNovedad, setGuardandoNovedad] = useState(false);
   const [errorOperacion, setErrorOperacion] = useState("");
@@ -443,6 +450,24 @@ export default function MostradorIngresos({ sede, profile }) {
     campoRef.current?.blur();
     setErrorOperacion("");
     setPaso("confirmar");
+    if (!remito) {
+      setRemitosGuardados(null);
+      fetchRemitosGuardados(sede)
+        .then((l) => { if (vivoRef.current) setRemitosGuardados(l); })
+        .catch(() => { if (vivoRef.current) setRemitosGuardados([]); });
+    }
+  }
+
+  function escribirReferencia(v) {
+    setReferencia(v);
+    if (remitoArchivado && v !== remitoArchivado.referencia) setRemitoArchivado(null);
+  }
+
+  function elegirRemitoArchivado(r) {
+    if (!r) { setRemitoArchivado(null); return; }
+    const nombre = referenciaDeRemito(r);
+    setRemitoArchivado({ id: r.id, referencia: nombre });
+    setReferencia(nombre);
   }
 
   function volverAMarcar() {
@@ -466,9 +491,25 @@ export default function MostradorIngresos({ sede, profile }) {
         const vinculos = vinculosDelRemito(items, { envioCreado: hecho?.creado || null });
         if (vinculos.length) {
           await vincularRemito(remito.id, vinculos).catch(() => {
-            toast.warning("El ingreso quedó, pero el remito no quedó marcado como ingresado. Revisalo en Pedidos y remitos.");
+            toast.warning("El ingreso quedó, pero el remito no quedó marcado como ingresado. Revisalo en el Archivo de remitos.");
           });
         }
+      }
+      // El papel queda atado al ingreso: el remito apunta al envío, cada pedido
+      // lo menciona en su historial y, si estaba suelto, se guarda en los
+      // barcos de lo que entró.
+      const atado = remito
+        ? { id: remito.id, referencia: remito.referencia, marcar: false }
+        : remitoArchivado ? { id: remitoArchivado.id, referencia: remitoArchivado.referencia, marcar: true } : null;
+      if (atado) {
+        const r = await atarRemitoAlIngreso({
+          remitoId: atado.id,
+          referencia: atado.referencia,
+          envios: enviosDelIngreso(items, { envioCreado: hecho?.creado || null }),
+          obras: obrasDelIngreso(items),
+          marcar: atado.marcar,
+        }).catch(() => ({ ok: false }));
+        if (!r.ok) toast.warning("El ingreso quedó, pero el remito no se pudo atar del todo. Revisalo en el Archivo de remitos.");
       }
       if (!vivoRef.current) return;
       const resumen = resumenDelIngreso(items, { obras, sede, referencia });
@@ -477,6 +518,7 @@ export default function MostradorIngresos({ sede, profile }) {
       }
       aplicarCarrito([]);
       setRemito(null);
+      setRemitoArchivado(null);
       setListo(resumen);
       setPaso("listo");
       setRefrescando(true);
@@ -499,6 +541,7 @@ export default function MostradorIngresos({ sede, profile }) {
   function empezarDeNuevo() {
     if (guardandoRef.current) return;
     setReferencia("");
+    setRemitoArchivado(null);
     setErrorOperacion("");
     setListo(null);
     setCapa(null);
@@ -833,7 +876,11 @@ export default function MostradorIngresos({ sede, profile }) {
           sede={sede}
           obras={obras}
           referencia={referencia}
-          onReferencia={setReferencia}
+          onReferencia={escribirReferencia}
+          remitosGuardados={remitosGuardados}
+          remitoElegido={remito || remitoArchivado}
+          remitoEscaneado={remito}
+          onElegirRemito={elegirRemitoArchivado}
           problemas={problemas}
           guardando={guardando}
           error={errorOperacion}

@@ -95,7 +95,7 @@ export function EscanearRemito({ sede, esTactil = false, remitoActual = null, on
   return (
     <Hoja
       titulo="Escanear remito"
-      sub={`La IA lee los renglones y los suma al carrito: lo que esperaba un pedido va a ese pedido. Pañol ${sede}.`}
+      sub={`La IA lee los renglones y los suma al carrito: lo que esperaba un pedido va a ese pedido. Para guardar un remito sin ingresar nada, usá Remitos. Pañol ${sede}.`}
       chica={false}
       onCerrar={() => { if (!ocupado) onCerrar(); }}
     >

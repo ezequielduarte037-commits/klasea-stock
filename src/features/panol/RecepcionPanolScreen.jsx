@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  FileText,
   PackageCheck,
   PackageOpen,
   PackagePlus,
@@ -16,7 +15,6 @@ import {
   RefreshCw,
   RotateCcw,
   Scale,
-  ScanLine,
   Search,
   Trash2,
   Warehouse,
@@ -35,10 +33,8 @@ import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
 import CrearProductoTab from "@/features/panol/CrearProductoTab";
 import { puedeCrearProductosDeBarco } from "@/features/panol/productosACrear";
 import ConsumiblesPanolTab from "@/features/panol/ConsumiblesPanolTab";
-import ScannerRemitosTab from "@/features/panol/ScannerRemitosTab";
-import RemitosArchivoTab from "@/features/panol/RemitosArchivoTab";
 import SolicitudPanolPrintable from "@/features/panol/SolicitudPanolPrintable";
-import { linkScannedReceiptToIngreso, scannerReceiptPrefill } from "@/features/panol/remitosScannerApi";
+import { linkScannedReceiptToIngreso } from "@/features/panol/remitosScannerApi";
 import { leerIngresosPendientes, borrarIngresoPendiente, leerPapeleraIngresos, restaurarIngresoPendiente, vaciarPapeleraIngresos } from "@/features/panol/ingresosPendientes";
 import { hasAdminAccess, puedeVerPrecios } from "@/lib/permissions";
 
@@ -63,14 +59,15 @@ const PRIO_FILTERS = [
   ["baja", "Baja"],
 ];
 const PANOL_TAB_STORAGE_KEY = "klasea.panol.recepcion.tab";
-const PANOL_TABS = new Set(["recepcion", "scanner", "remitos", "ingresar", "consumibles", "crear"]);
+// Las pestañas de remitos ("scanner" y "remitos") se mudaron a /remitos-panol:
+// guardar papeles no es parte de recibir pedidos.
+const PANOL_TABS = new Set(["recepcion", "ingresar", "consumibles", "crear"]);
+const TABS_DE_REMITOS = { scanner: "escanear", remitos: "archivo" };
 
 const TABS_PRINCIPALES = [
   { key: "recepcion", label: "Pedidos" },
-  { key: "scanner", label: "Remitos", Icon: ScanLine },
 ];
 const TABS_MAS = [
-  { key: "remitos", label: "Archivo", hint: "Papeles guardados por barco, proveedor o carpeta", Icon: FileText },
   { key: "ingresar", label: "Ingreso directo", hint: "Cargar materiales sin un pedido previo", Icon: PackageOpen },
   { key: "consumibles", label: "Consumibles", hint: "Tornillos, lijas y el resto del fondo", Icon: Scale },
   { key: "crear", label: "Crear producto", hint: "Alta rápida al catálogo, no a la matriz", Icon: PackagePlus },
@@ -613,6 +610,15 @@ export default function RecepcionPanolScreen({ profile }) {
 
   useEffect(() => { cargar(); }, [cargar]);
 
+  // Links viejos (menú guardado, notificaciones, buscador) a las pestañas de
+  // remitos: van a la pantalla nueva, con la búsqueda si la traían.
+  useEffect(() => {
+    const vista = TABS_DE_REMITOS[requestedTab];
+    if (!vista) return;
+    const q = requestedQuery ? `&q=${encodeURIComponent(requestedQuery)}` : "";
+    nav(`/remitos-panol?vista=${vista}${q}`, { replace: true });
+  }, [requestedTab, requestedQuery, nav]);
+
   useEffect(() => {
     if (requestedTab === "egresos") nav("/egresos-panol", { replace: true });
   }, [nav, requestedTab]);
@@ -707,7 +713,7 @@ export default function RecepcionPanolScreen({ profile }) {
       <PageHeader
         icon={Warehouse}
         eyebrow="Pañol"
-        title="Pedidos y remitos"
+        title="Pedidos"
         subtitle={sedeLocked ? `Pañol ${sedeLocked}` : "Bandeja operativa · Pampa y Chubut"}
         actions={(
           <>
@@ -853,24 +859,6 @@ export default function RecepcionPanolScreen({ profile }) {
       </div>
 
         </>
-      ) : tab === "remitos" ? (
-        /* El `key` con la búsqueda: si el buscador global manda acá estando ya
-           en la pantalla, React no remonta y el archivo se quedaba mostrando lo
-           anterior. Con esto arranca de cero filtrado por lo que se buscó. */
-        <RemitosArchivoTab key={`remitos-${requestedQuery}`} isMobile={isMobile} puedeReasignar={isAdmin} busquedaInicial={requestedQuery} verPrecios={puedeVerPrecios(profile)} />
-      ) : tab === "scanner" ? (
-        <ScannerRemitosTab
-          profile={profile}
-          sedeLocked={sedeLocked}
-          canReceive={canReceive}
-          isMobile={isMobile}
-          onReview={(receipt) => {
-            setModalPrefill(scannerReceiptPrefill(receipt));
-            setIngresoKey((key) => key + 1);
-            setTab("ingresar");
-          }}
-          onOpenIngreso={(envioId) => setSel(envioId)}
-        />
       ) : tab === "consumibles" ? (
         <ConsumiblesPanolTab isMobile={isMobile} toast={toast} sedeLocked={sedeLocked} canReceive={canReceive} isAdmin={isAdmin} />
       ) : tab === "crear" && !soloConsumibles ? (
@@ -994,7 +982,7 @@ export default function RecepcionPanolScreen({ profile }) {
                   setIngresoKey((k) => k + 1);
                   refreshPendientes();
                   if (saved) cargar();
-                  if (volverAlScanner) setTab("scanner");
+                  if (volverAlScanner) nav("/remitos-panol?vista=archivo");
                   else if (saved && tab === "crear") setTab("ingresar");
                 }}
               />

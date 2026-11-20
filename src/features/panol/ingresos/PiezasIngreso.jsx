@@ -10,7 +10,7 @@ import CampoTexto from "@/features/consumibles/mostrador/CampoTexto";
 import { fmtNum, normalizarTexto } from "@/features/consumibles/mostrador/mostradorLogica";
 import { Hoja } from "@/features/panol/mostrador/CapasPanol";
 import {
-  NOVEDADES, agruparUltimos, cantidadDe, carritoAgrupado, comparaConPedido, destinoDelRenglon, opcionesDeNovedad, totalUnidades,
+  NOVEDADES, agruparUltimos, cantidadDe, carritoAgrupado, comparaConPedido, destinoDelRenglon, opcionesDeNovedad, remitosParaElegir, totalUnidades,
 } from "./ingresosLogica";
 
 // "faltan 2" se entiende solo; "faltan 2 unidad" no. Los metros y kilos sí.
@@ -406,7 +406,15 @@ function LineaIngreso({ l, sede, obraTexto, problema, onSumar, onTeclado, onQuit
 
 // ── Confirmar ───────────────────────────────────────────────────────────────
 
-export function ConfirmarIngreso({ cart = [], sede, obras = [], referencia, onReferencia, problemas = [], guardando, error, onConfirmar, onVolver, onRafaga }) {
+const fechaCorta = (iso) => {
+  const d = new Date(`${String(iso || "").slice(0, 10)}T12:00:00`);
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit" });
+};
+
+export function ConfirmarIngreso({
+  cart = [], sede, obras = [], referencia, onReferencia, problemas = [], guardando, error, onConfirmar, onVolver, onRafaga,
+  remitosGuardados = null, remitoElegido = null, remitoEscaneado = null, onElegirRemito,
+}) {
   const raizRef = useRef(null);
   const sinPedido = cart.filter((l) => l.tipo !== "pedido");
   const deMenos = cart.filter((l) => comparaConPedido(l).tipo === "parcial");
@@ -414,6 +422,15 @@ export function ConfirmarIngreso({ cart = [], sede, obras = [], referencia, onRe
   const pedidos = new Set(cart.filter((l) => l.tipo === "pedido").map((l) => l.envioTitulo));
   const puede = !guardando && cart.length > 0 && !problemas.length;
   const obraPorId = useMemo(() => new Map(obras.map((o) => [o.id, o.codigo])), [obras]);
+  // Lo escrito filtra los guardados, salvo que sea justo el nombre del elegido.
+  const filtro = remitoElegido && referencia === remitoElegido.referencia ? "" : referencia;
+  const opciones = useMemo(
+    () => (remitosGuardados ? remitosParaElegir(remitosGuardados, filtro, { max: 8 }) : []),
+    [remitosGuardados, filtro],
+  );
+  const visibles = remitoElegido && !opciones.some((r) => r.id === remitoElegido.id)
+    ? [remitosGuardados?.find((r) => r.id === remitoElegido.id), ...opciones].filter(Boolean).slice(0, 8)
+    : opciones;
 
   useEffect(() => {
     if (!sinPedido.length) raizRef.current?.focus({ preventScroll: true });
@@ -453,24 +470,58 @@ export function ConfirmarIngreso({ cart = [], sede, obras = [], referencia, onRe
           ) : null}
 
           <fieldset disabled={guardando} style={{ display: "contents", border: 0, padding: 0, margin: 0, minWidth: 0 }}>
-            {sinPedido.length ? (
-              <div className="mst-bloque">
-                <label className="mst-bloque-titulo" htmlFor="ing-remito">Número de remito</label>
-                <CampoTexto
-                  id="ing-remito"
-                  value={referencia}
-                  onChange={onReferencia}
-                  onRafaga={onRafaga}
-                  maxLength={120}
-                  autoFocus
-                  onEnter={(e) => { e.preventDefault(); if (puede) onConfirmar(); }}
-                  style={{ fontSize: 17, minHeight: 48 }}
-                />
+            <div className="mst-bloque">
+              <label className="mst-bloque-titulo" htmlFor="ing-remito">{sinPedido.length ? "Remito" : "Remito (opcional)"}</label>
+              <CampoTexto
+                id="ing-remito"
+                value={referencia}
+                onChange={onReferencia}
+                onRafaga={onRafaga}
+                maxLength={120}
+                autoFocus={sinPedido.length > 0}
+                onEnter={(e) => { e.preventDefault(); if (puede) onConfirmar(); }}
+                style={{ fontSize: 17, minHeight: 48 }}
+              />
+              {remitoEscaneado ? (
                 <span className="ing-ayuda" style={{ margin: 0 }}>
-                  {sinPedido.length === 1 ? "1 producto entra sin pedido" : `${sinPedido.length} productos entran sin pedido`} con este remito.
+                  Es el remito que se escaneó acá: queda guardado en el Archivo, en los barcos de lo que entra.
                 </span>
-              </div>
-            ) : null}
+              ) : (
+                <>
+                  {visibles.length ? (
+                    <div className="ing-remitos-guardados" role="listbox" aria-label="Remitos guardados">
+                      {visibles.map((r) => {
+                        const elegido = remitoElegido?.id === r.id;
+                        const barcos = (r.obras || []).map((o) => o.codigo).filter(Boolean);
+                        return (
+                          <button
+                            key={r.id}
+                            type="button"
+                            role="option"
+                            aria-selected={elegido}
+                            className={`ing-remito-guardado${elegido ? " is-elegido" : ""}`}
+                            onClick={() => onElegirRemito?.(elegido ? null : r)}
+                          >
+                            <strong>{r.proveedor || r.titulo || "Remito"}{r.numero ? ` · Nº ${r.numero}` : ""}</strong>
+                            <span>{[fechaCorta(r.fecha || r.created_at), barcos.slice(0, 2).join(", ")].filter(Boolean).join(" · ")}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                  <span className="ing-ayuda" style={{ margin: 0 }}>
+                    {remitoElegido
+                      ? "Queda atado a este remito: se ve en el Archivo y en el historial de cada pedido."
+                      : remitosGuardados == null
+                        ? "Buscando los remitos guardados…"
+                        : remitosGuardados.length
+                          ? "Tocá el remito que guardaron en Remitos, o escribí el número."
+                          : "No hay remitos guardados sin ingreso en las últimas semanas. Se guardan en Remitos → Escanear y guardar."}
+                    {sinPedido.length ? ` ${sinPedido.length === 1 ? "1 producto entra sin pedido" : `${sinPedido.length} productos entran sin pedido`}: el remito es obligatorio.` : ""}
+                  </span>
+                </>
+              )}
+            </div>
 
             {pedidos.size ? (
               <div className="mst-aviso is-externo">

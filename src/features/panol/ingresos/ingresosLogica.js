@@ -535,7 +535,11 @@ export function referenciaDeRemito(remito = {}) {
   const proveedor = String(remito.proveedor || "").trim();
   const titulo = String(remito.titulo || "").trim();
   if (!numeroRemito && !proveedor) return titulo || "Remito escaneado";
-  return [`Remito${numeroRemito ? ` ${numeroRemito}` : ""}`, proveedor].filter(Boolean).join(" · ");
+  if (numeroRemito) return [`Remito ${numeroRemito}`, proveedor].filter(Boolean).join(" · ");
+  // Sin número, el día lo distingue de los otros del mismo proveedor.
+  const iso = String(remito.fecha || remito.created_at || "").slice(0, 10);
+  const dia = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}` : "";
+  return [`Remito ${proveedor}`, dia].filter(Boolean).join(" ");
 }
 
 function conRemito(cart, key, itemId) {
@@ -646,4 +650,35 @@ export function vinculosDelRemito(cart = [], { envioCreado = null } = {}) {
     porEnvio.get(v.envioId).push({ scanner_item_id: id, material_id: v.materialId });
   }
   return [...porEnvio.entries()].map(([envioId, items]) => ({ envioId, items }));
+}
+
+// ── Remito archivado: atarlo al ingreso ──────────────────────────────────────
+
+/**
+ * Los remitos guardados (pantalla Remitos) para elegir al confirmar un
+ * ingreso. Lo escrito en el campo los filtra (proveedor, número, referencia,
+ * barco); los más nuevos primero.
+ */
+export function remitosParaElegir(lista = [], escrito = "", { max = 8 } = {}) {
+  const palabras = normalizarTexto(escrito).split(" ").filter(Boolean);
+  const pasan = palabras.length
+    ? lista.filter((r) => {
+      const pajar = normalizarTexto([r.proveedor, r.numero, r.titulo, ...(r.obras || []).map((o) => o.codigo)].join(" "));
+      return palabras.every((p) => pajar.includes(p));
+    })
+    : lista;
+  return [...pasan]
+    .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))
+    .slice(0, max);
+}
+
+/** Los envíos que tocó el ingreso: cada pedido recibido y el envío nuevo de lo que vino sin pedido. */
+export function enviosDelIngreso(cart = [], { envioCreado = null } = {}) {
+  const ids = cart.filter((l) => l.tipo === "pedido" && cantidadDe(l) > 0).map((l) => l.envioId);
+  return [...new Set([...(envioCreado ? [envioCreado] : []), ...ids])].filter(Boolean);
+}
+
+/** Los barcos a los que fue lo que entró, para guardar el remito en sus carpetas. */
+export function obrasDelIngreso(cart = []) {
+  return [...new Set(cart.filter((l) => cantidadDe(l) > 0 && l.obraId).map((l) => l.obraId))];
 }

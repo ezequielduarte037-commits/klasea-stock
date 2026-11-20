@@ -243,6 +243,11 @@ export default function ScannerRemitosTab({
   isMobile = false,
   onReview,
   onOpenIngreso,
+  // Pantalla Remitos: escanear = guardar el papel. Sin bandeja de lectura con
+  // IA ni ingreso; el stock se mueve en Ingresar materiales.
+  soloGuardar = false,
+  onGuardado,
+  onVerArchivo,
 }) {
   const toast = useToast();
   const manualInputRef = useRef(null);
@@ -275,6 +280,7 @@ export default function ScannerRemitosTab({
   const [faltaMigracion, setFaltaMigracion] = useState(false);
 
   const loadRemote = useCallback(async () => {
+    if (soloGuardar) { setLoadingRemote(false); return; }
     setLoadingRemote(true);
     setRemoteError("");
     try {
@@ -284,7 +290,7 @@ export default function ScannerRemitosTab({
     } finally {
       setLoadingRemote(false);
     }
-  }, [sede]);
+  }, [sede, soloGuardar]);
 
   const loadLocal = useCallback(async ({ quiet = false } = {}) => {
     if (!quiet) setLoadingLocal(true);
@@ -398,9 +404,10 @@ export default function ScannerRemitosTab({
         carpetaLocal: contexto.carpeta || "",
         titulo: contexto.titulo || "",
         notas: contexto.notas || "",
-        soloArchivar: Boolean(contexto.soloArchivar),
-        esConsumibles: Boolean(contexto.esConsumibles),
+        soloArchivar: soloGuardar || Boolean(contexto.soloArchivar),
+        esConsumibles: !soloGuardar && Boolean(contexto.esConsumibles),
       });
+      onGuardado?.();
 
       if (localId) {
         try {
@@ -421,12 +428,12 @@ export default function ScannerRemitosTab({
       // ingreso: el que lo escaneo queria tener el papel en el sistema, no mover
       // stock. Abrirle el formulario igual seria pedirle que cancele algo que no
       // pidio.
-      if (contexto.soloArchivar) {
+      if (soloGuardar || contexto.soloArchivar) {
         const lugares = [
           ...(contexto.obras || []).map((obra) => obra.codigo).filter(Boolean),
           ...(contexto.carpetas || []),
         ];
-        toast.success(`Remito archivado${lugares.length ? ` en ${lugares.join(", ")}` : ""}. Lo encontrás en Remitos.`);
+        toast.success(`Remito guardado${lugares.length ? ` en ${lugares.join(", ")}` : contexto.proveedor ? ` en la carpeta de ${contexto.proveedor}` : " sin clasificar"}. Está en el Archivo.`);
         return;
       }
       if (lectura && !lectura.ok) {
@@ -631,6 +638,7 @@ export default function ScannerRemitosTab({
           notasInicial={modal.base?.notas || ""}
           carpetasIniciales={modal.base?.carpetas || []}
           soloArchivarInicial={Boolean(modal.base?.soloArchivar)}
+          soloGuardar={soloGuardar}
           esConsumiblesInicial={Boolean(modal.base?.esConsumibles)}
           proveedoresConocidos={proveedoresUsados}
           carpetasConocidas={carpetasUsadas}
@@ -672,9 +680,11 @@ export default function ScannerRemitosTab({
               <ScanLine size={18} />
             </div>
             <div style={{ flex: 1, minWidth: 210 }}>
-              <div style={{ color: C.text, fontSize: 15.5, fontWeight: 750 }}>Escanear remitos</div>
+              <div style={{ color: C.text, fontSize: 15.5, fontWeight: 750 }}>{soloGuardar ? "Escanear y guardar" : "Escanear remitos"}</div>
               <div style={{ color: C.dim, fontSize: 11.5, marginTop: 2, lineHeight: 1.45 }}>
-                El papel se guarda siempre. Después la IA lo lee, y si no puede lo reintentás sin perder el documento.
+                {soloGuardar
+                  ? "El remito queda guardado en su barco, proveedor o carpeta. No mueve stock: lo que llegó se ingresa en Ingresar materiales."
+                  : "El papel se guarda siempre. Después la IA lo lee, y si no puede lo reintentás sin perder el documento."}
               </div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -703,12 +713,14 @@ export default function ScannerRemitosTab({
             </div>
           </div>
 
+          {soloGuardar ? null : (
           <div className="panol-scanner-metrics" style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, minmax(150px, 1fr))", gap: 8 }}>
             <Metric label="En esta PC" value={metrics.local} color={C.blue} detail="archivos sin cargar" />
             <Metric label="Falta leer" value={metrics.sinLeer} color={C.cyan} detail="guardados, sin renglones" />
             <Metric label="A revisar" value={metrics.revisar} color={C.violet} detail="coincidencias dudosas" />
             <Metric label="Listos" value={metrics.listos} color={C.green} detail="para confirmar ingreso" />
           </div>
+          )}
 
           {!connected && (
             <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 11, padding: 11, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -835,7 +847,7 @@ export default function ScannerRemitosTab({
                         tone="primary"
                         title={contexto ? "Guardar con los datos elegidos al escanear" : "Elegir barco y proveedor y guardar"}
                       >
-                        {ocupado ? <LoaderCircle size={14} className="spin" /> : <Bot size={14} />}
+                        {ocupado ? <LoaderCircle size={14} className="spin" /> : soloGuardar ? <Archive size={14} /> : <Bot size={14} />}
                         {ocupado ? "Guardando…" : "Guardar remito"}
                       </Button>
                       {contexto ? (
@@ -854,6 +866,11 @@ export default function ScannerRemitosTab({
           </section>
         )}
 
+        {soloGuardar ? (
+          <button type="button" onClick={onVerArchivo} style={{ justifySelf: "start", border: "none", background: "transparent", color: C.blue, fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, cursor: "pointer", padding: "2px 2px", display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <FileText size={14} /> Ver el archivo de remitos
+          </button>
+        ) : (
         <section style={seccion}>
           <div style={{ padding: "11px 14px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
             <Inbox size={15} style={{ color: C.violet }} />
@@ -967,6 +984,7 @@ export default function ScannerRemitosTab({
             </div>
           )}
         </section>
+        )}
       </div>
     </div>
   );

@@ -24,6 +24,9 @@ import {
   planDeIngreso as plan2,
   referenciaDeRemito,
   vinculosDelRemito,
+  remitosParaElegir,
+  enviosDelIngreso,
+  obrasDelIngreso,
 } from "./ingresosLogica.js";
 
 const terminal = { id: "m1", descripcion: "Terminal preaislado ojal 6mm", codigo: "TP6", codigo_barra: "7790001", unidad: "unidad" };
@@ -228,4 +231,27 @@ test("al confirmar, cada renglón del remito queda en su envío", () => {
   assert.ok(plan2(cart, { sede: "Chubut", referencia: "R" }).crear.items.length === 2);
   assert.equal(referenciaDeRemito({ numero: "0001-123", proveedor: "Janored" }), "Remito 0001-123 · Janored");
   assert.equal(referenciaDeRemito({}), "Remito escaneado");
+  assert.equal(referenciaDeRemito({ proveedor: "Baron", fecha: "2026-11-18" }), "Remito Baron 18/11");
+});
+
+test("elegir el remito archivado: filtra por lo escrito y trae los más nuevos", () => {
+  const lista = [
+    { id: "a", proveedor: "Trimer", numero: "0001-12", created_at: "2026-11-18", obras: [{ codigo: "55-1" }] },
+    { id: "b", proveedor: "Maxi Herrero", created_at: "2026-11-19" },
+    { id: "c", proveedor: "Trimer", created_at: "2026-11-20", titulo: "Bridas" },
+  ];
+  assert.deepEqual(remitosParaElegir(lista, "").map((r) => r.id), ["c", "b", "a"]);
+  assert.deepEqual(remitosParaElegir(lista, "trimer").map((r) => r.id), ["c", "a"]);
+  assert.deepEqual(remitosParaElegir(lista, "TRIMER 55-1").map((r) => r.id), ["a"]);
+  assert.deepEqual(remitosParaElegir(lista, "", { max: 1 }).map((r) => r.id), ["c"]);
+});
+
+test("envíos y barcos de un ingreso", () => {
+  const pedidos = armarPedidos(envios);
+  let cart = sumarRenglon([], pedidos[1].renglones.find((r) => r.id === "i1"));
+  cart = sumarRenglon(cart, pedidos[0].renglones[0]);
+  cart = sumarSinPedido(cart, { id: "m9", descripcion: "Tornillo" }, { obraId: "o7" });
+  assert.deepEqual(enviosDelIngreso(cart, { envioCreado: "nuevo" }), ["nuevo", "e1", "e3"]);
+  assert.deepEqual(enviosDelIngreso(cart).length, 2);
+  assert.deepEqual(obrasDelIngreso(cart), ["o1", "o7"]);
 });

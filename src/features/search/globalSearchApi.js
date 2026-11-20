@@ -153,7 +153,7 @@ async function searchRemitos(tokens, rawQuery) {
       ].filter(Boolean).join(" · "),
       meta: remito.sede || "",
       status: remito.recepcion_estado || "",
-      path: `/recepcion-panol?tab=remitos&q=${encodeURIComponent(buscar)}`,
+      path: `/remitos-panol?vista=archivo&q=${encodeURIComponent(buscar)}`,
     };
   });
 }

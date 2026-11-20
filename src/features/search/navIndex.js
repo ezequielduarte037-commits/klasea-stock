@@ -47,19 +47,19 @@ export const NAV_SECTIONS = [
     roles: PANOL,
   },
   {
-    id: "panol-recepcion", label: "Pedidos y remitos", modulo: "Pañol", path: "/recepcion-panol?tab=recepcion", Icon: PackageSearch,
+    id: "panol-recepcion", label: "Pedidos a pañol", modulo: "Pañol", path: "/recepcion-panol?tab=recepcion", Icon: PackageSearch,
     hint: "Todos los pedidos a pañol, con su historial y novedades.",
     keywords: "pedidos envios avisos historial novedades recibidos parciales bandeja recepcion",
     roles: PANOL,
   },
   {
-    id: "panol-scanner", label: "Escanear remitos", modulo: "Pañol", path: "/recepcion-panol?tab=scanner", Icon: ScanLine,
-    hint: "Digitalizar el remito por USB y que la IA lo lea.",
+    id: "panol-scanner", label: "Escanear y guardar remitos", modulo: "Pañol", path: "/remitos-panol?vista=escanear", Icon: ScanLine,
+    hint: "Guardar el remito en su barco, proveedor o carpeta. No mueve stock.",
     keywords: "remito remitos escanear escaner scanner digitalizar papel comprobante ia lectura usb",
     roles: PANOL,
   },
   {
-    id: "panol-remitos", label: "Archivo de remitos", modulo: "Pañol", path: "/recepcion-panol?tab=remitos", Icon: FileText,
+    id: "panol-remitos", label: "Archivo de remitos", modulo: "Pañol", path: "/remitos-panol?vista=archivo", Icon: FileText,
     hint: "Todos los remitos escaneados, por barco, proveedor y carpeta.",
     keywords: "remito remitos archivo carpeta comprobantes papeles historial que vino",
     roles: PANOL,

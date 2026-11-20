@@ -15,6 +15,8 @@ import {
   remitoSinLeer,
   scannerReceiptFileUrl,
 } from "@/features/panol/remitosScannerApi";
+import { fetchObrasDeRemitos } from "@/features/panol/remitosObrasApi";
+import { reasignarCarpetasDeRemito, reasignarObrasDeRemito } from "@/features/panol/remitosArchivoApi";
 import { mensajeDeNovedad } from "./ingresosLogica";
 
 /**
@@ -224,4 +226,69 @@ export async function vincularRemito(remitoId, vinculos = []) {
   for (const v of vinculos) {
     await linkScannedReceiptToIngreso(remitoId, v.envioId, v.items);
   }
+}
+
+// ── Remito archivado atado al ingreso ───────────────────────────────────────
+// El remito se guarda en la pantalla Remitos (sin IA). Al confirmar un ingreso
+// se elige cuál es, y queda atado: el remito apunta al envío y cada pedido que
+// se recibió lo menciona en su historial.
+
+const DIAS_REMITOS = 21;
+
+/** Los remitos guardados en la sede en las últimas semanas que todavía no están atados a un ingreso. */
+export async function fetchRemitosGuardados(sede) {
+  const desde = new Date(Date.now() - DIAS_REMITOS * 86_400_000).toISOString();
+  let q = supabase
+    .from("panol_comprobantes")
+    .select("id,proveedor,numero,titulo,fecha,created_at,archivo_url,sede,panol_envio_id")
+    .eq("origen_carga", "scanner_panol")
+    .neq("recepcion_estado", "archivado")
+    .is("panol_envio_id", null)
+    .gte("created_at", desde)
+    .order("created_at", { ascending: false })
+    .limit(60);
+  if (sede) q = q.eq("sede", sede);
+  const { data, error } = await q;
+  if (error) throw error;
+  const filas = data ?? [];
+  const { porRemito } = await fetchObrasDeRemitos(filas.map((r) => r.id)).catch(() => ({ porRemito: new Map() }));
+  return filas.map((r) => ({ ...r, obras: porRemito.get(r.id) || porRemito.get(String(r.id)) || [] }));
+}
+
+/** Si el remito no está en ningún barco ni carpeta, va a los barcos de lo que entró (o a Stock Pañol). */
+async function clasificarSiFalta(remitoId, obraIds = []) {
+  const [obras, carpetas] = await Promise.all([
+    supabase.from("panol_comprobante_obras").select("obra_id").eq("comprobante_id", remitoId).limit(1),
+    supabase.from("panol_comprobante_carpetas").select("carpeta").eq("comprobante_id", remitoId).limit(1),
+  ]);
+  if (obras.data?.length || carpetas.data?.length) return;
+  if (obraIds.length) await reasignarObrasDeRemito(remitoId, obraIds);
+  else await reasignarCarpetasDeRemito(remitoId, ["Stock Pañol"]);
+}
+
+/**
+ * Ata el remito al ingreso ya registrado. Todo es posterior al stock: si algo
+ * falla, el ingreso quedó igual y se avisa.
+ *
+ * @param {object}  p
+ * @param {string}  p.remitoId
+ * @param {string}  p.referencia      cómo se lo nombra en el historial del pedido
+ * @param {string[]} p.envios         envíos tocados (el primero queda como el del remito)
+ * @param {string[]} p.obras          barcos de lo que entró, para clasificarlo si estaba suelto
+ * @param {boolean} p.marcar          false cuando la marca ya la puso la lectura con IA (vincularRemito)
+ */
+export async function atarRemitoAlIngreso({ remitoId, referencia, envios = [], obras = [], marcar = true }) {
+  const fallas = [];
+  if (marcar && envios[0]) {
+    const ahora = new Date().toISOString();
+    const { error } = await supabase
+      .from("panol_comprobantes")
+      .update({ panol_envio_id: envios[0], recepcion_estado: "ingresado", procesado_at: ahora, updated_at: ahora })
+      .eq("id", remitoId)
+      .eq("origen_carga", "scanner_panol");
+    if (error) fallas.push("marca");
+  }
+  await clasificarSiFalta(remitoId, obras).catch(() => fallas.push("carpeta"));
+  await Promise.all(envios.map((id) => comentarEnvio(id, `Remito: ${referencia}`).catch(() => fallas.push("historial"))));
+  return { ok: !fallas.length, fallas };
 }

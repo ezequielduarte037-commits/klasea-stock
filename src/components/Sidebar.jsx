@@ -174,7 +174,7 @@ function Icon({ id, color = "currentColor", size = 14 }) {
       <rect x="2" y="7.5" width="12" height="6.5" rx="1.5" {...p}/>
       <path d="M8 1v4.5M5.8 3.3L8 5.5l2.2-2.2" {...p}/>
     </>,
-    "/recepcion-panol?tab=scanner": <>
+    "/remitos-panol": <>
       <rect x="2" y="3" width="12" height="9.5" rx="1.5" {...p}/>
       <path d="M4.5 6h7M4.5 8.5h5M5 14h6" {...p}/>
       <path d="M1 2v3M1 2h3M15 2h-3M15 2v3" {...p}/>
@@ -827,8 +827,8 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
           {item("/inicio-panol", "Panel de pañol", SC.operacion, true, 65, "Resumen de pendientes, equipos y próximas recepciones.")}
           {item("/ingresos-panol", "Ingresar materiales", SC.operacion, true, 75, "El mostrador de entrada: lo de los pedidos en camino y lo que llega sin pedido, con el lector.")}
           {item("/egresos-panol", "Egresar materiales", SC.operacion, true, 80, "Preparar y registrar entregas de materiales a personas u obras.")}
-          {item("/recepcion-panol?tab=scanner", "Escanear remitos", SC.operacion, true, 85, "Digitalizar remitos por USB, revisar la lectura de IA e ingresar sin volver a tipear.")}
-          {item("/recepcion-panol?tab=recepcion", "Pedidos y remitos", SC.operacion, true, 95, "Todos los pedidos a pañol, su historial y novedades, el archivo de remitos y el ingreso completo.")}
+          {item("/recepcion-panol?tab=recepcion", "Pedidos", SC.operacion, true, 85, "Todos los pedidos a pañol, su historial y novedades, y el ingreso completo.")}
+          {item("/remitos-panol", "Remitos", SC.operacion, true, 95, "Escanear y guardar los papeles por barco, proveedor o carpeta, y buscarlos. No mueve stock.")}
           {item("/consumibles?tab=solicitudes", "Solicitudes", SC.operacion, true, 100, "El papel de pedido cargado en el sistema: armar los ítems, imprimir la hoja completa y firmar el retiro con NFC.")}
           {/* Consumibles reúne lo que antes eran dos renglones (Consumibles y Caja de
               consumibles): mostrador, conteo, ingresos y stock en un solo lugar. */}

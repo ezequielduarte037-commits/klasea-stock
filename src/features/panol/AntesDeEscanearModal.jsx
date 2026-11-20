@@ -49,6 +49,9 @@ export default function AntesDeEscanearModal({
   origenInicial = "glass",
   soloArchivarInicial = false,
   permiteSoloArchivar = true,
+  // Escanear es guardar (pantalla Remitos): sin IA, sin casilla, sin
+  // materiales/consumibles. La única pregunta que importa es dónde va.
+  soloGuardar = false,
   modo = "escanear",
   archivoNombre = "",
   tituloInicial = "",
@@ -92,7 +95,7 @@ export default function AntesDeEscanearModal({
   const esMultiobra = obraIds.length > 1;
   // Multiobra es documental. Hasta que exista reparto por renglon, intentar
   // abrir el ingreso haria que alguien eligiera una obra arbitraria.
-  const soloArchivoEfectivo = esMultiobra || soloArchivar;
+  const soloArchivoEfectivo = soloGuardar || esMultiobra || soloArchivar;
 
   // El campo de proveedor siempre tuvo datalist, pero durante mucho tiempo nadie
   // le pasaba la lista y salia vacio: habia que escribir el nombre de memoria, y
@@ -220,6 +223,7 @@ export default function AntesDeEscanearModal({
             </div>
           ) : null}
 
+          {soloGuardar ? null : (
           <div>
             <div style={etiqueta}>Qué trae este remito</div>
             <div style={{ display: "flex", gap: 8 }}>
@@ -246,6 +250,7 @@ export default function AntesDeEscanearModal({
               })}
             </div>
           </div>
+          )}
 
           <div>
             <div style={etiqueta}>
@@ -265,7 +270,7 @@ export default function AntesDeEscanearModal({
 
           <div>
             <div style={etiqueta}>
-              Guardar en <span style={{ textTransform: "none", fontWeight: 600 }}>(los barcos y carpetas que hagan falta)</span>
+              {soloGuardar ? "Dónde se guarda" : "Guardar en"} <span style={{ textTransform: "none", fontWeight: 600 }}>(los barcos y carpetas que hagan falta)</span>
             </div>
             <SelectorDestinosRemito
               obras={obras}
@@ -317,7 +322,7 @@ export default function AntesDeEscanearModal({
             />
           </div>
 
-          {permiteSoloArchivar ? (
+          {permiteSoloArchivar && !soloGuardar ? (
             <label style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "10px 12px", borderRadius: 9, border: `1px solid ${soloArchivoEfectivo ? C.cyanB : C.border2}`, background: soloArchivoEfectivo ? C.cyanL : C.panelSolid, cursor: esMultiobra ? "default" : "pointer" }}>
               <input
                 type="checkbox"
@@ -373,9 +378,11 @@ export default function AntesDeEscanearModal({
           </button>
           <button type="button" onClick={confirmar} disabled={cargando} style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "9px 15px", cursor: cargando ? "default" : "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}>
             {cargando ? <LoaderCircle size={14} className="spin" /> : guardando ? <FileText size={14} /> : <ScanLine size={14} />}
-            {guardando
-              ? (soloArchivoEfectivo ? "Guardar sin leer" : "Guardar y leer")
-              : (soloArchivoEfectivo ? "Escanear y archivar" : "Escanear")}
+            {soloGuardar
+              ? (guardando ? "Guardar" : "Escanear y guardar")
+              : guardando
+                ? (soloArchivoEfectivo ? "Guardar sin leer" : "Guardar y leer")
+                : (soloArchivoEfectivo ? "Escanear y archivar" : "Escanear")}
           </button>
         </div>
       </div>

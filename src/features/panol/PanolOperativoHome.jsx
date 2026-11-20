@@ -181,8 +181,8 @@ export default function PanolOperativoHome({ profile }) {
   const acciones = [
     { to: "/ingresos-panol", Icono: PackageCheck, titulo: "Ingresar", tono: "verde",
       descripcion: summary.activos.length ? `${plural(summary.activos.length, "pedido", "pedidos")} en camino` : "Lo que llega, con o sin pedido" },
-    { to: "/recepcion-panol?tab=scanner", Icono: FileScan, titulo: "Escanear remito", tono: "violeta",
-      descripcion: "USB · lectura IA · revisión antes del stock" },
+    { to: "/remitos-panol?vista=escanear", Icono: FileScan, titulo: "Guardar remito", tono: "violeta",
+      descripcion: "Escanearlo y guardarlo en su barco o carpeta" },
     { to: "/recepcion-panol?tab=ingresar", Icono: PackagePlus, titulo: "Ingreso completo", tono: "azul",
       descripcion: drafts.length ? `${plural(drafts.length, "borrador", "borradores")} para retomar` : "Reparto por obra, lectura con IA o borradores" },
     { to: "/egresos-panol", Icono: ScanLine, titulo: "Egresar", tono: "rojo",

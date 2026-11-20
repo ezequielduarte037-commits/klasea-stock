@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowDownToLine, Inbox } from "lucide-react";
+import { ArrowDownToLine, FileText, Inbox } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
 import { hasAdminAccess } from "@/lib/permissions";
 import { canonicalPanolSede } from "@/features/panol/panolApi";
@@ -12,9 +12,10 @@ import MostradorIngresos from "@/features/panol/ingresos/MostradorIngresos";
  * de los barcos), gemelo del de egresos. Recibir lo de un pedido y lo que
  * llega sin pedido es la misma pantalla.
  *
- * El remito se escanea desde el mismo mostrador. Lo que no es del día a día
- * (el archivo de remitos, el escáner de la PC, repartir un renglón entre
- * obras) sigue en /recepcion-panol, "Pedidos y remitos".
+ * Guardar remitos es otra pantalla (/remitos-panol): acá, al confirmar, se
+ * elige cuál de los guardados es el de este ingreso. El remito también se
+ * puede escanear desde el mostrador para que la IA cargue los renglones.
+ * Repartir un renglón entre obras sigue en /recepcion-panol, "Pedidos".
  *
  * La sede es la del equipo (la misma de los mostradores de egresos y
  * consumibles). El pañolero con sede en su perfil no la elige.
@@ -52,8 +53,11 @@ export default function IngresosPanolScreen({ profile }) {
                 ))}
               </div>
             )}
-            <Link to="/recepcion-panol?tab=recepcion" className="ui-btn" title="Todos los pedidos, el archivo de remitos y el ingreso completo">
-              <Inbox size={15} aria-hidden="true" /> <span className="egp-largo">Pedidos y remitos</span>
+            <Link to="/recepcion-panol?tab=recepcion" className="ui-btn" title="Todos los pedidos, su historial y el ingreso completo">
+              <Inbox size={15} aria-hidden="true" /> <span className="egp-largo">Pedidos</span>
+            </Link>
+            <Link to="/remitos-panol" className="ui-btn" title="Guardar y buscar remitos (no mueve stock)">
+              <FileText size={15} aria-hidden="true" /> <span className="egp-largo">Remitos</span>
             </Link>
           </div>
         )}

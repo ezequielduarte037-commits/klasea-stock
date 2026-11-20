@@ -65,6 +65,16 @@ export const CSS_INGRESO = `
   border: 1px solid var(--blue-border); border-radius: 10px; background: var(--blue-soft); color: var(--blue); font-size: 13px;
 }
 .mst.ing .ing-remito-carrito-texto { flex: 1; min-width: 0; color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mst.ing .ing-remitos-guardados { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; margin-top: 8px; }
+.mst.ing .ing-remito-guardado {
+  display: grid; gap: 2px; text-align: left; padding: 8px 10px; min-height: 48px;
+  border: 1px solid var(--border-2); border-radius: 10px; background: var(--panel-solid); color: var(--text); font: inherit;
+}
+.mst.ing .ing-remito-guardado strong { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mst.ing .ing-remito-guardado span { font-size: 11.5px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mst.ing .ing-remito-guardado:hover { border-color: var(--blue); }
+.mst.ing .ing-remito-guardado.is-elegido { border-color: var(--green-border); background: var(--green-soft); }
+.mst.ing .ing-remito-guardado.is-elegido strong { color: var(--green); }
 .mst.ing .ing-mov { display: block; color: inherit; text-decoration: none; }
 .mst.ing .ing-mov:hover { background: var(--panel); }
 .mst.ing.is-angosto .ing-pedido-cab .ui-btn { flex: 1; justify-content: center; }
