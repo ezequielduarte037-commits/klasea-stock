@@ -116,6 +116,7 @@ import CostoObraPanel from "./CostoObraPanel";
 import PlanillaObrasPanel from "@/features/compras/PlanillaObrasPanel";
 import { fetchMaterialesSecundariosPlanilla } from "@/features/compras/materialesSecundariosApi";
 import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
+import { transferirProducto } from "@/features/panol/panolApi";
 import { BTN, BTN_GREEN, BTN_PRIMARY, Cargando, ErrorBox, INP, KpiCard, LBL, Td, Th } from "@/features/rrhh/ui";
 import { AnimatedNumber, FadeIn } from "@/components/ui/motion";
 import { dolarGuardado, fetchDolarOficial } from "@/lib/dolarOficial";
@@ -4128,7 +4129,7 @@ function snapshotLockReason(row = {}) {
   return "";
 }
 
-export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, materiales, proveedores = [], opciones = [], ums = [], onChanged, onBack, detalleId, onAbrirDetalle, onCerrarDetalle, soloPedirACompras = false, soloLectura = false, verPrecios = true, volverLabel = "" }) {
+export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, materiales, proveedores = [], opciones = [], ums = [], onChanged, onBack, detalleId, onAbrirDetalle, onCerrarDetalle, soloPedirACompras = false, soloLectura = false, verPrecios = true, volverLabel = "", sedeUsuario = "" }) {
   // soloLectura: la consulta de pañol (soloConsultaListasObra). Se ve la misma
   // lista que arman Compras y Técnica, con los mismos estados y cantidades,
   // pero sin pedir, tildar, editar ni cambiar estados. verPrecios sigue a
@@ -4250,10 +4251,10 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
   // Se resetea si cambia la obra: los ids de etapa no sobreviven al cambio.
   useEffect(() => { setEtapaFilter("todos"); }, [obra?.id]);
 
-  const cargarStockLibre = useCallback(async () => {
+  const cargarStockLibre = useCallback(async ({ force = false } = {}) => {
     setStockLibreLoading(true);
     try {
-      const rows = await fetchStockLibrePanolMateriales();
+      const rows = await fetchStockLibrePanolMateriales({ force });
       setStockLibreMap(new Map((rows ?? []).map((row) => [row.key, row])));
     } catch {
       setStockLibreMap(new Map());
@@ -5741,6 +5742,24 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
     };
   }
 
+  // Pañol asigna a la obra lo que tiene sin obra en el estante: el mismo
+  // movimiento que «Asignar a obra» del mostrador (panol_transferir_producto
+  // desde stock libre). Queda en Movimientos y la lista lo pasa a «En pañol».
+  async function asignarStockLibre({ row, info, sede, cantidad }) {
+    await transferirProducto({
+      material: { id: info.material_id },
+      descripcion: info.descripcion || row.descripcion,
+      codigo: info.codigo || row.codigo,
+      unidad: info.unidad || row.unidad,
+      cantidad,
+      sede,
+      obraOrigenId: null,
+      obraDestinoId: obra.id,
+      nota: "Asignado desde la lista de la obra",
+    });
+    await Promise.allSettled([cargarSnapshot(), cargarStockLibre({ force: true })]);
+  }
+
   function renderObraDetail(row, tab) {
     const view = getObraRowView(row);
     const cant = view.cant;
@@ -5766,6 +5785,10 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
       </div>
       <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 10, display: "flex", justifyContent: "space-between", gap: 8 }}><span style={{ color: C.muted }}>Stock libre</span><span style={{ fontFamily: C.mono }}>{stockLibreLoading ? "Cargando…" : stockLibreInfo ? qtyText(stockLibreInfo.cantidad, stockLibreInfo.unidad) : "Sin disponibilidad informada"}</span></div>
       <StockLibreChip info={stockLibreInfo} loading={stockLibreLoading} />
+      {soloLectura && stockLibreDeFila(row) && <AsignarStockLibre
+        key={row.id} row={row} info={stockLibreInfo} faltaComprar={cant.faltaComprar}
+        obraCodigo={obra.codigo} sedeUsuario={sedeUsuario} onAsignar={asignarStockLibre}
+      />}
       <div aria-label="Estado actual del abastecimiento" style={{ display: "flex", gap: 4, padding: "12px 0" }}>{[["pendiente", "Pendiente"], ["pedido", "Pedido"], ["comprado", "Comprado"], ["en_panol", "En pañol"], ["egresado", "Entregado"]].map(([key, label]) => <div key={key} style={{ flex: 1, textAlign: "center", color: estadoObraForRow(row) === key ? C.blue : C.muted, borderTop: `2px solid ${estadoObraForRow(row) === key ? C.blue : C.border}`, paddingTop: 7, fontSize: 11 }}>{label}{estadoObraForRow(row) === key ? " · actual" : ""}</div>)}</div>
       {view.issue && <div style={{ color: C.red }}>{view.issue}</div>}
       {row.obs && <div style={{ color: C.muted, lineHeight: 1.5 }}>{row.obs}</div>}
@@ -7436,6 +7459,74 @@ function RecepcionChip({ row }) {
   );
 }
 
+/**
+ * Asignar stock libre a la obra desde el detalle del ítem (consulta de pañol).
+ * Propone la sede del usuario si ahí hay, y como cantidad lo que falta
+ * comprar, hasta lo disponible en esa sede.
+ */
+function AsignarStockLibre({ row, info, faltaComprar, obraCodigo, sedeUsuario = "", onAsignar }) {
+  // "Sin sede" no se puede mover: el movimiento pide de qué estante sale.
+  const sedes = Object.entries(info?.sedes || {}).filter(([sede, qty]) => toNum(qty) > 0 && sede !== "Sin sede");
+  const sedePropia = sedeUsuario ? sedes.find(([sede]) => norm(sedeUsuario).includes(norm(sede)))?.[0] : "";
+  const sedeMayor = [...sedes].sort((a, b) => toNum(b[1]) - toNum(a[1]))[0]?.[0] || "";
+  const [sede, setSede] = useState(sedePropia || sedeMayor);
+  const disponible = toNum(info?.sedes?.[sede]) || 0;
+  const sugerida = Math.max(0, Math.min(toNum(faltaComprar) || 0, disponible));
+  const [cantidad, setCantidad] = useState(sugerida ? String(sugerida) : "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [hecho, setHecho] = useState("");
+  const qty = toNum(cantidad);
+  const valida = Number.isFinite(qty) && qty > 0 && qty <= disponible + 0.000001;
+  const unidad = info?.unidad || row.unidad;
+
+  function cambiarSede(nueva) {
+    setSede(nueva);
+    const disp = toNum(info?.sedes?.[nueva]) || 0;
+    const sug = Math.max(0, Math.min(toNum(faltaComprar) || 0, disp));
+    setCantidad(sug ? String(sug) : "");
+    setError("");
+  }
+
+  async function confirmar() {
+    if (!valida || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await onAsignar({ row, info, sede, cantidad: qty });
+      setHecho(`${qtyText(qty, unidad)} asignado a ${obraCodigo} desde ${sede}. Quedó en el pañol para retirar.`);
+    } catch (e) {
+      setError(e?.message || "No se pudo asignar.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!sedes.length) return <div style={{ fontSize: 12, color: C.muted }}>El stock libre de este ítem no tiene sede cargada: asignalo desde el stock maestro.</div>;
+  if (hecho) return <div role="status" style={{ fontSize: 12, color: C.green, border: `1px solid ${C.greenB}`, background: C.greenL, borderRadius: 3, padding: "9px 10px" }}>{hecho}</div>;
+  return (
+    <div style={{ display: "grid", gap: 8, border: `1px solid ${C.greenB}`, background: C.greenL, borderRadius: 3, padding: 10 }}>
+      <strong style={{ fontSize: 12, fontWeight: 600, color: C.text }}>Asignar a {obraCodigo}</strong>
+      <span style={{ fontSize: 11.5, color: C.muted, lineHeight: 1.4 }}>Lo pasa del stock libre a esta obra. Sigue en el pañol hasta que alguien lo retire, y queda en Movimientos.</span>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "end" }}>
+        <label style={{ display: "grid", gap: 4, fontSize: 11, color: C.muted }}>Sede
+          <select value={sede} onChange={(e) => cambiarSede(e.target.value)} disabled={busy} style={{ ...INP, height: 36, minWidth: 150 }}>
+            {sedes.map(([nombre, n]) => <option key={nombre} value={nombre} style={OPT_ST}>{nombre} · {qtyText(n, unidad)}</option>)}
+          </select>
+        </label>
+        <label style={{ display: "grid", gap: 4, fontSize: 11, color: C.muted }}>Cantidad
+          <input value={cantidad} onChange={(e) => { setCantidad(e.target.value); setError(""); }} inputMode="decimal" disabled={busy} style={{ ...INP, height: 36, width: 90, fontFamily: C.mono }} />
+        </label>
+        <button type="button" onClick={confirmar} disabled={!valida || busy} style={{ ...BTN_GREEN, height: 36, padding: "0 14px", opacity: !valida || busy ? 0.55 : 1 }}>
+          <Warehouse size={13} /> {busy ? "Asignando…" : "Asignar"}
+        </button>
+      </div>
+      {!valida && cantidad !== "" && <span style={{ fontSize: 11.5, color: C.red }}>En {sede} hay {qtyText(disponible, unidad)} libres.</span>}
+      {error && <span role="alert" style={{ fontSize: 12, color: C.red }}>{error}</span>}
+    </div>
+  );
+}
+
 function StockLibreChip({ info, loading = false }) {
   if (loading || !info || !(toNum(info.cantidad) > 0)) return null;
   const sedes = Object.entries(info.sedes || {})
@@ -8611,7 +8702,7 @@ const NIVELES_LISTA_OBRA = ["linea", "obra", "item"];
  * uno, la misma lista de obra en modo consulta y sin precios. La línea (la
  * matriz) no se muestra: es de Técnica y está llena de precios.
  */
-function ListasConsultaPanol({ obras, categorias, materiales, proveedores, opciones = [], onChanged, verPrecios = false }) {
+function ListasConsultaPanol({ obras, categorias, materiales, proveedores, opciones = [], onChanged, verPrecios = false, sedeUsuario = "" }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -8676,6 +8767,7 @@ function ListasConsultaPanol({ obras, categorias, materiales, proveedores, opcio
           onCerrarDetalle={() => volver("item")}
           soloLectura
           verPrecios={verPrecios}
+          sedeUsuario={sedeUsuario}
         />
       </div>
     );
@@ -10400,7 +10492,7 @@ export default function MaterialesScreen({ profile }) {
           ) : !listo ? (
             <Cargando />
           ) : consulta ? (
-            <ListasConsultaPanol obras={obrasAvance} categorias={categorias} materiales={materiales} proveedores={proveedores} opciones={opciones} onChanged={cargar} verPrecios={verPrecios} />
+            <ListasConsultaPanol obras={obrasAvance} categorias={categorias} materiales={materiales} proveedores={proveedores} opciones={opciones} onChanged={cargar} verPrecios={verPrecios} sedeUsuario={profile?.sede || ""} />
           ) : (
             <>
               {(() => {
