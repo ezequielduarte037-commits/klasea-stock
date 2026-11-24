@@ -836,6 +836,7 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
 
           {divider("panol-consulta")}
           {group("Consultar", SC.consulta, 120)}
+          {item("/materiales", "Listas de los barcos", SC.consulta, true, 125, "Lo que lleva cada barco y en qué está: pendiente, en compras, en pañol o entregado. Sólo consulta, sin precios.")}
           {item("/stock-panol?tab=maestro", "Stock maestro", SC.consulta, true, 130, "Existencias reales, ubicaciones y detalle por producto.")}
           {item("/catalogo-maestro", "Catálogo maestro", SC.consulta, true, 135, "Buscar fichas de producto y consultar su vínculo con el stock, sin editar cantidades.")}
           {item("/stock-panol?tab=mapa", "Mapa del pañol", SC.consulta, true, 140, "Plano de estanterías y productos ubicados.")}

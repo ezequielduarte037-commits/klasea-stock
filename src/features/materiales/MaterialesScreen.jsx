@@ -84,6 +84,7 @@ import CambioEstadoLoteModal from "./obra/CambioEstadoLoteModal";
 import { enParalelo, esInstalado, estadoParaGuardar } from "./obra/cambioEstadoLote";
 import { adicionalSnapshotKey, cantidadPedidoValida } from "./obra/adicionalObra";
 import { exportarListaObraXlsx, exportarMatrizLineaXlsx } from "./listaExcel";
+import { puedeVerPrecios, soloConsultaListasObra } from "@/lib/permissions";
 import { MaterialImageUploader, MaterialThumb, PriceBadge, PriceHistory } from "./MaterialExtras";
 import { fmtMoney, textoTooltip } from "./format";
 import ProveedoresTab from "./ProveedoresTab";
@@ -4127,7 +4128,11 @@ function snapshotLockReason(row = {}) {
   return "";
 }
 
-export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, materiales, proveedores = [], opciones = [], ums = [], onChanged, onBack, detalleId, onAbrirDetalle, onCerrarDetalle, soloPedirACompras = false }) {
+export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categorias, materiales, proveedores = [], opciones = [], ums = [], onChanged, onBack, detalleId, onAbrirDetalle, onCerrarDetalle, soloPedirACompras = false, soloLectura = false, verPrecios = true, volverLabel = "" }) {
+  // soloLectura: la consulta de pañol (soloConsultaListasObra). Se ve la misma
+  // lista que arman Compras y Técnica, con los mismos estados y cantidades,
+  // pero sin pedir, tildar, editar ni cambiar estados. verPrecios sigue a
+  // puedeVerPrecios: sin él no hay valorizado, columna ni Excel con precios.
   const { isMobile } = useResponsive();
   const filtrosRef = useRef(null);
   const [filtrosAlto, setFiltrosAlto] = useState(0);
@@ -4872,7 +4877,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
       }),
     }));
     try {
-      exportarListaObraXlsx({ obra: obra.codigo, linea: lineaNombre, grupos, agrupadoPor: groupBy === "ninguno" ? "rubro" : groupBy, filtros });
+      exportarListaObraXlsx({ obra: obra.codigo, linea: lineaNombre, grupos, agrupadoPor: groupBy === "ninguno" ? "rubro" : groupBy, filtros, conPrecios: verPrecios });
     } catch (e) {
       setFlowMsg({ type: "err", text: e?.message || "No se pudo armar el Excel." });
     }
@@ -5727,7 +5732,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
       needed: qtyText(row.cantidad, row.unidad), received: fmtQtyCorto(cant.panol), delivered: fmtQtyCorto(cant.entregado),
       quantityTitle: `Necesario ${fmtQtyCorto(cant.necesita)} · recibido ${fmtQtyCorto(cant.panol)} · entregado ${fmtQtyCorto(cant.entregado)}`,
       imageMaterial: { ...(row.producto || material || {}), imagen_url: rowImageUrl, descripcion: row.variante ? `${row.descripcion} · ${row.variante}` : row.descripcion },
-      uploadMaterial: row.producto?.id ? row.producto : material,
+      uploadMaterial: soloLectura ? null : row.producto?.id ? row.producto : material,
       origin: [
         row.bucket?.key === "addon" ? "Adicional" : snapshotOnlyForRow(row) ? "Fuera de matriz" : "",
         requisito ? `Requisito: ${requisito}` : "",
@@ -5749,10 +5754,10 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
     const miniBtn = { ...obraButton, minHeight: isMobile ? 44 : 32 };
     const stockLibreInfo = stockLibreMap.get(stockLibreKeyForRow(row));
     if (tab === "resumen") return <div style={{ display: "grid", gap: 14, fontSize: 12 }}>
-      <MaterialDocuments materialId={(row.producto || materialForRow)?.id} links={(row.producto || materialForRow)?.links || []} linea={linea} editable={!!(row.producto || materialForRow)?.id} onChanged={async () => { await onChanged?.(); await cargarSnapshot(); }} />
+      <MaterialDocuments materialId={(row.producto || materialForRow)?.id} links={(row.producto || materialForRow)?.links || []} linea={linea} editable={!soloLectura && !!(row.producto || materialForRow)?.id} onChanged={async () => { await onChanged?.(); await cargarSnapshot(); }} />
       {[...(view.requisito ? [["Requisito", view.requisito]] : []), ["Rubro", row.rubro || "Sin rubro"], ["Proveedor", row.proveedor || "Sin proveedor"], ["Código", row.codigo || "Sin código"], ["Origen", row.bucket?.label || "Matriz"]].map(([label, value]) => <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span style={{ color: C.muted }}>{label}</span><span style={{ textAlign: "right", color: C.text }}>{value}</span></div>)}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}><span style={{ color: C.muted }}>Precio unitario</span><span style={{ fontFamily: C.mono }}>{row.precio.amount ? row.precio.text : "Sin precio"}</span>{materialForRow && !editableAddon && <button type="button" aria-label="Editar precio en catálogo" onClick={() => { setEditingMaterialRowId(row.id); setDetailTab("mas"); }} style={obraButton}><Pencil size={13} /></button>}</div>
-      {editableAddon && (!editableAddon.__snapshotLocked || editableAddon.__pedidoEditable) && <button type="button" onClick={() => { setEditingAddon(editableAddon); setAddonModalOpen(true); }} style={{ ...obraButton, justifySelf: "start", color: C.blue }} title={editableAddon.__pedidoEditable ? "Cambiar el producto; también se corrige el pedido a Compras" : "Editar adicional"}><Pencil size={13} /> {editableAddon.__pedidoEditable ? "Cambiar producto" : "Editar adicional"}</button>}
+      {verPrecios && <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}><span style={{ color: C.muted }}>Precio unitario</span><span style={{ fontFamily: C.mono }}>{row.precio.amount ? row.precio.text : "Sin precio"}</span>{materialForRow && !editableAddon && !soloLectura && <button type="button" aria-label="Editar precio en catálogo" onClick={() => { setEditingMaterialRowId(row.id); setDetailTab("mas"); }} style={obraButton}><Pencil size={13} /></button>}</div>}
+      {!soloLectura && editableAddon && (!editableAddon.__snapshotLocked || editableAddon.__pedidoEditable) && <button type="button" onClick={() => { setEditingAddon(editableAddon); setAddonModalOpen(true); }} style={{ ...obraButton, justifySelf: "start", color: C.blue }} title={editableAddon.__pedidoEditable ? "Cambiar el producto; también se corrige el pedido a Compras" : "Editar adicional"}><Pencil size={13} /> {editableAddon.__pedidoEditable ? "Cambiar producto" : "Editar adicional"}</button>}
       <div style={{ paddingTop: 12, borderTop: `1px solid ${C.border}`, display: "grid", gap: 10 }}>
         <strong style={{ fontWeight: 600 }}>Cantidades</strong>
         {[["Necesario", cant.necesita], ["Recibido", cant.panol], ["Entregado", cant.entregado], ["Por comprar", cant.faltaComprar], ["Por entregar", cant.faltaEntregar]].map(([label, value]) => <div key={label} style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: C.muted }}>{label}</span><span style={{ fontFamily: C.mono }}>{qtyText(value, row.unidad)}</span></div>)}
@@ -5766,7 +5771,12 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
       {row.obs && <div style={{ color: C.muted, lineHeight: 1.5 }}>{row.obs}</div>}
       {!!row.condicionantes?.length && <div style={{ display: "grid", gap: 5 }}><strong>Condicionantes</strong>{row.condicionantes.map((item) => <span key={`${item.id}-${item.condicionante}`} style={{ color: item.delta < 0 ? C.red : C.violet }}>{item.condicionante}: {item.label}</span>)}</div>}
       {productSpecEntries(row.especificaciones).map((item) => <div key={item.key}><span style={{ color: C.muted }}>{item.label}: </span>{item.value}</div>)}
-      {(row.esRequisito || row.source === "matriz") && <ProductoAsignadoControl row={row} materiales={materiales} compatibles={productosCompatiblesPorRequisito.get(row.requisitoMaterialId || row.materialId) || []} busy={productoBusy === row.id || snapshotBusy} obraCodigo={obra?.codigo || "esta obra"} linea={linea} allowLineScope={!row.productoPorObra && !row.productoCondicionante} specOnly={!row.esRequisito} onSave={cambiarProductoRow} />}
+      {!soloLectura && (row.esRequisito || row.source === "matriz") && <ProductoAsignadoControl row={row} materiales={materiales} compatibles={productosCompatiblesPorRequisito.get(row.requisitoMaterialId || row.materialId) || []} busy={productoBusy === row.id || snapshotBusy} obraCodigo={obra?.codigo || "esta obra"} linea={linea} allowLineScope={!row.productoPorObra && !row.productoCondicionante} specOnly={!row.esRequisito} onSave={cambiarProductoRow} />}
+    </div>;
+    if (tab === "compras" && soloLectura) return <div style={{ display: "grid", gap: 16, fontSize: 12 }}>
+      {[["Estado", view.status?.label || "Pendiente"], ["Etapa de compra", etapasRow.map((etapa) => etapa.nombre).filter(Boolean).join(", ") || "Sin asignar"]].map(([label, value]) => <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><span style={{ color: C.muted }}>{label}</span><span style={{ textAlign: "right", color: C.text }}>{value}</span></div>)}
+      <RecepcionDetalle row={row} />
+      {row.recepcion_envio?.titulo && <div style={{ fontSize: 12, color: C.muted, overflowWrap: "anywhere" }}>{row.recepcion_envio.titulo}</div>}
     </div>;
     if (tab === "compras") return <div style={{ display: "grid", gap: 20 }}>
       <div><strong style={{ fontSize: 12 }}>Estado y regularización</strong><div style={{ marginTop: 10 }}><ObraEstadoControl key={row.id} row={row} busy={cambioEstadoBusy} onChange={regularizarEstadoRow} /></div></div>
@@ -5894,12 +5904,12 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
     <div className="obra-workspace" style={{ ...obraThemeScope, minWidth: 0 }}>
       <ObraWorkspaceStyles />
       <CabeceraTrabajo
-        volver={lineaNombre}
+        volver={volverLabel || lineaNombre}
         onVolver={onBack}
-        tituloVolver={`Volver a ${lineaNombre}`}
+        tituloVolver={`Volver a ${volverLabel || lineaNombre}`}
         titulo={<h2 className="ws-titulo">{obra.codigo}</h2>}
         etiqueta={<span className="ws-etiqueta" title={snapshotActivo ? "La lista de esta obra está fijada: los cambios de la matriz no la tocan hasta regenerarla." : "La lista sale de la matriz en vivo."}>{snapshotStatus.label}</span>}
-        ficha={[
+        ficha={!verPrecios ? [] : [
           { rotulo: "Valorizado", valor: [kpis.usd ? fmtMoney(kpis.usd, "USD") : "", kpis.ars ? fmtMoney(kpis.ars, "ARS") : ""].filter(Boolean).join(" + ") || "Sin precios", ayuda: "Suma sólo lo que tiene precio cargado: con ítems sin precio el total de la obra es mayor." },
           { rotulo: "Con precio", valor: `${kpis.items ? Math.round((kpis.items - kpis.sinPrecio) / kpis.items * 100) : 0} %` },
           { rotulo: "Sin precio", valor: Number(kpis.sinPrecio || 0).toLocaleString("es-AR"), alerta: kpis.sinPrecio > 0 },
@@ -6121,7 +6131,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
           {!!activeObraFilterCount && <button type="button" onClick={() => { setQ(""); setProveedorFilter(""); setRubroFilter(""); setTipoFilter("todos"); setEstadosSel(new Set()); setEtapaFilter("todos"); }} style={{ ...obraButton, border: "none", background: "transparent", color: C.muted }}>Limpiar filtros</button>}
           <span style={{ flex: "1 1 12px" }} />
           <button type="button" onClick={exportarExcel} disabled={!visibleRows.length} style={obraButton} title="Descargar la lista en Excel: una hoja para imprimir y tildar ítem por ítem, y otra con todos los datos. Sale lo que se ve con los filtros puestos."><FileSpreadsheet size={13} />Excel</button>
-          <div style={{ position: "relative" }}>
+          {!soloLectura && <div style={{ position: "relative" }}>
             <button type="button" aria-haspopup="menu" aria-expanded={masOpen} onClick={() => setMasOpen((v) => !v)} style={{ ...obraButton, color: obraPanel ? C.blue : C.text }}><MoreHorizontal size={14} />Más</button>
             {masOpen && <>
               <div onClick={() => setMasOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
@@ -6135,12 +6145,12 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
                   <button type="button" role="menuitem" disabled={snapshotBusy} onClick={() => { setMasOpen(false); regenerarSnapshotObra(); }} style={{ ...obraButton, border: "none", justifyContent: "flex-start", width: "100%", background: "transparent" }}><RefreshCw size={13} />Regenerar lista</button></>}
               </div>
             </>}
-          </div>
-          <button type="button" onClick={() => { setEditingAddon(null); setAddonModalOpen(true); }} style={{ ...obraButton, ...WS_BTN_PRIMARIO }}><Plus size={13} />Adicional</button>
+          </div>}
+          {!soloLectura && <button type="button" onClick={() => { setEditingAddon(null); setAddonModalOpen(true); }} style={{ ...obraButton, ...WS_BTN_PRIMARIO }}><Plus size={13} />Adicional</button>}
         </div>
         {filtersOpen && <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           <select aria-label="Proveedor" value={proveedorFilter} onChange={(event) => setProveedorFilter(event.target.value)} style={{ ...obraSelect, maxWidth: "100%" }}><option value="" style={OPT_ST}>Todos los proveedores</option>{facets.proveedores.map((name) => <option key={name} value={name} style={OPT_ST}>{name}</option>)}</select>
-          <select aria-label="Tipo de material" value={tipoFilter} onChange={(event) => setTipoFilter(event.target.value)} style={obraSelect}>{[["todos", "Todos los tipos"], ["base", "Base"], ["addon", `Adicionales · ${addonStats.total}`], ["condicionante", "Condicionantes"], ["linea_eje", "Línea eje"], ["variante", "Variantes"], ["sin_precio", "Sin precio"], ["revisar", "A revisar"], ["stock_libre", `Hay en pañol sin obra · ${stockLibreCount}`]].map(([key, label]) => <option key={key} value={key} style={OPT_ST}>{label}</option>)}</select>
+          <select aria-label="Tipo de material" value={tipoFilter} onChange={(event) => setTipoFilter(event.target.value)} style={obraSelect}>{[["todos", "Todos los tipos"], ["base", "Base"], ["addon", `Adicionales · ${addonStats.total}`], ["condicionante", "Condicionantes"], ["linea_eje", "Línea eje"], ["variante", "Variantes"], ...(verPrecios ? [["sin_precio", "Sin precio"]] : []), ["revisar", "A revisar"], ["stock_libre", `Hay en pañol sin obra · ${stockLibreCount}`]].map(([key, label]) => <option key={key} value={key} style={OPT_ST}>{label}</option>)}</select>
           <select aria-label="Etapa de compra" value={etapaFilter} onChange={(event) => setEtapaFilter(event.target.value)} disabled={!!etapasObraError} style={{ ...obraSelect, maxWidth: "100%" }}><option value="todos" style={OPT_ST}>Todas las etapas · {asignadosCount} asignados</option><option value="sin_asignar" style={OPT_ST}>Sin asignar · {sinAsignarCount}</option>{etapasObra.map((etapa) => <option key={etapa.id} value={etapa.id} style={OPT_ST}>{etapa.nombre} · {etapaStats.get(etapa.id) || 0}{etapa.fecha_compra ? ` · ${String(etapa.fecha_compra).slice(0, 10)}` : ""}</option>)}</select>
         </div>}
         {etapasObraError && <div role="alert" style={{ fontSize: 12, color: C.red }}>{etapasObraError} <button type="button" onClick={cargarEtapasObra} style={obraButton}>Reintentar etapas</button></div>}
@@ -6154,6 +6164,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
         selected={selected} onSelectionChange={setSelected} getRowView={getObraRowView} onOpen={openObraDetail} detailId={detalleId}
         estadoOpciones={estadoOpciones} estadosSel={estadosSel} onEstados={setEstadosSel} estadosEnPie={false}
         orden={orden} onOrden={setOrden}
+        conPrecios={verPrecios} conSeleccion={!soloLectura}
         // El valorizado subió a la ficha de la cabecera: no se repite en el pie.
         onImageUploaded={async () => { await onChanged?.(); await cargarSnapshot(); }}
         accionesSeleccion={<>
@@ -6177,7 +6188,8 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
         onNext={detailIndex >= 0 && detailIndex < detailRows.length - 1 ? () => onAbrirDetalle(detailRows[detailIndex + 1].id) : null}
         editing={detailTab === "mas" && editingMaterialRowId === detailRow.id}
         renderContent={renderObraDetail}
-        footer={<>{instalarError?.id === detailRow.id && <div role="alert" style={{ color: C.red, fontSize: 12, marginBottom: 8 }}>{instalarError.text}</div>}{estadoObraForRow(detailRow) === "egresado" && esInstalado(detailRow)
+        tabs={soloLectura ? [["resumen", "Resumen"], ["compras", "Compras"]] : undefined}
+        footer={soloLectura ? (esInstalado(detailRow) && estadoObraForRow(detailRow) === "egresado" ? <div role="status" style={{ color: C.teal, fontSize: 13, fontWeight: 600 }}>Instalado en el barco</div> : null) : <>{instalarError?.id === detailRow.id && <div role="alert" style={{ color: C.red, fontSize: 12, marginBottom: 8 }}>{instalarError.text}</div>}{estadoObraForRow(detailRow) === "egresado" && esInstalado(detailRow)
           ? <div role="status" style={{ display: "flex", alignItems: "center", gap: 8, color: C.teal, fontSize: 13, fontWeight: 600, minHeight: 44 }}>Instalado en el barco</div>
           : <button type="button" onClick={() => marcarInstalado(detailRow)} disabled={cambioEstadoBusy}
             style={{ ...obraButton, width: "100%", minHeight: 44, justifyContent: "center", fontSize: 13, fontWeight: 600, color: C.teal, borderColor: C.tealB, background: C.tealL }}>
@@ -8593,6 +8605,119 @@ function TarjetaLinea({ linea, dolar, indice, onAbrir }) {
 
 const NIVELES_LISTA_OBRA = ["linea", "obra", "item"];
 
+/**
+ * Las listas de los barcos para pañol (soloConsultaListasObra). Primero los
+ * barcos por línea, con el mismo avance que ve Compras en la línea; al abrir
+ * uno, la misma lista de obra en modo consulta y sin precios. La línea (la
+ * matriz) no se muestra: es de Técnica y está llena de precios.
+ */
+function ListasConsultaPanol({ obras, categorias, materiales, proveedores, opciones = [], onChanged, verPrecios = false }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [q, setQ] = useState("");
+  const ums = useMemo(() => buildUnidadOptions(materiales), [materiales]);
+  const obraId = searchParams.get("obra") || "";
+  const detalleId = searchParams.get("item") || "";
+  const selObra = obraId ? (obras ?? []).find((obra) => String(obra.id) === obraId) : null;
+
+  const abrir = (clave, valor, replace = false) => {
+    const next = new URLSearchParams(searchParams);
+    if (clave === "obra") next.delete("item");
+    next.set(clave, valor);
+    setSearchParams(next, { replace, state: replace ? location.state : { consultaNivelAnterior: clave } });
+  };
+  const volver = (clave) => {
+    if (!searchParams.has(clave)) return;
+    if (location.state?.consultaNivelAnterior === clave) { navigate(-1); return; }
+    const next = new URLSearchParams(searchParams);
+    next.delete("item");
+    if (clave === "obra") next.delete("obra");
+    setSearchParams(next, { replace: true });
+  };
+
+  const grupos = useMemo(() => {
+    const terms = norm(q).split(/\s+/).filter(Boolean);
+    const porLinea = new Map();
+    for (const obra of obras ?? []) {
+      if (!obra?.id) continue;
+      const modelo = String(obra.modelo || "").replace(/^K/i, "") || "Sin línea";
+      if (terms.length && !terms.every((t) => norm(`${obra.codigo} K${modelo} ${obra.linea_nombre || ""}`).includes(t))) continue;
+      if (!porLinea.has(modelo)) porLinea.set(modelo, []);
+      porLinea.get(modelo).push(obra);
+    }
+    return [...porLinea]
+      .sort(([a], [b]) => a.localeCompare(b, "es", { numeric: true }))
+      .map(([modelo, lista]) => ({
+        modelo,
+        obras: lista.sort((a, b) => String(a.codigo).localeCompare(String(b.codigo), "es", { numeric: true })),
+      }));
+  }, [obras, q]);
+
+  if (selObra) {
+    const linea = String(selObra.modelo || "").replace(/^K/i, "");
+    return (
+      <div key={`obra-${selObra.id}`} className="materiales-route-content">
+        <ObraMatrizView
+          obra={selObra}
+          obras={obras}
+          linea={linea}
+          lineaNombre={linea ? `K${linea}` : "Barco"}
+          volverLabel="Barcos"
+          categorias={categorias}
+          materiales={materiales}
+          proveedores={proveedores}
+          opciones={opciones}
+          ums={ums}
+          onChanged={onChanged}
+          onBack={() => volver("obra")}
+          detalleId={detalleId}
+          onAbrirDetalle={(id) => abrir("item", id, !!detalleId)}
+          onCerrarDetalle={() => volver("item")}
+          soloLectura
+          verPrecios={verPrecios}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="materiales-route-content" style={{ display: "grid", gap: 26 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+        <div style={{ position: "relative", flex: "1 1 260px", maxWidth: 420 }}>
+          <Search aria-hidden="true" size={15} style={{ position: "absolute", top: "50%", left: 0, transform: "translateY(-50%)", color: C.muted }} />
+          <input aria-label="Buscar barco" value={q} onChange={(e) => setQ(e.target.value)} style={{ ...INP, width: "100%", boxSizing: "border-box", paddingLeft: 26, height: 38, border: 0, borderBottom: `1px solid ${C.b1}`, borderRadius: 0, fontWeight: 300 }} />
+        </div>
+      </div>
+      {!grupos.length && <div style={{ padding: 30, textAlign: "center", color: C.t2, fontSize: 13 }}>No hay barcos con esa búsqueda.</div>}
+      {grupos.map((grupo) => (
+        <section key={grupo.modelo} aria-label={grupo.modelo === "Sin línea" ? "Otros barcos" : `Línea K${grupo.modelo}`}>
+          <div className="az-rotulo ws-obras-rotulo">{grupo.modelo === "Sin línea" ? "Otros barcos" : `K${grupo.modelo}`} · {grupo.obras.length} {grupo.obras.length === 1 ? "barco" : "barcos"}</div>
+          <div className="ws-obras">
+            {grupo.obras.map((obra) => {
+              const r = obra.materiales_recepcion || {};
+              const total = Number(r.total || 0);
+              const pc = (n) => (total ? `${Math.min(100, (Number(n || 0) / total) * 100)}%` : "0%");
+              return (
+                <button type="button" key={obra.id} onClick={() => abrir("obra", obra.id)} className="ws-obra" title={`Abrir la lista de ${obra.codigo} · ${total ? obraRecepcionResumenLabel(r) : "sin lista"}`}>
+                  <div className="ws-obra-codigo">{obra.codigo}</div>
+                  <div className="ws-obra-barra" aria-hidden="true">
+                    {total ? <>
+                      <i style={{ width: pc(r.egresado), background: C.green }} />
+                      <i style={{ width: pc(r.en_panol), background: C.violet }} />
+                    </> : null}
+                  </div>
+                  <div className="ws-obra-texto">{total ? obraRecepcionResumenLabel(r) : "sin lista"}</div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 function LineasTab({ lineas, obras, categorias, materiales, proveedores, opciones = [], onChanged, soloPedirACompras = false }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
@@ -10011,6 +10136,9 @@ export default function MaterialesScreen({ profile }) {
   const tab = TAB_KEYS.includes(tabPedida) ? tabPedida : "lineas";
   // Técnica sólo manda pedidos a Compras; el aviso a pañol queda para el resto.
   const soloPedirACompras = profile?.role === "tecnica";
+  // Pañol entra sólo a mirar las listas de los barcos, sin precios.
+  const consulta = soloConsultaListasObra(profile);
+  const verPrecios = puedeVerPrecios(profile);
   const [moreOpen, setMoreOpen] = useState(false);
   const [categorias, setCategorias] = useState(null);
   const [materiales, setMateriales] = useState(null);
@@ -10249,7 +10377,12 @@ export default function MaterialesScreen({ profile }) {
       <div className="materiales-page-scroll" style={{ flex: 1, height: "100%", overflowY: "auto", minWidth: 0 }}>
         <div className="materiales-page-body" style={{ padding: isMobile ? "16px 14px 50px 14px" : "26px 30px 60px" }}>
           {/* Aire Azimut: rótulo chico arriba y el título fino, en mayúsculas. */}
-          <div className="materiales-page-heading" style={{ marginBottom: isMobile ? 18 : 30 }}>
+          {consulta ? (
+            <div className="materiales-page-heading" style={{ marginBottom: isMobile ? 18 : 30 }}>
+              <div className="az-rotulo">Pañol · consulta</div>
+              <h1 className="az-titulo" style={{ marginTop: 14 }}>Listas de los barcos</h1>
+            </div>
+          ) : <div className="materiales-page-heading" style={{ marginBottom: isMobile ? 18 : 30 }}>
             <div className="az-rotulo" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
               <span>Líneas de producción</span>
               <span aria-hidden="true">·</span>
@@ -10258,7 +10391,7 @@ export default function MaterialesScreen({ profile }) {
               <span>Órdenes de compra</span>
             </div>
             <h1 className="az-titulo" style={{ marginTop: 14 }}>Listas de compras</h1>
-          </div>
+          </div>}
 
           {setupPendiente ? (
             <SetupPendienteMateriales onRetry={cargar} />
@@ -10266,6 +10399,8 @@ export default function MaterialesScreen({ profile }) {
             <ErrorBox error={error} onRetry={cargar} />
           ) : !listo ? (
             <Cargando />
+          ) : consulta ? (
+            <ListasConsultaPanol obras={obrasAvance} categorias={categorias} materiales={materiales} proveedores={proveedores} opciones={opciones} onChanged={cargar} verPrecios={verPrecios} />
           ) : (
             <>
               {(() => {

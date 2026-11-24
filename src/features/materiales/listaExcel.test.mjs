@@ -43,6 +43,15 @@ test('la lista de la obra sale en dos hojas: una para imprimir agrupada y otra p
   assert.equal(imprimir.imprimir.ajustarAncho, true);
 });
 
+test('la lista de pañol sale sin precio, moneda ni total', () => {
+  const [imprimir, datos] = hojasListaObra({ obra: '55-1', grupos: [{ nombre: 'X', filas: [fila()] }], fecha, conPrecios: false });
+  const cab = valores(datos.filas[3]);
+  for (const titulo of ['Precio unit.', 'Moneda', 'Total']) assert.equal(cab.includes(titulo), false, titulo);
+  assert.equal(cab.includes('Observaciones'), true);
+  assert.equal(JSON.stringify(imprimir).includes('1000'), false);
+  assert.equal(JSON.stringify(datos).includes('1000'), false);
+});
+
 test('los filtros puestos quedan escritos arriba del papel', () => {
   const [imprimir] = hojasListaObra({ obra: '55-1', grupos: [{ nombre: 'X', filas: [fila()] }], filtros: ['estado Pendiente'], fecha });
   assert.match(imprimir.filas[1][0].v, /filtrado: estado Pendiente/);

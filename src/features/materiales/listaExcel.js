@@ -197,7 +197,7 @@ const nombreArchivo = (texto) => String(texto || "").trim().replace(/[\\/:*?"<>|
  *   estado, accion, etapas, precio, moneda, obs }] }]
  * agrupadoPor: "rubro" | "proveedor" | "etapa" | "tipo"
  */
-export function hojasListaObra({ obra, linea, grupos, agrupadoPor = "rubro", filtros = [], fecha = new Date() }) {
+export function hojasListaObra({ obra, linea, grupos, agrupadoPor = "rubro", filtros = [], fecha = new Date(), conPrecios = true }) {
   const todas = grupos.flatMap((g) => g.filas);
   if (!todas.length) throw new Error("No hay materiales para exportar con los filtros puestos.");
 
@@ -240,9 +240,12 @@ export function hojasListaObra({ obra, linea, grupos, agrupadoPor = "rubro", fil
     { titulo: "Estado", ancho: 11, tipo: "estado", alinear: "center", valor: (f) => f.estado },
     { titulo: "Qué hacer", ancho: 17, tipo: "texto", valor: (f) => f.accion },
     { titulo: "Etapa de compra", ancho: 20, tipo: "texto", valor: (f) => f.etapas },
-    { titulo: "Precio unit.", ancho: 13, tipo: "plata", alinear: "right", valor: (f) => f.precio },
-    { titulo: "Moneda", ancho: 8, tipo: "centro", alinear: "center", valor: (f) => (f.precio ? f.moneda : "") },
-    { titulo: "Total", ancho: 14, tipo: "plata", alinear: "right", valor: (f) => (f.precio ? redondear(f.precio * (Number(f.cantidad) || 0)) : "") },
+    // Pañol no ve precios (puedeVerPrecios): su Excel sale sin estas tres.
+    ...(conPrecios ? [
+      { titulo: "Precio unit.", ancho: 13, tipo: "plata", alinear: "right", valor: (f) => f.precio },
+      { titulo: "Moneda", ancho: 8, tipo: "centro", alinear: "center", valor: (f) => (f.precio ? f.moneda : "") },
+      { titulo: "Total", ancho: 14, tipo: "plata", alinear: "right", valor: (f) => (f.precio ? redondear(f.precio * (Number(f.cantidad) || 0)) : "") },
+    ] : []),
     { titulo: "Observaciones", ancho: 40, tipo: "texto", valor: (f) => f.obs },
   ];
 

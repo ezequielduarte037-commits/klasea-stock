@@ -87,6 +87,17 @@ export function puedeVerPrecios(profile) {
   return profile.role !== "panol";
 }
 
+/**
+ * Pañol entra a las listas de los barcos sólo a mirar (pedido de Ezequiel,
+ * 24/11/2026): ve lo mismo que Compras y Técnica —qué falta, qué está pedido,
+ * qué llegó— pero no pide, no edita ni cambia estados, y no ve precios.
+ * Un admin con rol pañol sigue teniendo la pantalla completa.
+ */
+export function soloConsultaListasObra(profile) {
+  if (!profile || profile.is_admin) return false;
+  return profile.role === "panol";
+}
+
 /** Quién puede entrar a la pantalla de Precios (carga de remitos y actualización). */
 export function canAccessPrecios(profile) {
   if (!profile) return false;

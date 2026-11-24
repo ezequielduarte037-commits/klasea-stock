@@ -186,7 +186,7 @@ function SortHeader({ label, k, orden, onOrden, align = "left", title }) {
  * se van dibujando de a 200 a medida que se baja, así una obra de 700 ítems
  * abre rápido y se puede tildar todo lo filtrado de un clic.
  */
-export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, stickyTop = 0, rubro, onRubro, proveedor, onProveedor, selected, onSelectionChange, getRowView, onOpen, detailId, onImageUploaded, estadoOpciones = [], estadosSel = new Set(), onEstados = () => {}, orden, onOrden = () => {}, valorizacion, accionesSeleccion, estadosEnPie = true }) {
+export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, stickyTop = 0, rubro, onRubro, proveedor, onProveedor, selected, onSelectionChange, getRowView, onOpen, detailId, onImageUploaded, estadoOpciones = [], estadosSel = new Set(), onEstados = () => {}, orden, onOrden = () => {}, valorizacion, accionesSeleccion, estadosEnPie = true, conPrecios = true, conSeleccion = true }) {
   const { isMobile } = useResponsive();
   const containerRef = useRef(null);
   const listaRef = useRef(null);
@@ -247,7 +247,7 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, s
   function onRowKey(event, row) {
     if (event.target !== event.currentTarget) return;
     if (event.key === "Enter") { event.preventDefault(); onOpen(row, event.currentTarget); }
-    if (event.key === " ") { event.preventDefault(); selectRows([row]); }
+    if (event.key === " " && conSeleccion) { event.preventDefault(); selectRows([row]); }
     if (["ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) {
       event.preventDefault();
       const elements = [...listaRef.current.querySelectorAll(".obra-data-row")];
@@ -259,10 +259,13 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, s
   const tildadosVisibles = visibleRows.reduce((n, row) => n + (selected.has(row.id) ? 1 : 0), 0);
   const tildadosFuera = selected.size - tildadosVisibles;
   // Columnas: ☐ · Material · Proveedor · Nec. · Rec. · Entr. · Falta · Estado · Precio · ⋯
-  const columns = phone ? "40px minmax(0,1fr) 92px 40px"
-    : narrow ? "40px minmax(0,1fr) 64px 92px 40px"
-      : compact ? "34px minmax(0,1fr) 70px 54px 54px 60px 96px 30px"
-        : "40px minmax(0,1fr) minmax(120px,160px) 84px 64px 64px 70px 112px 104px 36px";
+  // En la consulta de pañol no hay tildes (no hay nada que hacer con lo
+  // tildado) ni precio.
+  const sel = (ancho) => (conSeleccion ? `${ancho} ` : "");
+  const columns = phone ? `${sel("40px")}minmax(0,1fr) 92px 40px`
+    : narrow ? `${sel("40px")}minmax(0,1fr) 64px 92px 40px`
+      : compact ? `${sel("34px")}minmax(0,1fr) 70px 54px 54px 60px 96px 30px`
+        : `${sel("40px")}minmax(0,1fr) minmax(120px,160px) 84px 64px 64px 70px 112px ${conPrecios ? "104px " : ""}36px`;
   const gruposTop = `calc(${stickyTop}px + var(--obra-columnas-alto))`;
   const cell = { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", padding: "0 8px" };
   const num = { ...cell, ...numberStyle, fontSize: 14 };
@@ -280,14 +283,14 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, s
       {[["", indexTotal], ...indexEntries].map(([name, count]) => indexItem(name, count))}
     </nav>;
   const header = <div role="row" style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center", position: "sticky", top: stickyTop, zIndex: 3, background: C.panelSolid, borderBottom: `1px solid ${C.border}`, color: C.muted, fontSize: 10.5, fontWeight: 500, letterSpacing: ".14em", textTransform: "uppercase", height: "var(--obra-columnas-alto)" }}>
-    <div role="columnheader"><SelectionBox rows={visibleRows} selected={selected} onToggle={() => selectRows(visibleRows)} label={`Tildar todo lo filtrado (${visibleRows.length} ítems)`} /></div>
+    {conSeleccion && <div role="columnheader"><SelectionBox rows={visibleRows} selected={selected} onToggle={() => selectRows(visibleRows)} label={`Tildar todo lo filtrado (${visibleRows.length} ítems)`} /></div>}
     <div role="columnheader" style={cell}><SortHeader label="Material" k="material" orden={orden} onOrden={onOrden} /></div>
     {!compact && <div role="columnheader" style={cell}><SortHeader label="Proveedor" k="proveedor" orden={orden} onOrden={onOrden} /></div>}
     {!narrow && <div role="columnheader" style={cell}><SortHeader label="Nec." k="necesario" orden={orden} onOrden={onOrden} align="right" title="Necesario para la obra" /></div>}
     {!narrow && <><div role="columnheader" style={{ ...cell, textAlign: "right" }} title="Recibido en pañol">Rec.</div><div role="columnheader" style={{ ...cell, textAlign: "right" }} title="Entregado a la obra">Entr.</div></>}
     {!phone && <div role="columnheader" style={cell}><SortHeader label="Falta" k="falta" orden={orden} onOrden={onOrden} align="right" title="Lo que le falta al barco: necesario menos entregado" /></div>}
     <div role="columnheader" style={{ ...cell, padding: 0 }}><ObraColumnFilter label="Estado" options={estadoOpciones} selected={estadosSel} onChange={onEstados} align="right" /></div>
-    {!compact && <div role="columnheader" style={cell}><SortHeader label="Precio" k="precio" orden={orden} onOrden={onOrden} align="right" title="Precio unitario" /></div>}
+    {!compact && conPrecios && <div role="columnheader" style={cell}><SortHeader label="Precio" k="precio" orden={orden} onOrden={onOrden} align="right" title="Precio unitario" /></div>}
     <div role="columnheader" aria-label="Detalle" />
   </div>;
   const fila = (row) => {
@@ -301,7 +304,7 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, s
     ].filter(Boolean).join(" · ");
     return <div key={row.id} role="row" tabIndex={0} className="obra-data-row" data-row-id={row.id} aria-selected={active} onKeyDown={(event) => onRowKey(event, row)} onDoubleClick={(event) => { if (!event.target.closest("button,input,a,select")) onOpen(row, event.currentTarget); }}
       style={{ display: "grid", gridTemplateColumns: columns, alignItems: "center", minHeight: narrow ? 56 : 60, scrollMarginBlock: `calc(${gruposTop} + ${plano ? 4 : 48}px) 48px`, background: active ? C.blueL : detailId === row.id ? C.panel : "transparent", borderBottom: `1px solid ${C.border}`, cursor: "default" }}>
-      <div role="cell"><SelectionBox rows={[row]} selected={selected} onToggle={() => selectRows([row])} label={`Tildar ${row.descripcion}`} /></div>
+      {conSeleccion && <div role="cell"><SelectionBox rows={[row]} selected={selected} onToggle={() => selectRows([row])} label={`Tildar ${row.descripcion}`} /></div>}
       <div role="cell" style={{ ...cell, display: "flex", alignItems: "center", gap: 12, padding: "6px 8px" }}>
         <MaterialThumb material={view.imageMaterial} size={narrow ? 36 : 40} fallbackLabel={row.rubro?.slice(0, 1) || "M"} uploadMaterial={view.uploadMaterial} onUploaded={onImageUploaded} />
         <button type="button" onClick={(event) => onOpen(row, event.currentTarget)} style={{ display: "block", border: "none", background: "transparent", color: C.text, padding: 0, textAlign: "left", minWidth: 0, flex: 1, cursor: "pointer", fontFamily: C.sans, lineHeight: 1.3 }} title={[row.descripcion, row.codigo, view.issue].filter(Boolean).join(" · ")}>
@@ -315,11 +318,11 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, s
       {!narrow && <><div role="cell" style={{ ...num, color: view.cant.panol ? C.muted : C.dim }}>{view.cant.panol ? view.received : "·"}</div><div role="cell" style={{ ...num, color: view.cant.entregado ? C.muted : C.dim }}>{view.cant.entregado ? view.delivered : "·"}</div></>}
       {!phone && <div role="cell" style={{ ...num, color: view.falta ? view.faltaColor : C.dim, fontWeight: view.falta ? 600 : 400 }} title={view.faltaTitle}>{view.falta ? view.faltaTexto : "·"}</div>}
       <div role="cell" style={{ ...cell, padding: "0 4px" }}><ObraStatusBadge status={view.status} /></div>
-      {!compact && <div role="cell" title={row.precio?.text} style={{ ...num, fontSize: 13.5, color: row.precio?.amount ? C.text : C.dim }}>{row.precio?.amount ? row.precio.text : "—"}</div>}
+      {!compact && conPrecios && <div role="cell" title={row.precio?.text} style={{ ...num, fontSize: 13.5, color: row.precio?.amount ? C.text : C.dim }}>{row.precio?.amount ? row.precio.text : "—"}</div>}
       <div role="cell"><button type="button" title="Abrir detalle" aria-label={`Detalle de ${row.descripcion}`} onClick={(event) => onOpen(row, event.currentTarget)} style={{ ...button, borderColor: "transparent", padding: 4, minWidth: narrow ? 40 : 26, minHeight: narrow ? 40 : 30, background: "transparent", color: C.muted }}><MoreHorizontal size={15} /></button></div>
     </div>;
   };
-  const barraSeleccion = selected.size > 0 && <div role="region" aria-label="Acciones sobre lo tildado" className={narrow ? "obra-selbar obra-chips" : "obra-selbar"} style={{ position: "sticky", bottom: 0, zIndex: 5, display: "flex", flexWrap: narrow ? "nowrap" : "wrap", overflowX: narrow ? "auto" : "visible", alignItems: "center", gap: 6, padding: "7px 8px max(7px, env(safe-area-inset-bottom)) 12px", background: C.panelSolid, borderTop: `1px solid ${C.blueB}`, boxShadow: "0 14px 40px var(--shadow)" }}>
+  const barraSeleccion = conSeleccion && selected.size > 0 && <div role="region" aria-label="Acciones sobre lo tildado" className={narrow ? "obra-selbar obra-chips" : "obra-selbar"} style={{ position: "sticky", bottom: 0, zIndex: 5, display: "flex", flexWrap: narrow ? "nowrap" : "wrap", overflowX: narrow ? "auto" : "visible", alignItems: "center", gap: 6, padding: "7px 8px max(7px, env(safe-area-inset-bottom)) 12px", background: C.panelSolid, borderTop: `1px solid ${C.blueB}`, boxShadow: "0 14px 40px var(--shadow)" }}>
     <strong style={{ fontWeight: 600, fontSize: 12.5, color: C.text, marginRight: 4, whiteSpace: "nowrap" }}>{tildadosVisibles.toLocaleString("es-AR")} {tildadosVisibles === 1 ? "tildado" : "tildados"}</strong>
     {tildadosFuera > 0 && <span style={{ ...muted, fontSize: 11, whiteSpace: "nowrap" }} title="Lo tildado que quedó afuera del filtro no entra en las acciones.">+{tildadosFuera} fuera del filtro</span>}
     {accionesSeleccion}
@@ -337,7 +340,7 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, s
             {header}
             {recorte.groups.map((group) => <div key={group.label} role="rowgroup">
               {!plano && <div role="row" style={{ display: "flex", alignItems: "center", minHeight: 36, position: "sticky", top: gruposTop, zIndex: 2, background: C.panelSolid2, borderBottom: `1px solid ${C.border}` }}>
-                <SelectionBox rows={group.allRows} selected={selected} onToggle={() => selectRows(group.allRows)} label={`Tildar ${group.label} (${group.allRows.length} ítems)`} />
+                {conSeleccion && <SelectionBox rows={group.allRows} selected={selected} onToggle={() => selectRows(group.allRows)} label={`Tildar ${group.label} (${group.allRows.length} ítems)`} />}
                 <button type="button" aria-expanded={!closedGroups.has(group.label)} onClick={() => toggleGroup(group.label)} style={{ ...button, minHeight: 30, border: "none", background: "transparent", flex: 1, justifyContent: "flex-start", minWidth: 0 }}>
                   {closedGroups.has(group.label) ? <ChevronRight size={13} /> : <ChevronDown size={13} />}<span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 600 }}>{group.label}</span><span style={muted}>· {group.allRows.length}</span>
                 </button>
@@ -358,14 +361,16 @@ export function ObraListaTable({ groups, allRows, visibleRows = [], filterKey, s
             </button>;
           })}
           <span style={{ flex: 1 }} />
-          {valorizacion?.texto && !phone && <span style={{ ...muted, fontSize: 11 }} title="Suma sólo lo que tiene precio cargado: con ítems sin precio el total de la obra es mayor.">Valorizado <span style={{ ...numberStyle, color: C.text }}>{valorizacion.texto}</span> · {valorizacion.conPrecio} % con precio</span>}
+          {conPrecios && valorizacion?.texto && !phone && <span style={{ ...muted, fontSize: 11 }} title="Suma sólo lo que tiene precio cargado: con ítems sin precio el total de la obra es mayor.">Valorizado <span style={{ ...numberStyle, color: C.text }}>{valorizacion.texto}</span> · {valorizacion.conPrecio} % con precio</span>}
         </div>}
       </div>
     </div>
   </div>;
 }
 
-export function ObraItemDrawer({ row, view, obraLabel, tab, onTab, onClose, onPrevious, onNext, suspendEscape, editing, renderContent, footer }) {
+const DRAWER_TABS = [["resumen", "Resumen"], ["compras", "Compras"], ["mas", "Más"]];
+
+export function ObraItemDrawer({ row, view, obraLabel, tab, onTab, onClose, onPrevious, onNext, suspendEscape, editing, renderContent, footer, tabs = DRAWER_TABS }) {
   const { isMobile } = useResponsive();
   const closeRef = useRef(null);
   const panelRef = useRef(null);
@@ -398,7 +403,7 @@ export function ObraItemDrawer({ row, view, obraLabel, tab, onTab, onClose, onPr
       </div>
       <h2 id="obra-detail-title" style={{ margin: "0 0 8px", fontSize: 19, lineHeight: 1.3, fontWeight: 600, overflowWrap: "anywhere" }}>{row.descripcion}</h2>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}><ObraStatusBadge status={view.status} /><span style={muted}>{obraLabel}</span></div>
-      <div role="tablist" aria-label="Detalle del material" style={{ display: "flex", gap: 20 }}>{[["resumen", "Resumen"], ["compras", "Compras"], ["mas", "Más"]].map(([key, label], index, tabs) => <button id={`obra-tab-${key}`} aria-controls={`obra-tabpanel-${key}`} key={key} type="button" role="tab" tabIndex={tab === key ? 0 : -1} aria-selected={tab === key} onClick={() => onTab(key)} onKeyDown={(event) => { if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return; event.preventDefault(); const next = tabs[(index + (event.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length][0]; onTab(next); document.getElementById(`obra-tab-${next}`)?.focus(); }} style={{ ...button, border: "none", borderBottom: `2px solid ${tab === key ? C.blue : "transparent"}`, borderRadius: 0, padding: "10px 0", background: "transparent", color: tab === key ? C.blue : C.muted }}>{label}</button>)}</div>
+      <div role="tablist" aria-label="Detalle del material" style={{ display: "flex", gap: 20 }}>{tabs.map(([key, label], index) => <button id={`obra-tab-${key}`} aria-controls={`obra-tabpanel-${key}`} key={key} type="button" role="tab" tabIndex={tab === key ? 0 : -1} aria-selected={tab === key} onClick={() => onTab(key)} onKeyDown={(event) => { if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return; event.preventDefault(); const next = tabs[(index + (event.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length][0]; onTab(next); document.getElementById(`obra-tab-${next}`)?.focus(); }} style={{ ...button, border: "none", borderBottom: `2px solid ${tab === key ? C.blue : "transparent"}`, borderRadius: 0, padding: "10px 0", background: "transparent", color: tab === key ? C.blue : C.muted }}>{label}</button>)}</div>
     </div>
     <div key={`${row.id}:${tab}`} role="tabpanel" id={`obra-tabpanel-${tab}`} aria-labelledby={`obra-tab-${tab}`} className="obra-scroll obra-detail-content" style={{ flex: 1, overflowY: "auto", minWidth: 0, minHeight: 0, padding: editing ? 20 : 18 }}>{renderContent(row, tab)}</div>
     <div style={{ padding: "12px 16px", paddingBottom: "max(12px, env(safe-area-inset-bottom))", flexShrink: 0, borderTop: `1px solid ${C.border}`, background: C.panelSolid }}>{footer}{!isMobile && <div style={{ ...muted, fontSize: 10, textAlign: "right", marginTop: 6 }}>Esc · Cerrar</div>}</div>
