@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  ExternalLink, FileText, Loader2, Paperclip, Trash2, Upload,
+  Download, ExternalLink, FileText, Loader2, Paperclip, Trash2, Upload,
 } from "lucide-react";
 import { C } from "@/theme";
+import { canPreviewAttachment, storageDownloadUrl } from "@/lib/attachmentDownload";
 import {
   eliminarPlantillaTareaArchivo,
   fetchPlantillaTareaArchivos,
@@ -29,6 +30,7 @@ export default function TareaArchivosPanel({ tarea, onChanged }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [dragging, setDragging] = useState(false);
+  const fileAction = { width: 28, height: 28, display: "grid", placeItems: "center", borderRadius: 7, color: C.blue };
 
   async function load() {
     if (!tarea?.id) return;
@@ -217,15 +219,26 @@ export default function TareaArchivosPanel({ tarea, onChanged }) {
                 <div style={{ marginTop: 2, color: C.t3, fontFamily: C.mono, fontSize: 9 }}>{[extension(file.nombre_archivo), formatBytes(file.tamano_bytes)].filter(Boolean).join(" · ")}</div>
               </div>
               <div style={{ display: "flex", gap: 3 }}>
-                <a
+                {canPreviewAttachment(file.nombre_archivo) && <a
                   href={file.url_publica}
                   target="_blank"
                   rel="noreferrer"
                   aria-label={`Abrir ${file.nombre_archivo}`}
                   title="Abrir archivo"
-                  style={{ width: 28, height: 28, display: "grid", placeItems: "center", borderRadius: 7, color: C.blue }}
+                  style={fileAction}
                 >
                   <ExternalLink size={12} />
+                </a>}
+                <a
+                  href={storageDownloadUrl(file.url_publica, file.nombre_archivo) || file.url_publica}
+                  download={file.nombre_archivo}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`Descargar ${file.nombre_archivo}`}
+                  title="Descargar archivo"
+                  style={fileAction}
+                >
+                  <Download size={13} />
                 </a>
                 <button
                   type="button"

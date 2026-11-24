@@ -67,10 +67,7 @@ export function planosParaCompras(items = []) {
       if (!plano?.url) return;
       const key = plano.path || plano.url;
       if (unique.has(key)) return;
-      unique.set(key, {
-        ...plano,
-        name: `${item.descripcion} · ${plano.name || "Plano"}`,
-      });
+      unique.set(key, plano);
     });
   });
   return [...unique.values()];

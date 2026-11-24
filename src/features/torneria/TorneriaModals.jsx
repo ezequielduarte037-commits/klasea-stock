@@ -4,6 +4,7 @@ import {
   Search, Trash2, Truck,
 } from "lucide-react";
 import { C } from "@/theme";
+import { storageDownloadUrl } from "@/lib/attachmentDownload";
 import { buscarMateriales } from "@/features/produccion/catalogoBusquedaApi";
 import { cantidadDeLaLinea } from "./torneriaApi";
 import {
@@ -864,7 +865,7 @@ export function ItemModal({ item, proceso, onClose, onSave, onArchive }) {
                   background: C.panelSolid,
                 }}>
                   <a
-                    href={plano.url}
+                    href={storageDownloadUrl(plano.url, plano.name) || plano.url}
                     target="_blank"
                     rel="noreferrer"
                     style={{

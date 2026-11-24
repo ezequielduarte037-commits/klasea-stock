@@ -1,5 +1,6 @@
 import { CSS_PAPEL, FUENTES_PAPEL, fechaRotulo } from "@/lib/impresionKlasea";
 import DOMPurify from "dompurify";
+import { storageDownloadUrl } from "@/lib/attachmentDownload";
 import {
   normalizePurchaseRequestAttachments,
   REQUEST_PRIORITIES,
@@ -184,7 +185,7 @@ export function buildPurchaseRequestHtml(request, logoUrl) {
         ${attachments.map((attachment) => `
           <div class="attachment">
             <span>${esc(attachment.name || "Archivo adjunto")}</span>
-            <a href="${esc(attachment.url)}" target="_blank" rel="noopener noreferrer">${esc(attachment.url)}</a>
+            <a href="${esc(storageDownloadUrl(attachment.url, attachment.name) || attachment.url)}" target="_blank" rel="noopener noreferrer">${esc(attachment.url)}</a>
           </div>
         `).join("")}
       </div>`

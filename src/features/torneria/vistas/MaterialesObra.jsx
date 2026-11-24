@@ -1,4 +1,5 @@
 import { Check, Edit3, FileText, Link2, Plus, ShoppingCart } from "lucide-react";
+import { storageDownloadUrl } from "@/lib/attachmentDownload";
 import { cantidadTexto, diasEntre, fmtDate, groupRows } from "../torneriaEstado";
 import { GROUP_COLORS, fotoDelMaterial } from "../circuitoDatos";
 import { CatalogTechnicalName, FotoMaterial, RecepcionAnticipada } from "../circuito";
@@ -88,7 +89,7 @@ export default function MaterialesObra({ process, onEdit, onNew, onStatus, onCon
                       <div className="tor-planos">
                         <FileText size={13} style={{ color: "var(--blue)" }} />
                         {item.planos.slice(0, 3).map((plano, index) => (
-                          <a key={plano.path || plano.url || index} href={plano.url} target="_blank" rel="noreferrer" title={plano.name}>
+                          <a key={plano.path || plano.url || index} href={storageDownloadUrl(plano.url, plano.name) || plano.url} target="_blank" rel="noreferrer" title={plano.name}>
                             {plano.name || `Plano ${index + 1}`}
                           </a>
                         ))}

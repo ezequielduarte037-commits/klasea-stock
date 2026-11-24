@@ -30,6 +30,7 @@ import CostosCompraModal from "./CostosCompraModal";
 import { importeCompraValido } from "./costosCompra";
 import { useToast } from "@/components/ui/Toast";
 import { useConfirm } from "@/components/ui/ConfirmDialog";
+import { storageDownloadUrl } from "@/lib/attachmentDownload";
 import Cargando from "@/components/ui/Cargando";
 import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
 import MaterialDocuments from "@/features/materiales/MaterialDocuments";
@@ -133,28 +134,15 @@ function AttachmentCard({ attachment, onOpenImage }) {
   const name = attachment.name || `Archivo.${attachmentExtension(attachment) || "adjunto"}`;
   const ext = attachmentExtension(attachment);
   const size = fmtFileSize(attachment.size);
+  const downloadUrl = storageDownloadUrl(attachment.url, name);
 
   async function downloadAttachment() {
     if (downloading) return;
     setDownloading(true);
     try {
-      // El atributo `download` se ignora en enlaces de otro dominio (el bucket
-      // de Supabase) y Windows termina usando el UUID del objeto. Bajamos el
-      // blob y generamos un enlace local para conservar el nombre del archivo
-      // con el que fue adjuntado al pedido.
-      let blob = null;
-      if (attachment.path) {
-        const { data, error } = await supabase.storage
-          .from("purchase-request-photos")
-          .download(attachment.path);
-        if (error) throw error;
-        blob = data;
-      } else {
-        const response = await fetch(attachment.url);
-        if (!response.ok) throw new Error("No se pudo descargar el archivo.");
-        blob = await response.blob();
-      }
-      if (!blob) throw new Error("El archivo descargado está vacío.");
+      const response = await fetch(attachment.url);
+      if (!response.ok) throw new Error("No se pudo descargar el archivo.");
+      const blob = await response.blob();
 
       const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
@@ -166,8 +154,6 @@ function AttachmentCard({ attachment, onOpenImage }) {
       link.remove();
       window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
     } catch {
-      // Mantiene una salida para adjuntos históricos cuya ruta ya no se puede
-      // leer con el SDK, sin bloquear el acceso al documento.
       window.open(attachment.url, "_blank", "noopener,noreferrer");
     } finally {
       setDownloading(false);
@@ -183,14 +169,24 @@ function AttachmentCard({ attachment, onOpenImage }) {
     );
   }
 
-  return (
-    <button type="button" className="cmp-adj" onClick={downloadAttachment} disabled={downloading} title={`Descargar ${name}`}>
+  const fileInfo = (
+    <>
       <span className="ic"><AttachmentTypeIcon attachment={attachment} size={16} /></span>
       <span style={{ minWidth: 0, flex: 1 }}>
         <span className="nom">{name}</span>
         <span className="det">{[ext || "archivo", size].filter(Boolean).join(" · ")}</span>
       </span>
       <span className="bajar">{downloading ? "Bajando…" : "Descargar"}</span>
+    </>
+  );
+
+  return downloadUrl ? (
+    <a className="cmp-adj" href={downloadUrl} target="_blank" rel="noreferrer" title={`Descargar ${name}`}>
+      {fileInfo}
+    </a>
+  ) : (
+    <button type="button" className="cmp-adj" onClick={downloadAttachment} disabled={downloading} title={`Descargar ${name}`}>
+      {fileInfo}
     </button>
   );
 }
@@ -206,12 +202,14 @@ function ChatImageViewer({ attachment, onClose }) {
   }, [attachment, onClose]);
 
   if (!attachment) return null;
+  const downloadUrl = storageDownloadUrl(attachment.url, attachment.name);
   return (
     <div className="cmp-visor" role="dialog" aria-modal="true" aria-label={`Imagen adjunta: ${attachment.name}`} onClick={onClose}>
       <button type="button" className="cmp-btn-ic cerrar" onClick={onClose} aria-label="Cerrar imagen" title="Cerrar"><X size={19} /></button>
       <div onClick={(event) => event.stopPropagation()} style={{ display: "grid", gap: 9, justifyItems: "center", maxWidth: "96vw" }}>
         <img src={attachment.url} alt={attachment.name || "Imagen adjunta"} />
         <div style={{ color: "var(--muted)", fontSize: 12 }}>{attachment.name || "Imagen adjunta"}</div>
+        {downloadUrl && <a className="ui-btn ui-btn-suave chico" href={downloadUrl} target="_blank" rel="noreferrer">Descargar</a>}
       </div>
     </div>
   );
@@ -1226,6 +1224,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                     const st = ITEM_STATUSES.find((s) => s.value === item.status) || ITEM_STATUSES[0];
                     const tono = ITEM_TONOS[item.status] || "neutro";
                     const isEditing = editingItem?.id === item.id;
+                    const linkedAttachment = requestAttachments.find((attachment) => attachment.url === item.link_url);
                     return (
                       <div key={item.id} className={`cmp-item${isEditing ? " editando" : ""}`}>
                         {canEditItems ? (
@@ -1258,7 +1257,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                                 </span>
                               )}
                               {isHttpUrl(item.image_url) && <a href={item.image_url} target="_blank" rel="noreferrer"><ImageIcon size={12} /> Foto</a>}
-                              {isHttpUrl(item.link_url) && <a href={item.link_url} target="_blank" rel="noreferrer"><Paperclip size={12} /> Enlace</a>}
+                              {isHttpUrl(item.link_url) && <a href={storageDownloadUrl(item.link_url, linkedAttachment?.name) || item.link_url} target="_blank" rel="noreferrer"><Paperclip size={12} /> {linkedAttachment ? "Descargar adjunto" : "Enlace"}</a>}
                               {item.notes && <span className="nota">{item.notes}</span>}
                             </div>
                           )}

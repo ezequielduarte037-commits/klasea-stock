@@ -5,6 +5,7 @@ import {
   Truck, Wrench,
 } from "lucide-react";
 import { C } from "@/theme";
+import { storageDownloadUrl } from "@/lib/attachmentDownload";
 import { EmptyCatalogHint } from "../TorneriaModals";
 import { ProgressBar, StatusBadge } from "../torneriaUi";
 import { BUTTON, PRIMARY_BUTTON } from "../torneriaStyles";
@@ -1647,7 +1648,7 @@ function MaterialTab({ process, onEdit, onNew, onStatus, onConfirm, onPedirCompr
                       {item.planos.slice(0, 3).map((plano, index) => (
                         <a
                           key={plano.path || plano.url || index}
-                          href={plano.url}
+                          href={storageDownloadUrl(plano.url, plano.name) || plano.url}
                           target="_blank"
                           rel="noreferrer"
                           title={plano.name}

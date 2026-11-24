@@ -6,6 +6,7 @@ import { C } from "@/theme";
  */
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/supabaseClient";
+import { canPreviewAttachment, storageDownloadUrl } from "@/lib/attachmentDownload";
 import { nonWorkingDaysCount, relativeWeekLabel } from "@/features/obras/fechasEngine";
 import {
   COLOR_PRESETS, GLASS, INP, PRIORIDADES, STORAGE_BUCKET, fmtDate, fmtDateFull,
@@ -580,6 +581,7 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
 
   const secBorder = { padding: "12px 14px", background: C.s0, border: `1px solid ${C.b0}`, borderRadius: 8, marginBottom: 12 };
   const totalArchivos = archivos.length + archivosPlantilla.length;
+  const estiloDescarga = { fontSize: 11, padding: "3px 10px", borderRadius: 5, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, textDecoration: "none", cursor: "pointer", fontFamily: C.sans };
 
   return (
     <Overlay onClose={onClose} maxWidth={600}>
@@ -724,7 +726,8 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
                     <div style={{ fontSize: 13, color: C.t0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{arch.nombre_archivo}</div>
                     <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>{fmtBytes(arch.tamano_bytes)} · archivo base de la tarea</div>
                   </div>
-                  <a href={arch.url_publica} target="_blank" rel="noreferrer" style={{ fontSize: 11, padding: "3px 10px", borderRadius: 5, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, textDecoration: "none", cursor: "pointer", fontFamily: C.sans }}>Ver</a>
+                  {canPreviewAttachment(arch.nombre_archivo) && <a href={arch.url_publica} target="_blank" rel="noreferrer" style={estiloDescarga}>Ver</a>}
+                  <a href={storageDownloadUrl(arch.url_publica, arch.nombre_archivo) || arch.url_publica} target="_blank" rel="noreferrer" download={arch.nombre_archivo} style={estiloDescarga}>Descargar</a>
                 </div>
               ))}
               {archivos.map(arch => (
@@ -735,8 +738,8 @@ function TareaModal({ tarea, etapaId, obraId, onSave, onClose }) {
                     <div style={{ fontSize: 11, color: C.t2, marginTop: 2 }}>{fmtBytes(arch.tamano_bytes)} · {fmtDate(arch.created_at?.slice(0, 10))}</div>
                   </div>
                   <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                    <a href={arch.url_publica} target="_blank" rel="noreferrer" style={{ fontSize: 11, padding: "3px 10px", borderRadius: 5, border: `1px solid ${C.b0}`, background: "transparent", color: C.t1, textDecoration: "none", cursor: "pointer", fontFamily: C.sans }}>Ver</a>
-                    <a href={arch.url_publica} download={arch.nombre_archivo} style={{ fontSize: 11, padding: "3px 10px", borderRadius: 5, border: `1px solid rgba(59,130,246,0.3)`, background: "rgba(59,130,246,0.08)", color: "#60a5fa", textDecoration: "none", cursor: "pointer", fontFamily: C.sans }}>⬇</a>
+                    {canPreviewAttachment(arch.nombre_archivo) && <a href={arch.url_publica} target="_blank" rel="noreferrer" style={{ ...estiloDescarga, borderColor: C.b0, background: "transparent", color: C.t1 }}>Ver</a>}
+                    <a href={storageDownloadUrl(arch.url_publica, arch.nombre_archivo) || arch.url_publica} target="_blank" rel="noreferrer" download={arch.nombre_archivo} style={estiloDescarga}>Descargar</a>
                     <button type="button" onClick={() => eliminarArchivo(arch)} style={{ fontSize: 11, padding: "3px 8px", borderRadius: 5, border: "none", background: "transparent", color: C.t2, cursor: "pointer" }}>×</button>
                   </div>
                 </div>

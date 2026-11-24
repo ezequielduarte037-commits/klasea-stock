@@ -275,6 +275,7 @@ button.cmp-pasito:disabled { cursor: default; }
 .cmp-adjuntos { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
 .cmp-adj { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-solid); color: var(--text); font: inherit; text-align: left; transition: border-color .15s; }
 .cmp-adj:hover:not(:disabled) { border-color: var(--border-2); }
+a.cmp-adj { text-decoration: none; }
 .cmp-adj .ic { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; flex-shrink: 0; color: var(--blue); background: var(--blue-soft); border: 1px solid var(--blue-border); }
 .cmp-adj .nom { display: block; font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cmp-adj .det { display: block; margin-top: 2px; font-size: 10.5px; color: var(--dim); text-transform: uppercase; }

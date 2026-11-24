@@ -7,6 +7,7 @@ import {
   notifyComprasEmail,
 } from "@/features/compras/purchaseRequestsApi";
 import { supabase } from "@/supabaseClient";
+import { storageDownloadUrl } from "@/lib/attachmentDownload";
 import { useToast } from "@/components/ui/Toast";
 import { PRIORIDADES } from "./modulo";
 import { Modal } from "./ui";
@@ -655,7 +656,7 @@ export default function PedirAComprasModal({
                 <span>Planos que van con el pedido · {prefilled.attachments.length}</span>
                 <div className="cmp-personas">
                   {prefilled.attachments.map((attachment, index) => (
-                    <a key={attachment.path || attachment.url || index} className="cmp-persona" href={attachment.url} target="_blank" rel="noreferrer" title={attachment.name} style={{ textDecoration: "none", paddingLeft: 10, maxWidth: 260 }}>
+                    <a key={attachment.path || attachment.url || index} className="cmp-persona" href={storageDownloadUrl(attachment.url, attachment.name) || attachment.url} target="_blank" rel="noreferrer" title={attachment.name} style={{ textDecoration: "none", paddingLeft: 10, maxWidth: 260 }}>
                       <Paperclip size={13} />
                       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{attachment.name || `Plano ${index + 1}`}</span>
                     </a>

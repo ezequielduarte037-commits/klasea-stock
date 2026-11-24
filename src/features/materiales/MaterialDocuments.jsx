@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { FileText, Paperclip, X } from 'lucide-react';
 import { C } from '@/theme';
+import { storageDownloadUrl } from '@/lib/attachmentDownload';
 import { documentLineScope, normalizeMaterialDocuments } from './productDocuments';
 import { saveMaterialDocumentLinks, uploadMaterialDocuments } from './materialDocumentsApi';
 
@@ -30,7 +31,7 @@ export default function MaterialDocuments({ materialId, links = [], linea = null
     <strong style={{ fontSize: 12, color: C.t1 }}>Planos y archivos {files.length ? `· ${files.length}` : ''}</strong>
     {files.map(file => <div key={file.url} style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
       <FileText size={14} style={{ flexShrink: 0, color: C.blue }} />
-      <a href={file.url} target="_blank" rel="noopener noreferrer" download={file.name} style={{ color: C.blue, fontSize: 12, overflowWrap: 'anywhere', flex: 1 }}>{file.name}{file.linea ? ` · K${file.linea}` : ''}</a>
+      <a href={storageDownloadUrl(file.url, file.name) || file.url} target="_blank" rel="noopener noreferrer" download={file.name} title={`Descargar ${file.name}`} style={{ color: C.blue, fontSize: 12, overflowWrap: 'anywhere', flex: 1 }}>{file.name}{file.linea ? ` · K${file.linea}` : ''}</a>
       <span style={{ fontSize: 10, color: C.t2, flexShrink: 0 }}>{file.name.split('.').pop()?.toUpperCase()}</span>
       {editable && <button type="button" aria-label={`Desvincular ${file.name}`} disabled={busy} onClick={() => remove(file.url)} style={button}><X size={12}/></button>}
     </div>)}
