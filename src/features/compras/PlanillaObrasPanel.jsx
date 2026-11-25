@@ -37,6 +37,7 @@ import ProductoAsignadoControl from "@/features/materiales/ProductoAsignadoContr
 import { ensureObraMaterialSnapshotRow } from "@/features/materiales/api";
 import { crearPedidosPlanillaObras } from "@/features/compras/purchaseRequestsApi";
 import { guardarConfiguracionProductoObra } from "@/features/materiales/productosAsignadosApi";
+import Cargando from "@/components/ui/Cargando";
 import PlanillaHerramientas from "./PlanillaHerramientas";
 import PlanillaDetalle, { PlanillaFoto } from "./PlanillaDetalle";
 
@@ -45,12 +46,27 @@ const AGRUPACIONES = [
   { valor: "proveedor", etiqueta: "Agrupar por proveedor" },
 ];
 
+// Cada estado tiene un color y quiere decir lo mismo en toda la tabla. El pie
+// los cuenta y, al tocar uno, la tabla muestra sólo ese.
 const VISTAS = [
-  { valor: "todo", etiqueta: "Todo", ayuda: "Muestra entregado, en pañol y pendiente dentro de cada obra." },
-  { valor: "falta", etiqueta: "Faltantes", ayuda: "Lo que esa obra todavía necesita." },
-  { valor: "panol", etiqueta: "Esperando retiro", ayuda: "Lo que ya llegó y está apartado para la obra." },
-  { valor: "entregado", etiqueta: "Entregados", ayuda: "Lo que ya salió del pañol hacia la obra." },
+  { valor: "todo", etiqueta: "Todo", ayuda: "Cada celda muestra el estado más urgente de esa obra." },
+  { valor: "falta", etiqueta: "Por pedir", color: "var(--text)", ayuda: "Falta y nadie lo pidió ni lo avisó." },
+  { valor: "compras", etiqueta: "En compras", color: "var(--cyan)", ayuda: "Falta, pero ya tiene un pedido o un aviso de ingreso abierto." },
+  { valor: "panol", etiqueta: "En pañol", color: "var(--teal)", ayuda: "Llegó y está apartado para la obra, sin retirar." },
+  { valor: "entregado", etiqueta: "Entregado", color: "var(--green)", ayuda: "Ya salió del pañol hacia la obra." },
 ];
+
+/** Cuánto hay de un estado en una celda de obra (o en los totales de una fila). */
+function cantidadDeVista(celda, vista) {
+  if (!celda) return 0;
+  const pendiente = Number(celda.pendiente) || 0;
+  const porPedir = Number(celda.porPedir ?? pendiente) || 0;
+  if (vista === "falta") return porPedir;
+  if (vista === "compras") return Math.max(0, pendiente - porPedir);
+  if (vista === "panol") return Number(celda.enPanol) || 0;
+  if (vista === "entregado") return Number(celda.egresado) || 0;
+  return 0;
+}
 
 const ORIGENES = [
   { valor: "todos", etiqueta: "Todos", ayuda: "Todos los materiales de la planilla.", icono: Table2 },
@@ -176,11 +192,13 @@ function tituloAvisoSugerido(items = [], obras = []) {
 
 
 /**
- * El color comunica estado, no volumen: cualquier faltante requiere la misma
- * atención. La cifra dentro de la celda informa cuánto falta.
+ * El color comunica estado, no volumen, y va en la cifra: con 7 obras x 700
+ * materiales, cada celda pintada de rojo hacía una pared donde nada se
+ * destacaba. Sin relleno, lo que llama la atención es lo que nadie pidió.
  */
 function CeldaCalor({ celda, vista }) {
-  if (!celda) return <span style={{ color: C.border2, fontSize: 12, fontFamily: C.mono }}>·</span>;
+  const vacio = <span className="celda-calor celda-vacia">·</span>;
+  if (!celda) return vacio;
 
   if (celda.secundario) {
     const consumido = Number(celda.consumido || 0);
@@ -189,134 +207,40 @@ function CeldaCalor({ celda, vista }) {
     const texto = celda.soloConsumo
       ? (consumido > 0 ? mostrarNumero(consumido) : "—")
       : `${mostrarNumero(consumido).replace("—", "0")} / ${mostrarNumero(requerido).replace("—", "0")}`;
-    return (
-      <span style={{
-        display: "block", height: 34, lineHeight: "34px", borderRadius: 5,
-        background: completo ? "var(--green-soft)" : C.violetL,
-        color: completo ? C.green : C.violet,
-        fontFamily: C.mono, fontSize: 10.5, fontWeight: 700, fontVariantNumeric: "tabular-nums",
-      }}>
-        {texto}
-      </span>
-    );
+    return <span className="celda-calor" style={{ color: completo ? "var(--green)" : "var(--violet)", fontSize: 12 }}>{texto}</span>;
   }
 
-  const falta = Number(celda.pendiente) || 0;
+  if (vista !== "todo") {
+    const valor = cantidadDeVista(celda, vista);
+    if (!(valor > 0)) return vacio;
+    const meta = VISTAS.find((item) => item.valor === vista);
+    return <span className="celda-calor" style={{ color: meta?.color, fontWeight: 600 }}>{mostrarNumero(valor)}</span>;
+  }
+
+  const porPedir = cantidadDeVista(celda, "falta");
+  const enCompras = cantidadDeVista(celda, "compras");
   const enPanol = Number(celda.enPanol) || 0;
   const entregado = Number(celda.egresado) || 0;
-  const sinDefinir = celda.requiereProductoConcreto && !celda.productoDefinido;
-
-  // Con una vista de un solo estado la celda muestra ese estado y nada mas, asi
-  // todas las celdas de la tabla quieren decir lo mismo.
-  const soloEste = vista === "falta" ? falta : vista === "panol" ? enPanol : vista === "entregado" ? entregado : null;
-  if (soloEste !== null) {
-    if (!(soloEste > 0)) return <span style={{ color: C.border2, fontSize: 12, fontFamily: C.mono }}>·</span>;
-    const estado = vista === "falta"
-      ? { background: C.redL, color: C.red }
-      : vista === "panol"
-        ? { background: C.cyanL, color: C.cyan }
-        : { background: "var(--green-soft)", color: C.green };
-    return (
-      <span className="celda-calor" style={{
-        display: "block", height: 34, lineHeight: "34px", borderRadius: 5,
-        ...estado,
-        fontFamily: C.mono, fontSize: 12, fontWeight: 750, fontVariantNumeric: "tabular-nums",
-      }}>
-        {mostrarNumero(soloEste)}
-      </span>
-    );
+  if (celda.requiereProductoConcreto && !celda.productoDefinido) {
+    return <span className="celda-calor celda-definir-marca" style={{ color: "var(--violet)", fontWeight: 600 }}>?</span>;
   }
-
-  let estilo = { background: "transparent", color: C.border2 };
-  let texto = "—";
-  let peso = 700;
-
-  if (sinDefinir) {
-    estilo = { background: C.violetL, color: C.violet }; texto = "?";
-  } else if (falta > 0) {
-    estilo = { background: C.redL, color: C.red }; texto = mostrarNumero(falta); peso = 750;
-  } else if (enPanol > 0) {
-    estilo = { background: C.cyanL, color: C.cyan }; texto = mostrarNumero(enPanol);
-  } else if (entregado > 0) {
-    // Lo entregado es un hecho consumado: se ve, pero no compite por atencion.
-    estilo = { background: "var(--green-soft)", color: C.green }; texto = mostrarNumero(entregado); peso = 650;
-  }
-
-  return (
-    <span className={`celda-calor${sinDefinir ? " celda-calor-definir" : ""}`} style={{
-      display: "block", height: 34, lineHeight: "34px", borderRadius: 5,
-      ...estilo,
-      fontFamily: C.mono, fontSize: 12, fontWeight: peso, fontVariantNumeric: "tabular-nums",
-    }}>
-      {texto}
-    </span>
-  );
+  // Lo que falta pedir es casi toda la tabla en un barco nuevo: va en el color
+  // del texto. El rojo queda para "Comprar" y la cabecera de cada obra.
+  if (porPedir > 0) return <span className="celda-calor" style={{ color: "var(--text)" }}>{mostrarNumero(porPedir)}</span>;
+  if (enCompras > 0) return <span className="celda-calor" style={{ color: "var(--cyan)" }}>{mostrarNumero(enCompras)}</span>;
+  if (enPanol > 0) return <span className="celda-calor" style={{ color: "var(--teal)" }}>{mostrarNumero(enPanol)}</span>;
+  if (entregado > 0) return <span className="celda-calor" style={{ color: "var(--green)", opacity: .75 }}><Check size={12} strokeWidth={2.4} /></span>;
+  return <span className="celda-calor celda-vacia">—</span>;
 }
 
-
-function Metric({ valor, etiqueta, color = C.text, icono: Icon }) {
-  return (
-    <div style={{
-      minWidth: 118,
-      display: "flex",
-      alignItems: "center",
-      gap: 9,
-      padding: "8px 11px",
-      border: `1px solid ${C.border}`,
-      borderRadius: 10,
-      background: "var(--panel-2)",
-    }}>
-      {Icon ? (
-        <span style={{
-          width: 27,
-          height: 27,
-          borderRadius: 8,
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color,
-          background: `color-mix(in srgb, ${color} 12%, transparent)`,
-          flexShrink: 0,
-        }}>
-          <Icon size={14} />
-        </span>
-      ) : null}
-      <span style={{ display: "grid", gap: 1 }}>
-        <strong style={{ color, fontFamily: C.mono, fontSize: 14, fontWeight: 750, lineHeight: 1 }}>{valor}</strong>
-        <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 650, whiteSpace: "nowrap" }}>{etiqueta}</span>
-      </span>
-    </div>
-  );
-}
 
 function EstadoNumero({ value, tone = "neutral", suffix = "" }) {
-  const palette = tone === "danger"
-    ? { color: C.red, bg: C.redL, border: C.redB }
-    : tone === "success"
-      ? { color: C.green, bg: "var(--green-soft)", border: C.greenB }
-      : tone === "info"
-        ? { color: C.cyan, bg: C.cyanL, border: C.cyanB }
-        : { color: C.text, bg: "var(--panel-2)", border: C.border };
-  if (!(Number(value) > 0)) return <span style={{ color: C.border2 }}>—</span>;
+  const color = tone === "danger" ? "var(--red)" : tone === "success" ? "var(--green)" : tone === "info" ? "var(--teal)" : "var(--text)";
+  if (!(Number(value) > 0)) return <span style={{ color: "var(--border-2)" }}>—</span>;
   return (
-    <span style={{
-      display: "inline-flex",
-      alignItems: "baseline",
-      gap: 3,
-      minWidth: 32,
-      justifyContent: "center",
-      borderRadius: 7,
-      border: `1px solid ${palette.border}`,
-      background: palette.bg,
-      color: palette.color,
-      padding: "3px 7px",
-      fontFamily: C.mono,
-      fontSize: 12,
-      fontWeight: 700,
-      fontVariantNumeric: "tabular-nums",
-    }}>
+    <span style={{ display: "inline-flex", alignItems: "baseline", gap: 3, color, fontSize: 14, fontWeight: tone === "danger" ? 600 : 500, fontVariantNumeric: "tabular-nums" }}>
       {mostrarNumero(value)}
-      {suffix ? <small style={{ fontSize: 8.5, fontWeight: 650 }}>{suffix}</small> : null}
+      {suffix ? <small style={{ color: "var(--dim)", fontSize: 10, fontWeight: 400 }}>{suffix}</small> : null}
     </span>
   );
 }
@@ -351,10 +275,10 @@ function OrigenBadge({ origen, compacto = false }) {
         border: `1px solid ${meta.borde}`,
         background: meta.fondo,
         color: meta.color,
-        borderRadius: 999,
-        padding: compacto ? "2px 6px" : "4px 8px",
-        fontSize: compacto ? 9 : 10.5,
-        fontWeight: 700,
+        borderRadius: 3,
+        padding: compacto ? "1px 6px" : "3px 8px",
+        fontSize: compacto ? 10 : 11,
+        fontWeight: 500,
         lineHeight: 1.15,
         whiteSpace: "nowrap",
       }}
@@ -401,7 +325,6 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
   const [anchoObra, setAnchoObra] = useState(110);
   const [detalle, setDetalle] = useState(null);
   const [foto, setFoto] = useState(null);
-  const [resumenAbierto, setResumenAbierto] = useState(false);
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   const [vistaAbierta, setVistaAbierta] = useState(false);
   const filasPorBloque = isMobile ? FILAS_POR_BLOQUE.mobile : FILAS_POR_BLOQUE.desktop;
@@ -549,6 +472,8 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
       if (obraFoco && !fila.porObra[obraFoco]) return false;
       if (origenFiltro !== "todos" && !fila.origenes?.includes(origenFiltro)) return false;
       if (soloPendientes && !(cantidadPendiente(fila) > 0)) return false;
+      if (vista !== "todo" && !fila.secundario
+        && !(cantidadDeVista(obraFoco ? fila.porObra[obraFoco] : fila.totales, vista) > 0)) return false;
       if (soloSinOpcion) {
         const celda = obraFoco ? fila.porObra[obraFoco] : null;
         if (!celda?.requiereProductoConcreto || celda.productoDefinido) return false;
@@ -576,7 +501,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         if (a.sinProveedor !== b.sinProveedor) return a.sinProveedor ? 1 : -1;
         return a.nombre.localeCompare(b.nombre, "es");
       });
-  }, [datos, busquedaDiferida, agrupar, soloPendientes, soloSinOpcion, obraFoco, origenFiltro, cantidadPendiente, cantidadComprar]);
+  }, [datos, busquedaDiferida, agrupar, soloPendientes, soloSinOpcion, obraFoco, origenFiltro, vista, cantidadPendiente, cantidadComprar]);
 
   const filasVisibles = useMemo(() => grupos.flatMap((grupo) => grupo.filas), [grupos]);
   const gruposRenderizados = useMemo(() => {
@@ -607,7 +532,12 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
 
   const resumenFoco = useMemo(() => {
     const filas = datos?.filas.filter((fila) => !obraFoco || fila.porObra[obraFoco]) ?? [];
+    const porEstado = Object.fromEntries(VISTAS.filter((item) => item.valor !== "todo").map((item) => [
+      item.valor,
+      filas.filter((fila) => !fila.secundario && cantidadDeVista(obraFoco ? fila.porObra[obraFoco] : fila.totales, item.valor) > 0).length,
+    ]));
     return {
+      porEstado,
       materiales: filas.length,
       pendientes: filas.filter((fila) => cantidadPendiente(fila) > 0).length,
       enPanol: filas.filter((fila) => {
@@ -625,7 +555,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
 
   useEffect(() => {
     setLimiteFilas(filasPorBloque);
-  }, [filasPorBloque, linea, obraFoco, busquedaDiferida, agrupar, soloPendientes, soloSinOpcion, origenFiltro, datos]);
+  }, [filasPorBloque, linea, obraFoco, busquedaDiferida, agrupar, soloPendientes, soloSinOpcion, origenFiltro, vista, datos]);
 
   function cargarMasFilas() {
     setLimiteFilas((actual) => Math.min(filasVisibles.length, actual + filasPorBloque));
@@ -1041,7 +971,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
   const panel = {
     background: "var(--panel-solid)",
     border: `1px solid ${C.border}`,
-    borderRadius: 14,
+    borderRadius: 3,
     backdropFilter: "var(--glass-filter)",
     WebkitBackdropFilter: "var(--glass-filter)",
   };
@@ -1049,11 +979,11 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
     border: `1px solid ${C.border2}`,
     background: "var(--panel-solid)",
     color: C.text,
-    borderRadius: 9,
+    borderRadius: 3,
     padding: "8px 10px",
     fontFamily: C.sans,
     fontSize: 12.5,
-    fontWeight: 650,
+    fontWeight: 500,
     outline: "none",
     cursor: "pointer",
   };
@@ -1063,12 +993,12 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
     zIndex: 12,
     background: "var(--panel-solid)",
     textAlign: "center",
-    fontSize: 10,
-    fontWeight: 700,
-    letterSpacing: 0.55,
+    fontSize: 10.5,
+    fontWeight: 500,
+    letterSpacing: "0.14em",
     textTransform: "uppercase",
     color: C.dim,
-    padding: "10px 7px",
+    padding: "11px 7px",
     borderBottom: `1px solid ${C.border}`,
     boxShadow: `inset 0 -1px 0 ${C.border}`,
     whiteSpace: "nowrap",
@@ -1109,15 +1039,23 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         .planilla-obras .planilla-workspace.con-detalle { grid-template-columns: minmax(0, 1fr) 340px; }
         .planilla-obras .planilla-detalle { display: grid; gap: 16px; padding: 18px; background: var(--panel-solid); border: 1px solid var(--border); border-radius: 14px; color: var(--text); max-height: 72vh; overflow-y: auto; animation: planilla-entrada .18s ease-out; }
         @keyframes planilla-entrada { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }
-        .planilla-obras .planilla-celda-detalle { display: block; width: 100%; min-height: 40px; padding: 0; border: 1px solid transparent; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
+        .planilla-obras .planilla-celda-detalle { display: block; width: 100%; min-height: 44px; padding: 0; border: 1px solid transparent; border-radius: 3px; background: transparent; color: inherit; cursor: pointer; }
+        .planilla-obras .celda-calor { display: flex; align-items: center; justify-content: center; height: 44px; font-family: inherit; font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; }
+        .planilla-obras .celda-vacia { color: var(--border-2); font-weight: 400; }
         .planilla-obras .planilla-celda-detalle:hover { border-color: var(--blue); }
         .planilla-obras .planilla-celda-detalle[aria-pressed="true"] { outline: 2px solid var(--blue); outline-offset: -2px; }
-        .planilla-obras .planilla-nombre { display: block; width: 100%; padding: 0; background: transparent; border: none; text-align: left; color: var(--text); font: inherit; font-size: 14px; font-weight: 650; cursor: pointer; line-height: 1.4; }
+        .planilla-obras .planilla-nombre { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; width: 100%; padding: 0; background: transparent; border: none; text-align: left; color: var(--text); font: inherit; font-size: 15px; font-weight: 500; cursor: pointer; line-height: 1.3; }
         .planilla-obras .planilla-nombre:hover { color: var(--blue); }
         .planilla-compacta .planilla-celda-fija { padding-block: 5px !important; }
         .planilla-compacta .planilla-nombre { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .planilla-compacta .planilla-origen-fila { display: none !important; }
         .planilla-compacta .planilla-celda-detalle { min-height: 34px; }
+        .planilla-compacta .celda-calor { height: 34px; font-size: 13px; }
+        .planilla-obras .planilla-pie { display: flex; align-items: center; gap: 4px 18px; flex-wrap: wrap; padding: 10px 2px 0; }
+        .planilla-obras .planilla-pie button { display: inline-flex; align-items: baseline; gap: 7px; border: 0; border-bottom: 1px solid transparent; background: transparent; padding: 4px 0; font-family: inherit; color: var(--dim); cursor: pointer; }
+        .planilla-obras .planilla-pie button[aria-pressed="true"] { border-bottom-color: currentColor; color: var(--text); }
+        .planilla-obras .planilla-pie strong { font-size: 18px; font-weight: 300; font-variant-numeric: tabular-nums; }
+        .planilla-obras .planilla-pie span { font-size: 11px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; }
         @media (max-width: 1100px) {
           .planilla-obras .planilla-workspace.con-detalle { grid-template-columns: minmax(0, 1fr); }
           .planilla-obras .planilla-detalle { grid-row: 1; max-height: 48vh; }
@@ -1144,6 +1082,8 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
           .planilla-obras .planilla-filtros { flex-wrap: wrap; overflow-x: visible; }
           .planilla-obras .planilla-filtros > * { flex: 1 1 145px; }
           .planilla-obras .planilla-filtros .planilla-buscador { flex-basis: 100%; }
+          .planilla-obras .planilla-filtros > select:first-child { flex: 0 0 92px; }
+          .planilla-obras .planilla-filtros > select:nth-child(2) { flex: 1 1 180px; }
           .planilla-obras .planilla-senales > * { flex: 1 1 132px; min-width: 0 !important; }
           .planilla-obras .planilla-origenes { margin-inline: -2px; }
         }
@@ -1165,112 +1105,37 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
       `}</style>
 
       {/* Encabezado con el mismo lenguaje que el resto de Compras. Va con
-          estilos en línea porque esta planilla también se abre desde Materiales. */}
-      <section className="planilla-central" style={{ display: "grid", gap: 10 }}>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ minWidth: 200, flex: 1 }}>
-            <div className="az-rotulo">{onPedir ? "Compras · Planificar" : "Materiales"}</div>
-            <h2 className="az-subtitulo" style={{ marginTop: 3 }}>
-              Planilla por <span>obra</span>
-            </h2>
-            <p className="az-texto" style={{ marginTop: 5 }}>
-              Materiales y obras en una sola tabla
-              {datos ? <> · <b style={{ color: C.muted, fontWeight: 600 }}>{datos.obras.length}</b> obras · <b style={{ color: C.muted, fontWeight: 600 }}>{resumenFoco.materiales}</b> materiales</> : null}
-            </p>
-          </div>
-          <button type="button" aria-expanded={resumenAbierto} onClick={() => setResumenAbierto(actual => !actual)} style={{ ...control, borderRadius: 3, fontWeight: 500, background: "transparent", padding: "6px 9px", display: "inline-flex", alignItems: "center", gap: 6, color: resumenAbierto ? C.blue : C.dim }}>
-            Resumen <ChevronDown size={13} style={{ transform: resumenAbierto ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
-          </button>
-        </div>
-        {resumenAbierto && datos ? (
-          <MotionDiv initial={reducirMovimiento ? false : { opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} className="planilla-senales az-ficha">
-            <Metric valor={resumenFoco.aComprar} etiqueta="requieren compra" color={resumenFoco.aComprar ? C.cyan : C.text} icono={ShoppingCart} />
-            <Metric valor={resumenFoco.pendientes} etiqueta="con faltantes" color={resumenFoco.pendientes ? C.red : C.text} icono={AlertTriangle} />
-            <Metric valor={resumenFoco.enPanol} etiqueta="esperando retiro" color={resumenFoco.enPanol ? C.cyan : C.text} icono={PackageCheck} />
-            <Metric valor={resumenFoco.entregados} etiqueta="con entregas" color={C.text} icono={CheckCircle2} />
-            {resumenFoco.secundarios ? <Metric valor={resumenFoco.secundarios} etiqueta="materiales de producción" color={resumenFoco.secundarios ? C.violet : C.text} icono={FlaskConical} /> : null}
-            {obraSeleccionada?.opcionesPendientes ? <Metric valor={obraSeleccionada.opcionesPendientes} etiqueta="productos por definir" color={obraSeleccionada.opcionesPendientes ? C.cyan : C.text} icono={CircleAlert} /> : null}
-          </MotionDiv>
-        ) : null}
+          estilos en línea porque esta planilla también se abre desde Materiales.
+          Sin KPIs arriba: los conteos por estado van en el pie de la tabla. */}
+      <section className="planilla-central" style={{ display: "grid", gap: 4 }}>
+        <div className="az-rotulo">{onPedir ? "Compras · Planificar" : "Materiales"}</div>
+        <h2 className="az-subtitulo" style={{ margin: 0 }}>
+          Planilla por <span>obra</span>
+        </h2>
+        <p className="az-texto" style={{ margin: 0 }}>
+          {datos
+            ? <>{linea} · {obraSeleccionada ? obraSeleccionada.codigo : `${datos.obras.length} obras activas`} · {resumenFoco.materiales} materiales</>
+            : "Materiales y obras en una sola tabla"}
+        </p>
       </section>
 
-      {resumenAbierto && datos?.obras.length ? (
-        <section className="planilla-contexto" style={{ ...panel, overflow: "hidden" }}>
-          <div style={{
-            padding: 15,
-            display: "flex",
-            alignItems: "center",
-            gap: 14,
-            flexWrap: "wrap",
-            background: obraSeleccionada ? "linear-gradient(120deg, var(--panel-solid), var(--blue-soft))" : "var(--panel-2)",
-          }}>
-            {obraSeleccionada ? (
-              <>
-                <div style={{ minWidth: 140 }}>
-                  <div style={{ color: C.text, fontSize: 18, fontWeight: 750 }}>{obraSeleccionada.codigo}</div>
-                  <div style={{ marginTop: 3, color: C.dim, fontSize: 11.5, fontWeight: 650 }}>
-                    {obraSeleccionada.filasCargadas} materiales de {linea}
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                  <span style={{ color: "var(--cyan)", fontSize: 12, fontWeight: 700 }}>{obraSeleccionada.pendientes} materiales con faltantes</span>
-                  <span style={{ color: C.cyan, fontSize: 12, fontWeight: 700 }}>{obraSeleccionada.enPanol} esperando retiro</span>
-                  <span style={{ color: C.green, fontSize: 12, fontWeight: 700 }}>{obraSeleccionada.entregados} con entregas</span>
-                  {obraSeleccionada.opcionesPendientes ? <span style={{ color: C.cyan, fontSize: 12, fontWeight: 750 }}>{obraSeleccionada.opcionesPendientes} productos por definir</span> : null}
-                </div>
-                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-                  <span style={{
-                    color: CARGA[obraSeleccionada.carga]?.color || C.dim,
-                    border: `1px solid color-mix(in srgb, ${CARGA[obraSeleccionada.carga]?.color || C.dim} 35%, transparent)`,
-                    borderRadius: 999,
-                    padding: "5px 9px",
-                    fontSize: 10.5,
-                    fontWeight: 700,
-                  }}>
-                    {CARGA[obraSeleccionada.carga]?.texto || "en curso"}
-                  </span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div>
-                  <div style={{ color: C.text, fontSize: 14, fontWeight: 700 }}>{linea} · todas las obras activas</div>
-                  <div style={{ marginTop: 3, color: C.dim, fontSize: 11.5, fontWeight: 600 }}>
-                    Rojo significa que falta material, sin importar si falta una unidad o varias. La cifra indica la cantidad.
-                  </div>
-                </div>
-                <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", fontSize: 10.5, fontWeight: 700 }}>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: C.red }}>
-                    <i style={{ width: 14, height: 11, borderRadius: 3, background: C.redL, border: `1px solid ${C.redB}` }} /> faltante
-                  </span>
-                  <span style={{ color: C.cyan }}>■ esperando retiro</span>
-                  <span style={{ color: C.green }}>■ entregado</span>
-                  <span style={{ color: C.violet }}>■ sin definir</span>
-                  <span style={{ color: C.border2 }}>· no lleva</span>
-                </div>
-              </>
-            )}
-          </div>
-        </section>
-      ) : null}
-
       {obraSeleccionada?.opcionesPendientes ? (
-        <section style={{ ...panel, display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderColor: C.cyanB, background: "linear-gradient(90deg, var(--cyan-soft), var(--panel-solid))" }}>
-          <span style={{ width: 30, height: 30, flexShrink: 0, display: "grid", placeItems: "center", borderRadius: 9, background: C.cyanL, color: C.cyan }}>
+        <section style={{ ...panel, display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderColor: C.violetB }}>
+          <span style={{ width: 30, height: 30, flexShrink: 0, display: "grid", placeItems: "center", borderRadius: 3, background: C.violetL, color: C.violet }}>
             <CircleAlert size={16} />
           </span>
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ color: C.text, fontSize: 12.5, fontWeight: 750 }}>
-              {obraSeleccionada.opcionesPendientes} ítem{obraSeleccionada.opcionesPendientes === 1 ? " matriz necesita" : "s matriz necesitan"} un producto concreto
+            <div style={{ color: C.text, fontSize: 13, fontWeight: 600 }}>
+              {obraSeleccionada.opcionesPendientes} {obraSeleccionada.opcionesPendientes === 1 ? "material se elige" : "materiales se eligen"} barco por barco
             </div>
-            <div style={{ marginTop: 2, color: C.dim, fontSize: 10.5, fontWeight: 600 }}>
+            <div style={{ marginTop: 2, color: C.dim, fontSize: 11.5, fontWeight: 400 }}>
               Elegilo en la columna “Producto para esta obra”. La compra y el aviso a pañol usarán ese producto, no el requisito genérico.
             </div>
           </div>
           <button
             type="button"
             onClick={() => setSoloSinOpcion((actual) => !actual)}
-            style={{ ...control, flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, borderColor: C.cyanB, background: soloSinOpcion ? C.cyan : C.cyanL, color: soloSinOpcion ? "#fff" : C.cyan }}
+            style={{ ...control, flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 6, borderColor: C.violetB, background: soloSinOpcion ? C.violet : "transparent", color: soloSinOpcion ? "#fff" : C.violet }}
           >
             <CircleAlert size={13} /> {soloSinOpcion ? "Ver todos" : "Resolver ahora"}
           </button>
@@ -1321,7 +1186,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         >
           <option value="">Todas las obras · vista general</option>
           {(datos?.obras ?? []).map((obra) => (
-            <option key={obra.id} value={obra.id}>{obra.codigo} · {obra.pendientes} pendientes</option>
+            <option key={obra.id} value={obra.id}>{obra.codigo} · {obra.porPedir ?? obra.pendientes} por pedir</option>
           ))}
         </select>
         <button
@@ -1376,31 +1241,6 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
 
         {filtrosAbiertos ? <>
         <div className="planilla-filtros planilla-filtros-secundarios" style={{ paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
-        {!obraSeleccionada ? (
-          <div style={{ display: "inline-flex", gap: 2, border: `1px solid ${C.border2}`, borderRadius: 3, padding: 2, background: "var(--panel-solid)" }}>
-            {VISTAS.map((item) => (
-              <button
-                key={item.valor}
-                type="button"
-                onClick={() => setVista(item.valor)}
-                title={item.ayuda}
-                style={{
-                  border: "none",
-                  borderRadius: 3,
-                  padding: "5px 8px",
-                  cursor: "pointer",
-                  fontFamily: C.sans,
-                  fontSize: 11,
-                  fontWeight: vista === item.valor ? 500 : 400,
-                  background: vista === item.valor ? C.blueL : "transparent",
-                  color: vista === item.valor ? C.blue : C.dim,
-                }}
-              >
-                {item.etiqueta}
-              </button>
-            ))}
-          </div>
-        ) : null}
         <select value={agrupar} onChange={(event) => setAgrupar(event.target.value)} style={{ ...control, borderRadius: 3, fontWeight: 500, background: "transparent" }}>
           {AGRUPACIONES.map((item) => <option key={item.valor} value={item.valor}>{item.etiqueta}</option>)}
         </select>
@@ -1556,10 +1396,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         anchoObra={anchoObra} onAnchoObra={setAnchoObra} cantidad={filasVisibles.length} /> : null}
 
       {cargando && !datos ? (
-        <div style={{ ...panel, padding: 36, textAlign: "center", color: C.dim, fontSize: 13, fontWeight: 650 }}>
-          <LoaderCircle size={20} className="spin" style={{ marginBottom: 8 }} />
-          <div>Armando la planilla de {linea}…</div>
-        </div>
+        <Cargando texto={`Armando la planilla de ${linea}…`} />
       ) : !grupos.length ? (
         <div style={{ ...panel, padding: 36, textAlign: "center" }}>
           <CheckCircle2 size={22} color={soloPendientes ? C.green : C.dim} style={{ marginBottom: 8 }} />
@@ -1578,7 +1415,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         </div>
       ) : (
         <div className={`planilla-workspace${filaDetalle ? " con-detalle" : ""}`}>
-        <div onScroll={manejarScrollPlanilla} role="region" aria-label="Planilla de materiales por obra, desplazable" tabIndex={0} className="planilla-tabla-wrap" style={{ ...panel, overflow: "auto", maxHeight: "72vh", minWidth: 0, position: "relative", scrollbarWidth: "thin", scrollPaddingTop: 52 }}>
+        <div onScroll={manejarScrollPlanilla} role="region" aria-label="Planilla de materiales por obra, desplazable" tabIndex={0} className="planilla-tabla-wrap" style={{ ...panel, overflow: "auto", maxHeight: "calc(100vh - 250px)", minWidth: 0, position: "relative", scrollbarWidth: "thin", scrollPaddingTop: 52 }}>
           <table style={{ borderCollapse: "separate", borderSpacing: 0, tableLayout: "fixed", width: "100%", minWidth: obraSeleccionada ? anchoMaterial + 800 : anchoMaterial + 142 + obrasVisibles.length * anchoObra, fontFamily: C.sans }}>
             <colgroup><col style={{ width: anchoMaterial }} />{obraSeleccionada ? <><col style={{ width: 230 }} />{Array.from({ length: 6 }, (_, i) => <col key={i} style={{ width: 95 }} />)}</> : <><col style={{ width: 68 }} /><col style={{ width: 74 }} />{obrasVisibles.map(obra => <col key={obra.id} style={{ width: anchoObra }} />)}</>}</colgroup>
             <thead className="planilla-cabecera-obras">
@@ -1601,7 +1438,14 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                   <>
                     <th style={{ ...th, minWidth: 54 }} title="Lo que el pañol tiene sin obra asignada: sirve para cualquier barco.">Libre</th>
                     <th style={{ ...th, minWidth: 62, color: C.red }} title="Lo que falta para toda la línea, descontando lo que el pañol ya tiene libre.">Comprar</th>
-                    {obrasVisibles.map((obra) => <th key={obra.id} scope="col" style={th}>{obra.codigo}</th>)}
+                    {obrasVisibles.map((obra) => (
+                      <th key={obra.id} scope="col" style={{ ...th, letterSpacing: "0.04em" }}>
+                        <div style={{ color: C.text, fontSize: 12.5, fontWeight: 500 }}>{obra.codigo}</div>
+                        <div style={{ marginTop: 2, color: obra.porPedir ? C.red : C.dim, fontSize: 10, fontWeight: 400, letterSpacing: 0, textTransform: "none" }}>
+                          {obra.porPedir ? `${obra.porPedir} por pedir` : "nada por pedir"}
+                        </div>
+                      </th>
+                    ))}
                   </>
                 )}
               </tr>
@@ -1613,16 +1457,16 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                 const todosPuestos = filasOperativas.length > 0 && filasOperativas.every((fila) => elegidos.has(fila.id));
                 const cabecera = (
                   <tr key={`g-${grupo.nombre}`}>
-                    <td colSpan={columnas} style={{ background: grupo.sinProveedor ? C.redL : "var(--panel-2)", borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, padding: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 12px" }}>
+                    <td colSpan={columnas} style={{ background: "var(--panel-2)", borderBottom: `1px solid ${C.border}`, padding: 0 }}>
+                      <div style={{ position: "sticky", left: 0, display: "flex", alignItems: "center", gap: 9, padding: "9px 13px", width: "max-content", maxWidth: "100vw" }}>
                         <input type="checkbox" className="planilla-check" checked={todosPuestos} disabled={!filasOperativas.length} onChange={() => alternarGrupo(grupo)} title={filasOperativas.length ? "Elegir todo el grupo" : "Circuito informativo: no genera acciones de Pañol"} style={{ accentColor: C.blue, width: 18, height: 18, cursor: filasOperativas.length ? "pointer" : "not-allowed", opacity: filasOperativas.length ? 1 : .35, flexShrink: 0 }} />
                         <button type="button" onClick={() => alternarCerrado(grupo.nombre)} style={{ flex: 1, textAlign: "left", border: "none", background: "transparent", cursor: "pointer", padding: 0, fontFamily: C.sans }}>
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: grupo.sinProveedor ? C.red : C.text, fontSize: 11.5, fontWeight: 700, letterSpacing: 0.35, textTransform: "uppercase" }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: grupo.sinProveedor ? C.red : C.text, fontSize: 11, fontWeight: 500, letterSpacing: "0.16em", textTransform: "uppercase" }}>
                             <ChevronDown size={13} style={{ transform: cerrado ? "rotate(-90deg)" : "none", transition: "transform .16s ease" }} />
                             {grupo.nombre}
                           </span>
-                          <span style={{ color: C.dim, fontSize: 11, fontWeight: 650, marginLeft: 8 }}>
-                            {grupo.filas.length} materiales{grupo.secundarios === grupo.filas.length ? " · circuito productivo · costo y consumo" : ` · ${grupo.pendientes} requieren atención${grupo.aComprar ? ` · ${grupo.aComprar} requieren compra` : ""}`}
+                          <span style={{ color: C.dim, fontSize: 11.5, fontWeight: 400, marginLeft: 10 }}>
+                            {grupo.filas.length}{grupo.secundarios === grupo.filas.length ? " · circuito productivo" : grupo.aComprar ? <> · <b style={{ color: C.red, fontWeight: 500 }}>{grupo.aComprar} a comprar</b></> : ""}
                           </span>
                         </button>
                       </div>
@@ -1690,11 +1534,11 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                           alternarFila(fila.id);
                         }
                       }}
-                      style={{ borderBottom: `1px solid ${C.border}`, background: puesto ? C.blueL : fila.secundario ? "color-mix(in srgb, var(--panel-2) 72%, transparent)" : "transparent", cursor: fila.secundario ? "default" : "pointer", boxShadow: `inset 3px 0 0 ${origenTono.color}` }}
+                      style={{ background: puesto ? C.blueL : fila.secundario ? "color-mix(in srgb, var(--panel-2) 72%, transparent)" : "transparent", cursor: fila.secundario ? "default" : "pointer" }}
                     >
-                      <td className="planilla-celda-fija" style={{ ...colFija, background: puesto ? C.blueL : "var(--panel-solid)", padding: "9px 12px 9px 13px", maxWidth: 414 }}>
-                        <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
-                          <input type="checkbox" className="planilla-check" checked={puesto} disabled={fila.secundario} onClick={event => event.stopPropagation()} onChange={() => alternarFila(fila.id)} aria-label={fila.secundario ? `${nombreVisible}: material de producción, costo y consumo` : `Seleccionar ${nombreVisible}`} style={{ accentColor: C.blue, width: 18, height: 18, marginTop: 3, cursor: fila.secundario ? "not-allowed" : "pointer", opacity: fila.secundario ? .32 : 1, flexShrink: 0 }} />
+                      <td className="planilla-celda-fija" style={{ ...colFija, background: puesto ? C.blueL : "var(--panel-solid)", padding: "8px 12px 8px 13px", maxWidth: 414, borderBottom: `1px solid ${C.border}` }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+                          <input type="checkbox" className="planilla-check" checked={puesto} disabled={fila.secundario} onClick={event => event.stopPropagation()} onChange={() => alternarFila(fila.id)} aria-label={fila.secundario ? `${nombreVisible}: material de producción, costo y consumo` : `Seleccionar ${nombreVisible}`} style={{ accentColor: C.blue, width: 17, height: 17, cursor: fila.secundario ? "not-allowed" : "pointer", opacity: fila.secundario ? .32 : 1, flexShrink: 0 }} />
                           {fila.imagenUrl ? (
                             <button
                               type="button"
@@ -1703,13 +1547,13 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                               title="Ver foto del material"
                               aria-label={`Ver foto de ${fila.descripcion}`}
                               style={{
-                                width: 36,
-                                height: 36,
+                                width: 40,
+                                height: 40,
                                 padding: 0,
-                                borderRadius: 9,
+                                borderRadius: 3,
                                 overflow: "hidden",
-                                border: `1px solid ${C.border2}`,
-                                background: "var(--panel-2)",
+                                border: `1px solid ${C.border}`,
+                                background: "#fff",
                                 cursor: "zoom-in",
                                 flexShrink: 0,
                               }}
@@ -1718,9 +1562,9 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                             </button>
                           ) : (
                             <span style={{
-                              width: 30,
-                              height: 30,
-                              borderRadius: 8,
+                              width: 40,
+                              height: 40,
+                              borderRadius: 3,
                               display: "grid",
                               placeItems: "center",
                               color: C.border2,
@@ -1733,11 +1577,12 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                           )}
                           <div style={{ minWidth: 0, flex: 1 }}>
                             <button type="button" className="planilla-nombre" title={fila.secundario ? "Material de producción: costo y consumo" : `Ver detalle de ${nombreVisible}`} onClick={event => { if (!fila.secundario) abrirDetalle(event, fila); }}>{nombreVisible}</button>
-                            <div style={{ marginTop: 2, color: C.dim, fontSize: 11, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            <div style={{ marginTop: 3, color: C.dim, fontSize: 12, fontWeight: 400, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                               {[codigoVisible, fila.unidad, agrupar === "rubro" ? (fila.proveedor || "sin proveedor") : fila.rubro].filter(Boolean).join(" · ")}
                             </div>
-                            <div className="planilla-origen-fila" style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", marginTop: 5 }}>
-                              {origenesFila.map((origen) => <OrigenBadge key={origen} origen={origen} compacto />)}
+                            <div className="planilla-origen-fila" style={{ display: celdaFoco?.avisoPendiente || origenesFila.some((origen) => origen !== "matriz" && origen !== "producto") ? "flex" : "none", alignItems: "center", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
+                              {/* "Matriz" es lo normal: sólo se marca lo que se sale de eso. */}
+                              {origenesFila.filter((origen) => origen !== "matriz" && origen !== "producto").map((origen) => <OrigenBadge key={origen} origen={origen} compacto />)}
                               {celdaFoco?.avisoPendiente ? (
                                 <span style={{ border: `1px solid ${C.greenB}`, background: "var(--green-soft)", color: C.green, borderRadius: 999, padding: "2px 6px", fontSize: 9, fontWeight: 700 }}>Aviso abierto</span>
                               ) : null}
@@ -1848,7 +1693,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                                 />
                               </div>
                             ) : (
-                              <span style={{ color: C.dim, fontSize: 10, fontWeight: 650 }}>Producto directo</span>
+                              <span style={{ color: C.border2 }} title="Producto directo: no hay nada que elegir">—</span>
                             )}
                           </td>
                           <td style={{ padding: "7px", textAlign: "center", borderLeft: `1px solid ${C.border}` }}>
@@ -1874,15 +1719,15 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                       )) : (
                         <>
                           <td
-                            style={{ padding: "6px 4px", textAlign: "center" }}
+                            style={{ padding: "6px 4px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}
                             title={fila.secundario ? "No usa stock libre de Pañol" : Number(fila.reservado) > 0
                               ? `${mostrarNumero(fila.enPanolLibre)} ${fila.unidad} libres · ${mostrarNumero(fila.reservado)} apartados a otras obras`
                               : `${mostrarNumero(fila.enPanolLibre)} ${fila.unidad} libres en el pañol`}
                           >
-                            <strong style={{ color: Number(fila.enPanolLibre) > 0 ? C.text : C.border2, fontFamily: C.mono, fontSize: 12.5, fontWeight: 750, fontVariantNumeric: "tabular-nums" }}>{fila.secundario ? "·" : mostrarNumero(fila.enPanolLibre)}</strong>
+                            <strong style={{ color: Number(fila.enPanolLibre) > 0 ? C.text : C.border2, fontSize: 14, fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>{fila.secundario ? "·" : mostrarNumero(fila.enPanolLibre)}</strong>
                           </td>
                           <td
-                            style={{ padding: "6px 4px", textAlign: "center" }}
+                            style={{ padding: "6px 4px", textAlign: "center", borderBottom: `1px solid ${C.border}` }}
                             title={fila.secundario ? "Circuito separado: no entra en la compra de Pañol" : aComprar > 0
                               ? `Hay que comprar ${mostrarNumero(aComprar)} ${fila.unidad}`
                               : "No hay que comprar nada de este material"}
@@ -1890,8 +1735,8 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                             {fila.secundario ? (
                               <span style={{ color: C.violet, fontSize: 9, fontWeight: 750 }}>SEC.</span>
                             ) : aComprar > 0 ? (
-                              <strong style={{ color: C.red, fontFamily: C.mono, fontSize: 12.5, fontWeight: 750, fontVariantNumeric: "tabular-nums" }}>{mostrarNumero(aComprar)}</strong>
-                            ) : <Check size={13} color={C.green} />}
+                              <strong style={{ color: C.red, fontSize: 15, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{mostrarNumero(aComprar)}</strong>
+                            ) : <Check size={13} color={C.green} style={{ opacity: .7 }} />}
                           </td>
                           {obrasVisibles.map((obra) => {
                             const celda = fila.porObra[obra.id];
@@ -1901,7 +1746,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                             return (
                               <td
                                 key={obra.id}
-                                style={{ padding: 2, textAlign: "center", borderLeft: `1px solid ${C.border}`, verticalAlign: "middle", background: celda ? "transparent" : "var(--panel-2)" }}
+                                style={{ padding: 2, textAlign: "center", borderLeft: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, verticalAlign: "middle", background: celda ? "transparent" : "color-mix(in srgb, var(--panel-2) 60%, transparent)" }}
                                 title={celda
                                   ? celda.secundario
                                     ? `${obra.codigo} · ${celda.soloConsumo ? "consumido" : "plan"} ${celda.soloConsumo ? celda.consumido : celda.requerido} ${fila.unidad}${celda.soloConsumo ? "" : ` · consumido ${celda.consumido} · restante ${celda.restanteUso}`}`
@@ -1929,11 +1774,11 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
             </tbody>
           </table>
           {quedanFilas ? (
-            <div style={{ display: "flex", justifyContent: "center", padding: "14px 12px 18px", background: C.panel, borderTop: `1px solid ${C.border}` }}>
+            <div style={{ display: "flex", justifyContent: "center", padding: "14px 12px 18px", background: "var(--panel-solid)", borderTop: `1px solid ${C.border}` }}>
               <button
                 type="button"
                 onClick={cargarMasFilas}
-                style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 36, padding: "8px 16px", border: `1px solid ${C.border}`, borderRadius: 10, background: C.panel2, color: C.text, fontFamily: C.sans, fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}
+                style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 36, padding: "8px 16px", border: `1px solid ${C.border}`, borderRadius: 3, background: "transparent", color: C.muted, fontFamily: C.sans, fontSize: 12, fontWeight: 500, cursor: "pointer" }}
               >
                 Mostrando {cantidadRenderizada} de {filasVisibles.length} · Cargar más
               </button>
@@ -1945,6 +1790,26 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
           onDefinir={() => { cambiarObra(obraDetalle.id); setBusqueda(filaDetalle.descripcion); setOrigenFiltro("todos"); setSoloPendientes(false); setSoloSinOpcion(false); setGruposCerrados(new Set()); setDetalle(null); }} />}
         </div>
       )}
+
+      {datos && grupos.length ? (
+        <nav className="planilla-pie" aria-label="Estados de la planilla">
+          {VISTAS.map((item) => {
+            const activa = vista === item.valor;
+            const cantidad = item.valor === "todo" ? resumenFoco.materiales : resumenFoco.porEstado[item.valor] || 0;
+            return (
+              <button key={item.valor} type="button" aria-pressed={activa} title={item.ayuda}
+                onClick={() => setVista(activa && item.valor !== "todo" ? "todo" : item.valor)}
+                style={{ color: activa ? (item.color || "var(--text)") : undefined }}>
+                <strong style={{ color: item.color || "var(--text)" }}>{cantidad}</strong>
+                <span>{item.etiqueta}</span>
+              </button>
+            );
+          })}
+          <span style={{ marginLeft: "auto", color: C.dim, fontSize: 11, letterSpacing: 0, textTransform: "none" }}>
+            <b style={{ color: C.violet, fontWeight: 600 }}>?</b> se elige por barco · <b style={{ color: C.border2, fontWeight: 600 }}>·</b> no lo lleva
+          </span>
+        </nav>
+      ) : null}
 
       {foto && <PlanillaFoto fila={foto} onClose={() => setFoto(null)} />}
 

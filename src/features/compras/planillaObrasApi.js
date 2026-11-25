@@ -779,8 +779,10 @@ async function construirPlanillaDeLinea(linea, basePromesa, { sinSecundarios = f
     const enPanol = celdasObra.filter((celda) => celda.enPanol > 0).length;
     const entregados = celdasObra.filter((celda) => celda.egresado > 0).length;
     const opcionesPendientes = celdasObra.filter((celda) => celda.requiereProductoConcreto && !celda.productoDefinido).length;
+    const porPedir = celdasObra.filter((celda) => !celda.secundario && Number(celda.porPedir) > 0).length;
     return {
       ...obra,
+      porPedir,
       filasCargadas: celdasObra.length,
       pendientes,
       enPanol,
