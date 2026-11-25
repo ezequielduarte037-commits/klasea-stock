@@ -1,9 +1,9 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
   Archive,
+  ArrowLeft,
   ArrowUpRight,
   CheckCircle2,
   CircleDashed,
@@ -27,6 +27,7 @@ import {
 import { MaterialThumb } from "@/features/materiales/MaterialExtras";
 import { C } from "@/theme";
 import Cargando from "@/components/ui/Cargando";
+import { CSS_STOCK } from "@/features/panol/stock/estilosStock";
 import BarcodeScanner from "@/features/panol/BarcodeScanner";
 import UbicacionPicker, { UbicacionChip } from "@/features/panol/UbicacionPicker";
 import useNfcBridge from "@/features/panol/useNfcBridge";
@@ -362,13 +363,13 @@ function rowMatchesObraFilter(row, filterValue) {
 
 function rowEgresoMeta(row) {
   const kind = rowEgresoKind(row);
-  if (kind === "instalado") return { label: "Instalado", color: C.teal };
-  if (kind === "asignacion") return { label: "Asignación", color: C.blue };
-  if (kind === "reasignacion") return { label: "Reasignación", color: C.violet };
-  if (kind === "liberacion") return { label: "A stock", color: C.violet };
-  if (kind === "egreso_obra") return { label: "Asign. -> egreso", color: C.red };
-  if (kind === "reasignacion_egreso") return { label: "Reasig. -> egreso", color: C.violet };
-  return { label: "Egreso", color: C.red };
+  if (kind === "instalado") return { label: "Instalado", color: C.teal, tono: "teal" };
+  if (kind === "asignacion") return { label: "Asignación", color: C.blue, tono: "azul" };
+  if (kind === "reasignacion") return { label: "Reasignación", color: C.violet, tono: "violeta" };
+  if (kind === "liberacion") return { label: "A stock", color: C.violet, tono: "violeta" };
+  if (kind === "egreso_obra") return { label: "Asign. -> egreso", color: C.red, tono: "rojo" };
+  if (kind === "reasignacion_egreso") return { label: "Reasig. -> egreso", color: C.violet, tono: "violeta" };
+  return { label: "Egreso", color: C.red, tono: "rojo" };
 }
 
 function obraCodigoFromMap(id, obraById = null) {
@@ -535,49 +536,35 @@ function SelectFilter({ label, value, onChange, options }) {
   const activo = value !== undefined && value !== null
     && value !== (options?.[0]?.[0] ?? "todos");
   return (
-    <label style={{
-      display: "flex", alignItems: "center", gap: 6, minWidth: 0,
-      flex: "1 1 148px", maxWidth: 230, height: 32,
-      padding: "0 8px 0 9px", borderRadius: 8,
-      border: `1px solid ${activo ? C.blueB : C.border}`,
-      background: activo ? C.blueL : C.panelSolid,
-    }}>
-      <span style={{ color: activo ? C.blue : C.dim, fontSize: 11, fontWeight: 600, letterSpacing: ".06em", textTransform: "uppercase", whiteSpace: "nowrap", flexShrink: 0 }}>
-        {label}
-      </span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        style={{ flex: 1, minWidth: 0, background: "transparent", border: "none", color: C.text, padding: 0, fontSize: 11.5, fontWeight: 650, fontFamily: C.sans, outline: "none", cursor: "pointer" }}
-      >
+    <label className={`stk-select${activo ? " is-activo" : ""}`}>
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)}>
         {options.map(([key, text]) => <option key={key} value={key}>{text}</option>)}
       </select>
     </label>
   );
 }
 
-function StateChip({ negative, imbalance = false, catalogOnly = false, transit = false, egresado = false, compact = false }) {
-  if (compact && !egresado && !transit && !catalogOnly && !negative && !imbalance) return null;
-  const color = egresado ? C.violet : transit ? C.violet : catalogOnly ? C.violet : negative ? C.red : imbalance ? C.violet : C.green;
-  const border = egresado ? C.violetB : transit ? C.violetB : catalogOnly ? C.violetB : negative ? C.redB : imbalance ? C.violetB : C.greenB;
-  const background = egresado ? C.violetL : transit ? C.violetL : catalogOnly ? C.violetL : negative ? C.redL : imbalance ? C.violetL : C.greenL;
-  const label = egresado ? "Egresado" : transit ? "Por recibir" : catalogOnly ? "Sin registro" : negative ? "A reconciliar" : imbalance ? "Ubicación a revisar" : "Disponible";
+// Una sola forma de etiqueta para estado, obra, opción y marcas (clases de
+// estilosStock.js). El tono sólo dice qué pide atención.
+function Etiqueta({ tono = "", chica = false, title, icono: Icono, children }) {
   return (
-    <span style={{
-      color,
-      border: `1px solid ${border}`,
-      background,
-      borderRadius: 999,
-      padding: compact ? "2px 7px" : "3px 8px",
-      fontSize: compact ? 9.5 : 10,
-      fontWeight: 750,
-      textTransform: "uppercase",
-      letterSpacing: compact ? 0.35 : 0.6,
-      whiteSpace: "nowrap",
-    }}>
-      {label}
+    <span className={`stk-etiqueta${tono ? ` is-${tono}` : ""}${chica ? " is-chica" : ""}`} title={title}>
+      {Icono && <Icono size={chica ? 10 : 11} aria-hidden="true" />}
+      {children}
     </span>
   );
+}
+
+function MatrizEtiqueta({ chica = true }) {
+  return <Etiqueta tono="violeta" chica={chica} title="Requisito de matriz: es genérico, no un producto concreto del estante.">Matriz</Etiqueta>;
+}
+
+function StateChip({ negative, imbalance = false, catalogOnly = false, transit = false, egresado = false, compact = false }) {
+  if (compact && !egresado && !transit && !catalogOnly && !negative && !imbalance) return null;
+  const tono = egresado || transit || catalogOnly ? "violeta" : negative ? "rojo" : imbalance ? "violeta" : "verde";
+  const label = egresado ? "Egresado" : transit ? "Por recibir" : catalogOnly ? "Sin registro" : negative ? "A reconciliar" : imbalance ? "Ubicación a revisar" : "Disponible";
+  return <Etiqueta tono={tono} chica={compact}>{label}</Etiqueta>;
 }
 
 function KindChip({ tipo = "estandar" }) {
@@ -585,23 +572,7 @@ function KindChip({ tipo = "estandar" }) {
   // El resto (estándar / stock general) es simplemente stock disponible en pañol —
   // el estado "Disponible" ya lo indica el StateChip, así que no metemos ruido.
   if (tipo !== "adicional") return null;
-  const color = C.violet, background = C.violetL, border = C.violetB, label = "Adicional";
-  return (
-    <span style={{
-      color,
-      border: `1px solid ${border}`,
-      background,
-      borderRadius: 999,
-      padding: "3px 8px",
-      fontSize: 10,
-      fontWeight: 750,
-      textTransform: "uppercase",
-      letterSpacing: 0.6,
-      whiteSpace: "nowrap",
-    }}>
-      {label}
-    </span>
-  );
+  return <Etiqueta tono="violeta">Adicional</Etiqueta>;
 }
 
 // Obras a las que hay stock asignado (ubicaciones con obra y saldo disponible).
@@ -616,50 +587,14 @@ function AsignadoChip({ asignaciones = [], compact = false }) {
   if (!asignaciones.length) return null;
   const terminada = asignaciones.some((asig) => asig.obraEstado === "terminada");
   if (compact && !terminada) return null;
-  if (compact && terminada) {
-    return (
-      <span style={{
-        color: C.cyan,
-        border: `1px solid ${C.cyanB}`,
-        background: C.cyanL,
-        borderRadius: 999,
-        padding: "3px 8px",
-        fontSize: 10,
-        fontWeight: 750,
-        textTransform: "uppercase",
-        letterSpacing: 0.5,
-        whiteSpace: "nowrap",
-      }}>
-        Obra terminada
-      </span>
-    );
-  }
+  if (compact && terminada) return <Etiqueta tono="cian">Obra terminada</Etiqueta>;
   const label = asignaciones.length === 1
     ? `${terminada ? "Obra terminada" : "Asignado"} · ${asignaciones[0].label}`
     : `${terminada ? "Incluye obra terminada" : "Asignado"} · ${asignaciones.length} obras`;
-  const color = terminada ? C.cyan : C.blue;
-  const border = terminada ? C.cyanB : C.blueB;
-  const background = terminada ? C.cyanL : C.blueL;
-  return (
-    <span style={{
-      color,
-      border: `1px solid ${border}`,
-      background,
-      borderRadius: 999,
-      padding: "3px 9px",
-      fontSize: 10,
-      fontWeight: 750,
-      textTransform: "uppercase",
-      letterSpacing: 0.5,
-      whiteSpace: "nowrap",
-      maxWidth: 220,
-      overflow: "hidden",
-      textOverflow: "ellipsis",
-    }}>
-      {label}
-    </span>
-  );
+  return <Etiqueta tono={terminada ? "cian" : "azul"} title={label}>{label}</Etiqueta>;
 }
+
+const TONO_NIVEL = { critico: "rojo", alerta: "violeta", ok: "verde", sin_minimo: "apagado" };
 
 function stockLevel(group) {
   const raw = group?.stockMinimo;
@@ -706,12 +641,7 @@ function groupOperationalBuckets(group) {
 function StockLevelChip({ group, compact = false, hideUnset = false }) {
   const level = stockLevel(group);
   if (hideUnset && level.key === "sin_minimo") return null;
-  return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: level.color, border: `1px solid ${level.border}`, background: level.bg, borderRadius: 999, padding: compact ? "2px 7px" : "3px 8px", fontSize: compact ? 9 : 10, fontWeight: 750, textTransform: "uppercase", letterSpacing: 0.45, whiteSpace: "nowrap" }}>
-      <span style={{ width: 6, height: 6, borderRadius: 999, background: level.color, boxShadow: level.key === "sin_minimo" ? "none" : `0 0 0 3px ${level.color}18` }} />
-      {level.label}
-    </span>
-  );
+  return <Etiqueta tono={TONO_NIVEL[level.key]} chica={compact}>{level.label}</Etiqueta>;
 }
 
 function MinimumEditor({ group, canEdit, onSave, draftEntry, onDraftChange }) {
@@ -737,9 +667,9 @@ function MinimumEditor({ group, canEdit, onSave, draftEntry, onDraftChange }) {
   }
 
   return (
-    <div onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+    <div className="stk-minimo-editor" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
       <input
-        className={`stock-minimum-input${dirty || focused || !valid ? " is-active" : ""}`}
+        className={`stk-minimo-input${!valid ? " is-error" : dirty || focused ? " is-editando" : ""}`}
         type="number"
         min="0"
         step="0.01"
@@ -754,13 +684,12 @@ function MinimumEditor({ group, canEdit, onSave, draftEntry, onDraftChange }) {
             save();
           }
         }}
-        placeholder="—"
+        aria-label={`Stock mínimo de ${group.label}`}
         title="Dejalo vacío para quitar el mínimo"
-        style={{ width: 72, minWidth: 0, boxSizing: "border-box", border: `1px solid ${!valid ? C.redB : dirty || focused ? C.blueB : "transparent"}`, background: dirty || focused ? C.panelSolid : "transparent", color: C.text, borderRadius: 7, padding: "5px 6px", textAlign: "right", fontFamily: C.mono, fontSize: 11.5, fontWeight: 700, outline: "none", opacity: canEdit ? 1 : 0.72 }}
       />
       {canEdit && dirty && (
-        <button type="button" disabled={!valid || saving} onClick={save} style={{ border: `1px solid ${valid ? C.greenB : C.border}`, background: valid ? C.greenL : C.panel2, color: valid ? C.green : C.dim, borderRadius: 7, padding: "6px 7px", cursor: valid && !saving ? "pointer" : "not-allowed", fontSize: 10, fontWeight: 700 }}>
-          {saving ? "..." : "Guardar"}
+        <button type="button" className="stk-minimo-guardar" disabled={!valid || saving} onClick={save}>
+          {saving ? "…" : "Guardar"}
         </button>
       )}
     </div>
@@ -772,26 +701,19 @@ function OptionStockSummary({ group, compact = false, max = 3 }) {
   if (!opciones.length) return null;
   const visibles = opciones.slice(0, max);
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", minWidth: 0 }}>
-      <span style={{ color: C.dim, fontSize: compact ? 8.5 : 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.65, flexShrink: 0 }}>
-        {opciones.length === 1 ? "Opción" : "Opciones"}
-      </span>
+    <div className="stk-opciones">
       {visibles.map((opcion) => (
-        <span
-          key={opcion.nombre}
-          title={`${opcion.nombre}: ${fmtQty(opcion.available)} ${group.unidad || "u"}`}
-          style={{ maxWidth: compact ? 180 : 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}`, borderRadius: 999, padding: compact ? "1px 6px" : "2px 8px", fontSize: compact ? 9.5 : 10.5, fontWeight: 700 }}
-        >
-          {opcion.nombre} · {fmtQty(opcion.available)}
-        </span>
+        <Etiqueta key={opcion.nombre} tono="violeta" chica={compact} title={`${opcion.nombre}: ${fmtQty(opcion.available)} ${group.unidad || "u"}`}>
+          {opcion.nombre} · <b>{fmtQty(opcion.available)}</b>
+        </Etiqueta>
       ))}
-      {opciones.length > visibles.length && (
-        <span style={{ color: C.dim, fontSize: compact ? 9 : 10, fontWeight: 700 }}>+{opciones.length - visibles.length}</span>
-      )}
+      {opciones.length > visibles.length && <span className="stk-faltan">+{opciones.length - visibles.length}</span>}
     </div>
   );
 }
 
+// Acción de la fila: Agregar al carrito, Recibir o Pedir reposición. Va como
+// span con rol de botón porque la tarjeta entera ya es un botón.
 function ProductPrimaryAction({ action, compact = false }) {
   if (!action?.onClick) return null;
   const Icon = action.Icon || ArrowUpRight;
@@ -800,7 +722,9 @@ function ProductPrimaryAction({ action, compact = false }) {
     <span
       role="button"
       tabIndex={0}
+      className={`stk-accion is-${action.tono || "azul"}${isCompact ? " is-icono" : ""}${isCompact && action.badge ? " con-cuenta is-puesto" : ""}`}
       title={action.title || action.label}
+      aria-label={action.title || action.label}
       onClick={(event) => { event.stopPropagation(); action.onClick(); }}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -809,28 +733,10 @@ function ProductPrimaryAction({ action, compact = false }) {
           action.onClick();
         }
       }}
-      style={{
-        flexShrink: 0,
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: isCompact && action.badge ? 4 : isCompact ? 0 : 5,
-        minWidth: isCompact ? 28 : 0,
-        height: isCompact ? 28 : 26,
-        border: `1px solid ${action.border}`,
-        background: action.background,
-        color: action.color,
-        borderRadius: 8,
-        padding: isCompact ? "0 7px" : "0 9px",
-        fontSize: 10.5,
-        fontWeight: 700,
-        cursor: "pointer",
-        whiteSpace: "nowrap",
-      }}
     >
-      <Icon size={13} aria-hidden="true" />
+      <Icon size={15} aria-hidden="true" />
       {!isCompact && action.label}
-      {isCompact && action.badge && <span style={{ fontFamily: C.mono, fontSize: 9.5, fontWeight: 750 }}>{action.badge}</span>}
+      {isCompact && action.badge && <b>{action.badge}</b>}
     </span>
   );
 }
@@ -843,6 +749,7 @@ function ArchiveMatrixAction({ group, onArchive, compact = false }) {
     <span
       role="button"
       tabIndex={0}
+      className="stk-accion is-chica"
       onClick={(event) => {
         event.stopPropagation();
         onArchive(group);
@@ -855,34 +762,14 @@ function ArchiveMatrixAction({ group, onArchive, compact = false }) {
         }
       }}
       title="Archivar este requisito de matriz. No borra el producto ni su historial."
-      style={{
-        flexShrink: 0,
-        display: "inline-flex",
-        alignItems: "center",
-        gap: compact ? 0 : 4,
-        minWidth: compact ? 24 : 0,
-        height: compact ? 20 : 24,
-        justifyContent: "center",
-        border: `1px solid ${C.border}`,
-        background: C.panelSolid,
-        color: C.dim,
-        borderRadius: 7,
-        padding: compact ? "0 5px" : "0 8px",
-        fontSize: 9.5,
-        fontWeight: 700,
-        cursor: "pointer",
-        whiteSpace: "nowrap",
-      }}
     >
-      <Archive size={compact ? 11 : 12} />
+      <Archive size={11} aria-hidden="true" />
       {!compact && "Archivar"}
     </span>
   );
 }
 
 const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePrices = true, onAddToCart, onArchivarMatriz, primaryAction, inCart = false, dense = false, obraView = false }) {
-  const [cartHover, setCartHover] = useState(false);
-  const [hover, setHover] = useState(false);
   const breakdown = group.locations
     .filter((loc) => Math.abs(loc.available) > 0.0001)
     .slice(0, 4)
@@ -899,66 +786,50 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
   const libre = qty(group.stockLibre ?? group.total, 0);
   const reservado = obraView ? 0 : qty(group.stockReservado, 0);
   const shownQty = obraView ? group.total : libre;
-  const visualLevel = obraView ? { color: group.egresado ? C.violet : group.negativo ? C.red : group.total > 0 ? C.green : C.dim, border: C.border, key: "ok" } : level;
-  const qtyColor = obraView ? visualLevel.color : group.egresado ? C.violet : level.configured || group.negativo ? level.color : libre > 0 ? C.green : C.dim;
+  const tonoCant = obraView
+    ? (group.egresado ? "violeta" : group.negativo ? "rojo" : group.total > 0 ? "" : "cero")
+    : (group.egresado ? "violeta" : group.negativo || level.key === "critico" ? "rojo" : level.key === "alerta" ? "violeta" : libre > 0 ? "" : "cero");
+  // La rayita del costado sólo aparece cuando algo pide atención.
+  const marca = group.negativo ? "rojo" : obraView ? "" : level.key === "critico" ? "rojo" : level.key === "alerta" ? "violeta" : "";
   const sinUbicacion = !group.ubicacion;
   const barcode = group.codigo_barra || materialBarcodeList(group.material)[0]?.codigo || group.codigos_barra?.[0]?.codigo || "";
   const codeLabel = group.codigo
     ? (barcode ? `${group.codigo} · CB ${barcode}` : group.codigo)
     : (barcode ? `CB ${barcode}` : "sin código");
+  const cartAction = !primaryAction && onAddToCart && group.total > 0.0001
+    ? { tono: "verde", Icon: ShoppingCart, compact: true, badge: "", label: "Agregar", title: inCart ? "Agregar una unidad más al carrito" : "Agregar una unidad al carrito", onClick: () => onAddToCart(group) }
+    : null;
+  const accion = primaryAction || cartAction;
+  const clase = `stk-tarjeta${dense ? " is-densa" : ""}${active ? " is-activa" : ""}${marca ? ` is-${marca}` : ""}`;
+  const cifra = (
+    <span className={`stk-cant${tonoCant ? ` is-${tonoCant}` : ""}`} title={reservado > 0.0001 ? `Libre ${fmtQty(libre)} · reservado ${fmtQty(reservado)}` : undefined}>
+      <strong>{fmtQty(shownQty)}</strong>
+      <small>{obraView || dense ? group.unidad || "u" : `${group.unidad || "u"} libre`}</small>
+      {reservado > 0.0001 && <span className="stk-res" title={reservasLabel(group)}>+{fmtQty(reservado)} res.</span>}
+    </span>
+  );
 
-  // ── Variante DENSA (lista angosta con detalle abierto): 2 líneas, micro-chips ──
+  // ── Variante DENSA (lista angosta con la ficha abierta) ──
   if (dense) {
     const asigs = groupAsignaciones(group);
-    const estadoMini = group.egresado ? ["EGRESADO", C.violet] : group.negativo ? ["NEGATIVO", C.red] : group.locationImbalance ? ["REVISAR UBIC.", C.violet] : group.inTransit ? ["POR RECIBIR", C.violet] : null;
-    const micro = (label, color) => (
-      <span style={{ fontSize: 8.5, fontWeight: 750, color, border: `1px solid ${color}44`, background: `${color}12`, borderRadius: 999, padding: "0 5px", flexShrink: 0, whiteSpace: "nowrap", lineHeight: "13px" }}>{label}</span>
-    );
+    const estadoMini = group.egresado ? ["Egresado", "violeta"] : group.negativo ? ["Negativo", "rojo"] : group.locationImbalance ? ["Revisar ubicación", "violeta"] : group.inTransit ? ["Por recibir", "violeta"] : null;
     return (
-      <button
-        type="button"
-        onClick={() => onOpen(group.key)}
-        onMouseEnter={() => setHover(true)}
-        onMouseLeave={() => setHover(false)}
-        style={{ width: "100%", display: "flex", flexDirection: "column", gap: 4, borderStyle: "solid", borderTopColor: active || hover ? C.blueB : visualLevel.border, borderRightColor: active || hover ? C.blueB : visualLevel.border, borderBottomColor: active || hover ? C.blueB : visualLevel.border, borderLeftColor: visualLevel.color, borderTopWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderLeftWidth: 3, background: active ? C.blueL : hover ? "rgba(59,130,246,0.06)" : C.panelSolid, borderRadius: 9, padding: "7px 9px", cursor: "pointer", color: C.text, textAlign: "left", fontFamily: C.sans, minWidth: 0, transition: "border-color .12s, background .12s" }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, minWidth: 0 }}>
-          <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</span>
-          {/* Misma marca que en la vista de lista: un requisito no es una
-              pieza que se pueda ir a buscar al estante. */}
-          {group.esRequisito && (
-            <span title="Requisito de matriz: es generico, no un producto concreto." style={{ flexShrink: 0, fontSize: 9, fontWeight: 750, letterSpacing: 0.6, color: C.violet, background: "var(--violet-soft)", border: `1px solid ${C.violet}55`, borderRadius: 5, padding: "1px 5px", whiteSpace: "nowrap" }}>MATRIZ</span>
-          )}
-          <ArchiveMatrixAction group={group} onArchive={onArchivarMatriz} compact />
-          <span title={reservado > 0.0001 ? `Libre ${fmtQty(libre)} · reservado ${fmtQty(reservado)}` : undefined} style={{ color: qtyColor, fontFamily: C.mono, fontSize: 14, fontWeight: 750, flexShrink: 0 }}>
-            {fmtQty(shownQty)}<span style={{ color: C.dim, fontSize: 9, fontWeight: 650, marginLeft: 3 }}>{group.unidad || "u"}</span>
-            {reservado > 0.0001 && <span style={{ color: C.blue, fontSize: 9.5, fontWeight: 650, marginLeft: 5 }}>+{fmtQty(reservado)} res.</span>}
-          </span>
+      <button type="button" className={clase} onClick={() => onOpen(group.key)}>
+        <div className="stk-tarjeta-cab is-densa">
+          <span className="stk-nombre">{group.label}</span>
+          {cifra}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
-          {estadoMini && micro(estadoMini[0], estadoMini[1])}
+        <div className="stk-tarjeta-pie">
+          {estadoMini && <Etiqueta tono={estadoMini[1]} chica>{estadoMini[0]}</Etiqueta>}
           {!obraView && <StockLevelChip group={group} compact hideUnset />}
-          {asigs.length > 0 && micro(asigs.length === 1 ? asigs[0].label : `${asigs.length} OBRAS`, C.blue)}
-          {group.tipoPedido === "adicional" && micro("ADIC", C.violet)}
-          <span style={{ flex: 1, minWidth: 0, color: C.dim, fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {asigs.length > 0 && <Etiqueta tono="azul" chica>{asigs.length === 1 ? asigs[0].label : `${asigs.length} obras`}</Etiqueta>}
+          {group.tipoPedido === "adicional" && <Etiqueta tono="violeta" chica>Adicional</Etiqueta>}
+          {group.esRequisito && <MatrizEtiqueta />}
+          <span className="stk-tarjeta-texto">
             {group.ubicacion ? `${group.ubicacion} · ` : ""}{codeLabel !== "sin código" ? `${group.codigo || barcode} · ` : ""}{stockDetail}
           </span>
-          {primaryAction ? (
-            <ProductPrimaryAction action={primaryAction} compact />
-          ) : onAddToCart && group.total > 0.0001 && (
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={(e) => { e.stopPropagation(); onAddToCart(group); }}
-              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onAddToCart(group); } }}
-              onMouseEnter={() => setCartHover(true)}
-              onMouseLeave={() => setCartHover(false)}
-              title={inCart ? "Agregar una unidad más al carrito" : "Agregar una unidad al carrito"}
-              style={{ flexShrink: 0, display: "grid", placeItems: "center", width: 24, height: 19, borderRadius: 999, border: `1px solid ${inCart || cartHover ? C.greenB : C.border}`, background: inCart || cartHover ? C.greenL : "transparent", color: inCart || cartHover ? C.green : C.dim, cursor: "pointer", transition: "color .12s, border-color .12s, background .12s" }}
-            >
-              <ShoppingCart size={11} />
-            </span>
-          )}
+          <ArchiveMatrixAction group={group} onArchive={onArchivarMatriz} compact />
+          {accion && <ProductPrimaryAction action={accion} compact />}
         </div>
         <OptionStockSummary group={group} compact max={1} />
       </button>
@@ -966,144 +837,63 @@ const ProductCard = memo(function ProductCard({ group, active, onOpen, canSeePri
   }
 
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(group.key)}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        width: "100%",
-        display: "flex",
-        flexDirection: "column",
-        gap: 7,
-        borderStyle: "solid",
-        borderTopColor: active || hover ? C.blueB : visualLevel.border,
-        borderRightColor: active || hover ? C.blueB : visualLevel.border,
-        borderBottomColor: active || hover ? C.blueB : visualLevel.border,
-        borderTopWidth: 1,
-        borderRightWidth: 1,
-        borderBottomWidth: 1,
-        borderLeftWidth: 3,
-        borderLeftColor: visualLevel.color,
-        background: active ? C.blueL : visualLevel.key === "critico" ? C.redL : visualLevel.key === "alerta" ? C.violetL : hover ? "rgba(59,130,246,0.06)" : C.panelSolid,
-        borderRadius: 11,
-        padding: "9px 10px",
-        cursor: "pointer",
-        color: C.text,
-        textAlign: "left",
-        fontFamily: C.sans,
-        // Hover sutil: sólo borde + fondo. El translateY con sombra fuerte hacía
-        // "saltar" la lista al recorrerla con el mouse.
-        boxShadow: hover && !active ? "0 4px 12px -8px rgba(0,0,0,0.18)" : "none",
-        transition: "border-color .12s, background .12s, box-shadow .12s",
-      }}
-    >
-      {/* Fila 1: foto + nombre completo (hasta 2 líneas) + disponible.
-          La miniatura va acá y no en una fila propia: en una grilla de tarjetas
-          cada fila extra se multiplica por todo lo que entra en pantalla. */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
-        <MaterialThumb material={{ imagen_url: group.imagenUrl, descripcion: group.label }} size={40} />
-        <span style={{ flex: 1, minWidth: 0, color: C.text, fontSize: 13, fontWeight: 700, lineHeight: 1.25, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{group.label}</span>
-        <div style={{ display: "grid", justifyItems: "end", gap: 1, flexShrink: 0 }}>
-          <span style={{ color: qtyColor, fontFamily: C.mono, fontSize: 17, fontWeight: 750, lineHeight: 1 }}>{fmtQty(shownQty)}</span>
-          <span style={{ color: C.dim, fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>{obraView ? group.unidad || "u" : `${group.unidad || "u"} libre`}</span>
-          {reservado > 0.0001 && <span title={reservasLabel(group)} style={{ color: C.blue, fontFamily: C.mono, fontSize: 10, fontWeight: 650 }}>+{fmtQty(reservado)} res.</span>}
-        </div>
+    <button type="button" className={clase} onClick={() => onOpen(group.key)}>
+      {/* Foto + nombre (hasta 2 renglones) + lo libre. La miniatura va acá y no
+          en una fila propia: cada fila extra se multiplica por toda la lista. */}
+      <div className="stk-tarjeta-cab">
+        <MaterialThumb material={{ imagen_url: group.imagenUrl, descripcion: group.label }} size={44} />
+        <span className="stk-nombre">{group.label}</span>
+        {cifra}
       </div>
-      {/* Fila 2: badges + ubicación / sin ubicación */}
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+      <div className="stk-tarjeta-etiquetas">
         <KindChip tipo={group.tipoPedido} />
-        {group.esRequisito && (
-          <span title="Requisito de matriz: es genérico, no un producto concreto." style={{ flexShrink: 0, fontSize: 9, fontWeight: 750, letterSpacing: 0.6, color: C.violet, background: "var(--violet-soft)", border: `1px solid ${C.violet}55`, borderRadius: 5, padding: "1px 5px", whiteSpace: "nowrap" }}>MATRIZ</span>
-        )}
-        <ArchiveMatrixAction group={group} onArchive={onArchivarMatriz} />
+        {group.esRequisito && <MatrizEtiqueta chica={false} />}
         {!obraView && <StockLevelChip group={group} hideUnset />}
         <AsignadoChip asignaciones={groupAsignaciones(group)} compact />
         <StateChip egresado={group.egresado} transit={group.inTransit} catalogOnly={group.catalogOnly} negative={group.negativo} imbalance={group.locationImbalance} compact />
-        {sinUbicacion ? (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}`, borderRadius: 999, padding: "3px 9px", fontSize: 10, fontWeight: 700 }}>
-            <MapPin size={11} /> Sin ubicación
-          </span>
-        ) : (
-          <UbicacionChip ubicacion={group.ubicacion} obs={group.ubicacion_obs} />
-        )}
+        {sinUbicacion
+          ? <Etiqueta tono="cian" icono={MapPin}>Sin ubicación</Etiqueta>
+          : <UbicacionChip ubicacion={group.ubicacion} obs={group.ubicacion_obs} size="md" />}
+        <ArchiveMatrixAction group={group} onArchive={onArchivarMatriz} />
       </div>
       {/* La opción asignada es dato operativo: siempre visible sin abrir. */}
       <OptionStockSummary group={group} max={2} />
-      {/* Fila 3: meta (código · proveedor · rubro · valor) + carrito inline.
-          El chip de carrito va EN la misma fila: una fila propia le sumaba ~24px
-          a cada card y con 300 productos eso es media pantalla menos de lista. */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-        <span style={{ flex: 1, minWidth: 0, color: C.dim, fontSize: 11, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      <div className="stk-tarjeta-pie">
+        <span className="stk-tarjeta-texto">
           {codeLabel}{group.proveedor ? ` · ${group.proveedor}` : ""}{group.categorias.size ? ` · ${[...group.categorias][0]}` : ""}
           {canSeePrices && group.valueUsd > 0 ? ` · USD ${fmtQty(group.valueUsd)}` : ""}
         </span>
-        {primaryAction ? (
-          <ProductPrimaryAction action={primaryAction} />
-        ) : onAddToCart && group.total > 0.0001 && (
-          <span
-            role="button"
-            tabIndex={0}
-            onClick={(e) => { e.stopPropagation(); onAddToCart(group); }}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onAddToCart(group); } }}
-            onMouseEnter={() => setCartHover(true)}
-            onMouseLeave={() => setCartHover(false)}
-            title={inCart ? "Agregar una unidad más al carrito" : "Agregar una unidad al carrito"}
-            style={{
-              flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5,
-              border: `1px solid ${inCart || cartHover ? C.greenB : C.border}`,
-              background: inCart || cartHover ? C.greenL : "transparent",
-              color: inCart || cartHover ? C.green : C.dim,
-              borderRadius: 999, padding: "2px 9px", fontSize: 10.5, fontWeight: 700, cursor: "pointer",
-              transition: "color .12s, border-color .12s, background .12s",
-            }}
-          >
-            <ShoppingCart size={11} /> {cartHover && !inCart ? "+ Agregar" : inCart ? "En carrito" : "Carrito"}
-          </span>
-        )}
+        {accion && <ProductPrimaryAction action={accion} />}
       </div>
-      {/* Fila 4: depósito / obra */}
-      {active && <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-        <span style={{ color: C.dim, fontSize: 8.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.7, flexShrink: 0 }}>Depósito/obra</span>
-        <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11, fontWeight: 600, color: group.egresado ? C.violet : group.negativo ? C.red : C.t1 }}>
-          {stockDetail}{group.locations.length > 4 ? ` · +${group.locations.length - 4}` : ""}
-        </span>
-      </div>}
+      {active && (
+        <div className="stk-tarjeta-pie">
+          <span className="stk-tarjeta-texto">Depósito / obra · {stockDetail}{group.locations.length > 4 ? ` · +${group.locations.length - 4}` : ""}</span>
+        </div>
+      )}
     </button>
   );
 });
 
 // Grilla compartida por el encabezado y las filas. Una sola constante para que
 // no se desalineen cuando se toca una y se olvida la otra.
-const STOCK_ROW_COLS = "48px minmax(260px,2.4fr) 84px minmax(130px,1fr) 124px minmax(120px,.9fr) 112px 116px";
-const STOCK_ROW_MIN = 1110;
-const STOCK_ROW_COMPACT_COLS = "44px minmax(190px,2fr) 68px 88px minmax(105px,1fr) 96px";
-const STOCK_ROW_COMPACT_MIN = 620;
-const OBRA_ROW_COLS = "48px minmax(260px,2.4fr) 100px minmax(125px,1fr) 112px 116px";
-const OBRA_ROW_MIN = 840;
-const OBRA_ROW_COMPACT_COLS = "44px minmax(190px,2fr) 75px minmax(105px,1fr) 112px 96px";
-const OBRA_ROW_COMPACT_MIN = 690;
+const STOCK_ROW_COLS = "44px minmax(240px,2.4fr) 96px minmax(140px,1fr) 118px minmax(130px,.9fr) 116px 124px";
+const STOCK_ROW_MIN = 1120;
+const STOCK_ROW_COMPACT_COLS = "44px minmax(180px,2fr) 84px 76px minmax(110px,1fr) 52px";
+const STOCK_ROW_COMPACT_MIN = 640;
+const OBRA_ROW_COLS = "44px minmax(240px,2.4fr) 110px minmax(130px,1fr) 124px 124px";
+const OBRA_ROW_MIN = 860;
+const OBRA_ROW_COMPACT_COLS = "44px minmax(180px,2fr) 84px minmax(110px,1fr) 112px 52px";
+const OBRA_ROW_COMPACT_MIN = 670;
 
 const VERIF_META = {
-  ok: { label: "Revisado", Icon: CheckCircle2, color: C.green, bg: C.greenL, border: C.greenB },
-  problema: { label: "Problema", Icon: AlertTriangle, color: C.red, bg: C.redL, border: C.redB },
-  pendiente: { label: "Sin revisar", Icon: CircleDashed, color: C.dim, bg: "transparent", border: C.border },
+  ok: { label: "Revisado", Icon: CheckCircle2, color: C.green, bg: C.greenL, border: C.greenB, tono: "verde" },
+  problema: { label: "Problema", Icon: AlertTriangle, color: C.red, bg: C.redL, border: C.redB, tono: "rojo" },
+  pendiente: { label: "Sin revisar", Icon: CircleDashed, color: C.dim, bg: "transparent", border: C.border, tono: "apagado" },
 };
 
 function VerificacionChip({ estado, compact = false }) {
   const meta = VERIF_META[estado] || VERIF_META.pendiente;
-  const Icon = meta.Icon;
-  return (
-    <span title={meta.label} style={{
-      display: "inline-flex", alignItems: "center", gap: 5,
-      color: meta.color, border: `1px solid ${meta.border}`, background: meta.bg,
-      borderRadius: 999, padding: compact ? "2px 7px" : "3px 9px",
-      fontSize: compact ? 9 : 10, fontWeight: 750, whiteSpace: "nowrap",
-    }}>
-      <Icon size={compact ? 10 : 11} style={{ flexShrink: 0 }} />
-      {meta.label}
-    </span>
-  );
+  return <Etiqueta tono={meta.tono} chica={compact} icono={meta.Icon} title={meta.label}>{meta.label}</Etiqueta>;
 }
 
 // En la tabla mostramos una sola señal operativa. El resto de los datos de
@@ -1112,40 +902,33 @@ function ProductTableStatus({ group, obraView = false }) {
   const level = stockLevel(group);
   let meta;
   if (group.negativo || group.locationImbalance) {
-    meta = { label: "A reconciliar", color: C.red, bg: C.redL, border: C.redB };
+    meta = { label: "A reconciliar", tono: "rojo" };
   } else if (group.egresado) {
-    meta = { label: "Egresado", color: C.violet, bg: C.violetL, border: C.violetB };
+    meta = { label: "Egresado", tono: "violeta" };
   } else if (group.verificacion === "problema") {
-    meta = { label: "A revisar", color: C.red, bg: C.redL, border: C.redB };
+    meta = { label: "A revisar", tono: "rojo" };
   } else if (group.inTransit) {
-    meta = { label: "En camino", color: C.blue, bg: C.blueL, border: C.blueB };
+    meta = { label: "En camino", tono: "azul" };
   } else if (obraView) {
-    meta = qty(group.total, 0) > 0
-      ? { label: "Con saldo", color: C.green, bg: C.greenL, border: C.greenB }
-      : { label: "Sin saldo", color: C.dim, bg: C.panel2, border: C.border };
+    meta = qty(group.total, 0) > 0 ? { label: "Con saldo", tono: "verde" } : { label: "Sin saldo", tono: "apagado" };
   } else if (level.key === "critico") {
-    meta = { label: "Crítico", color: C.red, bg: C.redL, border: C.redB };
+    meta = { label: "Crítico", tono: "rojo" };
   } else if (level.key === "alerta") {
-    meta = { label: "Stock bajo", color: C.violet, bg: C.violetL, border: C.violetB };
+    meta = { label: "Stock bajo", tono: "violeta" };
   } else if (!obraView && (group.reservas || []).length && group.reservas.every((reserva) => reserva.obraEstado === "terminada") && qty(group.stockLibre ?? group.total, 0) <= 0.0001) {
-    meta = { label: "Sobrante", color: C.cyan, bg: C.cyanL, border: C.cyanB };
+    meta = { label: "Sobrante", tono: "cian" };
   } else if (qty(group.stockLibre ?? group.total, 0) <= 0.0001 && qty(group.stockReservado, 0) > 0.0001) {
     // Está en el pañol pero todo tiene obra: no se le puede dar a otro barco.
-    meta = { label: "Reservado", color: C.teal, bg: C.tealL, border: C.tealB };
+    meta = { label: "Reservado", tono: "teal" };
   } else if (qty(group.total, 0) > 0) {
-    meta = { label: "Disponible", color: C.green, bg: C.greenL, border: C.greenB };
+    meta = { label: "Disponible", tono: "verde" };
   } else {
-    meta = { label: "Sin stock", color: C.dim, bg: C.panel2, border: C.border };
+    meta = { label: "Sin stock", tono: "apagado" };
   }
-
   return (
-    <span
-      title={group.verificacion === "pendiente" ? `${meta.label} · control pendiente` : meta.label}
-      style={{ display: "inline-flex", alignItems: "center", gap: 6, color: meta.color, border: `1px solid ${meta.border}`, background: meta.bg, borderRadius: 999, padding: "4px 9px", fontSize: 10.5, lineHeight: 1, fontWeight: 700, whiteSpace: "nowrap" }}
-    >
-      <span aria-hidden="true" style={{ width: 7, height: 7, borderRadius: 999, background: meta.color, flexShrink: 0 }} />
+    <Etiqueta tono={meta.tono} title={group.verificacion === "pendiente" ? `${meta.label} · control pendiente` : meta.label}>
       {meta.label}
-    </span>
+    </Etiqueta>
   );
 }
 
@@ -1177,26 +960,22 @@ function reservasLabel(group) {
 // un sobrante que se puede liberar.
 function ReservasCell({ group }) {
   const reservas = group.reservas || [];
-  if (!reservas.length) return <div style={{ color: C.dim, fontFamily: C.mono, fontSize: 12 }}>—</div>;
+  if (!reservas.length) return <span className="stk-vacio-celda">—</span>;
   const visibles = reservas.slice(0, 2);
   const resto = reservas.length - visibles.length;
   return (
-    <div title={reservasLabel(group)} style={{ display: "flex", flexWrap: "wrap", gap: 4, minWidth: 0 }}>
-      {visibles.map((r) => {
-        const terminada = r.obraEstado === "terminada";
-        return (
-          <span key={r.obraId} style={{ color: terminada ? C.cyan : C.blue, background: terminada ? C.cyanL : C.blueL, border: `1px solid ${terminada ? C.cyanB : C.blueB}`, borderRadius: 999, padding: "2px 7px", fontSize: 10.5, fontWeight: 650, whiteSpace: "nowrap" }}>
-            {r.label} · <span style={{ fontFamily: C.mono }}>{fmtQty(r.available)}</span>
-          </span>
-        );
-      })}
-      {resto > 0 && <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 650, padding: "2px 2px" }}>+{resto}</span>}
+    <div className="stk-reservas" title={reservasLabel(group)}>
+      {visibles.map((r) => (
+        <Etiqueta key={r.obraId} tono={r.obraEstado === "terminada" ? "cian" : "azul"}>
+          {r.label} · <b>{fmtQty(r.available)}</b>
+        </Etiqueta>
+      ))}
+      {resto > 0 && <span className="stk-faltan">+{resto}</span>}
     </div>
   );
 }
 
 const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, canEditMinimum, onSaveMinimum, minimumDraft, onMinimumDraftChange, onArchivarMatriz, primaryAction, compact = false, obraView = false }) {
-  const [hover, setHover] = useState(false);
   const level = stockLevel(group);
   const location = group.ubicacion || group.locations?.find((item) => item.available > 0)?.label || "";
   const categoria = [...(group.categorias || [])].filter(Boolean)[0] || "";
@@ -1207,10 +986,12 @@ const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, c
   const libre = qty(group.stockLibre ?? group.total, 0);
   const reservado = qty(group.stockReservado, 0);
   const reservasTitle = reservasLabel(group);
+  const tonoLibre = libre < -0.0001 || level.key === "critico" ? "rojo" : libre > 0.0001 ? "" : "cero";
+  const tonoFalta = TONO_NIVEL[level.key] === "rojo" || TONO_NIVEL[level.key] === "violeta" ? TONO_NIVEL[level.key] : "";
 
   return (
     <div
-      className="stock-product-row"
+      className={`stk-fila${active ? " is-activa" : ""}`}
       role="button"
       tabIndex={0}
       onClick={() => onOpen(group.key)}
@@ -1220,122 +1001,85 @@ const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, c
           onOpen(group.key);
         }
       }}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
       style={{
         minWidth: obraView ? (compact ? OBRA_ROW_COMPACT_MIN : OBRA_ROW_MIN) : (compact ? STOCK_ROW_COMPACT_MIN : STOCK_ROW_MIN),
-        display: "grid",
         gridTemplateColumns: obraView ? (compact ? OBRA_ROW_COMPACT_COLS : OBRA_ROW_COLS) : (compact ? STOCK_ROW_COMPACT_COLS : STOCK_ROW_COLS),
-        alignItems: "center",
-        gap: 12,
-        padding: "7px 12px",
-        borderBottom: `1px solid ${C.border}`,
-        borderLeft: `3px solid ${active ? C.blue : "transparent"}`,
-        background: active ? C.blueL : hover ? C.panel : C.panelSolid,
-        color: C.text,
-        cursor: "pointer",
-        outline: "none",
-        transition: "background .12s, box-shadow .12s",
-        boxShadow: hover && !active ? `inset 0 0 0 1px ${C.border2}` : "none",
       }}
     >
       {/* La foto es el primer filtro visual: reconocer la pieza sin leer.
           MaterialThumb ya trae el lightbox y frena la propagación del click. */}
-      <MaterialThumb material={{ imagen_url: group.imagenUrl, descripcion: group.label }} size={40} />
+      <MaterialThumb material={{ imagen_url: group.imagenUrl, descripcion: group.label }} size={44} />
 
       <div style={{ minWidth: 0 }}>
-        <div style={{ minWidth: 0 }}>
-          {/* Si el producto se renombró, el nombre viejo queda a mano: es el
-              que figura en los movimientos y en los papeles impresos de antes,
-              y sin esto nadie entiende por qué no coinciden. */}
-          <span
-            title={group.labelHistorico ? `${displayLabel} · antes se llamaba: ${group.labelHistorico}` : displayLabel}
-            style={{ display: "block", width: "fit-content", maxWidth: "100%", color: C.text, fontSize: 13, lineHeight: 1.25, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderBottom: group.labelHistorico ? `1px dotted ${C.border2}` : "none" }}
-          >
-            {displayLabel}
-          </span>
+        {/* Si el producto se renombró, el nombre viejo queda a mano: es el
+            que figura en los movimientos y en los papeles impresos de antes,
+            y sin esto nadie entiende por qué no coinciden. */}
+        <span
+          className={`stk-nombre${group.labelHistorico ? " is-renombrado" : ""}`}
+          title={group.labelHistorico ? `${displayLabel} · antes se llamaba: ${group.labelHistorico}` : displayLabel}
+        >
+          {displayLabel}
+        </span>
+        {/* Sin avisos de "falta código": nadie los va a completar y llenaban
+            la tabla de rojo (03/11/2026). */}
+        <div className="stk-sub">
+          {variantsMeta && <span className="stk-variantes" title={`Modelos con stock: ${variantsMeta}`}>{variantsMeta}</span>}
+          {group.codigo && <span className="stk-codigo" title={group.codigo}>{group.codigo}</span>}
+          {group.proveedor && <span title={group.proveedor}>{group.proveedor}</span>}
+          {categoria && <span title={categoria}>{categoria}</span>}
+          {compact && group.esRequisito && <MatrizEtiqueta />}
+          {compact && onArchivarMatriz && group.esRequisito && group.verificacion !== "ok" && <ArchiveMatrixAction group={group} onArchive={onArchivarMatriz} compact />}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 4, minWidth: 0 }}>
-          {variantsMeta && <><span title={`Modelos con stock: ${variantsMeta}`} style={{ color: C.violet, fontSize: 10.5, lineHeight: 1.2, fontWeight: 650 }}>{variantsMeta}</span><span aria-hidden="true" style={{ color: C.border2, fontSize: 10 }}>·</span></>}
-          {/* Sin avisos de "falta código": nadie los va a completar y llenaban
-              la tabla de rojo (03/11/2026). */}
-          {[
-            group.codigo ? <span key="c" title={group.codigo} style={{ color: C.blue, fontSize: 10.5, lineHeight: 1.2, fontFamily: C.mono, fontWeight: 600 }}>{group.codigo}</span> : null,
-            group.proveedor ? <span key="p" title={group.proveedor} style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: compact ? 112 : 170 }}>{group.proveedor}</span> : null,
-            categoria ? <span key="r" title={categoria} style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.2, whiteSpace: "nowrap" }}>{categoria}</span> : null,
-          ].filter(Boolean).flatMap((item, index) => (index ? [<span key={`s${index}`} aria-hidden="true" style={{ color: C.border2, fontSize: 10 }}>·</span>, item] : [item]))}
-        </div>
-        {compact && group.esRequisito && (
-          <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap", marginTop: 5 }}>
-            <span title="Requisito de matriz: no es un producto físico concreto" style={{ color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}`, borderRadius: 999, padding: "2px 6px", fontSize: 8.5, fontWeight: 750, letterSpacing: 0.5 }}>MATRIZ</span>
-            {onArchivarMatriz && group.verificacion !== "ok" && <ArchiveMatrixAction group={group} onArchive={onArchivarMatriz} compact />}
-          </div>
-        )}
       </div>
 
       {obraView ? (
-        <div style={{ textAlign: "right", paddingRight: 4 }}>
-          <div style={{ color: C.text, fontFamily: C.mono, fontSize: 14, fontWeight: 700, whiteSpace: "nowrap" }}>
-            {fmtQty(group.total)} <span style={{ color: C.dim, fontFamily: C.sans, fontSize: 10, fontWeight: 600 }}>{group.unidad || "u"}</span>
-          </div>
+        <div className="stk-cant">
+          <strong>{fmtQty(group.total)}</strong><small>{group.unidad || "u"}</small>
         </div>
       ) : (
-        <div style={{ textAlign: "right", paddingRight: 4 }}>
-          <div title="Libre: en el depósito, sin obra asignada" style={{ color: libre < -0.0001 || level.key === "critico" ? C.red : libre > 0.0001 ? C.text : C.dim, fontFamily: C.mono, fontSize: 14, fontWeight: 700, whiteSpace: "nowrap" }}>
-            {fmtQty(libre)} <span style={{ color: C.dim, fontFamily: C.sans, fontSize: 10, fontWeight: 600 }}>{group.unidad || "u"}</span>
-          </div>
-          {compact && reservado > 0.0001 && (
-            <div title={reservasTitle} style={{ color: C.blue, fontFamily: C.mono, fontSize: 10, fontWeight: 650, marginTop: 2, whiteSpace: "nowrap" }}>+{fmtQty(reservado)} res.</div>
-          )}
+        <div className={`stk-cant${tonoLibre ? ` is-${tonoLibre}` : ""}`} title="Libre: en el depósito, sin obra asignada">
+          <strong>{fmtQty(libre)}</strong><small>{group.unidad || "u"}</small>
+          {compact && reservado > 0.0001 && <span className="stk-res" title={reservasTitle}>+{fmtQty(reservado)} res.</span>}
         </div>
       )}
 
       {!obraView && !compact && <ReservasCell group={group} />}
 
       {obraView ? null : compact ? (
-        <div title={level.configured ? `Mínimo ${fmtQty(level.minimum)} ${group.unidad || "u"}` : "Sin mínimo configurado"} style={{ color: level.faltante > 0 ? level.color : C.dim, fontFamily: C.mono, fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap" }}>
+        <div className={`stk-faltan${level.faltante > 0 ? ` is-${tonoFalta}` : ""}`} title={level.configured ? `Mínimo ${fmtQty(level.minimum)} ${group.unidad || "u"}` : "Sin mínimo configurado"} style={{ paddingLeft: 0, fontSize: 14 }}>
           {level.faltante > 0 ? `−${fmtQty(level.faltante)}` : "—"}
         </div>
       ) : (
-        <div style={{ display: "grid", gap: 2, justifyItems: "start" }}>
+        <div className="stk-minimo">
           <MinimumEditor group={group} canEdit={canEditMinimum} onSave={onSaveMinimum} draftEntry={minimumDraft} onDraftChange={onMinimumDraftChange} />
           {level.faltante > 0 && (
-            <span title={`Faltan ${fmtQty(level.faltante)} ${group.unidad || "u"} para el mínimo`} style={{ color: level.color, fontFamily: C.mono, fontSize: 10.5, fontWeight: 600, paddingLeft: 6, whiteSpace: "nowrap" }}>
+            <span className={`stk-faltan${tonoFalta ? ` is-${tonoFalta}` : ""}`} title={`Faltan ${fmtQty(level.faltante)} ${group.unidad || "u"} para el mínimo`}>
               faltan {fmtQty(level.faltante)}
             </span>
           )}
         </div>
       )}
 
-      <div style={{ minWidth: 0 }}>
+      <div className="stk-ubic">
         {sinUbicacion ? (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: C.cyan, background: C.cyanL, border: `1px solid ${C.cyanB}`, borderRadius: 999, padding: "2px 8px", fontSize: 10.5, fontWeight: 600, whiteSpace: "nowrap" }}>
-            <MapPin size={10} /> Sin ubicación
-          </span>
+          <Etiqueta tono="cian" icono={MapPin}>Sin ubicación</Etiqueta>
         ) : (
           <>
-            <div style={{ display: "flex", alignItems: "center", gap: 5, color: C.text, fontSize: 11.5, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              <MapPin size={11} style={{ color: C.dim, flexShrink: 0 }} />
-              {location}
-            </div>
-            {group.ubicacion_obs && (
-              <div style={{ color: C.dim, fontSize: 10, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {group.ubicacion_obs}
-              </div>
-            )}
+            <div className="stk-ubic-lugar"><MapPin size={13} aria-hidden="true" />{location}</div>
+            {group.ubicacion_obs && <div className="stk-ubic-obs">{group.ubicacion_obs}</div>}
           </>
         )}
       </div>
 
-      {(!compact || obraView) && <div style={{ minWidth: 0, display: "grid", justifyItems: "start", gap: 4 }}>
-        <ProductTableStatus group={group} obraView={obraView} />
-        {group.esRequisito && (
-          <span title="Requisito de matriz: no es un producto físico concreto" style={{ color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}`, borderRadius: 999, padding: "2px 6px", fontSize: 8.5, fontWeight: 750, letterSpacing: 0.5 }}>MATRIZ</span>
-        )}
-        {group.esRequisito && onArchivarMatriz && group.verificacion !== "ok" && <ArchiveMatrixAction group={group} onArchive={onArchivarMatriz} compact />}
-      </div>}
+      {(!compact || obraView) && (
+        <div className="stk-estado">
+          <ProductTableStatus group={group} obraView={obraView} />
+          {group.esRequisito && <MatrizEtiqueta />}
+          {group.esRequisito && onArchivarMatriz && group.verificacion !== "ok" && <ArchiveMatrixAction group={group} onArchive={onArchivarMatriz} compact />}
+        </div>
+      )}
 
-      <ProductPrimaryAction action={primaryAction} />
+      <ProductPrimaryAction action={primaryAction} compact={compact} />
     </div>
   );
 });
@@ -1346,52 +1090,36 @@ function LocationButton({ location, active, onClick, cierre }) {
     <button
       type="button"
       onClick={onClick}
-      style={{
-        border: `1px solid ${active ? C.blueB : location.available < 0 ? C.redB : terminada ? C.cyanB : C.border}`,
-        background: active ? C.blueL : location.available < 0 ? C.redL : C.panelSolid,
-        color: C.text,
-        borderRadius: 10,
-        padding: "9px 10px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 10,
-        cursor: "pointer",
-        fontFamily: C.sans,
-      }}
+      className={`stk-saldo${active ? " is-activa" : ""}${location.available < 0 ? " is-negativo" : ""}`}
     >
       <span style={{ minWidth: 0 }}>
-        <span style={{ display: "block", fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{location.label}</span>
-        <span style={{ display: "block", color: C.dim, fontSize: 10.5, marginTop: 2 }}>{location.sede || "Sin sede"}{terminada ? " · obra terminada" : ""}</span>
+        <span className="stk-saldo-nombre">{location.label}</span>
+        <span className="stk-saldo-sub">{location.sede || "Sin sede"}{terminada ? " · obra terminada" : ""}</span>
         {terminada && (
-          <span style={{ display: "block", marginTop: 4 }}>
+          <span className="stk-saldo-sub">
             {cierre?.id ? (
-              <Link
-                to={`/sobrantes-obra/${cierre.id}`}
-                onClick={(event) => event.stopPropagation()}
-                style={{ color: C.cyan, fontSize: 11, fontWeight: 700, textDecoration: "none" }}
-              >
+              <Link to={`/sobrantes-obra/${cierre.id}`} onClick={(event) => event.stopPropagation()}>
                 Ir al cierre de materiales
               </Link>
             ) : (
-              <span style={{ color: C.cyan, fontSize: 11, fontWeight: 650 }}>Reservado a obra terminada · no es stock libre</span>
+              "Reservado a obra terminada · no es stock libre"
             )}
           </span>
         )}
         {location.porVariante?.length > 0 && (
-          <span style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
+          <span className="stk-opciones">
             {location.porVariante.map((pv) => (
-          <span key={pv.variante} style={{ fontSize: 10, fontWeight: 700, color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}`, borderRadius: 999, padding: "1px 7px" }}>
-                Opción · {pv.variante}: {fmtQty(pv.available)}{pv.transitQty > 0 ? ` (+${fmtQty(pv.transitQty)} por recibir)` : ""}
-              </span>
+              <Etiqueta key={pv.variante} tono="violeta" chica>
+                {pv.variante} · <b>{fmtQty(pv.available)}</b>{pv.transitQty > 0 ? ` (+${fmtQty(pv.transitQty)} por recibir)` : ""}
+              </Etiqueta>
             ))}
           </span>
         )}
         {location.transitQty > 0 && (
-          <span style={{ display: "block", color: C.violet, fontSize: 10.5, marginTop: 2 }}>por recibir {fmtQty(location.transitQty)}</span>
+          <span className="stk-saldo-sub is-violeta">por recibir {fmtQty(location.transitQty)}</span>
         )}
       </span>
-      <span style={{ color: location.available < 0 ? C.red : C.green, fontFamily: C.mono, fontSize: 14, fontWeight: 750 }}>{fmtQty(location.available)}</span>
+      <strong>{fmtQty(location.available)}</strong>
     </button>
   );
 }
@@ -1407,7 +1135,8 @@ function KardexRow({ row, onRevert, busy, obraById, onDevolucion }) {
   const egresoMeta = rowEgresoMeta(row);
   const displayedDelta = isOut && rowHasRecordedEgreso(row) ? -rowEgresoQuantity(row) : delta;
   const label = isLocation ? "Ubicación" : isAssignment || instalado || isOut ? egresoMeta.label : isTransit ? "Tránsito" : row.estado === "problema" ? "Problema" : "Ingreso";
-  const labelColor = isLocation ? C.blue : isAssignment || instalado || isOut ? egresoMeta.color : isTransit ? C.violet : C.green;
+  const tonoEtiqueta = isLocation ? "azul" : isAssignment || instalado || isOut ? (egresoMeta.tono || "violeta") : isTransit ? "violeta" : row.estado === "problema" ? "rojo" : "verde";
+  const tonoDelta = instalado ? "teal" : isLiberacion ? "violeta" : displayedDelta < 0 ? "rojo" : displayedDelta > 0 ? "verde" : "apagado";
   const { nombre: descripcion, historico: descripcionHistorica } = nombreDeMovimiento(row);
   const variante = String(row.variante || "").trim();
   const ruta = (isOut || isAssignment) ? rowMovimientoRuta(row, obraById) : `${rowObraLabel(row)} · ${rowSede(row) || "Sin sede"}`;
@@ -1418,59 +1147,62 @@ function KardexRow({ row, onRevert, busy, obraById, onDevolucion }) {
   // Guard B: deshabilitar Revertir si ya contiene "[anulado]" en notas
   const yaAnulado = rowIsAnulado(row);
   return (
-    <article style={{ padding: "10px 0", borderBottom: `1px solid ${C.border}`, display: "grid", gap: 7 }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-        <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-          <span style={{ color: labelColor, background: C.panel, border: `1px solid ${labelColor}`, borderRadius: 999, padding: "2px 7px", fontSize: 9.5, fontWeight: 750, textTransform: "uppercase", letterSpacing: 0.3 }}>{yaAnulado ? "Anulado" : label}</span>
+    <article className="stk-mov">
+      <div className="stk-mov-cab">
+        <div className="stk-mov-titulo">
+          <Etiqueta tono={yaAnulado ? "apagado" : tonoEtiqueta} chica>{yaAnulado ? "Anulado" : label}</Etiqueta>
           <span
+            className={descripcionHistorica ? "stk-nombre is-renombrado" : undefined}
             title={descripcionHistorica ? `${descripcion} · en este movimiento figura como: ${descripcionHistorica}` : undefined}
-            style={{ color: C.text, fontSize: 12.5, fontWeight: 700, lineHeight: 1.3, overflowWrap: "anywhere", borderBottom: descripcionHistorica ? `1px dotted ${C.border2}` : "none" }}
+            style={descripcionHistorica ? { fontSize: 13.5, display: "inline" } : undefined}
           >
             {descripcion}
           </span>
-          {row.codigo && <span style={{ color: C.dim, fontFamily: C.mono, fontSize: 10 }}>{row.codigo}</span>}
+          {row.codigo && <span className="stk-codigo" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "var(--dim)" }}>{row.codigo}</span>}
         </div>
-        <span style={{ flexShrink: 0, color: instalado ? C.teal : isLiberacion ? C.violet : displayedDelta < 0 ? C.red : displayedDelta > 0 ? C.green : C.dim, fontFamily: C.mono, fontSize: 14, fontWeight: 750 }}>
+        <span className={`stk-mov-delta is-${tonoDelta}`}>
           {instalado ? fmtQty(rowEgresoQuantity(row)) : isLiberacion ? `←${fmtQty(rowEgresoQuantity(row))}` : `${displayedDelta > 0 ? "+" : ""}${fmtQty(displayedDelta)}`} {row.unidad || ""}
         </span>
       </div>
-      <div style={{ color: C.text, fontSize: 11, lineHeight: 1.4, overflowWrap: "anywhere" }}>{ruta}</div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "3px 9px", color: C.dim, fontSize: 10.5, lineHeight: 1.35 }}>
+      <div className="stk-mov-ruta">{ruta}</div>
+      <div className="stk-mov-datos">
         <span>{fmtDate(rowMovementAt(row))}</span>
         {variante && <span>Variante: {variante}</span>}
         {retira && <span>Retira: {retira}</span>}
         {recepcion && <span>Ingreso original · +{fmtQty(recepcion.cantidad)} {row.unidad || "u"} · {fmtDate(recepcion.fecha)}</span>}
         {usuario && <span>Usuario: {usuario}</span>}
       </div>
-      {nota && <div style={{ color: C.muted, fontSize: 10.5, lineHeight: 1.4, paddingLeft: 8, borderLeft: `2px solid ${C.border2}` }}>{nota}</div>}
+      {nota && <div className="stk-mov-nota">{nota}</div>}
       {/* Revertir y devolver son cosas distintas y conviven:
             · Revertir  — el movimiento no debió existir. Se deshace.
             · Devolución — el movimiento estuvo bien, el material salió de
               verdad, pero volvió fallado. Es un evento nuevo, no un deshacer. */}
-      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", flexWrap: "wrap" }}>
-        {delta !== 0 && (
-          <button
-            type="button"
-            onClick={() => onRevert?.(row)}
-            disabled={busy || yaAnulado}
-            title={yaAnulado ? "Este movimiento ya fue anulado" : "El movimiento fue un error: deshacerlo"}
-            style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.dim, borderRadius: 8, padding: "6px 7px", cursor: (busy || yaAnulado) ? "default" : "pointer", fontSize: 10.5, fontWeight: 700, fontFamily: C.sans, opacity: (busy || yaAnulado) ? 0.45 : 1 }}
-          >
-            {yaAnulado ? "Anulado" : "Revertir"}
-          </button>
-        )}
-        {isOut && !isLiberacion && !yaAnulado && onDevolucion && (
-          <button
-            type="button"
-            onClick={() => onDevolucion(row)}
-            disabled={busy}
-            title="Salió bien pero el operario lo devolvió fallado"
-            style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 8, padding: "6px 7px", cursor: busy ? "default" : "pointer", fontSize: 10.5, fontWeight: 700, fontFamily: C.sans, opacity: busy ? 0.45 : 1 }}
-          >
-            Generar devolución
-          </button>
-        )}
-      </div>
+      {(delta !== 0 || (isOut && !isLiberacion && !yaAnulado && onDevolucion)) && (
+        <div className="stk-mov-botones">
+          {delta !== 0 && (
+            <button
+              type="button"
+              className="ui-btn ui-btn-fantasma"
+              onClick={() => onRevert?.(row)}
+              disabled={busy || yaAnulado}
+              title={yaAnulado ? "Este movimiento ya fue anulado" : "El movimiento fue un error: deshacerlo"}
+            >
+              {yaAnulado ? "Anulado" : "Revertir"}
+            </button>
+          )}
+          {isOut && !isLiberacion && !yaAnulado && onDevolucion && (
+            <button
+              type="button"
+              className="ui-btn ui-btn-peligro"
+              onClick={() => onDevolucion(row)}
+              disabled={busy}
+              title="Salió bien pero el operario lo devolvió fallado"
+            >
+              Generar devolución
+            </button>
+          )}
+        </div>
+      )}
     </article>
   );
 }
@@ -2161,32 +1893,32 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
   }
 
   return (
-    <div style={{ border: `1px solid ${action === "egresar" ? C.greenB : C.border}`, background: C.panelSolid, borderRadius: 12, padding: 13, display: "grid", gap: 11 }}>
+    <div className="stk-bloque" style={{ gap: 12 }}>
       <div>
-        <div style={{ color: C.text, fontSize: 14, fontWeight: 750 }}>{action === "egresar" ? "Egresar material" : action === "ingresar" ? "Ingresar ajuste" : action === "trasladar" ? "Trasladar entre sedes" : "Asignar stock"}</div>
-        {action === "ingresar" && <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>Destino: {selectedLocation?.obraId ? selectedLocation.label : `Stock ${sedeLocked || sede}`}</div>}
-        <div style={{ color: C.dim, fontSize: 11.5, marginTop: 2 }}>{action === "egresar" ? "Cantidad, destino y receptor en un solo paso." : "Movimiento registrado en kardex."}</div>
+        <div className="stk-dialogo-titulo">{action === "egresar" ? "Egresar material" : action === "ingresar" ? "Ingresar ajuste" : action === "trasladar" ? "Trasladar entre sedes" : "Asignar stock"}</div>
+        {action === "ingresar" && <div className="stk-dialogo-sub">Destino: {selectedLocation?.obraId ? selectedLocation.label : `Stock ${sedeLocked || sede}`}</div>}
+        <div className="stk-dialogo-sub">{action === "egresar" ? "Cantidad, destino y receptor en un solo paso." : "Movimiento registrado en kardex."}</div>
       </div>
       {isCatalogOnly && (
-        <div style={{ color: C.violet, fontSize: 11, lineHeight: 1.35 }}>Sin stock recibido: registrá el ingreso físico antes de intentar un egreso.</div>
+        <div className="stk-faltan is-violeta" style={{ paddingLeft: 0, whiteSpace: "normal" }}>Sin stock recibido: registrá el ingreso físico antes de intentar un egreso.</div>
       )}
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        <button type="button" onClick={() => setAction("egresar")} disabled={mode === "egreso"} style={{ border: `1px solid ${action === "egresar" ? C.greenB : C.border}`, background: action === "egresar" ? C.greenL : C.panel, color: action === "egresar" ? C.green : C.text, borderRadius: 9, padding: "7px 12px", fontSize: 12, fontWeight: 700, cursor: mode === "egreso" ? "default" : "pointer", fontFamily: C.sans }}>Egreso</button>
+      <div className="ui-seg" role="group" aria-label="Tipo de movimiento">
+        <button type="button" aria-pressed={action === "egresar"} onClick={() => setAction("egresar")} disabled={mode === "egreso"}>Egreso</button>
         {mode !== "egreso" && !isCatalogOnly && (
-          <button type="button" onClick={() => setAction("asignar")} style={{ border: `1px solid ${action === "asignar" ? C.blueB : C.border}`, background: action === "asignar" ? C.blueL : C.panel, color: action === "asignar" ? C.blue : C.text, borderRadius: 9, padding: "7px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: C.sans }}>{asignarLabel}</button>
+          <button type="button" aria-pressed={action === "asignar"} onClick={() => setAction("asignar")}>{asignarLabel}</button>
         )}
         {mode !== "egreso" && !isCatalogOnly && (
-          <button type="button" onClick={() => setAction("trasladar")} style={{ border: `1px solid ${action === "trasladar" ? C.blueB : C.border}`, background: action === "trasladar" ? C.blueL : C.panel, color: action === "trasladar" ? C.blue : C.text, borderRadius: 9, padding: "7px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: C.sans }}>Trasladar sede</button>
+          <button type="button" aria-pressed={action === "trasladar"} onClick={() => setAction("trasladar")}>Trasladar sede</button>
         )}
         {mode !== "egreso" && (
-          <button type="button" onClick={() => setAction("ingresar")} style={{ border: `1px solid ${action === "ingresar" ? C.blueB : C.border}`, background: action === "ingresar" ? C.blueL : C.panel, color: action === "ingresar" ? C.blue : C.text, borderRadius: 9, padding: "7px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: C.sans }}>Ingreso</button>
+          <button type="button" aria-pressed={action === "ingresar"} onClick={() => setAction("ingresar")}>Ingreso</button>
         )}
       </div>
 
       {(action === "egresar" || action === "asignar" || action === "trasladar") && !isCatalogOnly && (
-        <label style={{ display: "grid", gap: 5 }}>
-          <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{action === "asignar" ? "Depósito / stock a asignar" : "Depósito / obra origen"}</span>
-          <select value={selectedLocation?.key || ""} onChange={(event) => setSelectedLocationKey(event.target.value)} style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }}>
+        <label className="stk-campo">
+          <span>{action === "asignar" ? "Depósito / stock a asignar" : "Depósito / obra origen"}</span>
+          <select value={selectedLocation?.key || ""} onChange={(event) => setSelectedLocationKey(event.target.value)} className="ui-input">
             {group.locations.map((loc) => <option key={loc.key} value={loc.key}>{loc.label} · {fmtQty(loc.available)}</option>)}
           </select>
         </label>
@@ -2194,9 +1926,9 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
 
       {/* Selector de variante al egresar/asignar cuando el producto tiene variantes */}
       {(action === "egresar" || action === "asignar" || action === "trasladar") && group.variantes?.length > 0 && (
-        <label style={{ display: "grid", gap: 5 }}>
-          <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Variante {action === "egresar" ? "a egresar" : "a asignar"}</span>
-          <select value={varianteEgreso} onChange={(event) => setVarianteEgreso(event.target.value)} style={{ background: C.bg, border: `1px solid ${varianteEgreso ? C.violet : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }}>
+        <label className="stk-campo">
+          <span>Variante {action === "egresar" ? "a egresar" : "a asignar"}</span>
+          <select value={varianteEgreso} onChange={(event) => setVarianteEgreso(event.target.value)} className="ui-input" style={{ borderColor: varianteEgreso ? C.violet : C.border }}>
             <option value="">— Sin especificar —</option>
             {group.variantes.map((v) => <option key={v} value={v}>{v}</option>)}
           </select>
@@ -2204,9 +1936,9 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
       )}
 
       {action === "asignar" && (
-        <label style={{ display: "grid", gap: 5 }}>
-          <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>{originIsObra ? "Mover a" : "Asignar a la obra"}</span>
-          <select value={destinoObraId} onChange={(event) => setDestinoObraId(event.target.value)} style={{ background: C.bg, border: `1px solid ${destinoObraId ? C.blueB : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }}>
+        <label className="stk-campo">
+          <span>{originIsObra ? "Mover a" : "Asignar a la obra"}</span>
+          <select value={destinoObraId} onChange={(event) => setDestinoObraId(event.target.value)} className="ui-input" style={{ borderColor: destinoObraId ? C.blueB : C.border }}>
             <option value="">Elegir destino</option>
             {originIsObra && <option value="__stock__">Pasar a stock (liberar)</option>}
             {obrasActivas.filter((obra) => obra.id !== selectedLocation?.obraId).map((obra) => <option key={obra.id} value={obra.id}>{obra.codigo}</option>)}
@@ -2215,7 +1947,7 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
       )}
 
       {action === "trasladar" && selectedLocation?.sede && (
-        <div style={{ border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "10px 11px", fontSize: 12, lineHeight: 1.45 }}>
+        <div className="stk-nota-cian" style={{ borderColor: "var(--blue-border)", background: "var(--blue-soft)", color: "var(--text)" }}>
           <strong>{selectedLocation.sede} → {OTRA_SEDE_PANOL[selectedLocation.sede]}</strong>
           {selectedLocation.obraId && <span> · La obra no cambia.</span>}
           <div>Al despachar, sale de {selectedLocation.sede} y queda en tránsito. Sólo entra en {OTRA_SEDE_PANOL[selectedLocation.sede]} cuando allí confirmen la llegada.</div>
@@ -2228,8 +1960,8 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
 
       {action === "egresar" && isCatalogOnly && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 120px", gap: 8 }}>
-          <input value={codigoLibre} onChange={(event) => setCodigoLibre(event.target.value)} placeholder="Codigo / barra" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", minWidth: 0 }} />
-          <input value={unidadLibre} onChange={(event) => setUnidadLibre(event.target.value)} placeholder="Unidad" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", minWidth: 0 }} />
+          <input value={codigoLibre} onChange={(event) => setCodigoLibre(event.target.value)} placeholder="Codigo / barra" className="ui-input" />
+          <input value={unidadLibre} onChange={(event) => setUnidadLibre(event.target.value)} placeholder="Unidad" className="ui-input" />
         </div>
       )}
 
@@ -2239,26 +1971,26 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
 
       {action === "ingresar" && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-          <input value={proveedor} onChange={(event) => setProveedor(event.target.value)} placeholder="Proveedor" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", minWidth: 0 }} />
-          <input value={remito} onChange={(event) => setRemito(event.target.value)} placeholder="Nro. remito" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", minWidth: 0 }} />
-          <input value={factura} onChange={(event) => setFactura(event.target.value)} placeholder="Factura" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", minWidth: 0 }} />
-          <input value={sectorDestino} onChange={(event) => setSectorDestino(event.target.value)} placeholder="Posicion / ubicacion" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", minWidth: 0 }} />
+          <input value={proveedor} onChange={(event) => setProveedor(event.target.value)} placeholder="Proveedor" className="ui-input" />
+          <input value={remito} onChange={(event) => setRemito(event.target.value)} placeholder="Nro. remito" className="ui-input" />
+          <input value={factura} onChange={(event) => setFactura(event.target.value)} placeholder="Factura" className="ui-input" />
+          <input value={sectorDestino} onChange={(event) => setSectorDestino(event.target.value)} placeholder="Posicion / ubicacion" className="ui-input" />
         </div>
       )}
 
-      <label style={{ display: "grid", gap: 5 }}>
-        <span style={{ color: C.text, fontSize: 10.5, fontWeight: 750, textTransform: "uppercase", letterSpacing: 0.9 }}>Cantidad</span>
-        <input type="number" min="0.01" step="any" placeholder="Cantidad" value={cantidad} onChange={(event) => setCantidad(event.target.value)} style={{ background: C.bg, border: `1px solid ${willGoNegative ? C.redB : C.border}`, color: C.text, borderRadius: 9, padding: "10px 11px", fontSize: 16, fontWeight: 700, fontFamily: C.mono, outline: "none" }} />
+      <label className="stk-campo">
+        <span>Cantidad</span>
+        <input type="number" min="0.01" step="any" placeholder="Cantidad" value={cantidad} onChange={(event) => setCantidad(event.target.value)} className="ui-input" style={{ borderColor: willGoNegative ? C.redB : C.border, fontVariantNumeric: "tabular-nums", fontSize: 17 }} />
       </label>
 
       {transitOnly && (
-        <div style={{ border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 10, padding: "9px 10px", fontSize: 12, lineHeight: 1.35 }}>
+        <div className="stk-nota-violeta">
           Esta linea esta en transito y todavia no fue recibida por pañol. No cuenta como stock cargado.
         </div>
       )}
 
       {!transitOnly && willGoNegative && (
-        <div style={{ display: "flex", gap: 8, alignItems: "flex-start", border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 10, padding: "9px 10px", fontSize: 12, lineHeight: 1.35 }}>
+        <div className="stk-aviso" style={{ display: "flex", gap: 8, alignItems: "flex-start", color: "var(--red)" }}>
           <AlertTriangle size={15} style={{ marginTop: 1, flexShrink: 0 }} />
           <span>Stock insuficiente: disponible {fmtQty(selectedLocation?.available || 0)}. Corregí la cantidad o registrá el ingreso primero.</span>
         </div>
@@ -2266,34 +1998,34 @@ function ProductActionPanel({ group, selectedLocation, setSelectedLocationKey, o
 
       {action === "egresar" && (
         <>
-          <label style={{ display: "grid", gap: 5 }}>
-            <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Obra a la que va</span>
-            <select value={destinoObraId} onChange={(event) => setDestinoObraId(event.target.value)} style={{ background: C.bg, border: `1px solid ${!destinoObraId && !selectedLocation?.obraId ? C.violetB : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }}>
+          <label className="stk-campo">
+            <span>Obra a la que va</span>
+            <select value={destinoObraId} onChange={(event) => setDestinoObraId(event.target.value)} className="ui-input" style={{ borderColor: !destinoObraId && !selectedLocation?.obraId ? C.violetB : C.border }}>
               <option value="">Sin obra (mantenimiento, río, etc.)</option>
               {obrasActivas.map((obra) => <option key={obra.id} value={obra.id}>{obra.codigo}</option>)}
             </select>
             {!destinoObraId && !selectedLocation?.obraId && (
-              <span style={{ color: C.violet, fontSize: 10.5 }}>Sin obra: es obligatorio detallar abajo a dónde va.</span>
+              <span className="stk-faltan is-violeta" style={{ paddingLeft: 0, whiteSpace: "normal" }}>Sin obra: es obligatorio detallar abajo a dónde va.</span>
             )}
           </label>
           <RetiroNfcBox nfc={retiroNfc} onClear={() => { retiroNfc.clear(); setRetiradoPor(""); }} compact materialIds={group?.material?.id ? [group.material.id] : []} />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <label style={{ display: "grid", gap: 4, minWidth: 0 }}>
-              <input value={retiradoPor} onChange={(event) => setRetiradoPor(event.target.value)} placeholder="Nombre y apellido de quien retira" style={{ background: C.bg, border: `1px solid ${retiradoError && retiradoPor.trim() ? C.redB : C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", minWidth: 0 }} />
-              {retiradoError && <span style={{ color: C.violet, fontSize: 10.5, lineHeight: 1.3 }}>Obligatorio: nombre y apellido.</span>}
-              {!retiradoError && !retiroNfc.empleado && <span style={{ color: C.dim, fontSize: 10.5, lineHeight: 1.3 }}>La tarjeta es opcional por ahora: con nombre y apellido alcanza.</span>}
+            <label className="stk-campo" style={{ gap: 4 }}>
+              <input value={retiradoPor} onChange={(event) => setRetiradoPor(event.target.value)} placeholder="Nombre y apellido de quien retira" className="ui-input" style={{ borderColor: retiradoError && retiradoPor.trim() ? C.redB : C.border }} />
+              {retiradoError && <span className="stk-faltan is-violeta" style={{ paddingLeft: 0, whiteSpace: "normal" }}>Obligatorio: nombre y apellido.</span>}
+              {!retiradoError && !retiroNfc.empleado && <span className="stk-faltan" style={{ paddingLeft: 0, whiteSpace: "normal", textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>La tarjeta es opcional por ahora: con nombre y apellido alcanza.</span>}
             </label>
-            <input value={sectorDestino} onChange={(event) => setSectorDestino(event.target.value)} placeholder="Sector / uso" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none", minWidth: 0 }} />
+            <input value={sectorDestino} onChange={(event) => setSectorDestino(event.target.value)} placeholder="Sector / uso" className="ui-input" />
           </div>
         </>
       )}
 
-      <input value={nota} onChange={(event) => setNota(event.target.value)} placeholder="Observación (opcional)" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 12, fontFamily: C.sans, outline: "none" }} />
+      <input value={nota} onChange={(event) => setNota(event.target.value)} placeholder="Observación (opcional)" className="ui-input" />
 
       {(() => {
         const disabled = saving || !canReceive || transitOnly || insufficientStock || (action === "asignar" && !destinoObraId);
         return (
-          <button type="button" onClick={submit} disabled={disabled} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, border: `1px solid ${action === "egresar" ? C.greenB : C.blueB}`, background: action === "egresar" ? C.greenL : C.blueL, color: action === "egresar" ? C.green : C.blue, borderRadius: 10, padding: "12px 13px", fontSize: 14, fontWeight: 750, cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.6 : 1, fontFamily: C.sans }}>
+          <button type="button" className={`ui-btn ${action === "egresar" ? "stk-carrito" : "ui-btn-primario"}`} onClick={submit} disabled={disabled} style={{ minHeight: 44 }}>
             {action === "egresar" ? <ArrowUpRight size={15} /> : action === "trasladar" ? <Truck size={15} /> : <PackagePlus size={15} />}
             {saving ? "Registrando..." : action === "egresar" ? "Confirmar egreso" : action === "trasladar" ? "Despachar a la otra sede" : action === "ingresar" ? "Confirmar ingreso" : destinoObraId === "__stock__" ? "Pasar a stock" : originIsObra ? "Confirmar reasignación" : "Confirmar asignación"}
           </button>
@@ -2845,24 +2577,19 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, canCrea
       onSaved={handleLocationSaved}
     />
   ) : (
-    <div style={{ display: "grid", gap: 8 }}>
-      <div>
-        <div style={{ color: C.text, fontSize: 13, fontWeight: 750 }}>Ubicacion fisica del producto</div>
-        <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.4, marginTop: 3 }}>
-          {canCreateCatalog
-            ? "Este producto todavia no esta vinculado al catalogo. Crea la ficha para poder asignarle estanteria, verlo en el mapa y dejar futuros cambios en el kardex."
-            : "Este producto todavía no tiene ficha en el catálogo. Técnica la crea o lo vincula desde Stock → Movimientos → Productos a crear; después se le asigna la estantería."}
-        </div>
+    <div className="stk-bloque">
+      <div className="stk-rotulo">Ubicación física del producto</div>
+      <div className="stk-texto">
+        {canCreateCatalog
+          ? "Este producto todavía no está vinculado al catálogo. Creá la ficha para poder asignarle estantería, verlo en el mapa y dejar los cambios en el kardex."
+          : "Este producto todavía no tiene ficha en el catálogo. Técnica la crea o lo vincula desde Stock → Movimientos → Productos a crear; después se le asigna la estantería."}
       </div>
-      {canCreateCatalog && <button
-        type="button"
-        onClick={crearFichaParaUbicacion}
-        disabled={creatingLocationMaterial}
-        style={{ justifySelf: "start", display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 9, padding: "8px 11px", cursor: creatingLocationMaterial ? "default" : "pointer", opacity: creatingLocationMaterial ? 0.65 : 1, fontSize: 12, fontWeight: 750, fontFamily: C.sans }}
-      >
-        <PackagePlus size={14} />
-        {creatingLocationMaterial ? "Creando..." : "Crear ficha y ubicar"}
-      </button>}
+      {canCreateCatalog && (
+        <button type="button" className="ui-btn ui-btn-suave" style={{ justifySelf: "start" }} onClick={crearFichaParaUbicacion} disabled={creatingLocationMaterial}>
+          <PackagePlus size={15} aria-hidden="true" />
+          {creatingLocationMaterial ? "Creando…" : "Crear ficha y ubicar"}
+        </button>
+      )}
     </div>
   );
 
@@ -2870,17 +2597,17 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, canCrea
     if (!canReceive) return null;
     if (collapsible) {
       return (
-        <details style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 11, overflow: "hidden" }}>
-          <summary style={{ listStyle: "none", padding: "9px 11px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", color: C.text, fontSize: 12, fontWeight: 700 }}>
-            <MapPin size={14} color={C.blue} />
-            <span style={{ flex: 1 }}>Ubicacion y estanteria</span>
-            {group.ubicacion ? <UbicacionChip ubicacion={group.ubicacion} obs={group.ubicacion_obs} /> : <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 600 }}>Sin ubicar</span>}
+        <details className="stk-bloque" style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
+          <summary style={{ listStyle: "none", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13.5, fontWeight: 500 }}>
+            <MapPin size={14} color={C.blue} aria-hidden="true" />
+            <span style={{ flex: 1 }}>Ubicación y estantería</span>
+            {group.ubicacion ? <UbicacionChip ubicacion={group.ubicacion} obs={group.ubicacion_obs} /> : <span className="stk-faltan">Sin ubicar</span>}
           </summary>
-          <div style={{ borderTop: `1px solid ${C.border}`, padding: "10px 12px" }}>{locationEditor}</div>
+          <div style={{ paddingTop: 10 }}>{locationEditor}</div>
         </details>
       );
     }
-    return <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: "10px 12px" }}>{locationEditor}</div>;
+    return <div className="stk-bloque" style={{ borderTop: "1px solid var(--border)", paddingTop: 14 }}>{locationEditor}</div>;
   }
 
   function addSelectedToCart() {
@@ -2912,71 +2639,117 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, canCrea
     toast?.success?.(`+1 ${group.label} al carrito`);
   }
 
+  const categoriaDet = [...(group.categorias || [])].filter(Boolean)[0] || "";
+  const libreDet = qty(group.stockLibre ?? group.total, 0);
+  const reservadoDet = qty(group.stockReservado, 0);
+  const nivelDet = stockLevel(group);
+  const tonoMinimo = nivelDet.key === "critico" ? "rojo" : nivelDet.key === "alerta" ? "violeta" : "";
+  // Cada número una sola vez: si hay algo reservado, "en pañol" es libre + reservado.
+  const cifras = [
+    ...(reservadoDet > 0.0001
+      ? [["Libre", libreDet, libreDet < -0.0001 ? "rojo" : ""], ["Reservado", reservadoDet, "azul"]]
+      : [["En pañol", group.total, group.negativo ? "rojo" : ""]]),
+    ...(nivelDet.configured ? [["Mínimo", nivelDet.minimum, tonoMinimo]] : []),
+    ...(qty(group.transitQty, 0) > 0.0001 ? [["En camino", group.transitQty, "azul"]] : []),
+  ];
+  const hayParaAgregar = group.locations.some((item) => item.available > 0);
+  const verResumen = mode === "egreso" || (!actionOpen && detailTab === "resumen");
+
   return (
-    <section style={{ minHeight: 0, minWidth: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-      <div style={{ padding: "13px 14px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start" }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <div style={{ color: C.text, fontSize: 17, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{group.label}</div>
+    <section className="stk-ficha" aria-label={`Ficha de ${group.label}`}>
+      <div className="stk-ficha-cab">
+        <div className="stk-ficha-fila">
+          <MaterialThumb material={{ imagen_url: group.imagenUrl, descripcion: group.label }} size={52} />
+          <div style={{ minWidth: 0 }}>
+            <h2 className="stk-ficha-titulo">{group.label}</h2>
+            <div className="stk-ficha-meta">
+              <span className="stk-codigo">{detCode}</span>
+              {group.proveedor && <span>{group.proveedor}</span>}
+              {categoriaDet && <span>{categoriaDet}</span>}
+            </div>
+          </div>
+          <div className="stk-ficha-botones">
+            {group.material?.id && onOpenCatalog && !isMobile && (
+              <button type="button" className="ui-btn ui-btn-fantasma" onClick={() => onOpenCatalog(group.material.id)} title="Abrir la ficha en el catálogo">
+                <ArrowUpRight size={14} aria-hidden="true" /> Ficha
+              </button>
+            )}
+            {isMobile ? (
+              <button type="button" className="ui-btn ui-btn-fantasma" onClick={() => setSelectedKey(null)}>
+                <ArrowLeft size={15} aria-hidden="true" /> Lista
+              </button>
+            ) : (
+              <button type="button" className="stk-cerrar" onClick={() => setSelectedKey(null)} title="Cerrar" aria-label="Cerrar la ficha">
+                <X size={16} aria-hidden="true" />
+              </button>
+            )}
+          </div>
+        </div>
+        {(group.tipoPedido === "adicional" || groupAsignaciones(group).length > 0 || group.ubicacion || group.egresado || group.inTransit || group.negativo || group.locationImbalance || group.catalogOnly || (group.opciones || []).length > 0) && (
+          <div className="stk-ficha-etiquetas">
             <KindChip tipo={group.tipoPedido} />
             <AsignadoChip asignaciones={groupAsignaciones(group)} />
-            <StateChip egresado={group.egresado} transit={group.inTransit} negative={group.negativo} imbalance={group.locationImbalance} catalogOnly={group.catalogOnly} />
+            <StateChip egresado={group.egresado} transit={group.inTransit} negative={group.negativo} imbalance={group.locationImbalance} catalogOnly={group.catalogOnly} compact />
             <UbicacionChip ubicacion={group.ubicacion} obs={group.ubicacion_obs} size="md" />
+            <OptionStockSummary group={group} max={6} />
           </div>
-          <div style={{ color: C.dim, fontSize: 11, marginTop: 3 }}>{detCode} · disponible {fmtQty(group.total)} {group.unidad}</div>
-          <div style={{ marginTop: 6 }}><OptionStockSummary group={group} max={6} /></div>
+        )}
+        <div className="stk-cifras">
+          {cifras.map(([rotulo, valor, tono]) => (
+            <div key={rotulo} className={`stk-cifra${tono ? ` is-${tono}` : ""}`}>
+              <span>{rotulo}</span>
+              <strong>{fmtQty(valor)}<small>{group.unidad || "u"}</small></strong>
+            </div>
+          ))}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
-          {group.material?.id && onOpenCatalog && (
-            <button type="button" onClick={() => onOpenCatalog(group.material.id)} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 8, padding: "7px 9px", fontSize: 11.5, fontWeight: 700, cursor: "pointer", fontFamily: C.sans }}>
-              <ArrowUpRight size={13} />{!isMobile && "Ver ficha del producto"}
-            </button>
-          )}
-          <button type="button" onClick={() => setSelectedKey(null)} style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.text, borderRadius: 8, padding: "7px 9px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{isMobile ? "Lista" : "Cerrar"}</button>
-        </div>
+        {group.material?.id && onOpenCatalog && isMobile && (
+          <button type="button" className="ui-btn ui-btn-fantasma" style={{ justifySelf: "start", paddingLeft: 0 }} onClick={() => onOpenCatalog(group.material.id)}>
+            <ArrowUpRight size={14} aria-hidden="true" /> Ver ficha del producto
+          </button>
+        )}
       </div>
 
       {mode !== "egreso" && (
-        <div role="tablist" aria-label="Detalle del producto" style={{ minHeight: 39, padding: "0 12px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", alignItems: "stretch", gap: 2, overflowX: "auto", flexShrink: 0 }}>
+        <div className="stk-ficha-tabs" role="tablist" aria-label="Detalle del producto">
           {[
             ["resumen", "Resumen"],
-            ["movimientos", "Movimientos"],
+            ["movimientos", "Movimientos", sortedRows.length],
             ["control", "Control"],
-          ].map(([key, label]) => {
+          ].map(([key, label, cuenta]) => {
             const active = !actionOpen && detailTab === key;
             return (
               <button
                 key={key}
                 type="button"
-                className="stock-wms-control"
+                className={`stk-filtro${active ? " is-activo" : ""}`}
                 role="tab"
                 aria-selected={active}
                 onClick={() => { setActionOpen(false); setDetailTab(key); }}
-                style={{ minHeight: isMobile ? 44 : 38, padding: "7px 10px", border: "none", borderBottom: `2px solid ${active ? C.blue : "transparent"}`, background: "transparent", color: active ? C.blue : C.dim, cursor: "pointer", fontSize: 11.5, fontWeight: active ? 750 : 650, fontFamily: C.sans, whiteSpace: "nowrap" }}
               >
-                {label}
+                {label}{cuenta ? <small>{fmtQty(cuenta)}</small> : null}
               </button>
             );
           })}
         </div>
       )}
 
-      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 12, display: "grid", gap: 12, alignContent: "start" }}>
-        {(mode === "egreso" || (!actionOpen && detailTab === "resumen")) && <div>
-          <div style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 7 }}>Saldos por deposito / obra</div>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fit, minmax(180px, 1fr))", gap: 7 }}>
-            {group.locations.map((loc) => (
-              <LocationButton
-                key={loc.key}
-                location={loc}
-                active={selectedLocation?.key === loc.key}
-                onClick={() => setSelectedLocationKey(loc.key)}
-                cierre={cierresByObra?.get?.(loc.obraId) || null}
-              />
-            ))}
+      <div className="stk-ficha-cuerpo">
+        {verResumen && (
+          <div className="stk-bloque">
+            <div className="stk-rotulo">Saldos por depósito u obra</div>
+            <div className="stk-saldos">
+              {group.locations.map((loc) => (
+                <LocationButton
+                  key={loc.key}
+                  location={loc}
+                  active={selectedLocation?.key === loc.key}
+                  onClick={() => setSelectedLocationKey(loc.key)}
+                  cierre={cierresByObra?.get?.(loc.obraId) || null}
+                />
+              ))}
+            </div>
           </div>
-        </div>}
-
+        )}
 
         {/* Sin la guarda de catalogOnly: escondía el panel en casos que no
             valía la pena adivinar, y desaparecer sin decir nada es peor que
@@ -2988,28 +2761,30 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, canCrea
 
         {mode !== "egreso" && !actionOpen && detailTab === "control" && renderLocationSection()}
 
-        {(mode === "egreso" || (!actionOpen && detailTab === "resumen")) && group.esAdicional && detalleAdicional.length > 0 && (
-          <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: "10px 12px", display: "grid", gap: 6 }}>
-            <div style={{ color: C.violet, fontSize: 10, fontWeight: 750, textTransform: "uppercase", letterSpacing: 1 }}>Detalle del adicional</div>
+        {verResumen && group.esAdicional && detalleAdicional.length > 0 && (
+          <div className="stk-bloque">
+            <div className="stk-rotulo" style={{ color: "var(--violet)" }}>Detalle del adicional</div>
             {detalleAdicional.map((detalle) => (
-              <div key={detalle} style={{ color: C.text, fontSize: 12.5, lineHeight: 1.45 }}>{detalle}</div>
+              <div key={detalle} className="stk-texto" style={{ color: "var(--text)" }}>{detalle}</div>
             ))}
           </div>
         )}
 
-        {(mode === "egreso" || (!actionOpen && detailTab === "resumen")) && negativeLocations.length > 0 && (
-          <div style={{ border: `1px solid ${group.negativo ? C.redB : C.violetB}`, background: group.negativo ? C.redL : C.violetL, borderRadius: 12, padding: 10, display: "grid", gap: 8 }}>
-            <div style={{ color: group.negativo ? C.red : C.violet, fontSize: 12.5, fontWeight: 750 }}>{group.negativo ? "Pendiente de reconciliar" : "Distribución por obra a revisar"}</div>
-            {!group.negativo && <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.4 }}>El stock total alcanza, pero parte quedó registrada en otra obra o ubicación. Reasignalo desde una ubicación con saldo; no cargues un ingreso nuevo.</div>}
+        {verResumen && negativeLocations.length > 0 && (
+          <div className={`stk-aviso${group.negativo ? "" : " is-violeta"}`}>
+            <div className="stk-aviso-titulo">{group.negativo ? "Pendiente de reconciliar" : "Distribución por obra a revisar"}</div>
+            {!group.negativo && <div className="stk-texto">El stock total alcanza, pero parte quedó registrada en otra obra o ubicación. Reasignalo desde una ubicación con saldo; no cargues un ingreso nuevo.</div>}
             {negativeLocations.map((loc) => (
-              <div key={loc.key} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 8, alignItems: "center" }}>
+              <div key={loc.key} className="stk-aviso-fila">
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ color: C.text, fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{loc.label}</div>
-                  <div style={{ color: group.negativo ? C.red : C.violet, fontFamily: C.mono, fontSize: 11, fontWeight: 700 }}>{group.negativo ? "faltan" : "desbalance"} {fmtQty(Math.abs(loc.available))} {group.unidad}</div>
+                  <div className="stk-saldo-nombre">{loc.label}</div>
+                  <div className={`stk-faltan ${group.negativo ? "is-rojo" : "is-violeta"}`} style={{ paddingLeft: 0 }}>{group.negativo ? "faltan" : "desbalance"} {fmtQty(Math.abs(loc.available))} {group.unidad}</div>
                 </div>
-                {group.negativo && <button type="button" onClick={() => ingresarFaltante(loc)} disabled={reconcilingKey === loc.key} style={{ border: `1px solid ${C.redB}`, background: C.panelSolid, color: C.red, borderRadius: 9, padding: "8px 10px", cursor: reconcilingKey === loc.key ? "default" : "pointer", fontSize: 12, fontWeight: 750, fontFamily: C.sans, opacity: reconcilingKey === loc.key ? 0.65 : 1 }}>
-                  {reconcilingKey === loc.key ? "Cargando…" : "Cargar ingreso faltante"}
-                </button>}
+                {group.negativo && (
+                  <button type="button" className="ui-btn ui-btn-peligro" onClick={() => ingresarFaltante(loc)} disabled={reconcilingKey === loc.key}>
+                    {reconcilingKey === loc.key ? "Cargando…" : "Cargar ingreso faltante"}
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -3043,159 +2818,142 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, canCrea
 
         {mode === "egreso" && renderLocationSection(true)}
 
-        {(mode === "egreso" || (!actionOpen && detailTab === "movimientos")) && <div style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 12, padding: "10px 12px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-            <div style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Kardex</div>
-            <button
-              type="button"
-              onClick={() => setOcultarAnulados((v) => !v)}
-              style={{ border: `1px solid ${C.border}`, background: ocultarAnulados ? C.blueL : C.panelSolid, color: ocultarAnulados ? C.blue : C.dim, borderRadius: 7, padding: "3px 8px", cursor: "pointer", fontSize: 10, fontWeight: 700, fontFamily: C.sans }}
-            >
-              {ocultarAnulados ? "Mostrar anulados" : "Ocultar anulados"}
-            </button>
-          </div>
-          {visibleKardexRows.length ? visibleKardexRows.map((row) => (
-            <KardexRow
-              key={row.id}
-              row={row}
-              onRevert={(movimiento) => { setReversalTarget(movimiento); setReversalReason(""); }}
-              busy={revertingId === row.id}
-              obraById={obraById}
-              onDevolucion={(movimiento) => setDevolucionTarget({ row: movimiento, cantidad: String(Math.abs(rowDelta(movimiento)) || ""), motivo: "defectuoso", detalle: "", necesita: "esperando_reposicion", responsable: "sin_definir" })}
-            />
-          )) : (
-            <div style={{ color: C.dim, fontSize: 12, padding: "12px 0" }}>
-              {(ocultarAnulados && sortedRows.length) ? "Todos los movimientos están anulados. Desactivá el filtro para verlos." : "Producto sin movimientos todavía. Registrá un ingreso o una recepción antes de egresarlo."}
+        {(mode === "egreso" || (!actionOpen && detailTab === "movimientos")) && (
+          <div className="stk-bloque">
+            <div className="stk-bloque-cab">
+              <div className="stk-rotulo">Kardex</div>
+              <button type="button" className={`stk-pastilla${ocultarAnulados ? " is-activa" : ""}`} onClick={() => setOcultarAnulados((v) => !v)} aria-pressed={ocultarAnulados}>
+                {ocultarAnulados ? "Mostrar anulados" : "Ocultar anulados"}
+              </button>
             </div>
-          )}
-        </div>}
+            {visibleKardexRows.length ? (
+              <div className="stk-kardex">
+                {visibleKardexRows.map((row) => (
+                  <KardexRow
+                    key={row.id}
+                    row={row}
+                    onRevert={(movimiento) => { setReversalTarget(movimiento); setReversalReason(""); }}
+                    busy={revertingId === row.id}
+                    obraById={obraById}
+                    onDevolucion={(movimiento) => setDevolucionTarget({ row: movimiento, cantidad: String(Math.abs(rowDelta(movimiento)) || ""), motivo: "defectuoso", detalle: "", necesita: "esperando_reposicion", responsable: "sin_definir" })}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="stk-texto" style={{ padding: "8px 0" }}>
+                {(ocultarAnulados && sortedRows.length) ? "Todos los movimientos están anulados. Desactivá el filtro para verlos." : "Producto sin movimientos todavía. Registrá un ingreso o una recepción antes de egresarlo."}
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
       {mode !== "egreso" && canReceive && (
-        <div style={{ padding: "10px 12px", borderTop: `1px solid ${C.border}`, background: C.panelSolid, display: "grid", gridTemplateColumns: actionOpen ? "1fr" : "minmax(0,1fr) minmax(0,1fr)", gap: 8, flexShrink: 0 }}>
+        <div className="stk-ficha-pie">
           {actionOpen ? (
-            <button type="button" className="stock-wms-control" onClick={() => { setActionOpen(false); setDetailTab("resumen"); }} style={{ minHeight: isMobile ? 44 : 38, border: `1px solid ${C.border}`, background: C.panel, color: C.text, borderRadius: 9, padding: "8px 11px", cursor: "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}>
-              Volver al resumen
+            <button type="button" className="ui-btn" onClick={() => { setActionOpen(false); setDetailTab("resumen"); }}>
+              <ArrowLeft size={15} aria-hidden="true" /> Volver al resumen
             </button>
           ) : (
             <>
-              <button type="button" className="stock-wms-control" onClick={() => setActionOpen(true)} style={{ minHeight: isMobile ? 44 : 40, border: `1px solid ${C.blueB}`, background: C.blue, color: "#fff", borderRadius: 9, padding: "8px 11px", cursor: "pointer", fontSize: 12, fontWeight: 750, fontFamily: C.sans }}>
+              <button type="button" className="ui-btn ui-btn-primario" onClick={() => setActionOpen(true)}>
                 Registrar movimiento
               </button>
-              <button type="button" className="stock-wms-control" onClick={addSelectedToCart} disabled={!group.locations.some((item) => item.available > 0)} style={{ minHeight: isMobile ? 44 : 40, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 9, padding: "8px 11px", cursor: group.locations.some((item) => item.available > 0) ? "pointer" : "default", opacity: group.locations.some((item) => item.available > 0) ? 1 : 0.5, fontSize: 12, fontWeight: 750, fontFamily: C.sans, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
-                <ShoppingCart size={14} aria-hidden="true" /> Agregar al carrito
+              <button type="button" className="ui-btn stk-carrito" onClick={addSelectedToCart} disabled={!hayParaAgregar}>
+                <ShoppingCart size={15} aria-hidden="true" /> Agregar al carrito
               </button>
             </>
           )}
         </div>
       )}
+
       {/* Devolución: el operario probó el material y volvió fallado. No vuelve a
           stock — queda apartado y Compras decide si se repara o se reclama. */}
       {devolucionTarget && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(15,23,42,0.38)", display: "grid", placeItems: "center", padding: 16 }}>
-          <div style={{ width: "min(500px, 100%)", border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 14, boxShadow: "0 24px 70px rgba(15,23,42,0.22)", overflow: "hidden" }}>
-            <div style={{ padding: "14px 16px", borderBottom: `1px solid ${C.border}` }}>
-              <div style={{ color: C.text, fontSize: 16, fontWeight: 750 }}>Generar devolución</div>
-              <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>
-                {devolucionTarget.row.descripcion || group.label}
-                {devolucionTarget.row.retirado_por ? ` · lo retiró ${devolucionTarget.row.retirado_por}` : ""}
+        <div className="stk-capa" role="dialog" aria-modal="true" aria-label="Generar devolución">
+          <div className="stk-dialogo" style={{ width: "min(500px, 100%)" }}>
+            <div className="stk-dialogo-cab">
+              <div>
+                <div className="stk-dialogo-titulo">Generar devolución</div>
+                <div className="stk-dialogo-sub">
+                  {devolucionTarget.row.descripcion || group.label}
+                  {devolucionTarget.row.retirado_por ? ` · lo retiró ${devolucionTarget.row.retirado_por}` : ""}
+                </div>
               </div>
+              <button type="button" className="stk-cerrar" onClick={() => setDevolucionTarget(null)} aria-label="Cerrar"><X size={16} aria-hidden="true" /></button>
             </div>
 
-            <div style={{ padding: 16, display: "grid", gap: 12 }}>
+            <div className="stk-dialogo-cuerpo">
               <div style={{ display: "grid", gridTemplateColumns: "120px minmax(0,1fr)", gap: 10 }}>
-                <label style={{ display: "grid", gap: 5, minWidth: 0 }}>
-                  <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Cantidad</span>
+                <label className="stk-campo">
+                  <span>Cantidad</span>
                   <input
+                    className="ui-input"
                     value={devolucionTarget.cantidad}
                     onChange={(e) => setDevolucionTarget((p) => ({ ...p, cantidad: e.target.value }))}
                     inputMode="decimal"
                     size={1}
-                    style={{ width: "100%", minWidth: 0, boxSizing: "border-box", background: C.panel, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 13, fontFamily: C.mono, outline: "none" }}
+                    style={{ fontVariantNumeric: "tabular-nums" }}
                   />
                 </label>
-                <label style={{ display: "grid", gap: 5, minWidth: 0 }}>
-                  <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Motivo</span>
+                <label className="stk-campo">
+                  <span>Motivo</span>
                   <select
+                    className="ui-input"
                     value={devolucionTarget.motivo}
                     onChange={(e) => setDevolucionTarget((p) => ({ ...p, motivo: e.target.value }))}
-                    style={{ width: "100%", minWidth: 0, boxSizing: "border-box", background: C.panel, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 13, fontFamily: C.sans, outline: "none" }}
                   >
                     {DEVOLUCION_MOTIVOS.map(([valor, label]) => <option key={valor} value={valor}>{label}</option>)}
                   </select>
                 </label>
               </div>
 
-              <label style={{ display: "grid", gap: 5, minWidth: 0 }}>
-                <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Qué le pasa</span>
+              <label className="stk-campo">
+                <span>Qué le pasa</span>
                 <input
+                  className="ui-input"
                   value={devolucionTarget.detalle}
                   onChange={(e) => setDevolucionTarget((p) => ({ ...p, detalle: e.target.value }))}
-                  placeholder="Ej: vino con la rosca pasada"
                   size={1}
-                  style={{ width: "100%", minWidth: 0, boxSizing: "border-box", background: C.panel, border: `1px solid ${C.border}`, color: C.text, borderRadius: 9, padding: "9px 10px", fontSize: 13, fontFamily: C.sans, outline: "none" }}
                 />
               </label>
 
-              <div style={{ display: "grid", gap: 6 }}>
-                <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>Qué necesita</span>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {DEVOLUCION_NECESITA.map(([valor, label]) => {
-                    const on = devolucionTarget.necesita === valor;
-                    return (
-                      <button key={valor} type="button"
-                        onClick={() => setDevolucionTarget((p) => ({ ...p, necesita: valor }))}
-                        style={{
-                          padding: "7px 12px", borderRadius: 9, cursor: "pointer",
-                          border: `1px solid ${on ? C.blueB : C.border}`,
-                          background: on ? C.blueL : C.panel,
-                          color: on ? C.blue : C.muted,
-                          fontSize: 12, fontWeight: on ? 700 : 650, fontFamily: C.sans,
-                        }}>
-                        {label}
-                      </button>
-                    );
-                  })}
+              <div className="stk-campo">
+                <span>Qué necesita</span>
+                <div className="stk-opciones-boton">
+                  {DEVOLUCION_NECESITA.map(([valor, label]) => (
+                    <button key={valor} type="button" className={`ui-btn${devolucionTarget.necesita === valor ? " is-activo" : ""}`} aria-pressed={devolucionTarget.necesita === valor} onClick={() => setDevolucionTarget((p) => ({ ...p, necesita: valor }))}>
+                      {label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
               {/* Una rotura nuestra también se registra: el material salió y no
                   vuelve al stock. Lo que cambia es que no se le puede reclamar
                   al proveedor, y de eso depende el total del reclamo. */}
-              <div style={{ display: "grid", gap: 6 }}>
-                <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.8 }}>De quién fue</span>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {DEVOLUCION_RESPONSABLE.map(([valor, label]) => {
-                    const on = devolucionTarget.responsable === valor;
-                    return (
-                      <button key={valor} type="button"
-                        onClick={() => setDevolucionTarget((p) => ({ ...p, responsable: valor }))}
-                        style={{
-                          padding: "7px 12px", borderRadius: 9, cursor: "pointer",
-                          border: `1px solid ${on ? C.blueB : C.border}`,
-                          background: on ? C.blueL : C.panel,
-                          color: on ? C.blue : C.muted,
-                          fontSize: 12, fontWeight: on ? 700 : 650, fontFamily: C.sans,
-                        }}>
-                        {label}
-                      </button>
-                    );
-                  })}
+              <div className="stk-campo">
+                <span>De quién fue</span>
+                <div className="stk-opciones-boton">
+                  {DEVOLUCION_RESPONSABLE.map(([valor, label]) => (
+                    <button key={valor} type="button" className={`ui-btn${devolucionTarget.responsable === valor ? " is-activo" : ""}`} aria-pressed={devolucionTarget.responsable === valor} onClick={() => setDevolucionTarget((p) => ({ ...p, responsable: valor }))}>
+                      {label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              <div style={{ border: `1px solid ${C.cyanB}`, background: C.cyanL, borderRadius: 10, padding: "9px 11px", color: C.muted, fontSize: 11.5, lineHeight: 1.45 }}>
+              <div className="stk-nota-cian">
                 Queda apartado, <b>no vuelve al stock</b>. Se avisa a Compras para que definan si
                 se manda a reparar o se reclama la reposición, y la obra queda con esa cantidad pendiente.
               </div>
             </div>
 
-            <div style={{ padding: "12px 16px", borderTop: `1px solid ${C.border}`, display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button type="button" onClick={() => setDevolucionTarget(null)}
-                style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.muted, borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontSize: 12, fontWeight: 650, fontFamily: C.sans }}>
-                Cancelar
-              </button>
+            <div className="stk-dialogo-pie">
+              <button type="button" className="ui-btn" onClick={() => setDevolucionTarget(null)}>Cancelar</button>
               <button
                 type="button"
+                className="ui-btn ui-btn-peligro"
                 disabled={devolucionBusy}
                 onClick={async () => {
                   setDevolucionBusy(true);
@@ -3218,7 +2976,6 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, canCrea
                     setDevolucionBusy(false);
                   }
                 }}
-                style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 9, padding: "8px 16px", cursor: devolucionBusy ? "default" : "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans, opacity: devolucionBusy ? 0.6 : 1 }}
               >
                 {devolucionBusy ? "Registrando…" : "Registrar devolución"}
               </button>
@@ -3228,56 +2985,56 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, canCrea
       )}
 
       {reversalTarget && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(15,23,42,0.38)", display: "grid", placeItems: "center", padding: 16 }}>
-          <div style={{ width: "min(520px, 100%)", border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 14, boxShadow: "0 24px 70px rgba(15,23,42,0.22)", overflow: "hidden" }}>
-            <div style={{ padding: "14px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+        <div className="stk-capa" role="dialog" aria-modal="true" aria-label="Revertir movimiento">
+          <div className="stk-dialogo">
+            <div className="stk-dialogo-cab">
               <div>
-                <div style={{ color: C.text, fontSize: 16, fontWeight: 750 }}>Revertir movimiento</div>
-                <div style={{ color: C.dim, fontSize: 12, marginTop: 3 }}>
+                <div className="stk-dialogo-titulo">Revertir movimiento</div>
+                <div className="stk-dialogo-sub">
                   {reversalTarget.descripcion || group.label} · {fmtQty(Math.abs(rowDelta(reversalTarget)))} {reversalTarget.unidad || group.unidad}
                 </div>
               </div>
               <button
                 type="button"
+                className="stk-cerrar"
                 onClick={() => { setReversalTarget(null); setReversalReason(""); }}
                 disabled={revertingId === reversalTarget.id}
-                style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.dim, borderRadius: 8, width: 30, height: 30, cursor: revertingId === reversalTarget.id ? "default" : "pointer", fontSize: 16, lineHeight: 1 }}
+                aria-label="Cerrar"
               >
-                ×
+                <X size={16} aria-hidden="true" />
               </button>
             </div>
-            <div style={{ padding: 16, display: "grid", gap: 10 }}>
-              <div style={{ border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, borderRadius: 10, padding: "9px 10px", fontSize: 12, lineHeight: 1.4 }}>
+            <div className="stk-dialogo-cuerpo">
+              <div className="stk-nota-violeta">
                 Esto crea el movimiento inverso y deja marcado el original como anulado. El motivo queda en el kardex.
               </div>
-              <label style={{ display: "grid", gap: 6 }}>
-                <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Motivo de reversión</span>
+              <label className="stk-campo">
+                <span>Motivo de reversión</span>
                 <textarea
+                  className="ui-input"
                   value={reversalReason}
                   onChange={(event) => setReversalReason(event.target.value)}
-                  placeholder="Ej: carga duplicada, el producto estaba roto, se reemplazó por un adicional, se asignó a otra obra..."
                   rows={4}
-                  style={{ resize: "vertical", minHeight: 92, background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 10, padding: "10px 11px", fontSize: 13, fontFamily: C.sans, outline: "none", lineHeight: 1.45 }}
                 />
               </label>
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
-                <button
-                  type="button"
-                  onClick={() => { setReversalTarget(null); setReversalReason(""); }}
-                  disabled={revertingId === reversalTarget.id}
-                  style={{ border: `1px solid ${C.border}`, background: C.panel, color: C.text, borderRadius: 10, padding: "9px 12px", cursor: revertingId === reversalTarget.id ? "default" : "pointer", fontSize: 12, fontWeight: 700, fontFamily: C.sans }}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => revertirMovimiento(reversalTarget, reversalReason)}
-                  disabled={revertingId === reversalTarget.id || !reversalReason.trim()}
-                  style={{ border: `1px solid ${C.redB}`, background: C.redL, color: C.red, borderRadius: 10, padding: "9px 12px", cursor: revertingId === reversalTarget.id || !reversalReason.trim() ? "default" : "pointer", opacity: revertingId === reversalTarget.id || !reversalReason.trim() ? 0.58 : 1, fontSize: 12, fontWeight: 750, fontFamily: C.sans }}
-                >
-                  {revertingId === reversalTarget.id ? "Revirtiendo..." : "Confirmar reversión"}
-                </button>
-              </div>
+            </div>
+            <div className="stk-dialogo-pie">
+              <button
+                type="button"
+                className="ui-btn"
+                onClick={() => { setReversalTarget(null); setReversalReason(""); }}
+                disabled={revertingId === reversalTarget.id}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="ui-btn ui-btn-peligro"
+                onClick={() => revertirMovimiento(reversalTarget, reversalReason)}
+                disabled={revertingId === reversalTarget.id || !reversalReason.trim()}
+              >
+                {revertingId === reversalTarget.id ? "Revirtiendo…" : "Confirmar reversión"}
+              </button>
             </div>
           </div>
         </div>
@@ -3743,7 +3500,7 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
   );
 }
 
-export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos", initialQuery = "", initialMaterialId = "", onOpenCatalog, onReceiveStock, onRegisterPendingProduct, onRequestReplenishment, onStockChange, stockMaster = false, tableWorkspace = false, showCatalogInventory = false, sharedRows = null, sharedObras = null, sharedTransitRows = null, sharedReplenishmentCatalog = null, sharedLoading = false, conteoHoy = null, onOpenConteo, faltaObras = null, onOpenFaltas, bandejasSlot = null }) {
+export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos", initialQuery = "", initialMaterialId = "", onOpenCatalog, onReceiveStock, onRegisterPendingProduct, onRequestReplenishment, onStockChange, stockMaster = false, tableWorkspace = false, showCatalogInventory = false, sharedRows = null, sharedObras = null, sharedTransitRows = null, sharedReplenishmentCatalog = null, sharedLoading = false }) {
   const searchInputRef = useRef(null);
   const productListRef = useRef(null);
   const loadMoreRef = useRef(null);
@@ -3891,6 +3648,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
         label: "Recibir",
         title: "Abrir los avisos pendientes de recepción",
         Icon: PackagePlus,
+        tono: "azul",
         color: C.blue,
         border: C.blueB,
         background: C.blueL,
@@ -3902,6 +3660,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
         label: "Pedir reposición",
         title: "Crear un pedido interno de reposición",
         Icon: ShoppingCart,
+        tono: "violeta",
         color: C.violet,
         border: C.violetB,
         background: C.violetL,
@@ -3916,6 +3675,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
         Icon: ShoppingCart,
         compact: true,
         badge: inCartQty > 0 ? fmtQty(inCartQty) : "",
+        tono: "verde",
         color: C.green,
         border: C.greenB,
         background: C.greenL,
@@ -3926,6 +3686,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       return {
         label: "Recibir",
         Icon: PackagePlus,
+        tono: "azul",
         color: C.blue,
         border: C.blueB,
         background: C.blueL,
@@ -3936,6 +3697,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       return {
         label: "Pedir reposición",
         Icon: ShoppingCart,
+        tono: "violeta",
         color: C.violet,
         border: C.violetB,
         background: C.violetL,
@@ -4382,7 +4144,10 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
 
   const kpis = useMemo(() => {
     if (stockMaster) {
-      const count = (bucket) => productGroupsBase.filter((group) => group.buckets?.has(bucket)).length;
+      // Las bandejas cuentan lo mismo que muestra la lista: sin los requisitos
+      // de matriz archivados (salvo que se pidan ver).
+      const visibles = verArchivados ? productGroupsBase : productGroupsBase.filter((group) => !esMatrizArchivada(group));
+      const count = (bucket) => visibles.filter((group) => group.buckets?.has(bucket)).length;
       return {
         productos: count("existencia"),
         unidades: fmtQty(productGroupsBase.reduce((sum, group) => sum + Math.max(0, group.total || 0), 0)),
@@ -4412,7 +4177,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
       valorUsd: fmtQty(valorUsd),
       hoy: today,
     };
-  }, [fObra, productGroupsBase, rows, stockMaster]);
+  }, [fObra, productGroupsBase, rows, stockMaster, verArchivados]);
 
   async function createFromSearch() {
     const desc = q.trim();
@@ -4562,91 +4327,48 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     if (!sedeLocked) setFSede("todas");
   }
 
-  // Las bandejas van al costado del título cuando la pantalla deja el lugar
-  // (bandejasSlot); si no, quedan debajo del buscador.
-  const bandejas = stockMaster ? (
-    <div aria-label="Bandejas de trabajo" className={`stock-bandejas${bandejasSlot ? " is-compacta" : ""}`}>
-      {conteoHoy && (
-        <button type="button" className="stock-bandeja" onClick={onOpenConteo} title={!conteoHoy.armado ? "Conteo de hoy: sin armar" : conteoHoy.pendientes ? `Conteo de hoy: ${conteoHoy.pendientes} de ${conteoHoy.total} por contar` : "Conteo de hoy: terminado"}>
-          <span className="stock-bandeja-n" style={{ color: conteoHoy.pendientes ? C.blue : C.green }}>{conteoHoy.armado ? conteoHoy.pendientes : "—"}</span>
-          <span className="stock-bandeja-l">Conteo de hoy</span>
-          <span className="stock-bandeja-s">{!conteoHoy.armado ? "sin armar" : conteoHoy.pendientes ? `de ${conteoHoy.total} por contar` : "terminado"}</span>
-        </button>
-      )}
-      {faltaObras && (
-        <button type="button" className="stock-bandeja" onClick={onOpenFaltas} title={`Falta para obras: ${faltaObras.productos} productos no alcanzan para las obras de las próximas semanas${faltaObras.atrasados ? ` (${faltaObras.atrasados} ya se tendrían que haber pedido)` : ""}`}>
-          <span className="stock-bandeja-n" style={{ color: faltaObras.productos ? C.red : C.green }}>{fmtQty(faltaObras.productos)}</span>
-          <span className="stock-bandeja-l">Falta para obras</span>
-          <span className="stock-bandeja-s">{faltaObras.atrasados ? `${faltaObras.atrasados} atrasados` : "próximas semanas"}</span>
-        </button>
-      )}
-      {[
-        ["existencia", "Con stock", kpis.productos, "productos en pañol", C.green],
-        ["reponer", "Reponer", kpis.reponer || 0, "libre en su mínimo", C.red],
-        ["sin_ubicacion", "Sin ubicación", kpis.sinUbicacion, "para ubicar", C.cyan],
-        ["sobrante", "Sobrantes", kpis.sobrantes, "de obras terminadas", C.cyan],
-        ["reconciliar", "Diferencias", kpis.negativos, "a reconciliar", C.violet],
-        ["en_camino", "En camino", kpis.enCamino, "por recibir", C.blue],
-      ].map(([key, label, count, sub, color]) => {
-        const active = scope === key && verifScope === "todos";
-        return (
-          <button
-            key={key}
-            type="button"
-            className={`stock-bandeja${active ? " is-activa" : ""}`}
-            aria-pressed={active}
-            title={`${label}: ${fmtQty(count)} ${sub}`}
-            onClick={() => { setVerifScope("todos"); setScope(active ? "todos" : key); }}
-          >
-            <span className="stock-bandeja-n" style={{ color: count ? color : C.dim }}>{fmtQty(count)}</span>
-            <span className="stock-bandeja-l">{label}</span>
-            <span className="stock-bandeja-s">{sub}</span>
-          </button>
-        );
-      })}
-    </div>
-  ) : null;
+  // Las bandejas de trabajo son pestañas de texto con su cuenta, como en
+  // Pedidos y Remitos. Conteo de hoy y Falta para obras viven en sus pestañas
+  // de arriba (con la cuenta al lado), así cada número se muestra una vez.
+  const filtros = stockMaster ? [
+    ["existencia", "Con stock", kpis.productos, ""],
+    ["reponer", "Reponer", kpis.reponer || 0, "alerta"],
+    ["sin_ubicacion", "Sin ubicación", kpis.sinUbicacion, "cian"],
+    ["sobrante", "Sobrantes", kpis.sobrantes, "cian"],
+    ["reconciliar", "Diferencias", kpis.negativos, "aviso"],
+    ["en_camino", "En camino", kpis.enCamino, "azul"],
+    ["todos", "Todos", obraViewCounts.todos, ""],
+  ] : tableWorkspace ? [
+    ["con_saldo", "Con saldo", obraViewCounts.con_saldo, ""],
+    ["egresados", "Egresados", obraViewCounts.egresados, ""],
+    ...(obraViewCounts.negativos ? [["negativos", "A reconciliar", obraViewCounts.negativos, "alerta"]] : []),
+    ["todos", "Todos", obraViewCounts.todos, ""],
+  ] : showCatalogInventory ? [
+    ["todos", "Todos", productGroupsBase.length, ""],
+    ["critico", "Críticos", stockLevelCounts.critico, "alerta"],
+    ["alerta", "Bajos", stockLevelCounts.alerta, "aviso"],
+    ["ok", "Correctos", stockLevelCounts.ok, ""],
+    ["sin_minimo", "Sin mínimo", stockLevelCounts.sin_minimo, ""],
+  ] : null;
+
+  const vistaLista = stockManagement && stockView === "lista";
+  const columnas = tableWorkspace ? (compactStockTable ? OBRA_ROW_COMPACT_COLS : OBRA_ROW_COLS) : (compactStockTable ? STOCK_ROW_COMPACT_COLS : STOCK_ROW_COLS);
+  const anchoMinimo = tableWorkspace ? (compactStockTable ? OBRA_ROW_COMPACT_MIN : OBRA_ROW_MIN) : (compactStockTable ? STOCK_ROW_COMPACT_MIN : STOCK_ROW_MIN);
+  const unidadesEnCarrito = cart.reduce((sum, item) => sum + qty(item.cantidad, 0), 0);
+  const avanceRevision = verifCounts.todos ? {
+    ok: Math.round((verifCounts.ok / verifCounts.todos) * 100),
+    problema: Math.round((verifCounts.problema / verifCounts.todos) * 100),
+  } : { ok: 0, problema: 0 };
 
   return (
-    <>
-      <style>{`
-        .stock-wms-root .stock-wms-control:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
-        .stock-wms-root .stock-product-row:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
-        .stock-wms-root .stock-minimum-input:not(.is-active):hover:not(:disabled){border-color:var(--border)!important;background:var(--panel-solid)!important}
-        .stock-wms-chips { display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-width:0; }
-        .stock-bandejas { display:grid; grid-template-columns:repeat(auto-fit, minmax(112px, 1fr)); gap:6px; min-width:0; }
-        .stock-bandejas .stock-bandeja { display:grid; gap:0; justify-items:start; text-align:left; padding:6px 10px; border:1px solid var(--border); border-radius:10px; background:var(--panel-solid); color:var(--text); font-family:inherit; cursor:pointer; transition:border-color .12s, background .12s; min-width:0; min-height:0; }
-        .stock-bandejas .stock-bandeja:hover { border-color:var(--border-2); background:var(--panel); }
-        .stock-bandejas .stock-bandeja.is-activa { border-color:var(--blue-border); background:var(--blue-soft); box-shadow:inset 0 0 0 1px var(--blue-border); }
-        .stock-bandejas .stock-bandeja-n { font-family:"JetBrains Mono", monospace; font-variant-numeric:tabular-nums; font-size:16px; font-weight:600; line-height:1.2; }
-        .stock-bandejas .stock-bandeja-l { font-size:11.5px; font-weight:600; white-space:nowrap; }
-        .stock-bandejas .stock-bandeja-s { font-size:10.5px; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
-        .stock-bandejas.is-compacta { display:flex; flex-wrap:nowrap; gap:6px; justify-content:flex-end; }
-        .stock-bandejas.is-compacta .stock-bandeja { padding:5px 10px; min-width:84px; }
-        .stock-bandejas.is-compacta .stock-bandeja-n { font-size:15px; }
-        .stock-bandejas.is-compacta .stock-bandeja-s { display:none; }
-        @media (max-width: 899px) {
-          .stock-wms-chips {
-            flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
-            -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 10px, #000 calc(100% - 28px), transparent 100%);
-            mask-image: linear-gradient(90deg, transparent 0, #000 10px, #000 calc(100% - 28px), transparent 100%);
-          }
-          .stock-wms-chips::-webkit-scrollbar { display: none; }
-          .stock-wms-chips > * { flex-shrink: 0; }
-          .stock-bandejas { display:flex; overflow-x:auto; scrollbar-width:none; }
-          .stock-bandejas::-webkit-scrollbar { display:none; }
-          .stock-bandejas .stock-bandeja { flex:0 0 auto; min-width:92px; }
-          .stock-bandejas .stock-bandeja-s { display:none; }
-        }
-      `}</style>
-      {bandejas && bandejasSlot && createPortal(bandejas, bandejasSlot)}
-      <div className="stock-wms-root" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflow: "hidden" }}>
-      <div style={{ background: C.topbarSoft, borderBottom: `1px solid ${C.border}`, padding: isMobile ? "8px 12px" : "8px 18px", display: "grid", gap: 7, flexShrink: 0 }}>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <div style={{ position: "relative", flex: "1 1 320px", minWidth: isMobile ? "100%" : 320 }}>
-            <Search size={15} style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", color: C.dim }} />
+    <div className="stk-root">
+      <style href="klasea-panol-stock" precedence="default">{CSS_STOCK}</style>
+
+      <div className="stk-barra">
+        <div className="stk-barra-fila">
+          <label className="stk-buscar">
+            <Search size={16} aria-hidden="true" />
             <input
-              className="stock-wms-control"
               ref={searchInputRef}
               value={q}
               aria-label={stockMaster ? "Buscar producto, código o ubicación" : "Escanear o buscar producto"}
@@ -4657,421 +4379,291 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
                   applyScanCode(q);
                 }
               }}
-              placeholder={stockMaster ? "Buscar producto, código o ubicación…" : mode === "egreso" ? "Escanear o buscar código / producto…" : "Escanear o buscar código, producto, obra o proveedor…"}
+              placeholder={stockMaster ? "Buscar producto, código o ubicación" : mode === "egreso" ? "Escanear o buscar código o producto" : "Buscar código, producto, obra o proveedor"}
               title="Acepta lector USB/PC: escanea y confirma con Enter o Tab"
-              style={{ width: "100%", minHeight: isMobile ? 44 : 36, boxSizing: "border-box", background: C.panelSolid, border: `1px solid ${C.border}`, color: C.text, padding: "9px 34px", borderRadius: 10, fontSize: 13, fontFamily: C.sans, outline: "none" }}
             />
             {q && (
-              <button type="button" onClick={() => { setQ(""); setFocusedMaterialId(""); }} title="Limpiar" style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", border: "none", background: "transparent", color: C.dim, cursor: "pointer", display: "grid", placeItems: "center", padding: 4 }}>
-              <X size={14} />
+              <button type="button" onClick={() => { setQ(""); setFocusedMaterialId(""); }} title="Limpiar la búsqueda" aria-label="Limpiar la búsqueda">
+                <X size={15} />
               </button>
             )}
-          </div>
-          {streamlinedToolbar && (
-            <button
-              type="button"
-              className="stock-wms-control"
-              onClick={() => setFiltersOpen((value) => !value)}
-              aria-expanded={filtersOpen}
-              aria-controls="stock-advanced-filters"
-              style={{ minHeight: isMobile ? 44 : 36, border: `1px solid ${filtersOpen || advancedFilterCount ? C.blueB : C.border}`, background: filtersOpen || advancedFilterCount ? C.blueL : C.panelSolid, color: filtersOpen || advancedFilterCount ? C.blue : C.text, borderRadius: 9, padding: "7px 10px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap" }}
-            >
-              <SlidersHorizontal size={14} />
-              Filtros
-              {advancedFilterCount > 0 && <span style={{ minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999, display: "grid", placeItems: "center", background: C.blue, color: "#fff", fontFamily: C.mono, fontSize: 10, fontWeight: 750 }}>{advancedFilterCount}</span>}
-            </button>
-          )}
-          <button type="button" className="stock-wms-control" onClick={() => setScannerOpen(true)} title="Escanear con la cámara" style={{ minHeight: isMobile ? 44 : 36, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 10, padding: "9px 11px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 700, fontFamily: C.sans, flexShrink: 0 }}>
-            <ScanLine size={16} />{!isMobile && <span>Escanear</span>}
-          </button>
-          {canReceive && (cart.length > 0 || savedCarts.length > 0) && (
-            <button
-              type="button"
-              className="stock-wms-control"
-              onClick={() => setCartOpen((value) => !value)}
-              aria-expanded={cartOpen}
-              title={cart.length ? `${cart.length} productos · ${fmtQty(cart.reduce((sum, item) => sum + qty(item.cantidad, 0), 0))} unidades` : `${savedCarts.length} carritos guardados`}
-              style={{ minHeight: isMobile ? 44 : 36, border: `1px solid ${C.greenB}`, background: cartOpen ? C.green : C.greenL, color: cartOpen ? "#fff" : C.green, borderRadius: 10, padding: "7px 10px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 700, fontFamily: C.sans, flexShrink: 0 }}
-            >
-              {cart.length ? <ShoppingCart size={15} aria-hidden="true" /> : <Save size={15} aria-hidden="true" />}
-              {!isMobile && <span>Carrito</span>}
-              <span aria-label={cart.length ? `${cart.length} productos en el carrito` : `${savedCarts.length} carritos guardados`} style={{ minWidth: 19, height: 19, padding: "0 5px", borderRadius: 999, display: "grid", placeItems: "center", background: cartOpen ? "rgba(255,255,255,0.2)" : C.panelSolid, color: cartOpen ? "#fff" : C.green, fontFamily: C.mono, fontSize: 10, fontWeight: 750 }}>
-                {cart.length || savedCarts.length}
-              </span>
-            </button>
-          )}
-          {canReceive && !streamlinedToolbar && (
-            <button type="button" onClick={() => openEgresoDisplay(toast)} title="Abrir la pantalla para la persona que retira" style={{ border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, borderRadius: 10, padding: "9px 11px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, fontWeight: 700, fontFamily: C.sans, flexShrink: 0 }}>
-              <MonitorUp size={16} />{!isMobile && <span>Pantalla de retiro</span>}
-            </button>
-          )}
-          <BarcodeScanner open={scannerOpen} onClose={() => setScannerOpen(false)} onScan={(code) => { setScannerOpen(false); applyScanCode(code); }} />
-          {canShowHistory && !streamlinedToolbar && (
-            <div style={{ display: "inline-flex", border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 10, padding: 3, gap: 3, flexShrink: 0 }}>
-              {[
-                ["egresar", mode === "egreso" ? "Egresar" : "Stock"],
-                ["historial", `Historial (${historyRows.length})`],
-              ].map(([key, label]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setEgresoView(key)}
-                  style={{
-                    border: `1px solid ${egresoView === key ? C.blueB : "transparent"}`,
-                    background: egresoView === key ? C.blueL : "transparent",
-                    color: egresoView === key ? C.blue : C.text,
-                    borderRadius: 8,
-                    padding: "7px 10px",
-                    fontSize: 12,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    fontFamily: C.sans,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+          </label>
 
-        {(!streamlinedToolbar || filtersOpen) && (
-        <div id="stock-advanced-filters" style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap", minWidth: 0, padding: streamlinedToolbar ? "8px 10px" : 0, border: streamlinedToolbar ? `1px solid ${C.border}` : "none", borderRadius: streamlinedToolbar ? 10 : 0, background: streamlinedToolbar ? C.panelSolid : "transparent" }}>
-          {!streamlinedToolbar && <SelectFilter label="Estado" value={scope} onChange={setScope} options={[
-            ["todos", "Todos"],
-            ...(showCatalogInventory ? [
-              ["critico", `Críticos (${stockLevelCounts.critico})`],
-              ["alerta", `Bajos (${stockLevelCounts.alerta})`],
-              ["ok", `OK (${stockLevelCounts.ok})`],
-              ["sin_minimo", `Sin mínimo (${stockLevelCounts.sin_minimo})`],
-            ] : []),
-            ["negativos", "A reconciliar"],
-            ["sin_ubicacion", `Sin ubicación${kpis.sinUbicacion ? ` (${kpis.sinUbicacion})` : ""}`],
-          ]} />}
-          {stockManagement && (
-            <SelectFilter label="Revisión" value={verifScope} onChange={setVerifScope} options={[
-              ["todos", `Todos (${verifCounts.todos})`],
-              ["pendiente", `Sin revisar (${verifCounts.pendiente})`],
-              ["problema", `Con problema (${verifCounts.problema})`],
-              ["ok", `Revisados (${verifCounts.ok})`],
-              ["sin_datos", `Sin ubicación o código (${verifCounts.sin_datos})`],
-            ]} />
-          )}
-          <SelectFilter label="Orden" value={orderBy} onChange={setOrderBy} options={[
-            ...(stockManagement ? [...(!tableWorkspace ? [["estado", "Estado de stock"]] : []), ["sin_revisar", "Sin revisar primero"], ["alfabetico", "Alfabético"]] : []),
-            ["default", tableWorkspace ? "Mayor saldo primero" : "Stock primero"],
-            ["recientes", "Más recientes"],
-          ]} />
-          <SelectFilter label="Tipo" value={kindScope} onChange={setKindScope} options={[["todos", `Todos (${kindCounts.todos})`], ["stock", `Stock pañol (${kindCounts.stock})`], ["estandar", `Asignado a obra (${kindCounts.estandar})`], ["adicional", `Adicionales (${kindCounts.adicional})`]]} />
-          <SelectFilter label="Obra / stock" value={fObra} onChange={setFObra} options={obraOptions} />
-          <SelectFilter label="Categoria" value={fCategoria} onChange={setFCategoria} options={categoriaOptions} />
-          <SelectFilter label="Proveedor" value={fProveedor} onChange={setFProveedor} options={proveedorOptions} />
-          {!sedeLocked && <SelectFilter label="Sede" value={fSede} onChange={setFSede} options={[["todas", "Todas"], ...SEDES_PANOL.map((sede) => [sede, sede])]} />}
-          {streamlinedToolbar && advancedFilterCount > 0 && (
-            <button type="button" onClick={clearAdvancedFilters} style={{ minHeight: 36, border: "none", background: "transparent", color: C.blue, padding: "7px 8px", cursor: "pointer", fontSize: 11.5, fontWeight: 700, fontFamily: C.sans }}>
-              Limpiar filtros
-            </button>
-          )}
-          <button type="button" onClick={cargar} disabled={loading} title="Actualizar" style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 10, padding: "9px 10px", cursor: loading ? "default" : "pointer", opacity: loading ? 0.6 : 1, display: "grid", placeItems: "center" }}>
-            <RefreshCw size={15} />
-          </button>
-        </div>
-        )}
-
-        {stockMaster && !bandejasSlot && bandejas}
-
-        {/* La banda histórica de niveles queda disponible para otros usos del
-            panel, pero el Stock maestro trabaja con las cubetas operativas. */}
-        {tableWorkspace && (
-          <div aria-label="Ver stock o egresos de la obra" style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-            {[
-              ["con_saldo", "Con saldo", obraViewCounts.con_saldo, C.green, C.greenL, C.greenB],
-              ["egresados", "Egresados", obraViewCounts.egresados, C.violet, C.violetL, C.violetB],
-              ...(obraViewCounts.negativos ? [["negativos", "A reconciliar", obraViewCounts.negativos, C.red, C.redL, C.redB]] : []),
-              ["todos", "Todos", obraViewCounts.todos, C.blue, C.blueL, C.blueB],
-            ].map(([key, label, count, color, background, border]) => (
-              <button key={key} type="button" aria-pressed={scope === key} onClick={() => { setScope(key); setSelectedKey(null); }} style={{ minHeight: isMobile ? 36 : 30, display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${scope === key ? color : border}`, background: scope === key ? background : C.panelSolid, color: scope === key ? color : C.dim, borderRadius: 999, padding: "5px 10px", cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: C.sans }}>
-                {label} <span style={{ fontFamily: C.mono }}>{count}</span>
-              </button>
-            ))}
-            <span style={{ color: C.dim, fontSize: 10.5 }}>Los egresados no cuentan como stock disponible.</span>
-          </div>
-        )}
-
-        {showCatalogInventory && !stockMaster && (
-          <div className="stock-wms-chips" style={{ rowGap: 6 }}>
-            {[
-              ["critico", "Críticos", stockLevelCounts.critico, C.red, C.redL, C.redB],
-              ["alerta", "Bajos", stockLevelCounts.alerta, C.violet, C.violetL, C.violetB],
-              ["ok", "Correctos", stockLevelCounts.ok, C.green, C.greenL, C.greenB],
-              ["sin_minimo", "Sin mínimo", stockLevelCounts.sin_minimo, C.dim, C.panel2, C.border],
-            ].map(([key, label, count, color, background, border]) => (
-              <button key={key} type="button" title="Filtrar por nivel de stock" onClick={() => setScope(scope === key ? "todos" : key)} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${scope === key ? color : border}`, background: scope === key ? background : C.panelSolid, color, borderRadius: 999, padding: "3px 9px", cursor: "pointer", fontSize: 10.5, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap" }}>
-                <span style={{ width: 6, height: 6, borderRadius: 999, background: color }} />
-                {label} <span style={{ fontFamily: C.mono }}>{count}</span>
-              </button>
-            ))}
-
-
-            <span title="Rojo: hasta 50% del mínimo · Violeta: hasta el mínimo · Verde: por encima"
-              style={{ marginLeft: "auto", color: C.dim, fontSize: 10.5, cursor: "help", whiteSpace: "nowrap" }}>
-              ¿Qué significan los colores?
-            </span>
-          </div>
-        )}
-
-        {/* El avance de revision vivia adentro de la banda de niveles de
-            stock, que el Stock maestro dejo de mostrar. Se llevo puesto de
-            paso la barrita y los filtros de revisado, que contestan otra
-            pregunta distinta. Ahora van por su cuenta. */}
-        {stockManagement && verifCounts.todos > 0 && (!streamlinedToolbar || filtersOpen) && (
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", rowGap: 6, marginTop: 6 }}>
-            <ShieldCheck size={13} style={{ color: C.blue, flexShrink: 0 }} />
-            <span style={{ color: C.dim, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.7, whiteSpace: "nowrap" }}>Revisión</span>
-            <div style={{ flex: "0 1 120px", minWidth: 70, height: 5, borderRadius: 99, background: C.panel2, overflow: "hidden", display: "flex" }}>
-              <span style={{ width: `${Math.round((verifCounts.ok / verifCounts.todos) * 100)}%`, background: C.green, transition: "width .3s ease" }} />
-              <span style={{ width: `${Math.round((verifCounts.problema / verifCounts.todos) * 100)}%`, background: C.red, transition: "width .3s ease" }} />
-            </div>
-            <span style={{ color: C.text, fontFamily: C.mono, fontSize: 11.5, fontWeight: 750, flexShrink: 0 }}>
-              {verifCounts.ok + verifCounts.problema}/{verifCounts.todos}
-            </span>
-            {canArchiveMatrix && matrizPendientes.length > 0 && (
-              <button type="button" onClick={archivarTodaLaMatriz} disabled={archivandoLote}
-                title="Los requisitos de matriz no son piezas del estante. Archivarlos los saca de la lista sin borrarlos."
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 5,
-                  border: `1px solid ${C.violet}66`, background: "var(--violet-soft)",
-                  color: C.violet, borderRadius: 999, padding: "3px 10px",
-                  cursor: archivandoLote ? "default" : "pointer", opacity: archivandoLote ? 0.6 : 1,
-                  fontSize: 10.5, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap",
-                }}>
-                {archivandoLote ? "Archivando…" : `Archivar ${matrizPendientes.length} de matriz`}
-              </button>
-            )}
-            {matrizArchivadas > 0 && (
-              <button type="button" onClick={() => setVerArchivados((v) => !v)}
-                title="Requisitos de matriz ya revisados. Están fuera de la lista para no confundirlos con productos."
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 5,
-                  border: `1px solid ${verArchivados ? C.violet : C.border}`,
-                  background: verArchivados ? "var(--violet-soft)" : C.panelSolid,
-                  color: verArchivados ? C.violet : C.dim, borderRadius: 999,
-                  padding: "3px 9px", cursor: "pointer", fontSize: 10.5,
-                  fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap",
-                }}>
-                {matrizArchivadas} de matriz archivados
-              </button>
-            )}
-            {[
-              ["pendiente", `${verifCounts.pendiente} sin revisar`, C.dim, C.border],
-              ["problema", `${verifCounts.problema} con problema`, C.red, C.redB],
-              ["ok", `${verifCounts.ok} ok`, C.green, C.greenB],
-            ].map(([key, label, color, border]) => (
-              <button key={key} type="button" onClick={() => setVerifScope(verifScope === key ? "todos" : key)}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 5,
-                  border: `1px solid ${verifScope === key ? color : border}`,
-                  background: verifScope === key ? `color-mix(in srgb, ${color} 12%, transparent)` : C.panelSolid,
-                  color, borderRadius: 999, padding: "3px 9px", cursor: "pointer",
-                  fontSize: 10.5, fontWeight: 700, fontFamily: C.sans, whiteSpace: "nowrap",
-                }}>
-                <span style={{ width: 6, height: 6, borderRadius: 999, background: color }} />
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
-
-      </div>
-
-      {canShowHistory && egresoView === "historial" ? (
-        <div style={{ flex: 1, minHeight: 0, overflow: "hidden", padding: isMobile ? 12 : "14px 18px 18px", display: "grid" }}>
-          <EgresosHistoryView rows={historyRows} loading={loading} obras={obras} isMobile={isMobile} onOpenProduct={openProductFromHistory} />
-        </div>
-      ) : (
-      <div style={{ flex: 1, minHeight: 0, overflow: "hidden", padding: isMobile ? 12 : "12px 16px 16px", display: "grid", gridTemplateColumns: isMobile || !hasSelectedProduct ? "1fr" : stockManagement ? "minmax(0, 1fr) minmax(360px, 430px)" : "330px minmax(0, 1fr)", gap: 12 }}>
-        {/* En mobile, con un producto abierto el detalle ocupa TODO: apilados se
-            peleaban la altura y el detalle quedaba cortado. El botón "Lista" del
-            detalle vuelve a la lista. En desktop conviven lado a lado. */}
-        {!(isMobile && hasSelectedProduct) && (
-        <section style={{ minHeight: 0, minWidth: 0, border: `1px solid ${C.border}`, background: C.panel, borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-          {/* Título y ayuda en una sola línea: eran dos y el subtítulo repetía
-              algo que se aprende la primera vez que hacés click. */}
-          <div style={{ padding: "7px 12px", borderBottom: `1px solid ${C.border}`, background: C.panelSolid, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 8, minWidth: 0, flexWrap: "wrap" }}>
-              <div style={{ color: C.text, fontSize: 13.5, fontWeight: 750 }}>{mode === "egreso" ? "Elegir material para egresar" : tableWorkspace && scope === "egresados" ? "Egresados de la obra" : obraScoped ? "Stock de la obra" : "Stock maestro"}</div>
-              <div style={{ color: C.dim, fontSize: 11 }}>
-                {fmtQty(productGroups.length)} {productGroups.length === 1 ? "producto" : "productos"}{tableWorkspace ? ` · ${scope === "egresados" ? "salieron de esta obra" : "saldo de esta obra"}` : ""}
-              </div>
-            </div>
+          <div className="stk-acciones">
             {stockManagement && !tableWorkspace && canReceive && (pendingMinimums.length > 0 || savingMinimums) && (
-              <button type="button" onClick={saveAllMinimums} disabled={savingMinimums || !pendingMinimums.length || invalidMinimums} title={invalidMinimums ? "Revisá los mínimos: deben ser números mayores o iguales a cero" : "Guardar todos los mínimos modificados"} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${pendingMinimums.length ? C.greenB : C.border}`, background: pendingMinimums.length ? C.greenL : C.panelSolid, color: pendingMinimums.length ? C.green : C.dim, borderRadius: 8, padding: "6px 10px", fontFamily: C.sans, fontSize: 11.5, fontWeight: 700, cursor: savingMinimums || !pendingMinimums.length || invalidMinimums ? "default" : "pointer", opacity: savingMinimums || invalidMinimums ? 0.6 : 1 }}>
-                <Save size={13} /> {savingMinimums ? "Guardando…" : `Guardar todos${pendingMinimums.length ? ` (${pendingMinimums.length})` : ""}`}
+              <button type="button" className="ui-btn stk-guardar" onClick={saveAllMinimums} disabled={savingMinimums || !pendingMinimums.length || invalidMinimums} title={invalidMinimums ? "Revisá los mínimos: deben ser números mayores o iguales a cero" : "Guardar todos los mínimos modificados"}>
+                <Save size={15} aria-hidden="true" /> {savingMinimums ? "Guardando…" : `Guardar mínimos${pendingMinimums.length ? ` (${pendingMinimums.length})` : ""}`}
               </button>
             )}
             {obraScoped && matrizArchivadas > 0 && (
+              <button type="button" className={`ui-btn${verArchivados ? " is-activo" : ""}`} onClick={() => setVerArchivados((value) => !value)} aria-pressed={verArchivados} title="Mostrar u ocultar requisitos de matriz archivados en esta obra">
+                <Archive size={14} aria-hidden="true" /> {matrizArchivadas} archivado{matrizArchivadas === 1 ? "" : "s"}
+              </button>
+            )}
+            {canShowHistory && !streamlinedToolbar && (
+              <div className="ui-seg" role="group" aria-label="Egresar o ver historial">
+                {[
+                  ["egresar", mode === "egreso" ? "Egresar" : "Stock"],
+                  ["historial", `Historial (${historyRows.length})`],
+                ].map(([key, label]) => (
+                  <button key={key} type="button" aria-pressed={egresoView === key} onClick={() => setEgresoView(key)}>{label}</button>
+                ))}
+              </div>
+            )}
+            {canReceive && !streamlinedToolbar && (
+              <button type="button" className="ui-btn" onClick={() => openEgresoDisplay(toast)} title="Abrir la pantalla para la persona que retira">
+                <MonitorUp size={15} aria-hidden="true" />{!isMobile && "Pantalla de retiro"}
+              </button>
+            )}
+            {streamlinedToolbar && (
               <button
                 type="button"
-                onClick={() => setVerArchivados((value) => !value)}
-                title="Mostrar u ocultar requisitos de matriz archivados en esta obra"
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 5,
-                  border: `1px solid ${verArchivados ? C.violet : C.border}`,
-                  background: verArchivados ? "var(--violet-soft)" : C.panelSolid,
-                  color: verArchivados ? C.violet : C.dim,
-                  borderRadius: 999, padding: "5px 9px", cursor: "pointer",
-                  fontSize: 10.5, fontWeight: 700, fontFamily: C.sans,
-                  whiteSpace: "nowrap",
-                }}
+                className={`ui-btn${filtersOpen || advancedFilterCount ? " is-activo" : ""}`}
+                onClick={() => setFiltersOpen((value) => !value)}
+                aria-expanded={filtersOpen}
+                aria-controls="stock-advanced-filters"
               >
-                <Archive size={12} /> {matrizArchivadas} archivado{matrizArchivadas === 1 ? "" : "s"}
+                <SlidersHorizontal size={15} aria-hidden="true" />
+                Filtros
+                {advancedFilterCount > 0 && <span className="stk-num">{advancedFilterCount}</span>}
+              </button>
+            )}
+            <button type="button" className={`ui-btn${isMobile ? " ui-btn-icono" : ""}`} onClick={() => setScannerOpen(true)} title="Escanear con la cámara" aria-label="Escanear con la cámara">
+              <ScanLine size={16} aria-hidden="true" />{!isMobile && "Escanear"}
+            </button>
+            {canReceive && (cart.length > 0 || savedCarts.length > 0) && (
+              <button
+                type="button"
+                className={`ui-btn stk-carrito${cartOpen ? " is-abierto" : ""}`}
+                onClick={() => setCartOpen((value) => !value)}
+                aria-expanded={cartOpen}
+                title={cart.length ? `${cart.length} productos · ${fmtQty(unidadesEnCarrito)} unidades` : `${savedCarts.length} carritos guardados`}
+              >
+                {cart.length ? <ShoppingCart size={15} aria-hidden="true" /> : <Save size={15} aria-hidden="true" />}
+                {!isMobile && "Carrito"}
+                <span className="stk-num" aria-label={cart.length ? `${cart.length} productos en el carrito` : `${savedCarts.length} carritos guardados`}>
+                  {cart.length || savedCarts.length}
+                </span>
               </button>
             )}
             {stockManagement && (
-              <div style={{ display: "inline-flex", gap: 3, padding: 3, borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel }}>
-                <button type="button" onClick={() => setStockView("lista")} title="Ver como lista" style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${stockView === "lista" ? C.blueB : "transparent"}`, background: stockView === "lista" ? C.blueL : "transparent", color: stockView === "lista" ? C.blue : C.dim, borderRadius: 7, padding: "5px 8px", cursor: "pointer", fontSize: 10.5, fontWeight: 700, fontFamily: C.sans }}>
-                  <List size={13} /> {!isMobile && "Lista"}
-                </button>
-                <button type="button" onClick={() => setStockView("tarjetas")} title="Ver como tarjetas" style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${stockView === "tarjetas" ? C.blueB : "transparent"}`, background: stockView === "tarjetas" ? C.blueL : "transparent", color: stockView === "tarjetas" ? C.blue : C.dim, borderRadius: 7, padding: "5px 8px", cursor: "pointer", fontSize: 10.5, fontWeight: 700, fontFamily: C.sans }}>
-                  <LayoutGrid size={13} /> {!isMobile && "Tarjetas"}
-                </button>
+              <div className="ui-seg" role="group" aria-label="Ver como">
+                <button type="button" aria-pressed={stockView === "lista"} onClick={() => setStockView("lista")} title="Ver como lista" aria-label="Ver como lista"><List size={15} aria-hidden="true" /></button>
+                <button type="button" aria-pressed={stockView === "tarjetas"} onClick={() => setStockView("tarjetas")} title="Ver como tarjetas" aria-label="Ver como tarjetas"><LayoutGrid size={15} aria-hidden="true" /></button>
               </div>
             )}
+            <BarcodeScanner open={scannerOpen} onClose={() => setScannerOpen(false)} onScan={(code) => { setScannerOpen(false); applyScanCode(code); }} />
           </div>
-          <div ref={productListRef} style={{ padding: stockManagement && stockView === "lista" ? 0 : 8, display: "grid", gridAutoRows: "max-content", gridTemplateColumns: !isMobile && !hasSelectedProduct && (!stockManagement || stockView === "tarjetas") ? "repeat(auto-fill, minmax(280px, 1fr))" : "1fr", gap: stockManagement && stockView === "lista" ? 0 : 7, overflowY: "auto", overflowX: stockManagement && stockView === "lista" ? "auto" : "hidden" }}>
-            {stockManagement && stockView === "lista" && !loading && productGroups.length > 0 && (
-              <div style={{ minWidth: tableWorkspace ? (compactStockTable ? OBRA_ROW_COMPACT_MIN : OBRA_ROW_MIN) : (compactStockTable ? STOCK_ROW_COMPACT_MIN : STOCK_ROW_MIN), position: "sticky", top: 0, zIndex: 2, display: "grid", gridTemplateColumns: tableWorkspace ? (compactStockTable ? OBRA_ROW_COMPACT_COLS : OBRA_ROW_COLS) : (compactStockTable ? STOCK_ROW_COMPACT_COLS : STOCK_ROW_COLS), gap: 12, padding: "8px 12px", borderBottom: `1px solid ${C.border}`, background: C.topbarSoft, backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)", color: C.dim, fontSize: 10.5, fontWeight: 700, letterSpacing: 0.15 }}>
-                <span />
-                <span>Producto</span>
-                <span style={{ textAlign: "right", paddingRight: 4 }}>{tableWorkspace ? "Saldo en obra" : "Libre"}</span>
-                {tableWorkspace ? (
-                  <>
-                    <span>Ubicación</span>
-                    <span>Estado</span>
-                    <span>Acción</span>
-                  </>
-                ) : compactStockTable ? (
-                  <>
-                    <span>Faltante</span>
-                    <span>Ubicación</span>
-                    <span>Acción</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Reservado para obras</span>
-                    <span>Mínimo</span>
-                    <span>Ubicación</span>
-                    <span>Estado</span>
-                    <span>Acción</span>
-                  </>
-                )}
-              </div>
+        </div>
+
+        {(!streamlinedToolbar || filtersOpen) && (
+          <div id="stock-advanced-filters" className="stk-avanzados">
+            {!streamlinedToolbar && !showCatalogInventory && <SelectFilter label="Estado" value={scope} onChange={setScope} options={[
+              ["todos", "Todos"],
+              ["negativos", "A reconciliar"],
+              ["sin_ubicacion", `Sin ubicación${kpis.sinUbicacion ? ` (${kpis.sinUbicacion})` : ""}`],
+            ]} />}
+            {stockManagement && (
+              <SelectFilter label="Revisión" value={verifScope} onChange={setVerifScope} options={[
+                ["todos", `Todos (${verifCounts.todos})`],
+                ["pendiente", `Sin revisar (${verifCounts.pendiente})`],
+                ["problema", `Con problema (${verifCounts.problema})`],
+                ["ok", `Revisados (${verifCounts.ok})`],
+                ["sin_datos", `Sin ubicación o código (${verifCounts.sin_datos})`],
+              ]} />
             )}
-            {loading ? (
-              <>
-                <style>{`@keyframes stkSkel { 0%,100% { opacity: .45 } 50% { opacity: .9 } }`}</style>
-                {[0, 1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} style={{ border: `1px solid ${C.border}`, background: C.panelSolid, borderRadius: 11, padding: "9px 10px", display: "grid", gap: 8, animation: `stkSkel 1.3s ease-in-out ${i * 0.12}s infinite` }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                      <span style={{ width: `${58 - (i % 3) * 9}%`, height: 12, borderRadius: 6, background: C.panel2 }} />
-                      <span style={{ width: 42, height: 16, borderRadius: 6, background: C.panel2 }} />
-                    </div>
-                    <span style={{ width: `${34 + (i % 2) * 14}%`, height: 9, borderRadius: 6, background: C.panel2 }} />
-                  </div>
-                ))}
-              </>
-            ) : productGroups.length ? (
-              <>
-                {renderedProductGroups.map((group) => {
-                  const primaryAction = primaryActionFor(group);
-                  return stockManagement && stockView === "lista"
-                    ? <ProductStockRow key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canEditMinimum={canReceive && !savingMinimums} onSaveMinimum={saveSingleMinimum} minimumDraft={minimumDrafts[group.material?.id]} onMinimumDraftChange={changeMinimumDraft} onArchivarMatriz={canArchiveMatrix ? archivarMatriz : undefined} primaryAction={primaryAction} compact={compactStockTable} obraView={tableWorkspace} />
-                    : <ProductCard key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canSeePrices={canSeePrices} onAddToCart={canReceive ? quickAddToCart : undefined} onArchivarMatriz={canArchiveMatrix ? archivarMatriz : undefined} primaryAction={primaryAction} inCart={cartGroupKeys.has(group.key)} dense={!isMobile && hasSelectedProduct} obraView={tableWorkspace} />;
-                })}
-                {hiddenProductCount > 0 && (
-                  <button
-                    ref={loadMoreRef}
-                    type="button"
-                    onClick={() => setRenderLimit((current) => Math.min(current + PRODUCT_RENDER_BATCH, productGroups.length))}
-                    style={{
-                      gridColumn: "1 / -1",
-                      minWidth: stockManagement && stockView === "lista" ? (tableWorkspace ? (compactStockTable ? OBRA_ROW_COMPACT_MIN : OBRA_ROW_MIN) : (compactStockTable ? STOCK_ROW_COMPACT_MIN : STOCK_ROW_MIN)) : 0,
-                      border: `1px solid ${C.blueB}`,
-                      background: C.blueL,
-                      color: C.blue,
-                      borderRadius: stockManagement && stockView === "lista" ? 0 : 10,
-                      padding: "10px 14px",
-                      cursor: "pointer",
-                      fontSize: 12,
-                      fontWeight: 700,
-                      fontFamily: C.sans,
-                    }}
-                  >
-                    Mostrar {Math.min(PRODUCT_RENDER_BATCH, hiddenProductCount)} más · quedan {hiddenProductCount}
-                  </button>
-                )}
-              </>
-            ) : (
-              <div style={{ padding: "26px 18px", border: `1px dashed ${C.border}`, borderRadius: 10, textAlign: "center", display: "grid", justifyItems: "center", gap: 8 }}>
-                <Warehouse size={26} style={{ color: C.dim, opacity: 0.7 }} />
-                <div style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>{tableWorkspace && scope === "egresados" ? "No hay egresos para estos filtros" : "No hay stock para estos filtros"}</div>
-                <div style={{ color: C.dim, fontSize: 11.5, lineHeight: 1.4, maxWidth: 250 }}>
-                  {q.trim() ? (stockMaster ? "Probá con menos palabras o abrí el Catálogo maestro desde el menú." : "Probá con menos palabras, o buscalo abajo en el catálogo completo.") : "Cambiá los filtros de tipo, obra o categoría para ver más productos."}
-                </div>
-              </div>
+            <SelectFilter label="Orden" value={orderBy} onChange={setOrderBy} options={[
+              ...(stockManagement ? [...(!tableWorkspace ? [["estado", "Estado de stock"]] : []), ["sin_revisar", "Sin revisar primero"], ["alfabetico", "Alfabético"]] : []),
+              ["default", tableWorkspace ? "Mayor saldo primero" : "Stock primero"],
+              ["recientes", "Más recientes"],
+            ]} />
+            <SelectFilter label="Tipo" value={kindScope} onChange={setKindScope} options={[["todos", `Todos (${kindCounts.todos})`], ["stock", `Stock pañol (${kindCounts.stock})`], ["estandar", `Asignado a obra (${kindCounts.estandar})`], ["adicional", `Adicionales (${kindCounts.adicional})`]]} />
+            <SelectFilter label="Obra" value={fObra} onChange={setFObra} options={obraOptions} />
+            <SelectFilter label="Categoría" value={fCategoria} onChange={setFCategoria} options={categoriaOptions} />
+            <SelectFilter label="Proveedor" value={fProveedor} onChange={setFProveedor} options={proveedorOptions} />
+            {!sedeLocked && <SelectFilter label="Sede" value={fSede} onChange={setFSede} options={[["todas", "Todas"], ...SEDES_PANOL.map((sede) => [sede, sede])]} />}
+            {streamlinedToolbar && advancedFilterCount > 0 && (
+              <button type="button" className="stk-limpiar" onClick={clearAdvancedFilters}>Limpiar filtros</button>
             )}
 
-            {!stockMaster && q.trim().length >= 2 && (
-              <div style={{ border: `1px dashed ${C.blueB}`, background: C.blueL, borderRadius: 10, padding: 10, display: "grid", gap: 7 }}>
-                <div>
-                  <div style={{ color: C.text, fontSize: 12.5, fontWeight: 700 }}>Catalogo completo</div>
-                  <div style={{ color: C.dim, fontSize: 11, marginTop: 2 }}>Usá el catálogo para identificar el producto. Si no tiene stock, primero registrá su ingreso o recepción física.</div>
-                </div>
-                {catalogMatches.map((mat) => (
-                  <button key={mat.id} type="button" onClick={() => selectCatalogMaterial(mat)} style={{ border: `1px solid ${C.border}`, background: C.panelSolid, color: C.text, borderRadius: 9, padding: "8px 10px", textAlign: "left", cursor: "pointer", fontFamily: C.sans }}>
-                    <span style={{ display: "block", fontSize: 12.5, fontWeight: 700 }}>{mat.descripcion}</span>
-                    <span style={{ display: "block", color: C.dim, fontSize: 10.5, marginTop: 2 }}>{mat.codigo || "sin codigo"} - sin stock cargado</span>
+            {/* El avance de la revisión contesta otra pregunta que el nivel de
+                stock: va con los filtros, no en la bandeja. */}
+            {stockManagement && verifCounts.todos > 0 && (
+              <div className="stk-revision">
+                <ShieldCheck size={14} style={{ color: "var(--blue)" }} aria-hidden="true" />
+                <span className="stk-rotulo">Revisión</span>
+                <span className="stk-revision-barra" aria-hidden="true">
+                  <i className="is-ok" style={{ width: `${avanceRevision.ok}%` }} />
+                  <i className="is-problema" style={{ width: `${avanceRevision.problema}%` }} />
+                </span>
+                <b>{fmtQty(verifCounts.ok + verifCounts.problema)} / {fmtQty(verifCounts.todos)}</b>
+                {[
+                  ["pendiente", `${fmtQty(verifCounts.pendiente)} sin revisar`, ""],
+                  ["problema", `${fmtQty(verifCounts.problema)} con problema`, "rojo"],
+                  ["ok", `${fmtQty(verifCounts.ok)} ok`, "verde"],
+                ].map(([key, label, tono]) => (
+                  <button key={key} type="button" className={`stk-pastilla${tono ? ` is-${tono}` : ""}${verifScope === key ? " is-activa" : ""}`} aria-pressed={verifScope === key} onClick={() => setVerifScope(verifScope === key ? "todos" : key)}>
+                    <i aria-hidden="true" />{label}
                   </button>
                 ))}
-                {!catalogMatches.length && (
-                  <div style={{ color: C.dim, fontSize: 12, padding: "4px 2px" }}>No hay coincidencias en el catalogo.</div>
-                )}
-                {!canCreateCatalog && canReceive && onRegisterPendingProduct ? (
-                  <button type="button" onClick={() => onRegisterPendingProduct(q.trim())} style={{ border: `1px solid ${C.blueB}`, background: C.panelSolid, color: C.blue, borderRadius: 9, padding: "8px 10px", cursor: "pointer", fontSize: 12, fontWeight: 750, fontFamily: C.sans }}>
-                    Registrar producto pendiente
+                {canArchiveMatrix && matrizPendientes.length > 0 && (
+                  <button type="button" className="stk-pastilla is-violeta" onClick={archivarTodaLaMatriz} disabled={archivandoLote} title="Los requisitos de matriz no son piezas del estante. Archivarlos los saca de la lista sin borrarlos.">
+                    <Archive size={12} aria-hidden="true" />{archivandoLote ? "Archivando…" : `Archivar ${matrizPendientes.length} de matriz`}
                   </button>
-                ) : (
-                  <button type="button" onClick={createFromSearch} disabled={creating || !canCreateCatalog} style={{ border: `1px solid ${canCreateCatalog ? C.blueB : C.border}`, background: C.panelSolid, color: canCreateCatalog ? C.blue : C.dim, borderRadius: 9, padding: "8px 10px", cursor: creating || !canCreateCatalog ? "not-allowed" : "pointer", fontSize: 12, fontWeight: 750, fontFamily: C.sans }}>
-                    {!canCreateCatalog ? "Crear nuevo requiere administrador" : creating ? "Creando..." : `Crear "${q.trim()}" en catalogo`}
+                )}
+                {!obraScoped && matrizArchivadas > 0 && (
+                  <button type="button" className={`stk-pastilla is-violeta${verArchivados ? " is-activa" : ""}`} aria-pressed={verArchivados} onClick={() => setVerArchivados((v) => !v)} title="Requisitos de matriz ya revisados. Están fuera de la lista para no confundirlos con productos.">
+                    {matrizArchivadas} de matriz archivados
                   </button>
                 )}
               </div>
             )}
           </div>
-        </section>
         )}
 
-        {hasSelectedProduct && (
-          <ProductDetail
-            key={selectedGroup.key}
-            group={selectedGroup}
-            isMobile={isMobile}
-            obras={obras}
-            sedeLocked={sedeLocked}
-            canReceive={canReceive}
-            canCreateCatalog={canCreateCatalog}
-            mode={mode}
-            onDone={refreshAfterMovement}
-            toast={toast}
-            setSelectedKey={setSelectedKey}
-            cart={cart}
-            setCart={setCart}
-            onOpenCatalog={onOpenCatalog}
-            cierresByObra={cierresByObra}
-          />
+        {filtros && (
+          <div className="stk-filtros" role="tablist" aria-label={tableWorkspace ? "Ver stock o egresos de la obra" : "Bandejas de trabajo"}>
+            {filtros.map(([key, label, count, tono]) => {
+              const activo = scope === key && (!stockMaster || verifScope === "todos");
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  aria-selected={activo}
+                  className={`stk-filtro${activo ? " is-activo" : ""}${tono && count ? ` is-${tono}` : ""}`}
+                  onClick={() => {
+                    if (stockMaster) setVerifScope("todos");
+                    if (tableWorkspace) setSelectedKey(null);
+                    setScope(showCatalogInventory && !stockMaster && !tableWorkspace && scope === key ? "todos" : key);
+                  }}
+                >
+                  {label}<small>{fmtQty(count)}</small>
+                </button>
+              );
+            })}
+            {tableWorkspace && <span className="stk-filtros-nota">Los egresados no cuentan como stock disponible.</span>}
+          </div>
         )}
       </div>
+
+      {canShowHistory && egresoView === "historial" ? (
+        <div style={{ flex: 1, minHeight: 0, overflow: "hidden", padding: isMobile ? 12 : "14px 28px 18px", display: "grid" }}>
+          <EgresosHistoryView rows={historyRows} loading={loading} obras={obras} isMobile={isMobile} onOpenProduct={openProductFromHistory} />
+        </div>
+      ) : (
+        <div className={`stk-cuerpo${hasSelectedProduct && !isMobile ? " con-ficha" : ""}`}>
+          {/* En el celular, con un producto abierto la ficha ocupa todo: el
+              botón "Lista" de la ficha vuelve. En la PC conviven lado a lado. */}
+          {!(isMobile && hasSelectedProduct) && (
+            <section ref={productListRef} className={`stk-lista${vistaLista ? "" : " is-tarjetas"}`} aria-label={tableWorkspace ? "Stock de la obra" : "Stock maestro"}>
+              {vistaLista && !loading && productGroups.length > 0 && (
+                <div className="stk-tabla-cab" style={{ minWidth: anchoMinimo, gridTemplateColumns: columnas }}>
+                  <span />
+                  <span>Producto</span>
+                  <span className="is-der">{tableWorkspace ? "En obra" : "Libre"}</span>
+                  {tableWorkspace ? (
+                    <>
+                      <span>Ubicación</span>
+                      <span>Estado</span>
+                      <span />
+                    </>
+                  ) : compactStockTable ? (
+                    <>
+                      <span>Faltante</span>
+                      <span>Ubicación</span>
+                      <span />
+                    </>
+                  ) : (
+                    <>
+                      <span>Reservado</span>
+                      <span>Mínimo</span>
+                      <span>Ubicación</span>
+                      <span>Estado</span>
+                      <span />
+                    </>
+                  )}
+                </div>
+              )}
+              {loading ? (
+                <div style={{ gridColumn: "1 / -1" }}><Cargando texto="Cargando el stock…" /></div>
+              ) : productGroups.length ? (
+                <>
+                  {renderedProductGroups.map((group) => {
+                    const primaryAction = primaryActionFor(group);
+                    return vistaLista
+                      ? <ProductStockRow key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canEditMinimum={canReceive && !savingMinimums} onSaveMinimum={saveSingleMinimum} minimumDraft={minimumDrafts[group.material?.id]} onMinimumDraftChange={changeMinimumDraft} onArchivarMatriz={canArchiveMatrix ? archivarMatriz : undefined} primaryAction={primaryAction} compact={compactStockTable} obraView={tableWorkspace} />
+                      : <ProductCard key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} canSeePrices={canSeePrices} onAddToCart={canReceive ? quickAddToCart : undefined} onArchivarMatriz={canArchiveMatrix ? archivarMatriz : undefined} primaryAction={primaryAction} inCart={cartGroupKeys.has(group.key)} dense={!isMobile && hasSelectedProduct} obraView={tableWorkspace} />;
+                  })}
+                  {hiddenProductCount > 0 && (
+                    <div className="stk-mas" style={vistaLista ? { minWidth: anchoMinimo } : undefined}>
+                      <button
+                        ref={loadMoreRef}
+                        type="button"
+                        className="ui-btn"
+                        onClick={() => setRenderLimit((current) => Math.min(current + PRODUCT_RENDER_BATCH, productGroups.length))}
+                      >
+                        Mostrar {Math.min(PRODUCT_RENDER_BATCH, hiddenProductCount)} más · quedan {fmtQty(hiddenProductCount)}
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="stk-vacio">
+                  <strong>{tableWorkspace && scope === "egresados" ? "No hay egresos para estos filtros" : "No hay stock para estos filtros"}</strong>
+                  {q.trim() ? (stockMaster ? "Probá con menos palabras o abrí el Catálogo maestro desde el menú." : "Probá con menos palabras, o buscalo abajo en el catálogo completo.") : "Cambiá la bandeja o los filtros para ver más productos."}
+                </div>
+              )}
+
+              {!stockMaster && q.trim().length >= 2 && (
+                <div className="stk-bloque" style={{ gridColumn: "1 / -1", marginTop: 18, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
+                  <div>
+                    <div className="stk-rotulo">Catálogo completo</div>
+                    <div className="stk-texto" style={{ marginTop: 4 }}>Usá el catálogo para identificar el producto. Si no tiene stock, primero registrá su ingreso o recepción física.</div>
+                  </div>
+                  {catalogMatches.map((mat) => (
+                    <button key={mat.id} type="button" className="stk-saldo" onClick={() => selectCatalogMaterial(mat)}>
+                      <span style={{ minWidth: 0 }}>
+                        <span className="stk-saldo-nombre">{mat.descripcion}</span>
+                        <span className="stk-saldo-sub">{mat.codigo || "sin código"} · sin stock cargado</span>
+                      </span>
+                    </button>
+                  ))}
+                  {!catalogMatches.length && <div className="stk-texto">No hay coincidencias en el catálogo.</div>}
+                  {!canCreateCatalog && canReceive && onRegisterPendingProduct ? (
+                    <button type="button" className="ui-btn ui-btn-suave" style={{ justifySelf: "start" }} onClick={() => onRegisterPendingProduct(q.trim())}>
+                      Registrar producto pendiente
+                    </button>
+                  ) : (
+                    <button type="button" className="ui-btn ui-btn-suave" style={{ justifySelf: "start" }} onClick={createFromSearch} disabled={creating || !canCreateCatalog}>
+                      {!canCreateCatalog ? "Crear nuevo requiere administrador" : creating ? "Creando…" : `Crear "${q.trim()}" en el catálogo`}
+                    </button>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+
+          {hasSelectedProduct && (
+            <ProductDetail
+              key={selectedGroup.key}
+              group={selectedGroup}
+              isMobile={isMobile}
+              obras={obras}
+              sedeLocked={sedeLocked}
+              canReceive={canReceive}
+              canCreateCatalog={canCreateCatalog}
+              mode={mode}
+              onDone={refreshAfterMovement}
+              toast={toast}
+              setSelectedKey={setSelectedKey}
+              cart={cart}
+              setCart={setCart}
+              onOpenCatalog={onOpenCatalog}
+              cierresByObra={cierresByObra}
+            />
+          )}
+        </div>
       )}
 
       {/* El acceso vive en la barra superior: no tapa el pie del detalle ni la lista. */}
@@ -5089,7 +4681,6 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           setSavedCarts={setSavedCarts}
         />
       )}
-      </div>
-    </>
+    </div>
   );
 }

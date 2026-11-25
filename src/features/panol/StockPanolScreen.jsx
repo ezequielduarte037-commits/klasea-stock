@@ -380,7 +380,7 @@ const TABS = [
   { key: "sobrantes", label: "Sobrantes de obra" },
 ];
 
-function StockPanolTabs({ tab, onTabChange, sobrantesCount, inventoryView, onInventoryView, isMobile, compact = false, extra = null }) {
+function StockPanolTabs({ tab, onTabChange, sobrantesCount, conteoPendientes = 0, faltanParaObras = 0, inventoryView, onInventoryView, isMobile, compact = false, extra = null }) {
   return (
     <div className="stock-panol-tabs">
       <div className="ui-tabs" role="tablist" aria-label="Vistas de stock">
@@ -394,15 +394,11 @@ function StockPanolTabs({ tab, onTabChange, sobrantesCount, inventoryView, onInv
             onClick={() => onTabChange(t.key)}
           >
             {t.label}
-            {t.key === "sobrantes" && sobrantesCount > 0 && (
-              <span style={{
-                marginLeft: 6, minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999,
-                background: "var(--cyan-soft)", border: "1px solid var(--cyan-border)", color: "var(--cyan)",
-                fontSize: 10, fontWeight: 700, display: "inline-grid", placeItems: "center", fontFamily: C.mono,
-              }}>
-                {sobrantesCount}
-              </span>
-            )}
+            {/* Lo que antes eran bandejas al lado del título: la cuenta va en
+                su pestaña, así cada número aparece una sola vez. */}
+            {t.key === "conteo" && conteoPendientes > 0 && <span className="ui-num" title={`${conteoPendientes} por contar hoy`}>{conteoPendientes}</span>}
+            {t.key === "faltantes" && faltanParaObras > 0 && <span className="ui-num" style={{ color: "var(--red)", fontWeight: 600 }} title={`${faltanParaObras} productos no alcanzan para las obras de las próximas semanas`}>{faltanParaObras}</span>}
+            {t.key === "sobrantes" && sobrantesCount > 0 && <span className="ui-num" style={{ color: "var(--cyan)", fontWeight: 600 }} title={`${sobrantesCount} obras terminadas con sobrantes`}>{sobrantesCount}</span>}
           </button>
         ))}
       </div>
@@ -1236,9 +1232,6 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
 
   // Bandeja "Conteo de hoy" del inventario: cuánto falta contar en la sede.
   const [conteoHoy, setConteoHoy] = useState(null);
-  // Al costado del título hay lugar para las bandejas del inventario en la PC.
-  const [bandejasSlot, setBandejasSlot] = useState(null);
-  const bandejasEnTitulo = !embedded && !isMobile && tab === "maestro" && inventoryView === "lista";
   useEffect(() => {
     if (tab !== "maestro") return undefined;
     let vivo = true;
@@ -1338,12 +1331,13 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
               eyebrow="Pañol"
               title={screenTitle || "Stock de pañol"}
               subtitle={screenSubtitle || (sedeLocked ? `Pañol ${sedeLocked}` : "Stock real por obra, proveedor, rubro y categoría")}
-              actions={bandejasEnTitulo ? <div ref={setBandejasSlot} className="stock-bandejas-slot" /> : null}
             >
               <StockPanolTabs
                 tab={tab}
                 onTabChange={handleTabChange}
                 sobrantesCount={cierresByObra.size}
+                conteoPendientes={conteoHoy?.armado ? conteoHoy.pendientes : 0}
+                faltanParaObras={faltaObras?.productos || 0}
                 inventoryView={inventoryView}
                 onInventoryView={handleInventoryView}
                 isMobile={isMobile}
@@ -1358,6 +1352,8 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                 tab={tab}
                 onTabChange={handleTabChange}
                 sobrantesCount={cierresByObra.size}
+                conteoPendientes={conteoHoy?.armado ? conteoHoy.pendientes : 0}
+                faltanParaObras={faltaObras?.productos || 0}
                 inventoryView={inventoryView}
                 onInventoryView={handleInventoryView}
                 isMobile={isMobile}
@@ -1555,11 +1551,6 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                 {...wmsProps}
                 sharedRows={rowsSinConsumibles}
                 stockMaster
-                conteoHoy={conteoHoy}
-                onOpenConteo={() => handleTabChange("conteo")}
-                faltaObras={faltaObras}
-                onOpenFaltas={() => handleTabChange("faltantes")}
-                bandejasSlot={bandejasEnTitulo ? bandejasSlot : null}
                 initialScope={maestroScope}
                 initialQuery={requestedQuery}
                 initialMaterialId={requestedMaterialId}
