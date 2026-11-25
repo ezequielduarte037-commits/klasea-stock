@@ -167,6 +167,7 @@ import {
   categoriaNombre,
   inputNumberValue,
 } from "./materialesHelpers";
+import { productoSeDefinePorObra } from "./productoPorObra.js";
 
 import {
   ProveedorAlternativasHint,
@@ -183,11 +184,12 @@ const LINEA_RENDER_BATCH = 36;
 const CATALOG_INITIAL_RENDER = 18;
 const LINEA_INITIAL_RENDER = 24;
 
-function productoSeDefinePorObra(material) {
-  if (material?.producto_por_obra === true) return true;
-  // Respaldo para que Caja de piso siga pendiente por barco aun antes de que
-  // se despliegue la columna nueva en una base ya existente.
-  return material?.es_requisito === true && norm(material?.descripcion) === "caja de piso";
+// Una fila pide "DEFINIR PRODUCTO" sólo si es un requisito que se elige barco
+// por barco y todavía no tiene producto. Los demás requisitos se compran con el
+// producto de la matriz o con la marca que consiga Compras.
+function filaPideDefinirProducto(row) {
+  if (!row?.esRequisito || row?.productoMaterialId) return false;
+  return row.productoPorObra === true || productoSeDefinePorObra(row.material);
 }
 
 function limitGroupedRows(groups = [], limit = LINEA_RENDER_BATCH) {
@@ -4732,7 +4734,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
     if (estado === "en_panol") acc.enPanol += 1;
     if (estado === "egresado") acc.egresados += 1;
     if (row.review?.flag) acc.revisar += 1;
-    if (row.esRequisito && !row.productoMaterialId) acc.productosPendientes += 1;
+    if (filaPideDefinirProducto(row)) acc.productosPendientes += 1;
     if (!row.precio.amount) acc.sinPrecio += 1;
     else if (row.precio.moneda === "USD") {
       if (row.bucket.key === "linea_eje") acc.ejeUsd += row.precio.amount * qty;
@@ -4758,6 +4760,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
         producto: r.producto || null,
         material,
         productoEstandar: !!r.productoEstandar,
+        productoPorObra: r.productoPorObra === true,
         esRequisito: !!r.esRequisito,
         especificaciones: normalizeProductSpecs(r.especificaciones),
         source: r.source,
@@ -4782,7 +4785,7 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
     });
   }, [visibleRows, selected]);
   const productosPendientesOrden = useMemo(
-    () => orderRows.filter((row) => row.esRequisito && !row.productoMaterialId),
+    () => orderRows.filter(filaPideDefinirProducto),
     [orderRows],
   );
 
@@ -7334,7 +7337,7 @@ function accionDeFila(row) {
   if (recepcion === "rechazado") return { texto: "RECHAZADO", color: C.red, trabado: true };
   if (recepcion === "falta_stock") return { texto: "SIN STOCK", color: C.red, trabado: true };
   if (recepcion === "problema" || recepcion === "sin_info") return { texto: "PROBLEMA", color: C.red, trabado: true };
-  if (row?.esRequisito && !row?.productoMaterialId && q.panol === 0) {
+  if (filaPideDefinirProducto(row) && q.panol === 0) {
     return { texto: "DEFINIR PRODUCTO", color: C.red, trabado: true };
   }
   if (q.faltaEntregar > 0) return { texto: `RETIRAR ${fmtQtyCorto(q.faltaEntregar)}`, color: C.violet };

@@ -3,6 +3,7 @@ import { rowDelta, rowSource } from "@/features/panol/panolMovimientos";
 import { fetchRequisitoProductos } from "@/features/materiales/productosAsignadosApi";
 import { findConditionProductReplacements } from "@/features/materiales/conditionProductReplacement";
 import { fetchMaterialesSecundariosPlanilla } from "@/features/compras/materialesSecundariosApi";
+import { productoSeDefinePorObra } from "../materiales/productoPorObra.js";
 
 /**
  * Planilla operativa de una linea.
@@ -235,7 +236,7 @@ function materialMeta(material, rubros, imagenes) {
 }
 
 const OBRAS_SELECT = "id,codigo,linea_nombre,estado,fecha_inicio";
-const MATERIALES_SELECT = "id,descripcion,alias,codigo,codigo_barra,proveedor,unidad_medida,categoria_id,es_consumible,es_requisito,activo,imagen_url,notas";
+const MATERIALES_SELECT = "id,descripcion,alias,codigo,codigo_barra,proveedor,unidad_medida,categoria_id,es_consumible,es_requisito,producto_por_obra,activo,imagen_url,notas";
 const MODELO_SELECT = "material_id,modelo,cantidad,variante,producto_predeterminado_id";
 
 /**
@@ -491,8 +492,13 @@ async function construirPlanillaDeLinea(linea, basePromesa = null, { sinSecundar
       celda.productoDefinido = productoId !== requisitoId;
       celda.productoEstandar = !snapshotConProducto && !item.productoCondicionante
         && !!item.producto_predeterminado_id;
-      celda.requiereProductoConcreto = porMaterial.get(requisitoId)?.es_requisito === true
-        || requisitosConProductos.has(requisitoId);
+      // Sólo frena lo que de verdad se elige barco por barco (caja de piso,
+      // motor, cromado o negro…). Un requisito con una sola opción ya trae su
+      // producto de la matriz, y uno con marcas equivalentes lo resuelve Compras
+      // al comprar: preguntarlo en cada obra era pedir una decisión que no hay.
+      const requisito = porMaterial.get(requisitoId);
+      celda.requiereProductoConcreto = (requisito?.es_requisito === true || requisitosConProductos.has(requisitoId))
+        && productoSeDefinePorObra(requisito);
       // Preguntar "que modelo lleva" cuando el pañol ya tiene uno de la familia
       // es hacer elegir algo que en la practica ya esta resuelto: se retira lo
       // que hay. El cartel vuelve solo si el stock se agota.
