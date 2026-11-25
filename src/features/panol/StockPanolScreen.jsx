@@ -1551,6 +1551,8 @@ export default function StockPanolScreen({ profile, signOut, embedded = false, m
                 {...wmsProps}
                 sharedRows={rowsSinConsumibles}
                 stockMaster
+                faltaObras={faltaObras}
+                onOpenFaltas={() => handleTabChange("faltantes")}
                 initialScope={maestroScope}
                 initialQuery={requestedQuery}
                 initialMaterialId={requestedMaterialId}

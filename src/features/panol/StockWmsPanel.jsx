@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   Archive,
@@ -15,6 +15,7 @@ import {
   PackagePlus,
   RefreshCw,
   Save,
+  ScanBarcode,
   ScanLine,
   Search,
   ShieldCheck,
@@ -28,6 +29,9 @@ import { MaterialThumb } from "@/features/materiales/MaterialExtras";
 import { C } from "@/theme";
 import Cargando from "@/components/ui/Cargando";
 import { CSS_STOCK } from "@/features/panol/stock/estilosStock";
+import { CSS_MOSTRADOR } from "@/features/consumibles/mostrador/mostradorEstilos";
+import { CSS_PANOL } from "@/features/panol/mostrador/estilosPanol";
+import { FotoItem } from "@/features/consumibles/mostrador/Piezas";
 import BarcodeScanner from "@/features/panol/BarcodeScanner";
 import UbicacionPicker, { UbicacionChip } from "@/features/panol/UbicacionPicker";
 import useNfcBridge from "@/features/panol/useNfcBridge";
@@ -1084,42 +1088,91 @@ const ProductStockRow = memo(function ProductStockRow({ group, active, onOpen, c
   );
 });
 
-function LocationButton({ location, active, onClick, cierre }) {
+// Fila del stock maestro con el mismo dibujo que el mostrador de egresos: foto,
+// nombre, ubicación en código y los saldos a la derecha.
+const FilaMaestro = memo(function FilaMaestro({ group, active, onOpen, primaryAction }) {
+  const level = stockLevel(group);
+  const { displayLabel, variantsMeta } = productListVariantIdentity(group);
+  const categoria = [...(group.categorias || [])].filter(Boolean)[0] || "";
+  const libre = qty(group.stockLibre ?? group.total, 0);
+  const reservado = qty(group.stockReservado, 0);
+  const reservas = group.reservas || [];
+  const soloTerminadas = reservas.length > 0 && reservas.every((reserva) => reserva.obraEstado === "terminada");
+  const tonoLibre = libre < -0.0001 || level.key === "critico" ? "rojo" : level.key === "alerta" ? "violeta" : libre > 0.0001 ? "verde" : "cero";
+  const tonoMin = level.key === "critico" ? "rojo" : level.key === "alerta" ? "violeta" : "";
+  return (
+    <div
+      className={`mst-res stk-mres${active ? " is-activa" : ""}`}
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen(group.key)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen(group.key);
+        }
+      }}
+    >
+      <span className="mst-res-foto"><FotoItem item={{ descripcion: group.label, imagenUrl: group.imagenUrl }} /></span>
+      <span className="mst-res-texto">
+        <span className="mst-res-nombre" title={group.labelHistorico ? `${displayLabel} · antes se llamaba: ${group.labelHistorico}` : displayLabel}>{displayLabel}</span>
+        <span className="mst-res-sub stk-mres-sub">
+          {group.ubicacion
+            ? <span className="mpn-ubic" title={group.ubicacion_obs || "Estantería"}>{group.ubicacion}</span>
+            : <span className="stk-sin-ubic">Sin ubicación</span>}
+          {group.codigo && <span className="mst-num">{group.codigo}</span>}
+          {group.proveedor && <span>{group.proveedor}</span>}
+          {categoria && <span>{categoria}</span>}
+          {variantsMeta && <span className="is-violeta">{variantsMeta}</span>}
+          {group.inTransit && <span className="is-violeta">en camino</span>}
+          {group.esRequisito && <span className="is-violeta">matriz</span>}
+          {group.negativo && <span className="is-rojo">a reconciliar</span>}
+        </span>
+      </span>
+      <span className="stk-mres-fin">
+        <span className={`mpn-saldo stk-libre is-${tonoLibre}`} title="Libre: en el depósito, sin obra asignada">Libre <span className="mst-num">{fmtQty(libre)}</span></span>
+        {reservado > 0.0001 && (
+          <span className={`mpn-saldo stk-obras${soloTerminadas ? " is-terminada" : ""}`} title={reservasLabel(group)}>
+            {reservas.length === 1 ? reservas[0].label : "Obras"} <span className="mst-num">{fmtQty(reservado)}</span>
+          </span>
+        )}
+        <span className={`stk-mres-min${tonoMin ? ` is-${tonoMin}` : ""}`}>
+          {level.configured ? (level.faltante > 0 ? `mín ${fmtQty(level.minimum)} · faltan ${fmtQty(level.faltante)}` : `mín ${fmtQty(level.minimum)}`) : ""}
+        </span>
+        <ProductPrimaryAction action={primaryAction} compact />
+      </span>
+    </div>
+  );
+});
+
+function LocationButton({ location, active, onClick, cierre, enCarrito = 0 }) {
   const terminada = location.obraEstado === "terminada";
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`stk-saldo${active ? " is-activa" : ""}${location.available < 0 ? " is-negativo" : ""}`}
+      className={`stk-donde${active ? " is-activa" : ""}${location.available < 0 ? " is-negativo" : ""}${enCarrito ? " is-en-carrito" : ""}`}
     >
-      <span style={{ minWidth: 0 }}>
-        <span className="stk-saldo-nombre">{location.label}</span>
-        <span className="stk-saldo-sub">{location.sede || "Sin sede"}{terminada ? " · obra terminada" : ""}</span>
+      <span className="stk-donde-texto">
+        <span><strong className={location.obraId ? "mst-num" : undefined}>{location.label}</strong> <span>· {location.sede || "Sin sede"}{terminada ? " · obra terminada" : ""}</span></span>
         {terminada && (
-          <span className="stk-saldo-sub">
+          <small>
             {cierre?.id ? (
-              <Link to={`/sobrantes-obra/${cierre.id}`} onClick={(event) => event.stopPropagation()}>
-                Ir al cierre de materiales
-              </Link>
-            ) : (
-              "Reservado a obra terminada · no es stock libre"
-            )}
-          </span>
+              <Link to={`/sobrantes-obra/${cierre.id}`} onClick={(event) => event.stopPropagation()}>Ir al cierre de materiales</Link>
+            ) : "Reservado a obra terminada · no es stock libre"}
+          </small>
         )}
         {location.porVariante?.length > 0 && (
-          <span className="stk-opciones">
-            {location.porVariante.map((pv) => (
-              <Etiqueta key={pv.variante} tono="violeta" chica>
-                {pv.variante} · <b>{fmtQty(pv.available)}</b>{pv.transitQty > 0 ? ` (+${fmtQty(pv.transitQty)} por recibir)` : ""}
-              </Etiqueta>
-            ))}
-          </span>
+          <small className="is-violeta">
+            {location.porVariante.map((pv) => `${pv.variante}: ${fmtQty(pv.available)}${pv.transitQty > 0 ? ` (+${fmtQty(pv.transitQty)} por recibir)` : ""}`).join(" · ")}
+          </small>
         )}
-        {location.transitQty > 0 && (
-          <span className="stk-saldo-sub is-violeta">por recibir {fmtQty(location.transitQty)}</span>
-        )}
+        {location.transitQty > 0 && <small className="is-violeta">por recibir {fmtQty(location.transitQty)}</small>}
       </span>
-      <strong>{fmtQty(location.available)}</strong>
+      <span className="stk-donde-cant">
+        <strong className="mst-num">{fmtQty(location.available)}</strong>
+        {enCarrito ? <small className="mst-num">×{fmtQty(enCarrito)}</small> : null}
+      </span>
     </button>
   );
 }
@@ -2343,7 +2396,7 @@ function VerificacionPanel({ group, canEdit, onDone, toast }) {
   );
 }
 
-function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, canCreateCatalog = false, mode, onDone, toast, setSelectedKey, cart, setCart, onOpenCatalog, cierresByObra }) {
+function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, canCreateCatalog = false, mode, onDone, toast, setSelectedKey, cart, setCart, onOpenCatalog, cierresByObra, accion = null, minimo = null }) {
   const initialLocationKey = group
     ? (group.locations.find((loc) => loc.available > 0) || group.locations[0] || defaultLocation(sedeLocked || "Pampa")).key
     : "";
@@ -2610,11 +2663,9 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, canCrea
     return <div className="stk-bloque" style={{ borderTop: "1px solid var(--border)", paddingTop: 14 }}>{locationEditor}</div>;
   }
 
-  function addSelectedToCart() {
-    const location = selectedLocation?.available > 0
-      ? selectedLocation
-      : group.locations.find((item) => item.available > 0);
-    if (!location) {
+  // Suma una unidad desde esa ubicación, como tocar un saldo en el mostrador.
+  function sumarAlCarrito(location) {
+    if (!location || !(location.available > 0.0001)) {
       toast?.warning?.(`${group.label}: no hay stock recibido para agregar.`);
       return;
     }
@@ -2639,156 +2690,165 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, canCrea
     toast?.success?.(`+1 ${group.label} al carrito`);
   }
 
+  function enCarritoDesde(location) {
+    const base = `${group.key}::${location.key}`;
+    return cart.filter((row) => row.baseKey === base).reduce((sum, row) => sum + qty(row.cantidad, 0), 0);
+  }
+
   const categoriaDet = [...(group.categorias || [])].filter(Boolean)[0] || "";
   const libreDet = qty(group.stockLibre ?? group.total, 0);
   const reservadoDet = qty(group.stockReservado, 0);
   const nivelDet = stockLevel(group);
-  const tonoMinimo = nivelDet.key === "critico" ? "rojo" : nivelDet.key === "alerta" ? "violeta" : "";
-  // Cada número una sola vez: si hay algo reservado, "en pañol" es libre + reservado.
-  const cifras = [
-    ...(reservadoDet > 0.0001
-      ? [["Libre", libreDet, libreDet < -0.0001 ? "rojo" : ""], ["Reservado", reservadoDet, "azul"]]
-      : [["En pañol", group.total, group.negativo ? "rojo" : ""]]),
-    ...(nivelDet.configured ? [["Mínimo", nivelDet.minimum, tonoMinimo]] : []),
-    ...(qty(group.transitQty, 0) > 0.0001 ? [["En camino", group.transitQty, "azul"]] : []),
-  ];
-  const hayParaAgregar = group.locations.some((item) => item.available > 0);
+  const transitoDet = qty(group.transitQty, 0);
   const verResumen = mode === "egreso" || (!actionOpen && detailTab === "resumen");
+  const puedeSumar = canReceive && mode !== "egreso";
+  // Lo que pide atención, en una sola línea arriba de los saldos.
+  const avisoNivel = nivelDet.key === "critico" || nivelDet.key === "alerta"
+    ? `${nivelDet.label}: faltan ${fmtQty(nivelDet.faltante)} para el mínimo`
+    : "";
+  const avisoTexto = [avisoNivel, !group.ubicacion ? "sin ubicación" : ""].filter(Boolean).join(" · ");
+  const tonoAviso = nivelDet.key === "critico" ? " is-rojo" : nivelDet.key === "alerta" ? "" : " is-cian";
+  const etiquetaAccion = !accion ? "" : accion.tono === "verde"
+    ? `Agregar al carrito${accion.badge ? ` · hay ${accion.badge}` : ""}`
+    : accion.tono === "violeta"
+      ? `Pedir reposición${nivelDet.faltante > 0 ? ` · faltan ${fmtQty(nivelDet.faltante)}` : ""}`
+      : accion.label;
+  const IconoAccion = accion?.Icon || ArrowUpRight;
+  const enlaces = [
+    ["movimientos", `Movimientos`, sortedRows.length],
+    ["control", "Control y ubicación"],
+  ];
 
   return (
     <section className="stk-ficha" aria-label={`Ficha de ${group.label}`}>
       <div className="stk-ficha-cab">
         <div className="stk-ficha-fila">
-          <MaterialThumb material={{ imagen_url: group.imagenUrl, descripcion: group.label }} size={52} />
+          <span className="mst-res-foto"><FotoItem item={{ descripcion: group.label, imagenUrl: group.imagenUrl }} /></span>
           <div style={{ minWidth: 0 }}>
             <h2 className="stk-ficha-titulo">{group.label}</h2>
             <div className="stk-ficha-meta">
-              <span className="stk-codigo">{detCode}</span>
+              <span className="mst-num">{detCode}</span>
               {group.proveedor && <span>{group.proveedor}</span>}
               {categoriaDet && <span>{categoriaDet}</span>}
             </div>
           </div>
-          <div className="stk-ficha-botones">
-            {group.material?.id && onOpenCatalog && !isMobile && (
-              <button type="button" className="ui-btn ui-btn-fantasma" onClick={() => onOpenCatalog(group.material.id)} title="Abrir la ficha en el catálogo">
-                <ArrowUpRight size={14} aria-hidden="true" /> Ficha
-              </button>
-            )}
-            {isMobile ? (
-              <button type="button" className="ui-btn ui-btn-fantasma" onClick={() => setSelectedKey(null)}>
-                <ArrowLeft size={15} aria-hidden="true" /> Lista
-              </button>
-            ) : (
-              <button type="button" className="stk-cerrar" onClick={() => setSelectedKey(null)} title="Cerrar" aria-label="Cerrar la ficha">
-                <X size={16} aria-hidden="true" />
-              </button>
-            )}
-          </div>
+          {isMobile ? (
+            <button type="button" className="ui-btn ui-btn-fantasma" onClick={() => setSelectedKey(null)}>
+              <ArrowLeft size={15} aria-hidden="true" /> Lista
+            </button>
+          ) : (
+            <button type="button" className="stk-cerrar" onClick={() => setSelectedKey(null)} title="Cerrar" aria-label="Cerrar la ficha">
+              <X size={16} aria-hidden="true" />
+            </button>
+          )}
         </div>
-        {(group.tipoPedido === "adicional" || groupAsignaciones(group).length > 0 || group.ubicacion || group.egresado || group.inTransit || group.negativo || group.locationImbalance || group.catalogOnly || (group.opciones || []).length > 0) && (
-          <div className="stk-ficha-etiquetas">
-            <KindChip tipo={group.tipoPedido} />
-            <AsignadoChip asignaciones={groupAsignaciones(group)} />
-            <StateChip egresado={group.egresado} transit={group.inTransit} negative={group.negativo} imbalance={group.locationImbalance} catalogOnly={group.catalogOnly} compact />
-            <UbicacionChip ubicacion={group.ubicacion} obs={group.ubicacion_obs} size="md" />
-            <OptionStockSummary group={group} max={6} />
-          </div>
-        )}
-        <div className="stk-cifras">
-          {cifras.map(([rotulo, valor, tono]) => (
-            <div key={rotulo} className={`stk-cifra${tono ? ` is-${tono}` : ""}`}>
-              <span>{rotulo}</span>
-              <strong>{fmtQty(valor)}<small>{group.unidad || "u"}</small></strong>
-            </div>
-          ))}
-        </div>
-        {group.material?.id && onOpenCatalog && isMobile && (
-          <button type="button" className="ui-btn ui-btn-fantasma" style={{ justifySelf: "start", paddingLeft: 0 }} onClick={() => onOpenCatalog(group.material.id)}>
-            <ArrowUpRight size={14} aria-hidden="true" /> Ver ficha del producto
-          </button>
-        )}
       </div>
-
-      {mode !== "egreso" && (
-        <div className="stk-ficha-tabs" role="tablist" aria-label="Detalle del producto">
-          {[
-            ["resumen", "Resumen"],
-            ["movimientos", "Movimientos", sortedRows.length],
-            ["control", "Control"],
-          ].map(([key, label, cuenta]) => {
-            const active = !actionOpen && detailTab === key;
-            return (
-              <button
-                key={key}
-                type="button"
-                className={`stk-filtro${active ? " is-activo" : ""}`}
-                role="tab"
-                aria-selected={active}
-                onClick={() => { setActionOpen(false); setDetailTab(key); }}
-              >
-                {label}{cuenta ? <small>{fmtQty(cuenta)}</small> : null}
-              </button>
-            );
-          })}
-        </div>
-      )}
 
       <div className="stk-ficha-cuerpo">
         {verResumen && (
-          <div className="stk-bloque">
-            <div className="stk-rotulo">Saldos por depósito u obra</div>
-            <div className="stk-saldos">
-              {group.locations.map((loc) => (
-                <LocationButton
-                  key={loc.key}
-                  location={loc}
-                  active={selectedLocation?.key === loc.key}
-                  onClick={() => setSelectedLocationKey(loc.key)}
-                  cierre={cierresByObra?.get?.(loc.obraId) || null}
-                />
-              ))}
+          <>
+            <div className="stk-cajas">
+              {reservadoDet > 0.0001 ? (
+                <>
+                  <div className="stk-caja"><span>Libre</span><strong className={libreDet < -0.0001 || nivelDet.key === "critico" ? "is-rojo" : ""}>{fmtQty(libreDet)}</strong></div>
+                  <div className="stk-caja"><span>En obras</span><strong className="is-azul">{fmtQty(reservadoDet)}</strong></div>
+                </>
+              ) : (
+                <div className="stk-caja"><span>En pañol</span><strong className={group.negativo || nivelDet.key === "critico" ? "is-rojo" : ""}>{fmtQty(group.total)}</strong></div>
+              )}
+              <div className="stk-caja">
+                <span>Mínimo</span>
+                {minimo?.onSave && group.material?.id
+                  ? <div className="stk-minimo"><MinimumEditor group={group} canEdit={minimo.canEdit} onSave={minimo.onSave} draftEntry={minimo.draft} onDraftChange={minimo.onDraftChange} /></div>
+                  : <strong>{nivelDet.configured ? fmtQty(nivelDet.minimum) : "—"}</strong>}
+              </div>
+              {transitoDet > 0.0001 && <div className="stk-caja"><span>En camino</span><strong className="is-violeta">{fmtQty(transitoDet)}</strong></div>}
             </div>
+
+            {avisoTexto && <div className={`mst-aviso${tonoAviso}`}><AlertTriangle size={15} aria-hidden="true" /><span className="mst-aviso-texto"><strong>{avisoTexto.charAt(0).toUpperCase() + avisoTexto.slice(1)}</strong></span></div>}
+
+            {(group.tipoPedido === "adicional" || groupAsignaciones(group).length > 0 || (group.opciones || []).length > 0 || group.egresado || group.locationImbalance || group.catalogOnly) && (
+              <div className="stk-ficha-etiquetas">
+                <KindChip tipo={group.tipoPedido} />
+                <AsignadoChip asignaciones={groupAsignaciones(group)} />
+                <StateChip egresado={group.egresado} transit={false} negative={false} imbalance={group.locationImbalance} catalogOnly={group.catalogOnly} compact />
+                <OptionStockSummary group={group} max={6} />
+              </div>
+            )}
+
+            <div className="mst-bloque">
+              <div className="mst-bloque-titulo">
+                ¿De dónde sale?
+                {puedeSumar && <span className="stk-pista">tocá para sumar al carrito</span>}
+              </div>
+              <div className="stk-dondes">
+                {group.locations.map((loc) => (
+                  <LocationButton
+                    key={loc.key}
+                    location={loc}
+                    active={selectedLocation?.key === loc.key}
+                    enCarrito={enCarritoDesde(loc)}
+                    onClick={() => { setSelectedLocationKey(loc.key); if (puedeSumar) sumarAlCarrito(loc); }}
+                    cierre={cierresByObra?.get?.(loc.obraId) || null}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {group.esAdicional && detalleAdicional.length > 0 && (
+              <div className="mst-bloque">
+                <div className="mst-bloque-titulo" style={{ color: "var(--violet)" }}>Detalle del adicional</div>
+                {detalleAdicional.map((detalle) => <div key={detalle} className="stk-texto" style={{ color: "var(--text)" }}>{detalle}</div>)}
+              </div>
+            )}
+
+            {negativeLocations.length > 0 && (
+              <div className={`stk-aviso${group.negativo ? "" : " is-violeta"}`}>
+                <div className="stk-aviso-titulo">{group.negativo ? "Pendiente de reconciliar" : "Distribución por obra a revisar"}</div>
+                {!group.negativo && <div className="stk-texto">El stock total alcanza, pero parte quedó registrada en otra obra o ubicación. Reasignalo desde una ubicación con saldo; no cargues un ingreso nuevo.</div>}
+                {negativeLocations.map((loc) => (
+                  <div key={loc.key} className="stk-aviso-fila">
+                    <div style={{ minWidth: 0 }}>
+                      <div className="stk-saldo-nombre">{loc.label}</div>
+                      <div className={`stk-faltan ${group.negativo ? "is-rojo" : "is-violeta"}`} style={{ paddingLeft: 0 }}>{group.negativo ? "faltan" : "desbalance"} {fmtQty(Math.abs(loc.available))} {group.unidad}</div>
+                    </div>
+                    {group.negativo && (
+                      <button type="button" className="ui-btn ui-btn-peligro" onClick={() => ingresarFaltante(loc)} disabled={reconcilingKey === loc.key}>
+                        {reconcilingKey === loc.key ? "Cargando…" : "Cargar ingreso faltante"}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {mode !== "egreso" && (
+              <div className="stk-ficha-links">
+                {enlaces.map(([key, label, cuenta]) => (
+                  <button key={key} type="button" onClick={() => { setActionOpen(false); setDetailTab(key); }}>
+                    {label}{cuenta ? <span className="mst-num"> {fmtQty(cuenta)}</span> : null}
+                  </button>
+                ))}
+                {group.material?.id && onOpenCatalog && (
+                  <button type="button" onClick={() => onOpenCatalog(group.material.id)}>Ficha del catálogo</button>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        {mode !== "egreso" && !verResumen && !actionOpen && (
+          <div className="mst-bloque-titulo">
+            {detailTab === "movimientos" ? "Movimientos" : "Control y ubicación"}
+            <button type="button" onClick={() => setDetailTab("resumen")}>Volver</button>
           </div>
         )}
 
-        {/* Sin la guarda de catalogOnly: escondía el panel en casos que no
-            valía la pena adivinar, y desaparecer sin decir nada es peor que
-            aparecer deshabilitado. Cuando no se puede revisar, el panel lo
-            explica adentro. */}
         {mode !== "egreso" && !actionOpen && detailTab === "control" && (
           <VerificacionPanel group={group} canEdit={canReceive} onDone={onDone} toast={toast} />
         )}
 
         {mode !== "egreso" && !actionOpen && detailTab === "control" && renderLocationSection()}
-
-        {verResumen && group.esAdicional && detalleAdicional.length > 0 && (
-          <div className="stk-bloque">
-            <div className="stk-rotulo" style={{ color: "var(--violet)" }}>Detalle del adicional</div>
-            {detalleAdicional.map((detalle) => (
-              <div key={detalle} className="stk-texto" style={{ color: "var(--text)" }}>{detalle}</div>
-            ))}
-          </div>
-        )}
-
-        {verResumen && negativeLocations.length > 0 && (
-          <div className={`stk-aviso${group.negativo ? "" : " is-violeta"}`}>
-            <div className="stk-aviso-titulo">{group.negativo ? "Pendiente de reconciliar" : "Distribución por obra a revisar"}</div>
-            {!group.negativo && <div className="stk-texto">El stock total alcanza, pero parte quedó registrada en otra obra o ubicación. Reasignalo desde una ubicación con saldo; no cargues un ingreso nuevo.</div>}
-            {negativeLocations.map((loc) => (
-              <div key={loc.key} className="stk-aviso-fila">
-                <div style={{ minWidth: 0 }}>
-                  <div className="stk-saldo-nombre">{loc.label}</div>
-                  <div className={`stk-faltan ${group.negativo ? "is-rojo" : "is-violeta"}`} style={{ paddingLeft: 0 }}>{group.negativo ? "faltan" : "desbalance"} {fmtQty(Math.abs(loc.available))} {group.unidad}</div>
-                </div>
-                {group.negativo && (
-                  <button type="button" className="ui-btn ui-btn-peligro" onClick={() => ingresarFaltante(loc)} disabled={reconcilingKey === loc.key}>
-                    {reconcilingKey === loc.key ? "Cargando…" : "Cargar ingreso faltante"}
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
 
         {mode === "egreso" ? (
           <EgresoBatchPanel
@@ -2849,19 +2909,24 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, canCrea
       </div>
 
       {mode !== "egreso" && canReceive && (
-        <div className="stk-ficha-pie">
+        <div className="mst-car-pie">
           {actionOpen ? (
-            <button type="button" className="ui-btn" onClick={() => { setActionOpen(false); setDetailTab("resumen"); }}>
-              <ArrowLeft size={15} aria-hidden="true" /> Volver al resumen
+            <button type="button" className="ui-btn" style={{ minHeight: 44 }} onClick={() => { setActionOpen(false); setDetailTab("resumen"); }}>
+              <ArrowLeft size={15} aria-hidden="true" /> Volver a la ficha
             </button>
           ) : (
             <>
-              <button type="button" className="ui-btn ui-btn-primario" onClick={() => setActionOpen(true)}>
-                Registrar movimiento
-              </button>
-              <button type="button" className="ui-btn stk-carrito" onClick={addSelectedToCart} disabled={!hayParaAgregar}>
-                <ShoppingCart size={15} aria-hidden="true" /> Agregar al carrito
-              </button>
+              {accion?.onClick && (
+                <button type="button" className={`mst-btn-grande${accion.tono === "verde" ? " is-verde" : accion.tono === "violeta" ? " is-violeta" : ""}`} onClick={accion.onClick} title={accion.title || etiquetaAccion}>
+                  <IconoAccion size={18} aria-hidden="true" /> {etiquetaAccion}
+                </button>
+              )}
+              <div className="stk-pie-dos">
+                <button type="button" className="ui-btn" onClick={() => setActionOpen(true)}>Registrar movimiento</button>
+                <button type="button" className="ui-btn" onClick={() => { setActionOpen(false); setDetailTab("control"); }}>
+                  <MapPin size={15} aria-hidden="true" /> {group.ubicacion ? "Cambiar ubicación" : "Ubicar en estante"}
+                </button>
+              </div>
             </>
           )}
         </div>
@@ -3500,9 +3565,13 @@ function CartDrawer({ cart, setCart, obras, canReceive, onDone, toast, isMobile,
   );
 }
 
-export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos", initialQuery = "", initialMaterialId = "", onOpenCatalog, onReceiveStock, onRegisterPendingProduct, onRequestReplenishment, onStockChange, stockMaster = false, tableWorkspace = false, showCatalogInventory = false, sharedRows = null, sharedObras = null, sharedTransitRows = null, sharedReplenishmentCatalog = null, sharedLoading = false }) {
+export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toast, mode = "stock", canReceive = true, canCreateCatalog = false, canSeePrices = true, initialFObra = "todas", initialScope = "todos", initialQuery = "", initialMaterialId = "", onOpenCatalog, onReceiveStock, onRegisterPendingProduct, onRequestReplenishment, onStockChange, stockMaster = false, tableWorkspace = false, showCatalogInventory = false, sharedRows = null, sharedObras = null, sharedTransitRows = null, sharedReplenishmentCatalog = null, sharedLoading = false, faltaObras = null, onOpenFaltas }) {
   const searchInputRef = useRef(null);
   const productListRef = useRef(null);
+  const navegar = useNavigate();
+  // El maestro arranca en la botonera (bandejas y obras), como el mostrador.
+  // Si viene con un producto, una búsqueda o una bandeja puntual, va directo.
+  const [inicio, setInicio] = useState(() => stockMaster && !initialQuery && !initialMaterialId && initialScope !== "reconciliar");
   const loadMoreRef = useRef(null);
   const [rows, setRows] = useState(() => Array.isArray(sharedRows) ? sharedRows : []);
   const [catalogRows, setCatalogRows] = useState([]);
@@ -4142,6 +4211,25 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     };
   }, [q, productGroupsBase, stockMaster]);
 
+  const obrasBotonera = useMemo(() => {
+    if (!stockMaster) return [];
+    const nombres = new Map(obraOptions);
+    const porObra = new Map();
+    for (const group of allKindGroups) {
+      for (const loc of group.locations || []) {
+        if (!loc.obraId || !(loc.available > 0.0001)) continue;
+        const key = obraScopeKey(loc.obraId);
+        const actual = porObra.get(key) || { productos: new Set(), terminada: false };
+        actual.productos.add(group.key);
+        if (loc.obraEstado === "terminada") actual.terminada = true;
+        porObra.set(key, actual);
+      }
+    }
+    return [...porObra.entries()]
+      .map(([key, dato]) => ({ key, label: nombres.get(key) || "Obra", productos: dato.productos.size, terminada: dato.terminada }))
+      .sort((a, b) => a.label.localeCompare(b.label, "es", { numeric: true }));
+  }, [allKindGroups, obraOptions, stockMaster]);
+
   const kpis = useMemo(() => {
     if (stockMaster) {
       // Las bandejas cuentan lo mismo que muestra la lista: sin los requisitos
@@ -4360,9 +4448,358 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
     problema: Math.round((verifCounts.problema / verifCounts.todos) * 100),
   } : { ok: 0, problema: 0 };
 
-  return (
-    <div className="stk-root">
+  const panelFiltros = (!streamlinedToolbar || filtersOpen) ? (
+          <div id="stock-advanced-filters" className="stk-avanzados">
+            {!streamlinedToolbar && !showCatalogInventory && <SelectFilter label="Estado" value={scope} onChange={setScope} options={[
+              ["todos", "Todos"],
+              ["negativos", "A reconciliar"],
+              ["sin_ubicacion", `Sin ubicación${kpis.sinUbicacion ? ` (${kpis.sinUbicacion})` : ""}`],
+            ]} />}
+            {stockManagement && (
+              <SelectFilter label="Revisión" value={verifScope} onChange={setVerifScope} options={[
+                ["todos", `Todos (${verifCounts.todos})`],
+                ["pendiente", `Sin revisar (${verifCounts.pendiente})`],
+                ["problema", `Con problema (${verifCounts.problema})`],
+                ["ok", `Revisados (${verifCounts.ok})`],
+                ["sin_datos", `Sin ubicación o código (${verifCounts.sin_datos})`],
+              ]} />
+            )}
+            <SelectFilter label="Orden" value={orderBy} onChange={setOrderBy} options={[
+              ...(stockManagement ? [...(!tableWorkspace ? [["estado", "Estado de stock"]] : []), ["sin_revisar", "Sin revisar primero"], ["alfabetico", "Alfabético"]] : []),
+              ["default", tableWorkspace ? "Mayor saldo primero" : "Stock primero"],
+              ["recientes", "Más recientes"],
+            ]} />
+            <SelectFilter label="Tipo" value={kindScope} onChange={setKindScope} options={[["todos", `Todos (${kindCounts.todos})`], ["stock", `Stock pañol (${kindCounts.stock})`], ["estandar", `Asignado a obra (${kindCounts.estandar})`], ["adicional", `Adicionales (${kindCounts.adicional})`]]} />
+            <SelectFilter label="Obra" value={fObra} onChange={setFObra} options={obraOptions} />
+            <SelectFilter label="Categoría" value={fCategoria} onChange={setFCategoria} options={categoriaOptions} />
+            <SelectFilter label="Proveedor" value={fProveedor} onChange={setFProveedor} options={proveedorOptions} />
+            {!sedeLocked && <SelectFilter label="Sede" value={fSede} onChange={setFSede} options={[["todas", "Todas"], ...SEDES_PANOL.map((sede) => [sede, sede])]} />}
+            {streamlinedToolbar && advancedFilterCount > 0 && (
+              <button type="button" className="stk-limpiar" onClick={clearAdvancedFilters}>Limpiar filtros</button>
+            )}
+
+            {/* El avance de la revisión contesta otra pregunta que el nivel de
+                stock: va con los filtros, no en la bandeja. */}
+            {stockManagement && verifCounts.todos > 0 && (
+              <div className="stk-revision">
+                <ShieldCheck size={14} style={{ color: "var(--blue)" }} aria-hidden="true" />
+                <span className="stk-rotulo">Revisión</span>
+                <span className="stk-revision-barra" aria-hidden="true">
+                  <i className="is-ok" style={{ width: `${avanceRevision.ok}%` }} />
+                  <i className="is-problema" style={{ width: `${avanceRevision.problema}%` }} />
+                </span>
+                <b>{fmtQty(verifCounts.ok + verifCounts.problema)} / {fmtQty(verifCounts.todos)}</b>
+                {[
+                  ["pendiente", `${fmtQty(verifCounts.pendiente)} sin revisar`, ""],
+                  ["problema", `${fmtQty(verifCounts.problema)} con problema`, "rojo"],
+                  ["ok", `${fmtQty(verifCounts.ok)} ok`, "verde"],
+                ].map(([key, label, tono]) => (
+                  <button key={key} type="button" className={`stk-pastilla${tono ? ` is-${tono}` : ""}${verifScope === key ? " is-activa" : ""}`} aria-pressed={verifScope === key} onClick={() => setVerifScope(verifScope === key ? "todos" : key)}>
+                    <i aria-hidden="true" />{label}
+                  </button>
+                ))}
+                {canArchiveMatrix && matrizPendientes.length > 0 && (
+                  <button type="button" className="stk-pastilla is-violeta" onClick={archivarTodaLaMatriz} disabled={archivandoLote} title="Los requisitos de matriz no son piezas del estante. Archivarlos los saca de la lista sin borrarlos.">
+                    <Archive size={12} aria-hidden="true" />{archivandoLote ? "Archivando…" : `Archivar ${matrizPendientes.length} de matriz`}
+                  </button>
+                )}
+                {!obraScoped && matrizArchivadas > 0 && (
+                  <button type="button" className={`stk-pastilla is-violeta${verArchivados ? " is-activa" : ""}`} aria-pressed={verArchivados} onClick={() => setVerArchivados((v) => !v)} title="Requisitos de matriz ya revisados. Están fuera de la lista para no confundirlos con productos.">
+                    {matrizArchivadas} de matriz archivados
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+  ) : null;
+
+  const estilos = (
+    <>
+      <style href="klasea-stock-mostrador" precedence="default">{CSS_MOSTRADOR}</style>
+      <style href="klasea-stock-mostrador-panol" precedence="default">{CSS_PANOL}</style>
       <style href="klasea-panol-stock" precedence="default">{CSS_STOCK}</style>
+    </>
+  );
+
+  // ── Stock maestro: mismo dibujo que el mostrador de egresos ──
+  if (stockMaster) {
+    const enInicio = inicio && !q.trim() && !focusedMaterialId;
+    const bandejasMaestro = [
+      ["existencia", "Con stock", kpis.productos, "productos en el pañol", ""],
+      ["reponer", "Reponer", kpis.reponer || 0, "libre en su mínimo o menos", "rojo"],
+      ["sin_ubicacion", "Sin ubicación", kpis.sinUbicacion, "para ubicar en el mapa", "cian"],
+      ["reconciliar", "Diferencias", kpis.negativos, "a reconciliar", "violeta"],
+      ["en_camino", "En camino", kpis.enCamino, "por recibir", "azul"],
+      ["sobrante", "Sobrantes", kpis.sobrantes, "de obras terminadas", "cian"],
+      ["todos", "Todo el stock", obraViewCounts.todos, "con y sin saldo", ""],
+    ];
+    const bandejaActual = bandejasMaestro.find(([key]) => key === scope);
+    const obraActual = fObra !== "todas" ? (obraOptions.find(([key]) => key === fObra)?.[1] || "Obra") : "";
+    const elegirBandeja = (key) => { setVerifScope("todos"); setScope(key); setInicio(false); };
+    const elegirObra = (key) => { setFObra(key); setVerifScope("todos"); setScope("existencia"); setInicio(false); };
+    const volverAlInicio = () => { setInicio(true); setFObra("todas"); setQ(""); setFocusedMaterialId(""); setSelectedKey(null); setScope("existencia"); };
+    const titulo = q.trim()
+      ? "Resultados"
+      : focusedMaterialId ? "Producto" : (bandejaActual?.[1] || "Productos");
+    const mostrarLista = !(isMobile && hasSelectedProduct);
+    const carritoFirmar = canReceive && cart.length > 0;
+
+    return (
+      <div className={`stk-root mst mpn stk-mst${isMobile ? " is-angosto" : ""}`}>
+        {estilos}
+        <div className="mst-barra">
+          <div className="mst-lector">
+            <ScanBarcode size={20} className="mst-lector-icono" aria-hidden="true" />
+            <input
+              ref={searchInputRef}
+              value={q}
+              onChange={(event) => {
+                setQ(event.target.value);
+                setFocusedMaterialId("");
+                // Buscar desde la botonera mira todo el stock, no una bandeja.
+                if (enInicio && event.target.value.trim()) setScope("todos");
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === "Tab") {
+                  event.preventDefault();
+                  applyScanCode(q);
+                }
+              }}
+              placeholder={isMobile ? "Código, nombre o ubicación" : "Pasá el código o buscá por nombre, código o ubicación"}
+              aria-label="Código del lector o búsqueda"
+              autoComplete="off"
+              spellCheck={false}
+              enterKeyHint="search"
+            />
+            {q ? (
+              <button type="button" className="mst-lector-limpiar" onClick={() => { setQ(""); setFocusedMaterialId(""); searchInputRef.current?.focus(); }} aria-label="Borrar la búsqueda">
+                <X size={15} />
+              </button>
+            ) : !isMobile ? (
+              <span className="mst-lector-estado" aria-hidden="true">
+                <i />
+                <span className="is-listo">Lector listo</span>
+                <span className="is-perdido">Clic acá para escanear</span>
+              </span>
+            ) : null}
+          </div>
+          <div className="mst-estados">
+            <button
+              type="button"
+              className={`mst-icono-btn stk-con-cuenta${filtersOpen || advancedFilterCount ? " is-activo" : ""}`}
+              onClick={() => setFiltersOpen((value) => !value)}
+              aria-expanded={filtersOpen}
+              aria-controls="stock-advanced-filters"
+              aria-label="Filtros"
+              title="Filtros: revisión, orden, tipo, obra, categoría y proveedor"
+            >
+              <SlidersHorizontal size={16} />
+              {advancedFilterCount > 0 && <span className="stk-num">{advancedFilterCount}</span>}
+            </button>
+            <button type="button" className="mst-icono-btn" onClick={() => setScannerOpen(true)} aria-label="Escanear con la cámara" title="Escanear con la cámara">
+              <ScanLine size={16} />
+            </button>
+          </div>
+          <BarcodeScanner open={scannerOpen} onClose={() => setScannerOpen(false)} onScan={(code) => { setScannerOpen(false); applyScanCode(code); }} />
+        </div>
+
+        <div className="mst-cuerpo">
+          {mostrarLista && (
+            <div ref={productListRef} className="mst-col mst-col-botonera">
+              {panelFiltros && <div className="stk-filtros-mst">{panelFiltros}</div>}
+
+              {enInicio ? (
+                <>
+                  <section aria-label="Bandejas de trabajo">
+                    <div className="mst-titulo-seccion">¿Qué querés revisar?</div>
+                    <div className="stk-bandejas-mst">
+                      {bandejasMaestro.slice(0, 6).map(([key, label, count, sub, tono]) => (
+                        <button key={key} type="button" className={`stk-bandeja${tono && count ? ` is-${tono}` : ""}`} onClick={() => elegirBandeja(key)}>
+                          <span className="mst-num">{fmtQty(count)}</span>
+                          <strong>{label}</strong>
+                          <small>{sub}</small>
+                        </button>
+                      ))}
+                      {faltaObras && onOpenFaltas && (
+                        <button type="button" className={`stk-bandeja${faltaObras.productos ? " is-rojo" : ""}`} onClick={onOpenFaltas}>
+                          <span className="mst-num">{fmtQty(faltaObras.productos)}</span>
+                          <strong>Falta para obras</strong>
+                          <small>{faltaObras.atrasados ? `${fmtQty(faltaObras.atrasados)} ya atrasados` : "no alcanza para las próximas"}</small>
+                        </button>
+                      )}
+                      {bandejasMaestro.slice(6).map(([key, label, count, sub]) => (
+                        <button key={key} type="button" className="stk-bandeja" onClick={() => elegirBandeja(key)}>
+                          <span className="mst-num">{fmtQty(count)}</span>
+                          <strong>{label}</strong>
+                          <small>{sub}</small>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                  {obrasBotonera.length > 0 && (
+                    <section aria-label="Stock de cada obra">
+                      <div className="mst-titulo-seccion">O mirá lo de una obra</div>
+                      <div className="mst-obras">
+                        {obrasBotonera.map((obra) => (
+                          <button key={obra.key} type="button" className="mst-obra mpn-obra-tile" onClick={() => elegirObra(obra.key)} style={obra.terminada ? { opacity: 0.75 } : undefined}>
+                            <strong>{obra.label}</strong>
+                            <span className="mpn-obra-cuenta">{obra.productos === 1 ? "1 producto" : `${fmtQty(obra.productos)} productos`}{obra.terminada ? " · obra terminada" : ""}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+                </>
+              ) : (
+                <>
+                  <section aria-label="Bandejas">
+                    <div className="mpn-riel" role="group" aria-label="Bandejas">
+                      <button type="button" className="mpn-origen" onClick={volverAlInicio} aria-label="Volver a la botonera" title="Volver a la botonera">
+                        <ArrowLeft size={15} aria-hidden="true" />{!isMobile && "Inicio"}
+                      </button>
+                      {obraActual && (
+                        <button type="button" className="mpn-origen is-elegido" onClick={() => setFObra("todas")} title="Quitar el filtro de obra">
+                          <strong>{obraActual}</strong><X size={13} aria-hidden="true" />
+                        </button>
+                      )}
+                      {bandejasMaestro.map(([key, label, count, , tono]) => {
+                        const activa = scope === key && verifScope === "todos" && !focusedMaterialId;
+                        return (
+                          <button key={key} type="button" className={`mpn-origen is-libre${activa ? " is-elegido" : ""}`} aria-pressed={activa} onClick={() => elegirBandeja(key)}>
+                            <strong>{label}</strong>
+                            <span className={`mst-num${tono && count && !activa ? ` stk-tono-${tono}` : ""}`}>{fmtQty(count)}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+
+                  <section aria-label={titulo}>
+                    <div className="mst-titulo-seccion">
+                      {q.trim() ? <Search size={12} aria-hidden="true" /> : null}
+                      {titulo} <span className="mst-num">{fmtQty(productGroups.length)}</span>
+                      {obraActual ? <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 500 }}>· en {obraActual}</span> : null}
+                    </div>
+                    {loading ? (
+                      <Cargando texto="Cargando el stock…" />
+                    ) : productGroups.length ? (
+                      <>
+                        <div className="mst-resultados">
+                          {renderedProductGroups.map((group) => (
+                            <FilaMaestro key={group.key} group={group} active={selectedKey === group.key} onOpen={setSelectedKey} primaryAction={primaryActionFor(group)} />
+                          ))}
+                        </div>
+                        {hiddenProductCount > 0 && (
+                          <div className="stk-mas">
+                            <button ref={loadMoreRef} type="button" className="ui-btn" onClick={() => setRenderLimit((current) => Math.min(current + PRODUCT_RENDER_BATCH, productGroups.length))}>
+                              Mostrar {Math.min(PRODUCT_RENDER_BATCH, hiddenProductCount)} más · quedan {fmtQty(hiddenProductCount)}
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="mst-vacio">
+                        {q.trim() ? `Nada coincide con «${q.trim()}» en esta bandeja.` : "No hay productos en esta bandeja."}
+                        {q.trim() && scope !== "todos" && (
+                          <div style={{ marginTop: 10 }}>
+                            <button type="button" className="ui-btn" onClick={() => elegirBandeja("todos")}>Buscar en todo el stock</button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </section>
+                </>
+              )}
+            </div>
+          )}
+
+          {hasSelectedProduct ? (
+            <ProductDetail
+              key={selectedGroup.key}
+              group={selectedGroup}
+              isMobile={isMobile}
+              obras={obras}
+              sedeLocked={sedeLocked}
+              canReceive={canReceive}
+              canCreateCatalog={canCreateCatalog}
+              mode={mode}
+              onDone={refreshAfterMovement}
+              toast={toast}
+              setSelectedKey={setSelectedKey}
+              cart={cart}
+              setCart={setCart}
+              onOpenCatalog={onOpenCatalog}
+              cierresByObra={cierresByObra}
+              accion={primaryActionFor(selectedGroup)}
+              minimo={canReceive ? { canEdit: !savingMinimums, onSave: saveSingleMinimum, draft: minimumDrafts[selectedGroup.material?.id], onDraftChange: changeMinimumDraft } : null}
+            />
+          ) : !isMobile ? (
+            <aside className="mst-col mst-col-carrito" aria-label="Producto y carrito">
+              <div className="mst-car-cab"><span className="mst-car-titulo">Producto</span></div>
+              <div className="mst-car-lista">
+                <div className="mst-car-vacio">
+                  <strong>Todavía no elegiste nada</strong>
+                  Pasá un producto por el lector o entrá a una bandeja. Acá vas a ver dónde está, cuánto hay en cada obra y qué hacer con él.
+                </div>
+              </div>
+              {canReceive && (cart.length > 0 || savedCarts.length > 0) && (
+                <div className="mst-car-pie">
+                  <div className="mst-bloque-titulo">
+                    Carrito <span className="mst-num">{cart.length}</span>
+                    <button type="button" onClick={() => setCartOpen(true)}>Ver y editar</button>
+                  </div>
+                  {cart.slice(0, 4).map((item) => (
+                    <div key={item.key} className="stk-car-fila">
+                      <span className="mst-num">{fmtQty(item.cantidad)}</span>
+                      <span>{item.label}</span>
+                      <small className={item.obraId ? "mst-num" : undefined}>{item.locationLabel}</small>
+                    </div>
+                  ))}
+                  {cart.length > 4 && <div className="stk-car-fila"><small>y {cart.length - 4} más</small></div>}
+                  {cart.length ? (
+                    <button type="button" className="mst-btn-grande" onClick={() => navegar("/egresos-panol")}>
+                      Firmar en el mostrador
+                    </button>
+                  ) : (
+                    <button type="button" className="ui-btn" onClick={() => setCartOpen(true)}>
+                      {savedCarts.length === 1 ? "1 carrito pausado" : `${savedCarts.length} carritos pausados`}
+                    </button>
+                  )}
+                </div>
+              )}
+            </aside>
+          ) : null}
+        </div>
+
+        {isMobile && carritoFirmar && !hasSelectedProduct && (
+          <div className="mst-barra-firmar">
+            <button type="button" className="mst-btn-grande" onClick={() => navegar("/egresos-panol")}>
+              Carrito · {cart.length} · firmar en el mostrador
+            </button>
+          </div>
+        )}
+
+        {canReceive && cartOpen && (cart.length > 0 || savedCarts.length > 0) && (
+          <CartDrawer
+            cart={cart}
+            setCart={setCart}
+            obras={obras}
+            canReceive={canReceive}
+            onDone={async () => { setCartOpen(false); await refreshAfterMovement(); }}
+            toast={toast}
+            isMobile={isMobile}
+            onClose={() => setCartOpen(false)}
+            savedCarts={savedCarts}
+            setSavedCarts={setSavedCarts}
+          />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="stk-root mst mpn">
+      {estilos}
 
       <div className="stk-barra">
         <div className="stk-barra-fila">
@@ -4456,70 +4893,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
           </div>
         </div>
 
-        {(!streamlinedToolbar || filtersOpen) && (
-          <div id="stock-advanced-filters" className="stk-avanzados">
-            {!streamlinedToolbar && !showCatalogInventory && <SelectFilter label="Estado" value={scope} onChange={setScope} options={[
-              ["todos", "Todos"],
-              ["negativos", "A reconciliar"],
-              ["sin_ubicacion", `Sin ubicación${kpis.sinUbicacion ? ` (${kpis.sinUbicacion})` : ""}`],
-            ]} />}
-            {stockManagement && (
-              <SelectFilter label="Revisión" value={verifScope} onChange={setVerifScope} options={[
-                ["todos", `Todos (${verifCounts.todos})`],
-                ["pendiente", `Sin revisar (${verifCounts.pendiente})`],
-                ["problema", `Con problema (${verifCounts.problema})`],
-                ["ok", `Revisados (${verifCounts.ok})`],
-                ["sin_datos", `Sin ubicación o código (${verifCounts.sin_datos})`],
-              ]} />
-            )}
-            <SelectFilter label="Orden" value={orderBy} onChange={setOrderBy} options={[
-              ...(stockManagement ? [...(!tableWorkspace ? [["estado", "Estado de stock"]] : []), ["sin_revisar", "Sin revisar primero"], ["alfabetico", "Alfabético"]] : []),
-              ["default", tableWorkspace ? "Mayor saldo primero" : "Stock primero"],
-              ["recientes", "Más recientes"],
-            ]} />
-            <SelectFilter label="Tipo" value={kindScope} onChange={setKindScope} options={[["todos", `Todos (${kindCounts.todos})`], ["stock", `Stock pañol (${kindCounts.stock})`], ["estandar", `Asignado a obra (${kindCounts.estandar})`], ["adicional", `Adicionales (${kindCounts.adicional})`]]} />
-            <SelectFilter label="Obra" value={fObra} onChange={setFObra} options={obraOptions} />
-            <SelectFilter label="Categoría" value={fCategoria} onChange={setFCategoria} options={categoriaOptions} />
-            <SelectFilter label="Proveedor" value={fProveedor} onChange={setFProveedor} options={proveedorOptions} />
-            {!sedeLocked && <SelectFilter label="Sede" value={fSede} onChange={setFSede} options={[["todas", "Todas"], ...SEDES_PANOL.map((sede) => [sede, sede])]} />}
-            {streamlinedToolbar && advancedFilterCount > 0 && (
-              <button type="button" className="stk-limpiar" onClick={clearAdvancedFilters}>Limpiar filtros</button>
-            )}
-
-            {/* El avance de la revisión contesta otra pregunta que el nivel de
-                stock: va con los filtros, no en la bandeja. */}
-            {stockManagement && verifCounts.todos > 0 && (
-              <div className="stk-revision">
-                <ShieldCheck size={14} style={{ color: "var(--blue)" }} aria-hidden="true" />
-                <span className="stk-rotulo">Revisión</span>
-                <span className="stk-revision-barra" aria-hidden="true">
-                  <i className="is-ok" style={{ width: `${avanceRevision.ok}%` }} />
-                  <i className="is-problema" style={{ width: `${avanceRevision.problema}%` }} />
-                </span>
-                <b>{fmtQty(verifCounts.ok + verifCounts.problema)} / {fmtQty(verifCounts.todos)}</b>
-                {[
-                  ["pendiente", `${fmtQty(verifCounts.pendiente)} sin revisar`, ""],
-                  ["problema", `${fmtQty(verifCounts.problema)} con problema`, "rojo"],
-                  ["ok", `${fmtQty(verifCounts.ok)} ok`, "verde"],
-                ].map(([key, label, tono]) => (
-                  <button key={key} type="button" className={`stk-pastilla${tono ? ` is-${tono}` : ""}${verifScope === key ? " is-activa" : ""}`} aria-pressed={verifScope === key} onClick={() => setVerifScope(verifScope === key ? "todos" : key)}>
-                    <i aria-hidden="true" />{label}
-                  </button>
-                ))}
-                {canArchiveMatrix && matrizPendientes.length > 0 && (
-                  <button type="button" className="stk-pastilla is-violeta" onClick={archivarTodaLaMatriz} disabled={archivandoLote} title="Los requisitos de matriz no son piezas del estante. Archivarlos los saca de la lista sin borrarlos.">
-                    <Archive size={12} aria-hidden="true" />{archivandoLote ? "Archivando…" : `Archivar ${matrizPendientes.length} de matriz`}
-                  </button>
-                )}
-                {!obraScoped && matrizArchivadas > 0 && (
-                  <button type="button" className={`stk-pastilla is-violeta${verArchivados ? " is-activa" : ""}`} aria-pressed={verArchivados} onClick={() => setVerArchivados((v) => !v)} title="Requisitos de matriz ya revisados. Están fuera de la lista para no confundirlos con productos.">
-                    {matrizArchivadas} de matriz archivados
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+        {panelFiltros}
 
         {filtros && (
           <div className="stk-filtros" role="tablist" aria-label={tableWorkspace ? "Ver stock o egresos de la obra" : "Bandejas de trabajo"}>
@@ -4661,6 +5035,7 @@ export default function StockWmsPanel({ sedeLocked = null, isMobile = false, toa
               setCart={setCart}
               onOpenCatalog={onOpenCatalog}
               cierresByObra={cierresByObra}
+              accion={primaryActionFor(selectedGroup)}
             />
           )}
         </div>

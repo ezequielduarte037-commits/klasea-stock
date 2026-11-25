@@ -123,6 +123,7 @@ html .stk-root .stk-buscar input:not([type="checkbox"]):not([type="radio"]):not(
 .stk-root .stk-minimo-input:disabled { opacity: .75; }
 /* El tema claro pinta todos los campos con caja: el mínimo se ve como número
    hasta que se lo toca, y los selectores de filtros van sólo con la línea. */
+html[data-theme="light"] .stk-root .stk-caja input.stk-minimo-input:not(.is-editando):not(.is-error):not(:focus),
 html[data-theme="light"] .stk-root .stk-minimo input.stk-minimo-input:not(.is-editando):not(.is-error):not(:focus) { background-color: transparent !important; border-color: transparent !important; }
 html[data-theme="light"] .stk-root .stk-minimo input.stk-minimo-input:not(.is-editando):not(.is-error):not(:focus):hover { border-color: var(--border-2) !important; }
 html[data-theme="light"] .stk-root .stk-select select { background-color: transparent !important; border-color: transparent !important; box-shadow: none !important; }
@@ -203,10 +204,11 @@ html[data-theme="light"] .stk-root .stk-select select { background-color: transp
 .stk-root .stk-opciones { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; min-width: 0; }
 
 /* ── Ficha del producto (columna derecha) ── */
-.stk-root .stk-ficha { min-height: 0; min-width: 0; display: flex; flex-direction: column; border-left: 1px solid var(--border); background: var(--bg); animation: stk-entra .24s cubic-bezier(.22,1,.36,1); }
-.stk-root .stk-ficha-cab { flex-shrink: 0; padding: 16px 20px 0; display: grid; gap: 12px; }
+.stk-root .stk-ficha { min-height: 0; min-width: 0; display: flex; flex-direction: column; border-left: 1px solid var(--border); background: var(--panel); animation: stk-entra .24s cubic-bezier(.22,1,.36,1); }
+.stk-root .stk-ficha-cab { flex-shrink: 0; padding: 14px 16px; display: grid; gap: 12px; border-bottom: 1px solid var(--border); }
 .stk-root .stk-ficha-fila { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: start; }
-.stk-root .stk-ficha-titulo { margin: 0; font-size: 22px; font-weight: 300; line-height: 1.2; overflow-wrap: anywhere; }
+.stk-root .stk-ficha-titulo { margin: 0; font-size: 17px; font-weight: 650; line-height: 1.25; overflow-wrap: anywhere; }
+.stk-root .stk-ficha-fila > .mst-res-foto { width: 52px; height: 52px; border-radius: 12px; }
 .stk-root .stk-ficha-meta { margin-top: 4px; display: flex; gap: 3px 10px; flex-wrap: wrap; font-size: 12.5px; color: var(--dim); }
 .stk-root .stk-ficha-meta .stk-codigo { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--muted); }
 .stk-root .stk-ficha-botones { display: flex; align-items: center; gap: 6px; }
@@ -225,7 +227,7 @@ html[data-theme="light"] .stk-root .stk-select select { background-color: transp
 .stk-root .stk-ficha-botones .ui-btn { min-height: 34px; padding: 0 10px; font-size: 12.5px; }
 .stk-root .stk-ficha-tabs { flex-shrink: 0; display: flex; gap: 22px; margin-top: 8px; padding: 0 20px; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
 .stk-root .stk-ficha-tabs::-webkit-scrollbar { display: none; }
-.stk-root .stk-ficha-cuerpo { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 20px 20px; display: grid; gap: 16px; align-content: start; }
+.stk-root .stk-ficha-cuerpo { flex: 1; min-height: 0; overflow-y: auto; padding: 14px 16px 18px; display: grid; gap: 14px; align-content: start; }
 .stk-root .stk-ficha-pie { flex-shrink: 0; display: flex; gap: 8px; padding: 12px 20px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid var(--border); }
 .stk-root .stk-ficha-pie .ui-btn { flex: 1; }
 .stk-root .stk-bloque { display: grid; gap: 8px; }
@@ -288,6 +290,114 @@ html[data-theme="light"] .stk-root .stk-select select { background-color: transp
 .stk-root .stk-opciones-boton { display: flex; gap: 6px; flex-wrap: wrap; }
 .stk-root .stk-nota-cian { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--cyan-border); background: var(--cyan-soft); color: var(--muted); font-size: 12.5px; line-height: 1.45; }
 .stk-root .stk-nota-violeta { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--violet-border); background: var(--violet-soft); color: var(--text); font-size: 12.5px; line-height: 1.45; }
+
+/* ── Stock maestro con el dibujo del mostrador (clases .mst de consumibles) ── */
+.stk-root.mst { position: relative; top: auto; right: auto; bottom: auto; left: auto; flex: 1; min-height: 0; }
+.stk-root .mst-cuerpo { grid-template-columns: minmax(0, 1fr) minmax(360px, 400px); }
+.stk-root.is-angosto .mst-cuerpo { display: flex; flex-direction: column; }
+.stk-root .mst-col-botonera { align-content: start; }
+.stk-root .stk-filtros-mst .stk-avanzados { margin-top: 0; padding-top: 0; border-top: 0; }
+.stk-root .mst-icono-btn.stk-con-cuenta { position: relative; }
+.stk-root .mst-icono-btn .stk-num { position: absolute; top: -6px; right: -6px; }
+.stk-root .stk-bandejas-mst { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.stk-root .stk-ficha-meta .mst-num { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stk-root .stk-bandeja {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: 98px; padding: 12px 14px;
+  border: 1px solid var(--border); border-radius: 14px; background: var(--panel-solid); color: var(--text); text-align: left;
+  transition: border-color .15s, transform .12s;
+}
+.stk-root .stk-bandeja:hover { border-color: var(--blue-border); }
+.stk-root .stk-bandeja:active { transform: scale(.98); }
+.stk-root .stk-bandeja .mst-num { font-size: 26px; font-weight: 700; line-height: 1.15; }
+.stk-root .stk-bandeja strong { font-size: 15px; font-weight: 650; }
+.stk-root .stk-bandeja small { font-size: 12px; color: var(--dim); }
+.stk-root .stk-bandeja.is-rojo { border-color: var(--red-border); }
+.stk-root .stk-bandeja.is-rojo .mst-num { color: var(--red); }
+.stk-root .stk-bandeja.is-cian .mst-num { color: var(--cyan); }
+.stk-root .stk-bandeja.is-violeta .mst-num { color: var(--violet); }
+.stk-root .stk-bandeja.is-azul .mst-num { color: var(--blue); }
+.stk-root .mpn-origen .stk-tono-rojo { color: var(--red); }
+.stk-root .mpn-origen .stk-tono-cian { color: var(--cyan); }
+.stk-root .mpn-origen .stk-tono-violeta { color: var(--violet); }
+.stk-root .mpn-origen .stk-tono-azul { color: var(--blue); }
+.stk-root .mpn-origen svg { flex-shrink: 0; }
+
+/* Fila del maestro */
+.stk-root .stk-mres { cursor: pointer; outline: none; padding-right: 10px; }
+.stk-root .stk-mres:focus-visible { box-shadow: inset 0 0 0 2px var(--blue); }
+.stk-root .stk-mres .mst-res-texto { display: grid; gap: 2px; }
+.stk-root .stk-mres-sub { display: flex; align-items: center; gap: 4px 9px; min-width: 0; }
+.stk-root .stk-mres-sub > span { flex-shrink: 0; }
+.stk-root .stk-mres-sub > span:last-child { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.stk-root .stk-mres-sub .mst-num { font-size: 11px; color: var(--muted); }
+.stk-root .stk-mres-sub .is-violeta { color: var(--violet); }
+.stk-root .stk-mres-sub .is-rojo { color: var(--red); }
+.stk-root .stk-sin-ubic { font-size: 11px; font-weight: 600; padding: 1px 6px; border: 1px solid var(--cyan-border); border-radius: 6px; background: var(--cyan-soft); color: var(--cyan); white-space: nowrap; }
+.stk-root .stk-mres-fin { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.stk-root .stk-mres .mpn-saldo:hover { border-color: var(--border-2); background: var(--panel); }
+.stk-root .stk-libre.is-verde .mst-num { color: var(--green); }
+.stk-root .stk-libre.is-rojo .mst-num { color: var(--red); }
+.stk-root .stk-libre.is-violeta .mst-num { color: var(--violet); }
+.stk-root .stk-libre.is-cero .mst-num { color: var(--dim); }
+.stk-root .stk-obras .mst-num { color: var(--blue); }
+.stk-root .stk-obras.is-terminada .mst-num { color: var(--cyan); }
+.stk-root .stk-mres-min { width: 136px; text-align: right; font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stk-root .stk-mres-min.is-rojo { color: var(--red); }
+.stk-root .stk-mres-min.is-violeta { color: var(--violet); }
+.stk-root .stk-mres .stk-accion.is-icono { width: 38px; min-height: 38px; border-radius: 10px; }
+
+/* Ficha (columna derecha) */
+.stk-root .stk-cajas { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+.stk-root .stk-caja { display: grid; gap: 2px; min-width: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel-solid); }
+.stk-root .stk-caja > span { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
+.stk-root .stk-caja > strong { font-family: 'JetBrains Mono', monospace; font-variant-numeric: tabular-nums; font-size: 24px; font-weight: 700; line-height: 1.2; }
+.stk-root .stk-caja > strong.is-rojo { color: var(--red); }
+.stk-root .stk-caja > strong.is-azul { color: var(--blue); }
+.stk-root .stk-caja > strong.is-violeta { color: var(--violet); }
+.stk-root .stk-caja .stk-minimo-editor { flex-wrap: wrap; }
+.stk-root .stk-caja .stk-minimo-input { width: 100%; padding: 0 4px; margin-left: -4px; text-align: left; font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700; line-height: 1.2; }
+.stk-root .stk-pista { margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 500; font-size: 12px; }
+.stk-root .stk-dondes { display: grid; gap: 6px; }
+.stk-root .stk-donde {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 50px; padding: 8px 12px;
+  border: 1px solid var(--border-2); border-radius: 12px; background: var(--panel-solid); color: var(--text); text-align: left;
+  transition: border-color .15s, transform .12s;
+}
+.stk-root .stk-donde:hover { border-color: var(--blue); }
+.stk-root .stk-donde:active { transform: scale(.985); }
+.stk-root .stk-donde.is-activa { border-color: var(--blue); background: var(--blue-soft); }
+.stk-root .stk-donde.is-en-carrito { border-color: var(--blue-border); }
+.stk-root .stk-donde-texto { display: grid; gap: 2px; min-width: 0; }
+.stk-root .stk-donde-texto strong { font-size: 14px; font-weight: 600; }
+.stk-root .stk-donde-texto strong.mst-num { font-size: 13.5px; }
+.stk-root .stk-donde-texto > span > span { font-size: 12px; color: var(--dim); }
+.stk-root .stk-donde-texto small { font-size: 12px; color: var(--dim); }
+.stk-root .stk-donde-texto small a { color: var(--cyan); text-decoration: none; font-weight: 600; }
+.stk-root .stk-donde-texto small.is-violeta { color: var(--violet); }
+.stk-root .stk-donde-cant { display: flex; align-items: baseline; gap: 6px; flex-shrink: 0; }
+.stk-root .stk-donde-cant strong { font-size: 17px; font-weight: 700; color: var(--blue); }
+.stk-root .stk-donde.is-negativo .stk-donde-cant strong { color: var(--red); }
+.stk-root .stk-donde-cant small { font-size: 12px; font-weight: 700; color: var(--blue); }
+.stk-root .stk-ficha-links { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+.stk-root .stk-ficha-links button { border: 0; background: transparent; padding: 4px 0; color: var(--blue); font-size: 13px; font-weight: 600; }
+.stk-root .stk-ficha-links button:hover { text-decoration: underline; }
+.stk-root .stk-ficha .mst-car-pie { padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+.stk-root .mst-btn-grande.is-violeta { background: var(--violet); }
+.stk-root .stk-pie-dos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.stk-root .stk-pie-dos .ui-btn { min-height: 44px; padding: 0 10px; font-size: 13px; white-space: normal; text-align: center; }
+.stk-root .stk-car-fila { display: flex; align-items: baseline; gap: 10px; font-size: 13.5px; min-width: 0; }
+.stk-root .stk-car-fila .mst-num:first-child { min-width: 30px; font-weight: 700; color: var(--blue); }
+.stk-root .stk-car-fila > span:nth-child(2) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stk-root .stk-car-fila small { font-size: 12px; color: var(--dim); white-space: nowrap; }
+
+/* Celular: una columna; la ficha ocupa todo y scrollea entera. */
+.stk-root.is-angosto .mst-col-botonera { overflow: visible; }
+.stk-root.is-angosto .stk-mres-min, .stk-root.is-angosto .stk-mres .stk-obras, .stk-root.is-angosto .stk-mres .stk-accion { display: none; }
+.stk-root.is-angosto .stk-bandejas-mst { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.stk-root.is-angosto .stk-bandeja { min-height: 88px; }
+.stk-root.is-angosto .stk-ficha { border-left: 0; overflow-y: auto; }
+.stk-root.is-angosto .stk-ficha-cuerpo { flex: none; overflow: visible; }
+.stk-root.is-angosto .stk-ficha .mst-car-pie { display: grid; position: sticky; bottom: 0; }
 
 @keyframes stk-aparece { from { opacity: 0; } to { opacity: 1; } }
 @keyframes stk-entra { from { transform: translateX(18px); opacity: 0; } to { transform: none; opacity: 1; } }
