@@ -1356,6 +1356,34 @@ export async function crearPedidoAdicionalObra({ obraId, titulo, descripcion, it
   return data.request;
 }
 
+/**
+ * Pedido a Compras desde la planilla: un pedido por obra, con sus renglones
+ * atados a la lista de cada obra, en una sola operación de la base (todo o
+ * nada). `lote` identifica el armado: repetir la llamada no duplica pedidos.
+ */
+export async function crearPedidosPlanillaObras({ titulo, observaciones, lote, items }) {
+  const { data, error } = await supabase.rpc("compras_pedir_planilla_obras", {
+    p_titulo: titulo,
+    p_observaciones: observaciones || null,
+    p_lote: lote,
+    p_items: items,
+  });
+  if (error) throw error;
+  const pedidos = data?.pedidos ?? [];
+  if (!data?.reutilizado) {
+    const { data: { session } = {} } = await supabase.auth.getSession();
+    for (const pedido of pedidos) {
+      notifyWaUpdate({
+        requestId: pedido.id,
+        eventType: "created",
+        actorId: session?.user?.id || null,
+        payload: { source: "materiales_obra" },
+      });
+    }
+  }
+  return { pedidos, reutilizado: !!data?.reutilizado };
+}
+
 export async function updateRequestItem(itemId, patch) {
   const { data, error } = await supabase
     .from("purchase_request_items")

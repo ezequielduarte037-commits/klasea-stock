@@ -1,6 +1,5 @@
 import { supabase } from "@/supabaseClient";
 import { rowDelta, rowSource } from "@/features/panol/panolMovimientos";
-import { fetchRequisitoProductos } from "@/features/materiales/productosAsignadosApi";
 import { findConditionProductReplacements } from "@/features/materiales/conditionProductReplacement";
 import { fetchMaterialesSecundariosPlanilla } from "@/features/compras/materialesSecundariosApi";
 import { productoSeDefinePorObra } from "../materiales/productoPorObra.js";
@@ -26,42 +25,87 @@ const normalizarModelo = (value) => String(value || "")
   .replace(/[^A-Z0-9]+/g, "")
   .replace(/^K/, "");
 
-async function traerTodo(tabla, select) {
-  const filas = [];
-  for (let desde = 0; ; desde += 1000) {
-    let consulta = supabase.from(tabla).select(select);
-    if (tabla === "panol_obra_materiales_snapshot") consulta = consulta.order("id");
-    const { data, error } = await consulta.range(desde, desde + 999);
-    if (error) throw error;
-    if (!data?.length) break;
-    filas.push(...data);
-    if (data.length < 1000) break;
+const PAGINA = 1000;
+
+/**
+ * Trae una tabla entera de a 1000 filas. La primera página dice cuántas hay y
+ * el resto se pide todo junto: en fila, el ledger del pañol eran 16 viajes y
+ * unos 10 segundos.
+ */
+async function traerPaginado(armarConsulta, orden = "id") {
+  // Sin un orden único, una fila puede aparecer en dos páginas.
+  const primera = await armarConsulta({ count: "exact" }).order(orden).range(0, PAGINA - 1);
+  if (primera.error) throw primera.error;
+  const filas = [...(primera.data ?? [])];
+  const total = Number(primera.count ?? filas.length);
+  if (filas.length < PAGINA || total <= PAGINA) return filas;
+  const resto = await Promise.all(
+    Array.from({ length: Math.ceil(total / PAGINA) - 1 }, (_, i) => {
+      const desde = (i + 1) * PAGINA;
+      return armarConsulta().order(orden).range(desde, desde + PAGINA - 1);
+    }),
+  );
+  for (const pagina of resto) {
+    if (pagina.error) throw pagina.error;
+    filas.push(...(pagina.data ?? []));
   }
   return filas;
 }
 
-async function traerTodoDeObras(tabla, select, obraIds) {
-  if (!obraIds.length) return [];
-  const filas = [];
-  for (let desde = 0; ; desde += 1000) {
-    let consulta = supabase
-      .from(tabla)
-      .select(select)
-      .in("obra_id", obraIds);
-    // Sin un orden único, una fila puede aparecer en dos páginas del ledger.
-    if (tabla === "panol_obra_materiales_snapshot") consulta = consulta.order("id");
-    const { data, error } = await consulta.range(desde, desde + 999);
-    if (error) throw error;
-    if (!data?.length) break;
-    filas.push(...data);
-    if (data.length < 1000) break;
-  }
-  return filas;
+function traerTodo(tabla, select) {
+  return traerPaginado((opciones) => supabase.from(tabla).select(select, opciones));
+}
+
+function traerTodoDeObras(tabla, select, obraIds, orden = "id") {
+  if (!obraIds.length) return Promise.resolve([]);
+  return traerPaginado((opciones) => supabase.from(tabla).select(select, opciones).in("obra_id", obraIds), orden);
 }
 
 const SNAPSHOT_SELECT = "id,material_id,requisito_material_id,obra_id,cantidad,cantidad_egresada,estado,source,tipo,tipo_label,es_adicional,especificaciones,recepcion_estado,panol_envio_id,panol_envio_item_id,purchase_request_id,purchase_request_item_id,created_at";
 const SNAPSHOT_SELECT_COMPATIBLE = "id,material_id,requisito_material_id,obra_id,cantidad,cantidad_egresada,estado,source,recepcion_estado,panol_envio_id,panol_envio_item_id,purchase_request_id,purchase_request_item_id,created_at";
 const STOCK_SELECT = "material_id,obra_id,cantidad,cantidad_egresada,estado,source,recepcion_estado";
+
+/**
+ * Stock libre (sin obra) y reservado (de alguna obra) por material. La base lo
+ * devuelve ya sumado (`panol_planilla_stock_por_material`, misma regla que
+ * rowDelta). Si la función todavía no está, se suma el ledger como antes.
+ */
+async function traerStockPorMaterial() {
+  const libre = new Map();
+  const reservado = new Map();
+  const { data, error } = await supabase.rpc("panol_planilla_stock_por_material");
+  if (!error) {
+    for (const fila of data ?? []) {
+      if (!fila.material_id) continue;
+      if (Number(fila.libre)) libre.set(fila.material_id, Number(fila.libre));
+      if (Number(fila.reservado)) reservado.set(fila.material_id, Number(fila.reservado));
+    }
+    return { libre, reservado };
+  }
+  const mensaje = [error?.code, error?.message].filter(Boolean).join(" ");
+  if (!["42883", "PGRST202"].includes(String(error?.code || "")) && !/function|schema cache/i.test(mensaje)) throw error;
+  for (const fila of await traerTodo("panol_obra_materiales_snapshot", STOCK_SELECT)) {
+    if (!fila.material_id) continue;
+    const delta = rowDelta(fila);
+    if (!delta) continue;
+    const bolsa = fila.obra_id ? reservado : libre;
+    bolsa.set(fila.material_id, (bolsa.get(fila.material_id) || 0) + delta);
+  }
+  return { libre, reservado };
+}
+
+async function traerProductosCompatibles() {
+  try {
+    return await traerPaginado((opciones) => supabase
+      .from("panol_requisito_productos")
+      .select("id,requisito_material_id,producto_material_id,variante_legacy,origen,activo,created_at", opciones)
+      .eq("activo", true));
+  } catch (error) {
+    const mensaje = [error?.code, error?.message].filter(Boolean).join(" ");
+    if (["42P01", "PGRST205"].includes(String(error?.code || "")) || /does not exist|schema cache/i.test(mensaje)) return [];
+    throw error;
+  }
+}
 
 async function traerLedgerPlanilla(obraIds) {
   try {
@@ -83,6 +127,7 @@ async function traerConfiguracionObras(obraIds) {
       "panol_obra_matriz_condicionantes",
       "obra_id,condicionante_id,activo,notas,created_at,updated_at",
       obraIds,
+      "obra_id",
     );
   } catch (error) {
     const mensaje = [error?.code, error?.message, error?.details, error?.hint].filter(Boolean).join(" ");
@@ -93,7 +138,7 @@ async function traerConfiguracionObras(obraIds) {
 
 async function traerExclusionesObras(obraIds) {
   try {
-    return await traerTodoDeObras("panol_obra_material_exclusiones", "obra_id,material_id,motivo", obraIds);
+    return await traerTodoDeObras("panol_obra_material_exclusiones", "obra_id,material_id,motivo", obraIds, "obra_id");
   } catch (error) {
     const mensaje = [error?.code, error?.message, error?.details, error?.hint].filter(Boolean).join(" ");
     if (["42P01", "PGRST205"].includes(String(error?.code || "")) || /does not exist|schema cache/i.test(mensaje)) return [];
@@ -112,18 +157,11 @@ async function traerCondicionantesLinea(linea) {
     const ids = condicionantes.map((row) => row.id).filter(Boolean);
     if (!ids.length) return { ok: true, condicionantes: [] };
 
-    const items = [];
-    for (let desde = 0; ; desde += 1000) {
-      const { data, error } = await supabase
-        .from("panol_matriz_condicionante_items")
-        .select("id,condicionante_id,material_id,descripcion,cantidad,unidad,tipo_item,notas,activo,orden,created_at,updated_at")
-        .in("condicionante_id", ids)
-        .order("orden")
-        .range(desde, desde + 999);
-      if (error) throw error;
-      items.push(...(data ?? []));
-      if (!data || data.length < 1000) break;
-    }
+    const items = (await traerPaginado((opciones) => supabase
+      .from("panol_matriz_condicionante_items")
+      .select("id,condicionante_id,material_id,descripcion,cantidad,unidad,tipo_item,notas,activo,orden,created_at,updated_at", opciones)
+      .in("condicionante_id", ids)))
+      .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
 
     const itemsPorCondicionante = new Map();
     for (const item of items) {
@@ -162,6 +200,7 @@ function celdaVacia(cantidad, requisitoId, desdeMatriz = true) {
     requisitoId,
     desdeMatriz,
     snapshotId: null,
+    snapshotLibreId: null,
     configuracionSnapshotId: null,
     avisoPendiente: false,
     pedidoAbierto: false,
@@ -240,25 +279,47 @@ const MATERIALES_SELECT = "id,descripcion,alias,codigo,codigo_barra,proveedor,un
 const MODELO_SELECT = "material_id,modelo,cantidad,variante,producto_predeterminado_id";
 
 /**
- * Lo que es igual para todas las líneas: obras, catálogo, matriz y el stock
- * entero del pañol. Quien arma varias líneas juntas (el calendario de compras)
- * lo trae una sola vez y se lo pasa a cada una; si no, cada línea volvería a
- * leer todo el pañol.
+ * Lo que es igual para todas las líneas: obras, catálogo, matriz, productos
+ * compatibles y el stock del pañol. Quien arma varias líneas juntas (el
+ * calendario de compras) lo trae una sola vez y se lo pasa a cada una.
  */
 export function cargarBasePlanilla({ obrasSelect = OBRAS_SELECT } = {}) {
   return Promise.all([
     traerTodo("produccion_obras", obrasSelect),
     traerTodo("panol_materiales", MATERIALES_SELECT),
     traerTodo("panol_material_modelo", MODELO_SELECT),
-    traerTodo("panol_obra_materiales_snapshot", STOCK_SELECT),
+    traerStockPorMaterial(),
     traerRubros(),
     traerTodo("panol_material_imagenes", "material_id,url,created_at"),
-  ]).then(([obras, materiales, modelos, stockLedger, rubros, imagenesRows]) => ({ obras, materiales, modelos, stockLedger, rubros, imagenesRows }));
+    traerProductosCompatibles(),
+  ]).then(([obras, materiales, modelos, stock, rubros, imagenesRows, productosCompatibles]) => ({
+    obras, materiales, modelos, stock, rubros, imagenesRows, productosCompatibles,
+  }));
 }
 
-async function construirPlanillaDeLinea(linea, basePromesa = null, { sinSecundarios = false } = {}) {
-  const base = basePromesa ? await basePromesa : null;
-  const obras = base ? base.obras : await traerTodo("produccion_obras", OBRAS_SELECT);
+// La base de la planilla se reusa un rato: cambiar de K37 a K52 no tiene por
+// qué volver a bajar el catálogo entero. "Actualizar" la descarta.
+const BASE_VIGENCIA_MS = 2 * 60 * 1000;
+let baseCompartida = null;
+
+function basePlanillaCompartida({ refrescar = false } = {}) {
+  const vigente = baseCompartida && Date.now() - baseCompartida.desde < BASE_VIGENCIA_MS;
+  if (!refrescar && vigente) return baseCompartida.promesa;
+  const promesa = cargarBasePlanilla();
+  baseCompartida = { promesa, desde: Date.now() };
+  promesa.catch(() => {
+    if (baseCompartida?.promesa === promesa) baseCompartida = null;
+  });
+  return promesa;
+}
+
+/** Descarta la base reusada: lo próximo que se arme lee todo de nuevo. */
+export function olvidarBasePlanilla() {
+  baseCompartida = null;
+}
+
+async function construirPlanillaDeLinea(linea, basePromesa, { sinSecundarios = false } = {}) {
+  const { obras } = await basePromesa;
   const modeloElegido = normalizarModelo(linea);
   const lineasDisponibles = [...new Set(
     obras.map((o) => String(o.linea_nombre || "").trim()).filter(Boolean),
@@ -273,17 +334,14 @@ async function construirPlanillaDeLinea(linea, basePromesa = null, { sinSecundar
     ? Promise.resolve({ filas: [], resumen: null })
     : fetchMaterialesSecundariosPlanilla({ linea, obras: obrasDeLinea });
 
-  const [materiales, modelos, ledger, stockLedger, rubros, imagenesRows, condicionantesRes, configuracionObras, exclusionesObras] = await Promise.all([
-    base ? base.materiales : traerTodo("panol_materiales", MATERIALES_SELECT),
-    base ? base.modelos : traerTodo("panol_material_modelo", MODELO_SELECT),
+  const [base, ledger, condicionantesRes, configuracionObras, exclusionesObras] = await Promise.all([
+    basePromesa,
     traerLedgerPlanilla(obraIds),
-    base ? base.stockLedger : traerTodo("panol_obra_materiales_snapshot", STOCK_SELECT),
-    base ? base.rubros : traerRubros(),
-    base ? base.imagenesRows : traerTodo("panol_material_imagenes", "material_id,url,created_at"),
     traerCondicionantesLinea(linea),
     traerConfiguracionObras(obraIds),
     traerExclusionesObras(obraIds),
   ]);
+  const { materiales, modelos, rubros, imagenesRows } = base;
 
   const porMaterial = new Map(materiales.filter((m) => m.activo !== false).map((m) => [m.id, m]));
   const imagenes = new Map();
@@ -297,7 +355,14 @@ async function construirPlanillaDeLinea(linea, basePromesa = null, { sinSecundar
     .filter((row) => String(row.variante || "standard").toLowerCase() === "standard")
     .filter((row) => Number(row.cantidad || 0) > 0)
     .filter((row) => porMaterial.has(row.material_id));
-  const productosCompatibles = await fetchRequisitoProductos(matrizBase.map((row) => row.material_id));
+  const productosPorRequisito = new Map();
+  for (const link of base.productosCompatibles ?? []) {
+    const lista = productosPorRequisito.get(link.requisito_material_id) ?? [];
+    lista.push(link);
+    productosPorRequisito.set(link.requisito_material_id, lista);
+  }
+  const productosDe = (ids) => [...new Set(ids)].flatMap((id) => productosPorRequisito.get(id) ?? []);
+  const productosCompatibles = productosDe(matrizBase.map((row) => row.material_id));
 
   const condicionantesLinea = (condicionantesRes?.condicionantes ?? [])
     .filter((condicionante) => condicionante.activo !== false)
@@ -414,7 +479,7 @@ async function construirPlanillaDeLinea(linea, basePromesa = null, { sinSecundar
   const requisitosExtra = [...matrizPorRequisito.keys()]
     .filter((id) => !matrizBase.some((row) => row.material_id === id));
   const productosCompatiblesTodos = requisitosExtra.length
-    ? [...productosCompatibles, ...await fetchRequisitoProductos(requisitosExtra)]
+    ? [...productosCompatibles, ...productosDe(requisitosExtra)]
     : productosCompatibles;
   const requisitosConProductos = new Set(productosCompatiblesTodos.map((row) => row.requisito_material_id));
 
@@ -438,15 +503,8 @@ async function construirPlanillaDeLinea(linea, basePromesa = null, { sinSecundar
 
   // El stock libre es el unico que puede cubrir una necesidad nueva. Lo ya
   // reservado a otra obra se muestra, pero no descuenta compras.
-  const stockLibre = new Map();
-  const stockReservado = new Map();
-  for (const fila of stockLedger) {
-    if (!fila.material_id) continue;
-    const delta = rowDelta(fila);
-    if (!delta) continue;
-    const bolsa = fila.obra_id ? stockReservado : stockLibre;
-    bolsa.set(fila.material_id, (bolsa.get(fila.material_id) || 0) + delta);
-  }
+  const stockLibre = base.stock.libre;
+  const stockReservado = base.stock.reservado;
 
   // Agrupamos primero los snapshots por requisito y obra. El requisito es la
   // identidad estable; el producto concreto puede cambiar entre barcos.
@@ -517,6 +575,9 @@ async function construirPlanillaDeLinea(linea, basePromesa = null, { sinSecundar
           .filter((row) => ESTADOS_PENDIENTE.has(row.estado) && !row.panol_envio_item_id)
           .sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
         celda.snapshotId = disponiblesParaAviso[0]?.id || null;
+        // Para pedir a Compras sólo sirve un renglón que nadie pidió todavía.
+        celda.snapshotLibreId = disponiblesParaAviso
+          .find((row) => String(row.estado || "pendiente") === "pendiente" && !row.purchase_request_id && !row.purchase_request_item_id)?.id || null;
         celda.avisoPendiente = snapshots.some((row) => (
           !!row.panol_envio_item_id
           && !["recibido", "parcial", "rechazado"].includes(String(row.recepcion_estado || "").toLowerCase())
@@ -553,6 +614,7 @@ async function construirPlanillaDeLinea(linea, basePromesa = null, { sinSecundar
         existente.enPanol = redondear(existente.enPanol + celda.enPanol);
         existente.pendiente = redondear(existente.pendiente + celda.pendiente);
         existente.snapshotId = existente.snapshotId || celda.snapshotId;
+        existente.snapshotLibreId = existente.snapshotLibreId || celda.snapshotLibreId;
         existente.configuracionSnapshotId = existente.configuracionSnapshotId || celda.configuracionSnapshotId;
         existente.avisoPendiente = existente.avisoPendiente || celda.avisoPendiente;
         existente.pedidoAbierto = existente.pedidoAbierto || celda.pedidoAbierto;
@@ -580,6 +642,9 @@ async function construirPlanillaDeLinea(linea, basePromesa = null, { sinSecundar
     const celda = celdas.get(clave) ?? celdaVacia(fila.cantidad, fila.requisito_material_id || fila.material_id, false);
     sumarOrigen(celda, clasificarOrigenSnapshot(fila));
     if (ESTADOS_PENDIENTE.has(fila.estado) && !fila.panol_envio_item_id) celda.snapshotId = celda.snapshotId || fila.id;
+    if (String(fila.estado || "pendiente") === "pendiente" && !fila.purchase_request_id && !fila.purchase_request_item_id && !fila.panol_envio_item_id) {
+      celda.snapshotLibreId = celda.snapshotLibreId || fila.id;
+    }
     if (fila.panol_envio_item_id && !["recibido", "parcial", "rechazado"].includes(String(fila.recepcion_estado || "").toLowerCase())) {
       celda.avisoPendiente = true;
     }
@@ -617,6 +682,7 @@ async function construirPlanillaDeLinea(linea, basePromesa = null, { sinSecundar
       desdeMatriz: celdaRaw.desdeMatriz,
       requisitoId: celdaRaw.requisitoId,
       snapshotId: celdaRaw.snapshotId || null,
+      snapshotLibreId: celdaRaw.snapshotLibreId || null,
       configuracionSnapshotId: celdaRaw.configuracionSnapshotId || null,
       avisoPendiente: celdaRaw.avisoPendiente === true,
       pedidoAbierto: celdaRaw.pedidoAbierto === true,
@@ -630,6 +696,10 @@ async function construirPlanillaDeLinea(linea, basePromesa = null, { sinSecundar
       ajusteConfiguracion: redondear(celdaRaw.ajusteConfiguracion),
       configuraciones: celdaRaw.configuraciones || [],
     };
+    // Lo que falta y nadie pidió ni avisó. Igual que la lista de la obra: con
+    // un pedido abierto el faltante entero queda "en compras" y no se vuelve a
+    // contar para comprar (antes la columna Comprar lo sumaba igual).
+    celda.porPedir = celda.pedidoAbierto || celda.avisoPendiente ? 0 : celda.pendiente;
 
     if (!filas.has(filaId)) {
       filas.set(filaId, {
@@ -640,13 +710,13 @@ async function construirPlanillaDeLinea(linea, basePromesa = null, { sinSecundar
         reservado: redondear(Math.max(0, stockReservado.get(filaId) || 0)),
         porObra: {},
         origenes: [],
-        totales: { requerido: 0, egresado: 0, enPanol: 0, pendiente: 0 },
+        totales: { requerido: 0, egresado: 0, enPanol: 0, pendiente: 0, porPedir: 0 },
       });
     }
     const fila = filas.get(filaId);
     fila.porObra[obraId] = celda;
     fila.origenes = [...new Set([...(fila.origenes || []), ...(celda.origenes || [])])];
-    for (const campo of ["requerido", "egresado", "enPanol", "pendiente"]) {
+    for (const campo of ["requerido", "egresado", "enPanol", "pendiente", "porPedir"]) {
       fila.totales[campo] = redondear(fila.totales[campo] + celda[campo]);
     }
   }
@@ -670,7 +740,7 @@ async function construirPlanillaDeLinea(linea, basePromesa = null, { sinSecundar
   // Fuera de una familia la cuenta es la de siempre.
   for (const fila of filas.values()) {
     if (fila.familiaId) continue;
-    fila.faltaComprar = redondear(Math.max(0, fila.totales.pendiente - fila.enPanolLibre));
+    fila.faltaComprar = redondear(Math.max(0, fila.totales.porPedir - fila.enPanolLibre));
   }
 
   // Dentro de una familia se calcula UNA vez sobre el total y despues se
@@ -684,13 +754,13 @@ async function construirPlanillaDeLinea(linea, basePromesa = null, { sinSecundar
     filasDeFamilia.get(fila.familiaId).push(fila);
   }
   for (const [raiz, grupo] of filasDeFamilia) {
-    const pendiente = grupo.reduce((suma, fila) => suma + (Number(fila.totales.pendiente) || 0), 0);
+    const porPedir = grupo.reduce((suma, fila) => suma + (Number(fila.totales.porPedir) || 0), 0);
     const libre = libreDeFamilia.get(raiz) ?? 0;
-    const comprar = Math.max(0, pendiente - libre);
+    const comprar = Math.max(0, porPedir - libre);
     for (const fila of grupo) {
-      const parte = pendiente > 0 ? (Number(fila.totales.pendiente) || 0) / pendiente : 0;
+      const parte = porPedir > 0 ? (Number(fila.totales.porPedir) || 0) / porPedir : 0;
       fila.faltaComprar = redondear(comprar * parte);
-      fila.cubiertoPorFamilia = comprar === 0 && (Number(fila.totales.pendiente) || 0) > 0;
+      fila.cubiertoPorFamilia = comprar === 0 && (Number(fila.totales.porPedir) || 0) > 0;
     }
   }
 
@@ -762,13 +832,13 @@ async function construirPlanillaDeLinea(linea, basePromesa = null, { sinSecundar
  * las lecturas pesadas de Supabase. Deducuplicamos solamente solicitudes en
  * curso: cada recarga terminada sigue consultando datos frescos.
  */
-export async function calcularPlanillaDeLinea(linea, { base = null, sinSecundarios = false } = {}) {
-  if (base) return construirPlanillaDeLinea(linea, base, { sinSecundarios });
+export async function calcularPlanillaDeLinea(linea, { base = null, sinSecundarios = false, refrescar = false } = {}) {
+  if (base) return construirPlanillaDeLinea(linea, Promise.resolve(base), { sinSecundarios });
   const clave = normalizarModelo(linea);
   const existente = planillasEnCurso.get(clave);
-  if (existente) return existente;
+  if (existente && !refrescar) return existente;
 
-  const solicitud = construirPlanillaDeLinea(linea);
+  const solicitud = construirPlanillaDeLinea(linea, basePlanillaCompartida({ refrescar }));
   planillasEnCurso.set(clave, solicitud);
   try {
     return await solicitud;

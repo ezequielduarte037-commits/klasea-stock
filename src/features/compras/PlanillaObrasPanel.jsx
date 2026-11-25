@@ -34,8 +34,8 @@ import EnviarAPanolModal from "@/features/panol/EnviarAPanolModal";
 import { calcularPlanillaDeLinea, marcarAvisoPlanillaComoComprado } from "@/features/compras/planillaObrasApi";
 import { exportarPlanillaXlsx } from "@/features/compras/planillaExcel";
 import ProductoAsignadoControl from "@/features/materiales/ProductoAsignadoControl";
-import { ensureObraMaterialSnapshotRow, updateObraSnapshotRows } from "@/features/materiales/api";
-import { addRequestItem, createPurchaseRequest } from "@/features/compras/purchaseRequestsApi";
+import { ensureObraMaterialSnapshotRow } from "@/features/materiales/api";
+import { crearPedidosPlanillaObras } from "@/features/compras/purchaseRequestsApi";
 import { guardarConfiguracionProductoObra } from "@/features/materiales/productosAsignadosApi";
 import PlanillaHerramientas from "./PlanillaHerramientas";
 import PlanillaDetalle, { PlanillaFoto } from "./PlanillaDetalle";
@@ -411,11 +411,11 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
   const buscadorRef = useRef(null);
   const busquedaDiferida = useDeferredValue(busqueda);
 
-  const cargar = useCallback(async (cual) => {
+  const cargar = useCallback(async (cual, { refrescar = false } = {}) => {
     const solicitud = ++solicitudRef.current;
     setCargando(true);
     try {
-      const resultado = await calcularPlanillaDeLinea(cual);
+      const resultado = await calcularPlanillaDeLinea(cual, { refrescar });
       if (solicitud !== solicitudRef.current) return;
       setDatos(resultado);
       setError("");
@@ -501,6 +501,11 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
     () => (datos?.obras ?? []).filter((obra) => obrasAviso.has(obra.id)),
     [datos, obrasAviso],
   );
+  // Las obras a las que va el pedido o el aviso. Sin ninguna marcada, la que se
+  // está mirando.
+  const obrasPedido = obrasAvisoSeleccionadas.length
+    ? obrasAvisoSeleccionadas
+    : obraSeleccionada ? [obraSeleccionada] : [];
 
   const cantidadPendiente = useCallback((fila) => (
     obraFoco ? (fila.porObra[obraFoco]?.pendiente || 0) : fila.totales.pendiente
@@ -522,8 +527,10 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
   const cantidadComprar = useCallback((fila) => {
     if (!obraFoco) return redondear(Math.max(0, Number(fila.faltaComprar) || 0));
     const libre = Number(fila.enPanolLibreFamilia ?? fila.enPanolLibre) || 0;
-    return redondear(Math.max(0, cantidadPendiente(fila) - libre));
-  }, [cantidadPendiente, obraFoco]);
+    const celda = fila.porObra[obraFoco];
+    const porPedir = Number(celda?.porPedir ?? celda?.pendiente) || 0;
+    return redondear(Math.max(0, porPedir - libre));
+  }, [obraFoco]);
 
   const conteoOrigen = useMemo(() => {
     const filas = datos?.filas.filter((fila) => !obraFoco || fila.porObra[obraFoco]) ?? [];
@@ -675,6 +682,25 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
     });
   }
 
+  /**
+   * El stock libre del pañol es uno solo por familia (un requisito y sus
+   * productos). Antes cada fila elegida arrancaba con el stock entero de su
+   * familia, y si se elegían "TV 24\"" y "TV 24\" · Samsung" el mismo televisor
+   * cubría a las dos. Se reparte una vez, en el orden en que se recorre.
+   */
+  function stockLibreCompartido() {
+    const restante = new Map();
+    return {
+      usar(fila, cantidad) {
+        const clave = fila.familiaId || fila.id;
+        if (!restante.has(clave)) restante.set(clave, Number(fila.enPanolLibreFamilia ?? fila.enPanolLibre) || 0);
+        const usado = Math.min(restante.get(clave), Math.max(0, Number(cantidad) || 0));
+        restante.set(clave, redondear(restante.get(clave) - usado));
+        return usado;
+      },
+    };
+  }
+
   function lineasDePedido() {
     const renglones = [];
     let cubiertos = 0;
@@ -693,16 +719,14 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
 
   function opcionesPendientesPara(obrasObjetivo = [], soloLoQueEntraAlAviso = false) {
     const pendientes = [];
+    const stockLibre = stockLibreCompartido();
     for (const fila of seleccionados) {
-      let stockLibreRestante = Number(fila.enPanolLibreFamilia ?? fila.enPanolLibre) || 0;
       for (const obra of obrasObjetivo) {
         const celda = fila.porObra[obra.id];
         if (soloLoQueEntraAlAviso) {
           const pendiente = Number(celda?.pendiente || 0);
           if (!(pendiente > 0) || celda?.avisoPendiente) continue;
-          const cubiertoConStock = Math.min(stockLibreRestante, pendiente);
-          stockLibreRestante = redondear(Math.max(0, stockLibreRestante - cubiertoConStock));
-          if (!(pendiente - cubiertoConStock > 0)) continue;
+          if (!(pendiente - stockLibre.usar(fila, pendiente) > 0)) continue;
         }
         if (celda?.requiereProductoConcreto && !celda.productoDefinido) {
           pendientes.push({ fila, obra });
@@ -800,48 +824,32 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
       .catch(() => toast.error("No se pudo copiar."));
   }
 
-  function pedir() {
-    if (!seleccionados.length) return;
-    if (obraSeleccionada && !validarOpcionesPara([obraSeleccionada], "crear el pedido")) return;
-    const { renglones, cubiertos } = lineasDePedido();
-    if (!renglones.length) {
-      toast.info(`Lo elegido ya está libre en el pañol (${cubiertos}). No hay nada para comprar.`);
-      return;
-    }
-    const proveedores = [...new Set(seleccionados.map((fila) => fila.proveedor).filter(Boolean))];
-    onPedir?.({
-      titulo: `${linea}${obraSeleccionada ? ` ${obraSeleccionada.codigo}` : ""} · ${renglones.length} materiales`,
-      descripcion: renglones.join("\n"),
-      proveedorSugerido: proveedores.length === 1 ? proveedores[0] : "",
-      obraId: obraSeleccionada?.id || "",
-      obraCodigo: obraSeleccionada?.codigo || "",
-    });
-    setElegidos(new Set());
-    if (cubiertos) toast.info(`${cubiertos} quedaron afuera: ya están libres en el pañol.`);
-  }
-
   // Arma el borrador con lo seleccionado, repartido por obra. Sirve para el aviso
   // a pañol (material ya comprado) y para el pedido a Compras (material por comprar).
   function avisarPanol(destino = "panol") {
     const paraCompras = destino === "compras";
-    if (!obrasAvisoSeleccionadas.length) {
+    // Sin obras marcadas, la obra que se está mirando es la del pedido.
+    const obrasObjetivo = obrasAvisoSeleccionadas.length
+      ? obrasAvisoSeleccionadas
+      : obraSeleccionada ? [obraSeleccionada] : [];
+    if (!obrasObjetivo.length) {
       setSelectorObrasAvisoAbierto(true);
-      toast.info(paraCompras ? "Elegí una o varias obras para el pedido a compras." : "Elegí una o varias obras para el aviso a pañol.");
+      toast.info(paraCompras ? "Marcá para qué obras es el pedido." : "Marcá para qué obras es el aviso.");
       return;
     }
-    if (!validarOpcionesPara(obrasAvisoSeleccionadas, paraCompras ? "pedir a compras" : "avisar a pañol", true)) return;
+    if (!validarOpcionesPara(obrasObjetivo, paraCompras ? "pedir a compras" : "avisar a pañol", true)) return;
 
     let yaAvisados = 0;
     let cubiertos = 0;
     const items = [];
+    // El stock libre se reparte una vez, en el orden de las obras, para no
+    // usar la misma existencia como cobertura de dos barcos ni de dos filas de
+    // la misma familia: pedirle al pañol un 'TV 24" · Samsung' cuando tiene
+    // ocho 'TV 24"' en el estante es hacerlo buscar al pedo.
+    const stockLibre = stockLibreCompartido();
 
     for (const fila of seleccionados) {
-      // El stock libre es uno solo. Se reparte una vez, en el orden visible de
-      // las obras, para no usar la misma existencia como cobertura de dos barcos.
-      // Cuenta el de toda la familia: pedirle al pañol un 'TV 24" · Samsung'
-      // cuando tiene ocho 'TV 24"' en el estante es hacerlo buscar al pedo.
-      let stockLibreRestante = Number(fila.enPanolLibreFamilia ?? fila.enPanolLibre) || 0;
-      for (const obra of obrasAvisoSeleccionadas) {
+      for (const obra of obrasObjetivo) {
         const celda = fila.porObra[obra.id];
         const pendiente = Number(celda?.pendiente || 0);
         if (!(pendiente > 0)) continue;
@@ -850,9 +858,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
           continue;
         }
 
-        const cubiertoConStock = Math.min(stockLibreRestante, pendiente);
-        stockLibreRestante = redondear(Math.max(0, stockLibreRestante - cubiertoConStock));
-        const cantidad = redondear(Math.max(0, pendiente - cubiertoConStock));
+        const cantidad = redondear(Math.max(0, pendiente - stockLibre.usar(fila, pendiente)));
         if (!(cantidad > 0)) {
           cubiertos += 1;
           continue;
@@ -868,7 +874,13 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
           unidad: producto?.unidad_medida || fila.unidad || "unidad",
           material_id: productoId,
           requisito_material_id: celda.requisitoId || fila.requisitoId || fila.id,
-          obra_snapshot_item_id: celda.snapshotId || null,
+          // Al pañol se le avisa sobre el renglón ya pedido; a Compras sólo se
+          // le pide sobre uno que nadie pidió (si no hay, la base crea uno).
+          obra_snapshot_item_id: (paraCompras ? celda.snapshotLibreId : celda.snapshotId) || null,
+          // Si la obra no tenía renglón, el nuevo guarda la cantidad base de la
+          // matriz. Si ya tenía (recibido en parte, por ejemplo), el nuevo
+          // representa sólo lo que se pide ahora.
+          cantidad_base: celda.configuracionSnapshotId ? null : (celda.baseRequerido ?? null),
           obra_id: obra.id,
           obra_codigo: obra.codigo,
           proveedor: producto?.proveedor || fila.proveedor || "",
@@ -885,16 +897,17 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
       return;
     }
 
-    const codigos = obrasAvisoSeleccionadas.map((obra) => obra.codigo);
+    const codigos = obrasObjetivo.map((obra) => obra.codigo);
     setAvisoPreparacion({
       destino,
-      titulo: tituloAvisoSugerido(items, obrasAvisoSeleccionadas),
+      lote: crypto.randomUUID(),
+      titulo: tituloAvisoSugerido(items, obrasObjetivo),
       tituloManual: false,
       observaciones: paraCompras
         ? `Pedido para ${codigos.join(", ")} creado desde la planilla de ${linea}.`
         : `Material ya comprado para ${codigos.join(", ")}. Aviso creado desde la planilla de ${linea}.`,
       items,
-      obras: obrasAvisoSeleccionadas,
+      obras: obrasObjetivo,
       yaAvisados,
       cubiertos,
     });
@@ -915,77 +928,40 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
   }
 
   // Un pedido a Compras por obra: cada barco queda con su propio seguimiento y
-  // los renglones pasan a "pedido" en la lista de la obra (como en Listas de compras).
+  // los renglones pasan a "pedido" en la lista de la obra. Lo hace la base en
+  // una sola operación: o se crean todos los pedidos o ninguno.
   async function crearPedidosCompras(items) {
     if (comprasBusy) return;
     const preparacion = avisoPreparacion;
-    const obrasConItems = preparacion.obras.filter((obra) => items.some((item) => item.obra_id === obra.id));
     setComprasBusy(true);
-    let creados = 0;
     try {
-      for (const obra of obrasConItems) {
-        const delaObra = items.filter((item) => item.obra_id === obra.id);
-        const renglones = delaObra.map((item) => `${mostrarNumero(item.cantidad)} ${item.unidad}  ${item.descripcion}${item.codigo ? ` (${item.codigo})` : ""}`);
-        const observaciones = preparacion.observaciones.trim();
-        const solicitud = await createPurchaseRequest({
-          form: {
-            title: obrasConItems.length > 1 ? `${preparacion.titulo.trim()} · ${obra.codigo}` : preparacion.titulo.trim(),
-            description: [observaciones, renglones.join("\n")].filter(Boolean).join("\n\n"),
-            priority: "media",
-            source: "materiales_obra",
-            project_id: obra.id,
-            destino: `Obra ${obra.codigo}`,
-            es_adicional: false,
-            tipo_pedido: "estandar",
-          },
-        });
-        for (const item of delaObra) {
-          let snapshotId = item.obra_snapshot_item_id || null;
-          if (!snapshotId) {
-            const snapshot = await ensureObraMaterialSnapshotRow(obra.id, {
-              requisitoMaterialId: item.requisito_material_id,
-              materialId: item.requisito_material_id,
-              productoMaterialId: item.material_id !== item.requisito_material_id ? item.material_id : null,
-              descripcion: item.descripcion,
-              codigo: item.codigo || null,
-              cantidad: item.cantidad,
-              unidad: item.unidad,
-              proveedor: item.proveedor || null,
-              rubro: item.rubro || null,
-              source: "matriz",
-              tipo: "base",
-              estado: "pendiente",
-              especificaciones: {},
-            });
-            snapshotId = snapshot?.id || null;
-          }
-          const renglon = await addRequestItem(solicitud.id, {
-            description: item.descripcion,
-            quantity: item.cantidad,
-            unit: item.unidad || "unidad",
-            destination: `Obra ${obra.codigo}`,
-            material_id: item.material_id || null,
-            requisito_material_id: item.requisito_material_id || null,
-            catalog_source: "panol",
-            notes: item.proveedor ? `Proveedor sugerido: ${item.proveedor}` : null,
-          });
-          if (snapshotId) {
-            await updateObraSnapshotRows([snapshotId], {
-              estado: "pedido",
-              purchase_request_id: solicitud.id,
-              purchase_request_item_id: renglon?.id || null,
-            });
-          }
-        }
-        creados += 1;
-      }
-      toast.success(`${creados === 1 ? "Pedido creado" : `${creados} pedidos creados`} en Compras con ${items.length} renglón${items.length === 1 ? "" : "es"}.`);
+      const { pedidos, reutilizado } = await crearPedidosPlanillaObras({
+        titulo: preparacion.titulo.trim(),
+        observaciones: preparacion.observaciones.trim(),
+        lote: preparacion.lote,
+        items: items.map((item) => ({
+          obra_id: item.obra_id,
+          snapshot_id: item.obra_snapshot_item_id || null,
+          requisito_material_id: item.requisito_material_id || null,
+          material_id: item.material_id || null,
+          description: item.descripcion,
+          codigo: item.codigo || null,
+          quantity: Number(item.cantidad),
+          cantidad_base: item.cantidad_base ?? null,
+          unit: item.unidad || "unidad",
+          proveedor: item.proveedor || null,
+          rubro: item.rubro || null,
+        })),
+      });
+      const obrasTexto = pedidos.map((pedido) => pedido.codigo).filter(Boolean).join(", ");
+      toast.success(reutilizado
+        ? "Ese pedido ya estaba creado."
+        : `${pedidos.length === 1 ? "Pedido creado" : `${pedidos.length} pedidos creados`} en Compras${obrasTexto ? ` (${obrasTexto})` : ""} con ${items.length} renglón${items.length === 1 ? "" : "es"}.`);
       setAvisoPreparacion(null);
       setElegidos(new Set());
       cargar(linea);
     } catch (e) {
-      toast.error(`${e?.message || "No se pudo crear el pedido a compras."}${creados ? ` Se alcanzaron a crear ${creados} pedido${creados === 1 ? "" : "s"}; revisá antes de repetir.` : ""}`);
-      if (creados) cargar(linea);
+      toast.error(`${e?.message || "No se pudo crear el pedido a compras."} No se creó ningún pedido.`);
     } finally {
       setComprasBusy(false);
     }
@@ -996,12 +972,20 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
       toast.info("Escribí un título para identificar el aviso.");
       return;
     }
+    const paraCompras = avisoPreparacion.destino === "compras";
+    // Al pañol se le avisa hasta lo que falta. A Compras se le pide lo que
+    // falta o más (repuesto), nunca menos: la lista de la obra da por pedido
+    // todo el renglón y lo que quedara afuera no se volvería a pedir.
     const cantidadesInvalidas = avisoPreparacion.items.some((item) => {
       const cantidad = Number(item.cantidad);
-      return !Number.isFinite(cantidad) || cantidad < 0 || cantidad > Number(item.cantidadMaxima || 0);
+      const maximo = Number(item.cantidadMaxima || 0);
+      if (!Number.isFinite(cantidad) || cantidad < 0) return true;
+      return paraCompras ? cantidad > 0 && cantidad < maximo : cantidad > maximo;
     });
     if (cantidadesInvalidas) {
-      toast.info("Revisá las cantidades: no pueden superar lo pendiente de cada obra.");
+      toast.info(paraCompras
+        ? "Cada renglón va con lo que falta (o más) o en 0 para no pedirlo."
+        : "Revisá las cantidades: no pueden superar lo pendiente de cada obra.");
       return;
     }
     const items = avisoPreparacion.items
@@ -1340,6 +1324,30 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
             <option key={obra.id} value={obra.id}>{obra.codigo} · {obra.pendientes} pendientes</option>
           ))}
         </select>
+        <button
+          type="button"
+          onClick={() => setSelectorObrasAvisoAbierto((current) => !current)}
+          title={obrasAvisoSeleccionadas.length
+            ? `Obras: ${obrasAvisoSeleccionadas.map((obra) => obra.codigo).join(", ")}`
+            : "Elegí para qué obras es el pedido"}
+          style={{
+            ...control, borderRadius: 3, fontWeight: 500,
+            minWidth: 152,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 8,
+            borderColor: obrasAvisoSeleccionadas.length ? C.greenB : C.border2,
+            background: obrasAvisoSeleccionadas.length ? "var(--green-soft)" : "var(--panel-solid)",
+            color: obrasAvisoSeleccionadas.length ? C.green : C.text,
+          }}
+        >
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
+            <Building2 size={14} />
+            Obras del pedido · {obrasAvisoSeleccionadas.length || "elegir"}
+          </span>
+          <ChevronDown size={13} style={{ transform: selectorObrasAvisoAbierto ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+        </button>
         <label className="planilla-buscador az-buscar" style={{ minWidth: 240 }}>
           <Search size={15} />
           <input
@@ -1361,37 +1369,13 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         <button type="button" aria-expanded={vistaAbierta} onClick={() => setVistaAbierta(actual => !actual)} style={{ ...control, borderRadius: 3, fontWeight: 500, background: "transparent", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, color: vistaAbierta ? C.blue : C.text }}>
           <Settings2 size={14} /> Vista
         </button>
-        <button type="button" onClick={() => cargar(linea)} disabled={cargando} aria-label="Actualizar" title="Actualizar datos" style={{ ...control, borderRadius: 3, fontWeight: 500, background: "transparent", display: "grid", placeItems: "center", flex: "0 0 auto" }}>
+        <button type="button" onClick={() => cargar(linea, { refrescar: true })} disabled={cargando} aria-label="Actualizar" title="Actualizar datos" style={{ ...control, borderRadius: 3, fontWeight: 500, background: "transparent", display: "grid", placeItems: "center", flex: "0 0 auto" }}>
           {cargando ? <LoaderCircle size={14} className="spin" /> : <RotateCcw size={14} />}
         </button>
         </div>
 
         {filtrosAbiertos ? <>
         <div className="planilla-filtros planilla-filtros-secundarios" style={{ paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
-        <button
-          type="button"
-          onClick={() => setSelectorObrasAvisoAbierto((current) => !current)}
-          title={obrasAvisoSeleccionadas.length
-            ? `${soloPedirACompras ? "Pedido" : "Aviso"} para: ${obrasAvisoSeleccionadas.map((obra) => obra.codigo).join(", ")}`
-            : `Elegí las obras que compartirán el ${soloPedirACompras ? "pedido a compras" : "aviso a pañol"}`}
-          style={{
-            ...control, borderRadius: 3, fontWeight: 500,
-            minWidth: 152,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 8,
-            borderColor: obrasAvisoSeleccionadas.length ? C.greenB : C.border2,
-            background: obrasAvisoSeleccionadas.length ? "var(--green-soft)" : "var(--panel-solid)",
-            color: obrasAvisoSeleccionadas.length ? C.green : C.text,
-          }}
-        >
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
-            <Building2 size={14} />
-            {soloPedirACompras ? "Pedido" : "Aviso"} · {obrasAvisoSeleccionadas.length || "elegir"}
-          </span>
-          <ChevronDown size={13} style={{ transform: selectorObrasAvisoAbierto ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
-        </button>
         {!obraSeleccionada ? (
           <div style={{ display: "inline-flex", gap: 2, border: `1px solid ${C.border2}`, borderRadius: 3, padding: 2, background: "var(--panel-solid)" }}>
             {VISTAS.map((item) => (
@@ -1509,10 +1493,10 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <div style={{ minWidth: 210, flex: 1 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.text, fontSize: 12.5, fontWeight: 700 }}>
-                <Building2 size={15} color={C.green} /> Obras incluidas en el {soloPedirACompras ? "pedido" : "aviso"}
+                <Building2 size={15} color={C.green} /> Obras del pedido
               </div>
               <div style={{ marginTop: 3, color: C.dim, fontSize: 11.5, fontWeight: 600 }}>
-                Es independiente de la obra que estás mirando. Cada cantidad quedará asignada a su barco.
+                Se arma un pedido por obra, cada uno con lo que le falta a ese barco. Es independiente de la obra que estás mirando.
               </div>
             </div>
             <button type="button" onClick={() => setObrasAviso(new Set((datos?.obras ?? []).map((obra) => obra.id)))} style={{ ...control, padding: "6px 9px", fontSize: 11.5 }}>Marcar todas</button>
@@ -1552,9 +1536,9 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         </section>
       ) : obrasAvisoSeleccionadas.length ? (
         <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", padding: "0 3px" }}>
-          <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.55 }}>{soloPedirACompras ? "Pedido a compras" : "Aviso a pañol"}</span>
+          <span style={{ color: C.dim, fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.55 }}>Obras del pedido</span>
           {obrasAvisoSeleccionadas.map((obra) => (
-            <button key={obra.id} type="button" onClick={() => alternarObraAviso(obra.id)} title="Quitar del aviso" style={{ border: `1px solid ${C.greenB}`, background: "var(--green-soft)", color: C.green, borderRadius: 999, padding: "4px 8px", cursor: "pointer", fontFamily: C.sans, fontSize: 11, fontWeight: 700 }}>
+            <button key={obra.id} type="button" onClick={() => alternarObraAviso(obra.id)} title="Quitar del pedido" style={{ border: `1px solid ${C.greenB}`, background: "var(--green-soft)", color: C.green, borderRadius: 999, padding: "4px 8px", cursor: "pointer", fontFamily: C.sans, fontSize: 11, fontWeight: 700 }}>
               {obra.codigo} ×
             </button>
           ))}
@@ -1990,29 +1974,26 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         }}>
           <Check size={16} color={C.blue} />
           <span style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>{seleccionados.length} material{seleccionados.length === 1 ? "" : "es"}</span>
-          <span style={{ color: C.dim, fontSize: 11.5, fontWeight: 650 }}>
-            {obrasAvisoSeleccionadas.length
-              ? `${soloPedirACompras ? "pedido" : "aviso"} para ${obrasAvisoSeleccionadas.map((obra) => obra.codigo).join(", ")}`
-              : obraSeleccionada ? `viendo ${obraSeleccionada.codigo}` : `en ${linea}`}
+          <span style={{ color: obrasPedido.length ? C.dim : C.red, fontSize: 11.5, fontWeight: 650 }}>
+            {obrasPedido.length
+              ? `para ${obrasPedido.map((obra) => obra.codigo).join(", ")}`
+              : "falta marcar las obras"}
           </span>
+          <button type="button" onClick={() => setSelectorObrasAvisoAbierto(true)} style={{ border: "none", background: "transparent", color: C.blue, cursor: "pointer", fontFamily: C.sans, fontSize: 11.5, fontWeight: 700, padding: 0 }}>
+            {obrasPedido.length ? "Cambiar obras" : "Elegir obras"}
+          </button>
           <button type="button" onClick={() => setElegidos(new Set())} style={{ ...control, padding: "6px 10px", fontSize: 12, color: C.dim }}>Limpiar</button>
           <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button type="button" onClick={copiar} style={{ ...control, display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 }}><Copy size={14} /> Copiar</button>
-            {soloPedirACompras ? (
-              <button
-                type="button"
-                onClick={() => avisarPanol("compras")}
-                disabled={comprasBusy}
-                title={obrasAvisoSeleccionadas.length ? "Armar el pedido a Compras con lo seleccionado" : "Primero elegí una o varias obras para el pedido"}
-                style={{ border: "none", background: C.blue, color: "#fff", borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}
-              >
-                <ShoppingCart size={14} /> Pedir a compras
-              </button>
-            ) : onPedir ? (
-              <button type="button" onClick={pedir} style={{ border: "none", background: C.blue, color: "#fff", borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}>
-                <ShoppingCart size={14} /> Crear pedido
-              </button>
-            ) : null}
+            <button
+              type="button"
+              onClick={() => avisarPanol("compras")}
+              disabled={comprasBusy}
+              title={obrasPedido.length ? `Un pedido por obra: ${obrasPedido.map((obra) => obra.codigo).join(", ")}` : "Primero marcá para qué obras es el pedido"}
+              style={{ border: "none", background: C.blue, color: "#fff", borderRadius: 9, padding: "8px 14px", cursor: "pointer", fontFamily: C.sans, fontSize: 12.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 7 }}
+            >
+              <ShoppingCart size={14} /> Pedir a compras
+            </button>
             {!soloPedirACompras ? (
               <button
                 type="button"
@@ -2088,7 +2069,9 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
               <div>
                 <div style={{ color: C.text, fontSize: 12.5, fontWeight: 750 }}>{avisoPreparacion.destino === "compras" ? "Cantidad a pedir" : "Cantidad que va a ingresar"}</div>
                 <div style={{ marginTop: 2, color: C.dim, fontSize: 10.5, fontWeight: 600, lineHeight: 1.4 }}>
-                  Ajustala por producto y por obra. Si dejás una fila en 0, no se incluye en el {avisoPreparacion.destino === "compras" ? "pedido" : "aviso"}.
+                  {avisoPreparacion.destino === "compras"
+                    ? "Va lo que falta en cada obra; podés pedir más. En 0 no se pide."
+                    : "Ajustala por producto y por obra. En 0 no se incluye en el aviso."}
                 </div>
               </div>
               <div style={{ display: "grid", gap: 7, maxHeight: 280, overflowY: "auto", paddingRight: 3 }}>
@@ -2099,7 +2082,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginTop: 4, color: C.dim, fontSize: 10.5, fontWeight: 650 }}>
                         <span style={{ color: C.green }}>{item.obra_codigo}</span>
                         {item.codigo ? <span style={{ fontFamily: C.mono }}>{item.codigo}</span> : null}
-                        <span>máx. {mostrarNumero(item.cantidadMaxima)} {item.unidad}</span>
+                        <span>{avisoPreparacion.destino === "compras" ? "falta" : "máx."} {mostrarNumero(item.cantidadMaxima)} {item.unidad}</span>
                       </div>
                     </div>
                     <label style={{ display: "grid", gap: 3 }}>
@@ -2108,15 +2091,19 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
                         <input
                           type="number"
                           min="0"
-                          max={item.cantidadMaxima}
+                          max={avisoPreparacion.destino === "compras" ? undefined : item.cantidadMaxima}
                           step="any"
                           value={item.cantidad}
                           onChange={(event) => cambiarCantidadAviso(indice, event.target.value)}
                           onBlur={(event) => {
                             const valor = Number(event.target.value);
-                            const ajustado = Number.isFinite(valor)
-                              ? Math.min(Number(item.cantidadMaxima || 0), Math.max(0, valor))
-                              : 0;
+                            const maximo = Number(item.cantidadMaxima || 0);
+                            let ajustado = Number.isFinite(valor) ? Math.max(0, valor) : 0;
+                            if (avisoPreparacion.destino === "compras") {
+                              if (ajustado > 0 && ajustado < maximo) ajustado = maximo;
+                            } else {
+                              ajustado = Math.min(maximo, ajustado);
+                            }
                             cambiarCantidadAviso(indice, redondear(ajustado));
                           }}
                           aria-label={`Cantidad de ${item.descripcion} para ${item.obra_codigo}`}
