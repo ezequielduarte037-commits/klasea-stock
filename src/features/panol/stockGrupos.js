@@ -605,6 +605,8 @@ export function egresoDisplayItems(cart = [], obras = [], destinoObraId = "") {
     variant: item.variante || "",
     origin: item.locationLabel || (item.sede ? `Stock ${item.sede}` : "Pañol"),
     destination: selectedDestination || obras.find((obra) => obra.id === item.obraId)?.codigo || "",
+    // La foto ayuda al que retira a reconocer la pieza de lejos.
+    imageUrl: item.material?.imagen_url || "",
   }));
 }
 

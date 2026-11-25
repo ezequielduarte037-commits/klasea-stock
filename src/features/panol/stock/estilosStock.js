@@ -333,7 +333,13 @@ html[data-theme="light"] .stk-root .stk-select select { background-color: transp
 .stk-root .stk-mres-sub .is-violeta { color: var(--violet); }
 .stk-root .stk-mres-sub .is-rojo { color: var(--red); }
 .stk-root .stk-sin-ubic { font-size: 11px; font-weight: 600; padding: 1px 6px; border: 1px solid var(--cyan-border); border-radius: 6px; background: var(--cyan-soft); color: var(--cyan); white-space: nowrap; }
-.stk-root .stk-mres-fin { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.stk-root .stk-mres-fin { display: flex; align-items: center; gap: 6px; flex-shrink: 0; margin-left: auto; }
+.stk-root .stk-mres .mst-res-texto { flex: 0 1 auto; min-width: 220px; }
+.stk-root .stk-mres-asig { flex: 1 1 0; min-width: 0; height: 30px; overflow: hidden; display: flex; flex-wrap: wrap; justify-content: flex-end; align-content: flex-start; gap: 6px; }
+.stk-root .stk-asig { display: inline-flex; align-items: baseline; gap: 5px; height: 30px; padding: 0 9px; line-height: 28px; border: 1px solid var(--blue-border); border-radius: 9px; background: var(--blue-soft); color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.stk-root .stk-asig b { color: var(--blue); font-weight: 700; }
+.stk-root .stk-asig.is-terminada { border-color: var(--cyan-border); background: var(--cyan-soft); }
+.stk-root .stk-asig.is-terminada b { color: var(--cyan); }
 .stk-root .stk-mres .mpn-saldo:hover { border-color: var(--border-2); background: var(--panel); }
 .stk-root .stk-libre.is-verde .mst-num { color: var(--green); }
 .stk-root .stk-libre.is-rojo .mst-num { color: var(--red); }
@@ -392,7 +398,8 @@ html[data-theme="light"] .stk-root .stk-select select { background-color: transp
 
 /* Celular: una columna; la ficha ocupa todo y scrollea entera. */
 .stk-root.is-angosto .mst-col-botonera { overflow: visible; }
-.stk-root.is-angosto .stk-mres-min, .stk-root.is-angosto .stk-mres .stk-obras, .stk-root.is-angosto .stk-mres .stk-accion { display: none; }
+.stk-root.is-angosto .stk-mres-min, .stk-root.is-angosto .stk-mres .stk-obras, .stk-root.is-angosto .stk-mres .stk-accion, .stk-root.is-angosto .stk-mres-asig { display: none; }
+.stk-root.is-angosto .stk-mres .mst-res-texto { flex: 1; min-width: 0; }
 .stk-root.is-angosto .stk-bandejas-mst { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .stk-root.is-angosto .stk-bandeja { min-height: 88px; }
 .stk-root.is-angosto .stk-ficha { border-left: 0; overflow-y: auto; }

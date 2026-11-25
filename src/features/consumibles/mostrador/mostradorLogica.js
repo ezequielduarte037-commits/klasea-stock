@@ -759,6 +759,7 @@ export function armarPantallaOperario({
       variant: detalle.join(" · "),
       origin: sede ? `Pañol ${sede}` : "Pañol",
       destination: destinoTexto,
+      imageUrl: item?.imagenUrl ?? item?.imagen_url ?? "",
     };
   });
   return {

@@ -1,19 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  AlertTriangle,
   ArrowLeftRight,
+  ArrowRight,
   Check,
-  CheckCircle2,
-  Clock3,
   CreditCard,
+  LoaderCircle,
   Maximize2,
-  PackageCheck,
-  Radio,
-  Ship,
+  Minimize2,
   ShieldCheck,
-  ShoppingBasket,
-  TriangleAlert,
 } from "lucide-react";
-import { C } from "@/theme";
 import logoK from "@/assets/logos/logo-k.png";
 import {
   publishEgresoDisplay,
@@ -21,7 +17,13 @@ import {
   subscribeEgresoDisplay,
 } from "@/features/panol/egresoDisplay";
 
+// La pantalla que mira el que retira, en un segundo monitor del mostrador.
+// Mismo lenguaje que el mostrador (lector, filas con foto, cantidades en mono,
+// botón grande), pero pensada para leerse de lejos: letra grande, poco texto y
+// un solo dato por lugar. Todo bajo `.pdr`; sólo tokens del tema.
+
 const COMPLETE_VISIBLE_MS = 45_000;
+const MONO = "'JetBrains Mono', 'IBM Plex Mono', monospace";
 
 function fmtQty(value) {
   const number = Number(value || 0);
@@ -29,140 +31,55 @@ function fmtQty(value) {
   return Number(Math.round(number * 100) / 100).toLocaleString("es-AR");
 }
 
-function initials(name) {
-  return String(name || "")
+function iniciales(texto) {
+  return String(texto || "")
     .trim()
     .split(/\s+/)
+    .filter((parte) => /[a-záéíóúñ0-9]/i.test(parte))
     .slice(0, 2)
-    .map((part) => part[0])
+    .map((parte) => parte[0])
     .join("")
     .toUpperCase() || "?";
 }
 
-function timeLabel(value) {
-  if (!value) return "";
-  const date = new Date(value);
+function horaCorta(value) {
+  const date = value ? new Date(value) : new Date();
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
 }
 
-function EmployeeAvatar({ employee, size = 76 }) {
-  const photo = String(employee?.photoUrl || "").trim();
-  return (
-    <div style={{
-      width: size,
-      height: size,
-      flexShrink: 0,
-      display: "grid",
-      placeItems: "center",
-      overflow: "hidden",
-      borderRadius: Math.round(size * 0.28),
-      border: `2px solid ${C.greenB}`,
-      background: C.greenL,
-      color: C.green,
-      fontSize: Math.round(size * 0.28),
-      fontWeight: 750,
-      boxShadow: `0 12px 28px -18px ${C.green}`,
-    }}>
-      {photo
-        ? <img src={photo} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        : initials(employee?.name)}
-    </div>
-  );
-}
-
-function ProgressSteps({ status, reasignando, destinoDefinido }) {
-  // La re-asignación no pasa por la tarjeta: nadie se lleva nada, el material
-  // sólo cambia de obra. Mostrar el paso "Tarjeta NFC" haría que el que está
-  // enfrente busque su tarjeta al pedo.
-  const active = reasignando
-    ? (status === "complete" ? 3 : status === "processing" ? 2 : destinoDefinido ? 2 : 1)
-    : (status === "complete" ? 3 : status === "identified" || status === "processing" ? 2 : status === "draft" ? 1 : 0);
-  const steps = reasignando
-    ? [
-        ["Preparación", <ShoppingBasket key="preparacion" size={15} />],
-        ["Obra destino", <Ship key="obra" size={15} />],
-        ["Asignado", <Check key="asignado" size={15} />],
-      ]
-    : [
-        ["Preparación", <ShoppingBasket key="preparacion" size={15} />],
-        ["Tarjeta NFC", <CreditCard key="tarjeta" size={15} />],
-        ["Confirmado", <Check key="confirmado" size={15} />],
-      ];
-
-  return (
-    <div className="egreso-display-progress">
-      {steps.map(([label, icon], index) => {
-        const step = index + 1;
-        const done = active > step || status === "complete";
-        const current = active === step && status !== "complete";
-        return (
-          <div key={label} className="egreso-display-step">
-            <div style={{
-              width: 34,
-              height: 34,
-              borderRadius: 999,
-              display: "grid",
-              placeItems: "center",
-              border: `1px solid ${done ? C.greenB : current ? C.blueB : C.border}`,
-              background: done ? C.greenL : current ? C.blueL : C.panelSolid,
-              color: done ? C.green : current ? C.blue : C.dim,
-            }}>
-              {done ? <Check size={16} strokeWidth={3} /> : icon}
-            </div>
-            <span style={{ color: done ? C.green : current ? C.text : C.dim, fontSize: 12, fontWeight: 700 }}>{label}</span>
-            {index < steps.length - 1 && (
-              <span className="egreso-display-line" style={{ background: active > step ? C.green : C.border }} />
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <section className="egreso-display-empty">
-      <div className="egreso-display-empty-icon">
-        <ShoppingBasket size={48} strokeWidth={1.6} />
-        <span className="egreso-display-pulse" />
-      </div>
-      <div>
-        <div className="egreso-display-eyebrow">Puesto de egreso listo</div>
-        <h1>Esperando el próximo retiro</h1>
-        <p>Los materiales aparecerán acá a medida que pañol los cargue.</p>
-      </div>
-      <div className="egreso-display-hint">
-        <Radio size={16} />
-        Pantalla sincronizada en vivo
-      </div>
-    </section>
-  );
-}
-
-// Origen y destino se muestran como un recorrido, no como dos etiquetas
-// sueltas: "52-26 → 43-30" se entiende de una. Y cuando son la misma obra —el
-// caso normal— se escribe una sola vez, porque "52-26 · 52-26" parece un error.
+// Origen y destino como recorrido: "52-26 → 43-30" se entiende de una. Si son la
+// misma obra —el caso normal— se escribe una sola vez.
 function recorrido(item) {
   const origen = String(item.origin || "").trim();
   const destino = String(item.destination || "").trim();
-  if (origen && destino && origen !== destino) return `${origen} → ${destino}`;
-  return origen || destino;
+  if (origen && destino && origen !== destino) return { origen, destino };
+  return { origen: origen || destino, destino: "" };
 }
 
-function ItemRow({ item, index }) {
-  const detalle = [item.variant, recorrido(item)].filter(Boolean).join(" · ");
+function Foto({ texto, url, grande = false }) {
   return (
-    <div className="egreso-display-item">
-      <div className="egreso-display-item-index">{String(index + 1).padStart(2, "0")}</div>
-      <div style={{ minWidth: 0 }}>
-        <div className="egreso-display-item-name">{item.label || "Material"}</div>
-        <div className="egreso-display-item-detail">
-          {detalle || "Egreso desde pañol"}
+    <span className={`pdr-foto${grande ? " is-grande" : ""}`} aria-hidden="true">
+      <span>{iniciales(texto)}</span>
+      {url ? <img src={url} alt="" loading="lazy" decoding="async" onError={(e) => { e.currentTarget.style.display = "none"; }} /> : null}
+    </span>
+  );
+}
+
+function Renglon({ item }) {
+  const { origen, destino } = recorrido(item);
+  return (
+    <div className="pdr-item">
+      <Foto texto={item.label} url={item.imageUrl} />
+      <div className="pdr-item-texto">
+        <div className="pdr-item-nombre">{item.label || "Material"}</div>
+        <div className="pdr-item-ruta">
+          {item.variant ? <span className="pdr-item-variante">{item.variant}</span> : null}
+          {origen ? <span className="pdr-mono">{origen}</span> : null}
+          {destino ? <><ArrowRight size={16} aria-hidden="true" /><span className="pdr-mono is-destino">{destino}</span></> : null}
         </div>
       </div>
-      <div className="egreso-display-item-qty">
+      <div className="pdr-item-cant">
         <strong>{fmtQty(item.quantity)}</strong>
         <span>{item.unit || "u"}</span>
       </div>
@@ -170,103 +87,82 @@ function ItemRow({ item, index }) {
   );
 }
 
-function StatusHero({ state, reasignando }) {
-  // La re-asignación no tiene firma ni tarjeta: lo único que importa mostrar es
-  // que el material cambia de obra y que nadie se lo está llevando. Si no se
-  // dice con todas las letras, el que mira la pantalla cree que le están
-  // cargando un retiro a su nombre.
-  if (reasignando && state.status !== "error") {
-    const enCurso = state.status === "processing";
-    return (
-      <div className="egreso-display-status" style={{ borderColor: C.blueB, background: C.blueL }}>
-        <div className={`egreso-display-status-icon${enCurso ? " egreso-display-processing" : ""}`} style={{ color: C.blue, borderColor: C.blueB, background: C.panelSolid }}>
-          <ArrowLeftRight size={28} />
-        </div>
-        <div style={{ minWidth: 0 }}>
-          <div className="egreso-display-eyebrow" style={{ color: C.blue }}>Re-asignación entre obras</div>
-          <div className="egreso-display-status-title">
-            {enCurso ? "Cambiando de obra…" : "Esto no es un retiro"}
-          </div>
-          <div className="egreso-display-status-copy">
-            El material no sale del pañol: sólo pasa a estar reservado para otra obra.
-            No hace falta tarjeta ni firma.
-          </div>
-        </div>
-      </div>
-    );
-  }
+function Pasos({ actual, reasignando }) {
+  const pasos = reasignando ? ["Revisá", "Obra destino", "Listo"] : ["Revisá", "Tarjeta", "Listo"];
+  return (
+    <ol className="pdr-pasos" aria-label="Pasos del retiro">
+      {pasos.map((paso, index) => {
+        const numero = index + 1;
+        const hecho = actual > numero;
+        const enCurso = actual === numero;
+        return (
+          <li key={paso} className={hecho ? "is-hecho" : enCurso ? "is-actual" : ""} aria-current={enCurso ? "step" : undefined}>
+            <i>{hecho ? <Check size={14} strokeWidth={3} /> : numero}</i>
+            <span>{paso}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
 
-  if (state.status === "complete") {
-    return (
-      <div className="egreso-display-status" style={{ borderColor: C.greenB, background: C.greenL }}>
-        <div className="egreso-display-status-icon" style={{ color: C.green, borderColor: C.greenB, background: C.panelSolid }}>
-          <CheckCircle2 size={31} />
-        </div>
-        <div style={{ minWidth: 0 }}>
-          <div className="egreso-display-eyebrow" style={{ color: C.green }}>Transacción completa</div>
-          <div className="egreso-display-status-title">Retiro confirmado</div>
-          <div className="egreso-display-status-copy">
-            {state.employee?.name || state.retiredBy
-              ? `Listo, ${state.employee?.name || state.retiredBy}. El movimiento quedó registrado.`
-              : "El movimiento quedó registrado correctamente."}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
+// Lo que tiene que hacer o saber el que está enfrente, en una sola caja.
+function Estado({ state, reasignando }) {
   if (state.status === "error") {
     return (
-      <div className="egreso-display-status" style={{ borderColor: C.redB, background: C.redL }}>
-        <div className="egreso-display-status-icon" style={{ color: C.red, borderColor: C.redB, background: C.panelSolid }}>
-          <TriangleAlert size={28} />
-        </div>
+      <div className="pdr-estado is-rojo">
+        <span className="pdr-estado-icono"><AlertTriangle size={30} /></span>
         <div>
-          <div className="egreso-display-eyebrow" style={{ color: C.red }}>No se completó el egreso</div>
-          <div className="egreso-display-status-title">Aguardá la indicación de pañol</div>
-          <div className="egreso-display-status-copy">{state.error || "Se produjo un problema al registrar el movimiento."}</div>
+          <strong>No se registró</strong>
+          <p>{state.error || "Hubo un problema al registrar el movimiento. Esperá la indicación de pañol."}</p>
         </div>
       </div>
     );
   }
-
+  if (reasignando) {
+    return (
+      <div className="pdr-estado is-azul">
+        <span className="pdr-estado-icono">{state.status === "processing" ? <LoaderCircle size={30} className="pdr-gira" /> : <ArrowLeftRight size={30} />}</span>
+        <div>
+          <strong>{state.status === "processing" ? "Cambiando de obra…" : "Esto no es un retiro"}</strong>
+          <p>El material no sale del pañol: pasa a estar reservado para otra obra. No hace falta tarjeta.</p>
+        </div>
+      </div>
+    );
+  }
   if (state.status === "processing") {
     return (
-      <div className="egreso-display-status" style={{ borderColor: C.blueB, background: C.blueL }}>
-        <div className="egreso-display-status-icon egreso-display-processing" style={{ color: C.blue, borderColor: C.blueB, background: C.panelSolid }}>
-          <Clock3 size={27} />
-        </div>
+      <div className="pdr-estado is-azul">
+        <span className="pdr-estado-icono"><LoaderCircle size={30} className="pdr-gira" /></span>
         <div>
-          <div className="egreso-display-eyebrow" style={{ color: C.blue }}>Procesando</div>
-          <div className="egreso-display-status-title">Estamos registrando tu retiro</div>
-          <div className="egreso-display-status-copy">No retires la tarjeta hasta ver la confirmación.</div>
+          <strong>Registrando el retiro…</strong>
+          <p>Esperá la confirmación antes de llevarte el material.</p>
         </div>
       </div>
     );
   }
-
   if (state.employee) {
+    const foto = String(state.employee.photoUrl || "").trim();
     return (
-      <div className="egreso-display-status" style={{ borderColor: C.greenB, background: C.greenL }}>
-        <EmployeeAvatar employee={state.employee} />
+      <div className="pdr-persona">
+        <span className="pdr-avatar" aria-hidden="true">
+          {iniciales(state.employee.name)}
+          {foto ? <img src={foto} alt="" /> : null}
+        </span>
         <div style={{ minWidth: 0 }}>
-          <div className="egreso-display-eyebrow" style={{ color: C.green }}><ShieldCheck size={14} /> Identidad validada</div>
-          <div className="egreso-display-status-title">{state.employee.name}</div>
-          <div className="egreso-display-status-copy">Tarjeta registrada. Pañol está confirmando el movimiento.</div>
+          <span className="pdr-rotulo is-verde"><ShieldCheck size={14} aria-hidden="true" /> Tarjeta leída</span>
+          <strong>{state.employee.name}</strong>
+          <p>Pañol está confirmando el retiro.</p>
         </div>
       </div>
     );
   }
-
   return (
-    <div className="egreso-display-status" style={{ borderColor: C.blueB, background: C.blueL }}>
-      <div className="egreso-display-status-icon" style={{ color: C.blue, borderColor: C.blueB, background: C.panelSolid }}>
-        <CreditCard size={28} />
-      </div>
+    <div className="pdr-tarjeta">
+      <span className="pdr-tarjeta-icono"><CreditCard size={34} /></span>
       <div>
-        <div className="egreso-display-eyebrow" style={{ color: C.blue }}>Retiro en preparación</div>
-        <div className="egreso-display-status-title">Revisá los materiales cargados</div>
-        <div className="egreso-display-status-copy">Cuando esté todo correcto, apoyá tu tarjeta NFC en el lector.</div>
+        <strong>Apoyá tu tarjeta en el lector</strong>
+        <p>Antes, fijate que esté todo lo que te llevás.</p>
       </div>
     </div>
   );
@@ -274,205 +170,230 @@ function StatusHero({ state, reasignando }) {
 
 export default function PantallaEgresoScreen() {
   const [state, setState] = useState(readEgresoDisplay);
-  const [clock, setClock] = useState(() => new Date());
+  const [hora, setHora] = useState(() => horaCorta());
+  const [completa, setCompleta] = useState(() => typeof document !== "undefined" && !!document.fullscreenElement);
 
   useEffect(() => subscribeEgresoDisplay(setState), []);
 
+  // Reloj de minutos: queda abierta todo el día, no hace falta que lata.
   useEffect(() => {
-    document.title = "Pantalla de egreso · KlaseA";
-    const timer = window.setInterval(() => setClock(new Date()), 1000);
-    return () => window.clearInterval(timer);
+    document.title = "Pantalla de retiro · KlaseA";
+    const timer = window.setInterval(() => setHora(horaCorta()), 20_000);
+    const alCambiar = () => setCompleta(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", alCambiar);
+    return () => { window.clearInterval(timer); document.removeEventListener("fullscreenchange", alCambiar); };
   }, []);
 
-  // Red de contención. Pañol ya limpia la pantalla apenas confirma, así que
-  // "complete" no debería llegar más; pero si quedó uno guardado de antes en
-  // localStorage, esto lo saca solo en vez de dejarlo clavado para siempre.
+  // Red de contención: pañol limpia la pantalla al confirmar, pero si quedó un
+  // "complete" guardado de antes, se va solo en vez de quedar clavado.
   useEffect(() => {
     if (state.status !== "complete" || !state.completedAt) return undefined;
     const elapsed = Date.now() - new Date(state.completedAt).getTime();
-    const remaining = Math.max(0, COMPLETE_VISIBLE_MS - elapsed);
     const timer = window.setTimeout(() => {
       publishEgresoDisplay({
-        status: "idle",
-        items: [],
-        employee: null,
-        retiredBy: "",
-        destination: "",
-        sector: "",
-        note: "",
-        totalLines: 0,
-        totalUnits: 0,
-        error: "",
-        completedAt: null,
+        status: "idle", items: [], employee: null, retiredBy: "", destination: "", sector: "",
+        note: "", totalLines: 0, totalUnits: 0, error: "", completedAt: null,
       });
-    }, remaining);
+    }, Math.max(0, COMPLETE_VISIBLE_MS - elapsed));
     return () => window.clearTimeout(timer);
   }, [state.completedAt, state.status]);
 
-  const isIdle = state.status === "idle" || !state.items?.length;
+  const items = Array.isArray(state.items) ? state.items : [];
+  const enEspera = state.status === "idle" || !items.length;
   const reasignando = state.mode === "reasignacion";
-  const destination = state.destination || state.sector || "Destino a confirmar";
-  const destinoDefinido = !!(state.destination || state.sector);
-  const totalUnits = useMemo(
-    () => state.items?.reduce((sum, item) => sum + Number(item.quantity || 0), 0) || 0,
-    [state.items],
-  );
+  const listo = state.status === "complete";
+  const destino = state.destination || state.sector || "";
+  const unidades = state.totalUnits || items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+  const pasoActual = listo ? 4
+    : reasignando ? (state.status === "processing" || destino ? 2 : 1)
+      : (state.status === "identified" || state.status === "processing" ? 2 : 1);
+  const nombre = state.employee?.name || state.retiredBy || "";
 
-  async function toggleFullscreen() {
+  async function alternarPantallaCompleta() {
     try {
       if (document.fullscreenElement) await document.exitFullscreen();
       else await document.documentElement.requestFullscreen();
     } catch {
-      // El navegador puede bloquear fullscreen; la pantalla sigue operativa.
+      // El navegador puede no dejar; la pantalla funciona igual.
     }
   }
 
   return (
-    <main className="egreso-display-shell">
-      <style>{`
-        .egreso-display-shell{
-          position:fixed;inset:0;overflow:auto;box-sizing:border-box;
-          min-height:100vh;padding:clamp(18px,2.2vw,34px);
-          color:var(--text);font-family:${C.sans};
-          background:
-            radial-gradient(circle at 8% 0%,var(--blue-soft),transparent 32%),
-            radial-gradient(circle at 96% 100%,var(--green-soft),transparent 28%),
-            var(--bg);
-        }
-        .egreso-display-topbar{display:flex;align-items:center;gap:14px;max-width:1500px;margin:0 auto 24px}
-        .egreso-display-brand{display:flex;align-items:center;gap:12px;min-width:0}
-        .egreso-display-brand img{width:42px;height:42px;border-radius:13px;object-fit:cover;box-shadow:0 10px 24px -14px rgba(0,0,0,.55)}
-        .egreso-display-brand strong{display:block;font-size:19px;letter-spacing:-.2px}
-        .egreso-display-brand span{display:block;color:var(--dim);font-size:13.5px;margin-top:2px}
-        .egreso-display-live{margin-left:auto;display:flex;align-items:center;gap:8px;border:1px solid var(--green-border);background:var(--green-soft);color:var(--green);border-radius:999px;padding:8px 12px;font-size:11px;font-weight:700}
-        .egreso-display-live i{width:7px;height:7px;background:var(--green);border-radius:999px;box-shadow:0 0 0 4px var(--green-soft)}
-        .egreso-display-fullscreen{border:1px solid var(--border);background:var(--panel-solid);color:var(--text);width:38px;height:38px;border-radius:11px;display:grid;place-items:center;cursor:pointer}
-        .egreso-display-progress{max-width:1500px;margin:0 auto 22px;display:flex;align-items:center;justify-content:center;gap:0}
-        .egreso-display-step{display:flex;align-items:center;gap:8px;min-width:0}
-        .egreso-display-line{width:clamp(42px,8vw,130px);height:2px;margin:0 12px;border-radius:999px}
-        .egreso-display-empty{max-width:900px;min-height:calc(100vh - 190px);margin:0 auto;display:grid;place-items:center;align-content:center;text-align:center;gap:24px}
-        .egreso-display-empty-icon{position:relative;width:108px;height:108px;border-radius:30px;display:grid;place-items:center;color:var(--blue);border:1px solid var(--blue-border);background:var(--panel-solid);box-shadow:0 24px 70px -38px var(--blue)}
-        .egreso-display-pulse{position:absolute;right:14px;bottom:14px;width:12px;height:12px;background:var(--green);border:3px solid var(--panel-solid);border-radius:999px}
-        .egreso-display-empty h1{font-size:clamp(31px,4.4vw,58px);letter-spacing:-1.6px;line-height:1.02;margin:8px 0 12px}
-        .egreso-display-empty p{color:var(--dim);font-size:clamp(15px,1.5vw,20px);margin:0}
-        .egreso-display-hint{display:inline-flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;font-weight:650;border:1px solid var(--border);background:var(--panel-solid);border-radius:999px;padding:9px 13px}
-        .egreso-display-eyebrow{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--dim)}
-        .egreso-display-layout{max-width:1500px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1.55fr) minmax(330px,.65fr);gap:18px;align-items:start}
-        .egreso-display-panel{border:1px solid var(--border);background:var(--panel-solid);border-radius:20px;overflow:hidden;box-shadow:0 28px 70px -48px rgba(0,0,0,.7)}
-        .egreso-display-panel-head{padding:18px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
-        .egreso-display-panel-head h1{font-size:clamp(23px,2.4vw,33px);letter-spacing:-.6px;margin:3px 0 0}
-        .egreso-display-count{margin-left:auto;color:var(--dim);font-size:14px;font-weight:700;border:1px solid var(--border);background:var(--panel);border-radius:999px;padding:8px 12px;white-space:nowrap}
-        .egreso-display-items{padding:10px;display:grid;gap:7px;max-height:calc(100vh - 300px);overflow:auto}
-        .egreso-display-item{display:grid;grid-template-columns:42px minmax(0,1fr) auto;align-items:center;gap:13px;padding:14px;border:1px solid var(--border);background:var(--panel);border-radius:13px}
-        .egreso-display-item-index{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;border:1px solid var(--border);background:var(--panel-solid);color:var(--dim);font-family:${C.mono};font-size:12.5px;font-weight:700}
-        .egreso-display-item-name{font-size:clamp(16px,1.55vw,22px);font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-        /* Acá es donde se lee la obra de cada renglón: era el texto más chico de
-           toda la pantalla y es de los pocos que hay que poder leer de lejos. */
-        .egreso-display-item-detail{color:var(--muted);font-size:clamp(13px,1.15vw,16px);font-weight:650;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-        .egreso-display-item-qty{text-align:right;display:flex;align-items:baseline;gap:6px;white-space:nowrap}
-        .egreso-display-item-qty strong{font-family:${C.mono};font-size:clamp(22px,2.4vw,33px);letter-spacing:-1px}
-        .egreso-display-item-qty span{color:var(--dim);font-size:14px;font-weight:700}
-        .egreso-display-side{display:grid;gap:12px}
-        .egreso-display-status{border:1px solid;min-height:104px;border-radius:18px;padding:18px;display:flex;align-items:center;gap:15px}
-        .egreso-display-status-icon{width:62px;height:62px;border:1px solid;border-radius:18px;display:grid;place-items:center;flex-shrink:0}
-        .egreso-display-status-title{font-size:clamp(22px,2.2vw,31px);font-weight:750;letter-spacing:-.6px;line-height:1.08;margin-top:5px}
-        .egreso-display-status-copy{color:var(--muted);font-size:15px;line-height:1.45;margin-top:6px}
-        .egreso-display-summary{padding:18px;display:grid;gap:16px}
-        .egreso-display-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
-        .egreso-display-summary-card{border:1px solid var(--border);background:var(--panel);border-radius:13px;padding:13px}
-        .egreso-display-summary-card span{display:block;color:var(--dim);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em}
-        .egreso-display-summary-card strong{display:block;font-family:${C.mono};font-size:clamp(26px,2.5vw,34px);margin-top:6px}
-        .egreso-display-destination{border-top:1px solid var(--border);padding-top:15px}
-        /* La obra destino es EL dato de la pantalla: el que mira quiere saber
-           para qué barco es lo que está sobre el mostrador. Va grande. */
-        .egreso-display-destination strong{display:block;font-size:clamp(22px,2.2vw,32px);font-weight:750;letter-spacing:-.5px;line-height:1.15;margin-top:7px}
-        .egreso-display-destination p{color:var(--muted);font-size:14px;line-height:1.45;margin:7px 0 0}
-        .egreso-display-processing svg{animation:egreso-tick 1.2s ease-in-out infinite}
-        @keyframes egreso-tick{50%{transform:rotate(12deg) scale(1.06)}}
-        @media(max-width:900px){
-          .egreso-display-layout{grid-template-columns:1fr}
-          .egreso-display-items{max-height:none}
-          .egreso-display-side{grid-row:1}
-          .egreso-display-progress span:not(.egreso-display-line){display:none}
-        }
-        @media(max-width:560px){
-          .egreso-display-shell{padding:14px}
-          .egreso-display-brand span,.egreso-display-live{display:none}
-          .egreso-display-progress{margin-bottom:14px}
-          .egreso-display-line{width:38px;margin:0 6px}
-          .egreso-display-item{grid-template-columns:34px minmax(0,1fr);gap:9px}
-          .egreso-display-item-index{width:32px;height:32px}
-          .egreso-display-item-qty{grid-column:2;text-align:left;justify-content:flex-start}
-        }
-        @media(prefers-reduced-motion:reduce){.egreso-display-processing svg{animation:none}}
-      `}</style>
+    <main className="pdr">
+      <style href="klasea-pantalla-retiro" precedence="default">{CSS}</style>
 
-      <header className="egreso-display-topbar">
-        <div className="egreso-display-brand">
-          <img src={logoK} alt="KlaseA" />
-          <div>
-            <strong>{reasignando ? "Pañol · Re-asignación" : "Pañol · Control de egreso"}</strong>
-            <span>{reasignando ? "El material cambia de obra, no sale del pañol" : "Constancia visual del material retirado"}</span>
-          </div>
+      <header className="pdr-barra">
+        <img src={logoK} alt="" className="pdr-logo" />
+        <div className="pdr-marca">
+          <span>Pañol</span>
+          <strong>{reasignando ? "Cambio de obra" : "Retiro de materiales"}</strong>
         </div>
-        <div className="egreso-display-live"><i /> Actualización en vivo</div>
-        <div style={{ color: C.dim, fontFamily: C.mono, fontSize: 13, fontWeight: 700 }}>
-          {clock.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
-        </div>
-        <button type="button" className="egreso-display-fullscreen" onClick={toggleFullscreen} title="Pantalla completa">
-          <Maximize2 size={17} />
+        <span className="pdr-vivo"><i aria-hidden="true" /> En vivo</span>
+        <span className="pdr-hora">{hora}</span>
+        <button type="button" className="pdr-icono-btn" onClick={alternarPantallaCompleta} aria-label={completa ? "Salir de pantalla completa" : "Pantalla completa"} title={completa ? "Salir de pantalla completa" : "Pantalla completa"}>
+          {completa ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
         </button>
       </header>
 
-      <ProgressSteps status={state.status} reasignando={reasignando} destinoDefinido={destinoDefinido} />
-
-      {isIdle ? <EmptyState /> : (
-        <div className="egreso-display-layout">
-          <section className="egreso-display-panel">
-            <div className="egreso-display-panel-head">
-              <div style={{ width: 40, height: 40, borderRadius: 12, display: "grid", placeItems: "center", color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}` }}>
-                {reasignando ? <ArrowLeftRight size={20} /> : <PackageCheck size={20} />}
-              </div>
-              <div>
-                <div className="egreso-display-eyebrow">{reasignando ? "Detalle de la re-asignación" : "Detalle del retiro"}</div>
-                <h1>{reasignando ? "Material que cambia de obra" : "Materiales cargados"}</h1>
-              </div>
-              <div className="egreso-display-count">{state.items.length} {state.items.length === 1 ? "material" : "materiales"}</div>
+      {enEspera ? (
+        <section className="pdr-espera">
+          <img src={logoK} alt="" className="pdr-espera-logo" />
+          <h1>Esperando el próximo retiro</h1>
+          <p>Lo que pañol vaya cargando aparece acá.</p>
+        </section>
+      ) : listo ? (
+        <section className="pdr-listo">
+          <div className="pdr-listo-caja">
+            <span className={`pdr-listo-check${reasignando ? " is-azul" : ""}`}><Check size={40} strokeWidth={2.6} /></span>
+            <h1>{reasignando ? "Material asignado" : nombre ? `Listo, ${nombre}` : "Retiro registrado"}</h1>
+            <p>
+              {reasignando ? "Quedó reservado para " : "Quedó registrado"}
+              {destino ? <>{reasignando ? "" : " para "}<strong className="pdr-mono">{destino}</strong></> : null}.
+            </p>
+            <div className="pdr-lista is-chica">
+              {items.map((item, index) => <Renglon key={item.key || `${item.label}-${index}`} item={item} />)}
             </div>
-            <div className="egreso-display-items">
-              {state.items.map((item, index) => <ItemRow key={item.key || `${item.label}-${index}`} item={item} index={index} />)}
+          </div>
+        </section>
+      ) : (
+        <div className="pdr-cuerpo">
+          <section className="pdr-col-lista" aria-label={reasignando ? "Material que cambia de obra" : "Lo que se lleva"}>
+            <div className="pdr-titulo-seccion">
+              {reasignando ? "Cambia de obra" : "Se lleva"}
+              <span className="pdr-mono">{items.length} {items.length === 1 ? "producto" : "productos"} · {fmtQty(unidades)} {unidades === 1 ? "unidad" : "unidades"}</span>
+            </div>
+            <div className="pdr-lista">
+              {items.map((item, index) => <Renglon key={item.key || `${item.label}-${index}`} item={item} />)}
             </div>
           </section>
 
-          <aside className="egreso-display-side">
-            <StatusHero state={state} reasignando={reasignando} />
-            <section className="egreso-display-panel egreso-display-summary">
-              <div className="egreso-display-eyebrow">Resumen</div>
-              <div className="egreso-display-summary-grid">
-                <div className="egreso-display-summary-card">
-                  <span>Renglones</span>
-                  <strong>{state.totalLines || state.items.length}</strong>
-                </div>
-                <div className="egreso-display-summary-card">
-                  <span>Unidades</span>
-                  <strong>{fmtQty(state.totalUnits || totalUnits)}</strong>
-                </div>
-              </div>
-              <div className="egreso-display-destination">
-                <span className="egreso-display-eyebrow">{reasignando ? "Pasa a la obra" : "Destino"}</span>
-                <strong>{destination}</strong>
-                {state.note && <p>{state.note}</p>}
-              </div>
-              {(state.updatedAt || state.completedAt) && (
-                <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.dim, fontSize: 13, borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
-                  <Clock3 size={14} />
-                  {state.status === "complete" ? "Confirmado" : "Actualizado"} a las {timeLabel(state.completedAt || state.updatedAt)}
-                </div>
-              )}
-            </section>
+          <aside className="pdr-col-lado">
+            <Pasos actual={pasoActual} reasignando={reasignando} />
+            <Estado state={state} reasignando={reasignando} />
+            <div className={`pdr-destino${destino ? "" : " is-vacio"}`}>
+              <span className="pdr-rotulo">{reasignando ? "Pasa a la obra" : "Va para"}</span>
+              <strong className={destino && /\d/.test(destino) ? "pdr-mono" : undefined}>{destino || "A confirmar"}</strong>
+              {state.note ? <p>{state.note}</p> : null}
+            </div>
           </aside>
         </div>
       )}
     </main>
   );
 }
+
+const CSS = `
+.pdr {
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 1;
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--bg); color: var(--text); font-family: 'Outfit', system-ui, sans-serif;
+}
+.pdr button { font: inherit; }
+.pdr .pdr-mono { font-family: ${MONO}; font-variant-numeric: tabular-nums; }
+
+/* Barra */
+.pdr .pdr-barra { display: flex; align-items: center; gap: 14px; flex-shrink: 0; padding: 14px 24px; border-bottom: 1px solid var(--border); }
+.pdr .pdr-logo { width: 40px; height: 40px; border-radius: 12px; object-fit: cover; }
+.pdr .pdr-marca { display: grid; min-width: 0; }
+.pdr .pdr-marca span { font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+.pdr .pdr-marca strong { font-size: 20px; font-weight: 600; }
+.pdr .pdr-vivo { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 12px; border: 1px solid var(--green-border); border-radius: 999px; background: var(--green-soft); color: var(--green); font-size: 12.5px; font-weight: 600; }
+.pdr .pdr-vivo i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pdr .pdr-hora { font-family: ${MONO}; font-size: 18px; font-weight: 600; color: var(--muted); }
+.pdr .pdr-icono-btn { width: 40px; height: 40px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.pdr .pdr-icono-btn:hover { color: var(--text); border-color: var(--border-2); }
+
+/* En espera */
+.pdr .pdr-espera { flex: 1; display: grid; place-content: center; justify-items: center; gap: 14px; padding: 24px; text-align: center; }
+.pdr .pdr-espera-logo { width: 84px; height: 84px; border-radius: 24px; opacity: .9; margin-bottom: 10px; }
+.pdr .pdr-espera h1 { margin: 0; font-size: clamp(30px, 4vw, 52px); font-weight: 650; letter-spacing: -.02em; line-height: 1.08; }
+.pdr .pdr-espera p { margin: 0; font-size: clamp(16px, 1.6vw, 21px); color: var(--dim); }
+
+/* Cuerpo: lista + columna */
+.pdr .pdr-cuerpo { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(380px, 460px); }
+.pdr .pdr-col-lista { min-height: 0; overflow: auto; padding: 20px 24px 28px; display: grid; gap: 12px; align-content: start; }
+.pdr .pdr-col-lado { min-height: 0; overflow: auto; display: grid; gap: 16px; align-content: start; padding: 20px 22px 28px; border-left: 1px solid var(--border); background: var(--panel); }
+.pdr .pdr-titulo-seccion { display: flex; align-items: baseline; gap: 12px; font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+.pdr .pdr-titulo-seccion .pdr-mono { margin-left: auto; letter-spacing: 0; text-transform: none; font-size: 15px; color: var(--muted); }
+.pdr .pdr-rotulo { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--dim); }
+.pdr .pdr-rotulo.is-verde { color: var(--green); }
+
+/* Renglones */
+.pdr .pdr-lista { display: grid; border: 1px solid var(--border); border-radius: 16px; background: var(--panel-solid); overflow: hidden; }
+.pdr .pdr-item { display: flex; align-items: center; gap: 16px; min-height: 92px; padding: 12px 20px 12px 14px; border-bottom: 1px solid var(--border); }
+.pdr .pdr-item:last-child { border-bottom: 0; }
+.pdr .pdr-foto { position: relative; width: 68px; height: 68px; border-radius: 14px; overflow: hidden; flex-shrink: 0; display: grid; place-items: center; background: var(--panel-2); color: var(--dim); font-size: 20px; font-weight: 600; }
+.pdr .pdr-foto img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; box-sizing: border-box; padding: 4px; object-fit: contain; background: #fff; }
+.pdr .pdr-item-texto { flex: 1; min-width: 0; display: grid; gap: 5px; }
+.pdr .pdr-item-nombre { font-size: clamp(19px, 1.75vw, 26px); font-weight: 600; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.pdr .pdr-item-ruta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: clamp(14px, 1.25vw, 18px); color: var(--muted); }
+.pdr .pdr-item-ruta svg { color: var(--dim); }
+.pdr .pdr-item-ruta .pdr-mono { font-weight: 600; }
+.pdr .pdr-item-ruta .is-destino { color: var(--blue); }
+.pdr .pdr-item-variante { color: var(--violet); font-weight: 500; }
+.pdr .pdr-item-cant { display: flex; align-items: baseline; gap: 7px; flex-shrink: 0; white-space: nowrap; }
+.pdr .pdr-item-cant strong { font-family: ${MONO}; font-variant-numeric: tabular-nums; font-size: clamp(30px, 2.8vw, 42px); font-weight: 700; color: var(--blue); letter-spacing: -.02em; }
+.pdr .pdr-item-cant span { font-size: 15px; font-weight: 500; color: var(--dim); }
+
+/* Pasos */
+.pdr .pdr-pasos { display: flex; gap: 0; margin: 0; padding: 0; list-style: none; }
+.pdr .pdr-pasos li { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--dim); font-size: 14px; font-weight: 500; }
+.pdr .pdr-pasos li + li::before { content: ""; flex: 0 1 26px; height: 2px; margin-right: 4px; border-radius: 2px; background: var(--border-2); }
+.pdr .pdr-pasos li.is-hecho + li::before { background: var(--green); }
+.pdr .pdr-pasos i { width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-family: ${MONO}; font-size: 13px; font-weight: 700; border: 1px solid var(--border-2); background: var(--panel-solid); }
+.pdr .pdr-pasos li.is-actual { color: var(--text); font-weight: 600; }
+.pdr .pdr-pasos li.is-actual i { border-color: var(--blue); background: var(--blue-soft); color: var(--blue); }
+.pdr .pdr-pasos li.is-hecho { color: var(--green); }
+.pdr .pdr-pasos li.is-hecho i { border-color: var(--green-border); background: var(--green-soft); color: var(--green); }
+
+/* Estado */
+.pdr .pdr-tarjeta { display: flex; align-items: center; gap: 18px; padding: 22px; border: 1.5px dashed var(--blue-border); border-radius: 18px; background: var(--blue-soft); }
+.pdr .pdr-tarjeta-icono { width: 70px; height: 70px; flex-shrink: 0; border-radius: 18px; display: grid; place-items: center; border: 1px solid var(--blue-border); background: var(--panel-solid); color: var(--blue); }
+.pdr .pdr-tarjeta strong { display: block; font-size: clamp(21px, 1.9vw, 27px); font-weight: 650; line-height: 1.15; }
+.pdr .pdr-tarjeta p, .pdr .pdr-estado p, .pdr .pdr-persona p { margin: 6px 0 0; font-size: 15px; line-height: 1.45; color: var(--muted); }
+.pdr .pdr-persona { display: flex; align-items: center; gap: 16px; padding: 18px; border: 1px solid var(--green-border); border-radius: 18px; background: var(--green-soft); }
+.pdr .pdr-persona strong { display: block; margin-top: 4px; font-size: clamp(22px, 2vw, 28px); font-weight: 650; line-height: 1.15; overflow-wrap: anywhere; }
+.pdr .pdr-avatar { position: relative; width: 76px; height: 76px; flex-shrink: 0; border-radius: 20px; overflow: hidden; display: grid; place-items: center; border: 1px solid var(--green-border); background: var(--panel-solid); color: var(--green); font-size: 24px; font-weight: 700; }
+.pdr .pdr-avatar img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+.pdr .pdr-estado { display: flex; align-items: center; gap: 16px; padding: 18px; border: 1px solid var(--blue-border); border-radius: 18px; background: var(--blue-soft); }
+.pdr .pdr-estado strong { display: block; font-size: clamp(21px, 1.9vw, 27px); font-weight: 650; line-height: 1.15; }
+.pdr .pdr-estado-icono { width: 62px; height: 62px; flex-shrink: 0; border-radius: 16px; display: grid; place-items: center; border: 1px solid var(--blue-border); background: var(--panel-solid); color: var(--blue); }
+.pdr .pdr-estado.is-rojo { border-color: var(--red-border); background: var(--red-soft); }
+.pdr .pdr-estado.is-rojo .pdr-estado-icono { border-color: var(--red-border); color: var(--red); }
+.pdr .pdr-gira { animation: pdr-giro .9s linear infinite; }
+
+/* Destino: el dato que más se mira */
+.pdr .pdr-destino { display: grid; gap: 6px; padding: 18px; border: 1px solid var(--border-2); border-radius: 18px; background: var(--panel-solid); }
+.pdr .pdr-destino strong { font-size: clamp(34px, 3.4vw, 52px); font-weight: 700; line-height: 1.05; letter-spacing: -.02em; color: var(--blue); overflow-wrap: anywhere; }
+.pdr .pdr-destino.is-vacio strong { font-size: 24px; font-weight: 600; color: var(--dim); }
+.pdr .pdr-destino p { margin: 4px 0 0; font-size: 15px; line-height: 1.45; color: var(--muted); }
+
+/* Listo */
+.pdr .pdr-listo { flex: 1; min-height: 0; overflow: auto; display: grid; place-items: center; padding: 24px; }
+.pdr .pdr-listo-caja { width: 100%; max-width: 760px; display: grid; gap: 14px; justify-items: center; text-align: center; }
+.pdr .pdr-listo-check { width: 92px; height: 92px; border-radius: 50%; display: grid; place-items: center; background: var(--green-soft); border: 1px solid var(--green-border); color: var(--green); animation: pdr-aparece .35s cubic-bezier(.22,1,.36,1); }
+.pdr .pdr-listo-check.is-azul { background: var(--blue-soft); border-color: var(--blue-border); color: var(--blue); }
+.pdr .pdr-listo h1 { margin: 6px 0 0; font-size: clamp(32px, 4vw, 52px); font-weight: 650; letter-spacing: -.02em; }
+.pdr .pdr-listo p { margin: 0; font-size: clamp(17px, 1.6vw, 22px); color: var(--muted); }
+.pdr .pdr-listo p strong { color: var(--blue); }
+.pdr .pdr-lista.is-chica { width: 100%; margin-top: 10px; text-align: left; max-height: 46vh; overflow: auto; }
+.pdr .pdr-lista.is-chica .pdr-item { min-height: 72px; }
+.pdr .pdr-lista.is-chica .pdr-foto { width: 52px; height: 52px; border-radius: 12px; font-size: 16px; }
+.pdr .pdr-lista.is-chica .pdr-item-nombre { font-size: 19px; }
+.pdr .pdr-lista.is-chica .pdr-item-cant strong { font-size: 28px; }
+
+@keyframes pdr-giro { to { transform: rotate(360deg); } }
+@keyframes pdr-aparece { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 900px) {
+  .pdr .pdr-cuerpo { display: flex; flex-direction: column; overflow: auto; }
+  .pdr .pdr-col-lista, .pdr .pdr-col-lado { overflow: visible; }
+  .pdr .pdr-col-lado { order: -1; border-left: 0; border-bottom: 1px solid var(--border); padding: 16px; }
+  .pdr .pdr-col-lista { padding: 16px; }
+  .pdr .pdr-barra { padding: 10px 16px; }
+  .pdr .pdr-vivo { display: none; }
+  .pdr .pdr-hora { margin-left: auto; }
+  .pdr .pdr-item { gap: 12px; padding: 10px 12px; min-height: 76px; }
+  .pdr .pdr-foto { width: 52px; height: 52px; }
+}
+`;

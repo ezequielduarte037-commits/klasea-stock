@@ -1129,11 +1129,23 @@ const FilaMaestro = memo(function FilaMaestro({ group, active, onOpen, primaryAc
           {group.negativo && <span className="is-rojo">a reconciliar</span>}
         </span>
       </span>
+      {/* A qué obras está asignado, en el lugar que sobra de la fila: las que
+          no entran pasan a un renglón que queda oculto (no se cortan a medias). */}
+      {reservas.length > 0 && (
+        <span className="stk-mres-asig" title={reservasLabel(group)}>
+          {[...reservas].sort((x, y) => qty(y.available, 0) - qty(x.available, 0)).map((reserva) => (
+            <span key={reserva.obraId || reserva.label} className={`stk-asig${reserva.obraEstado === "terminada" ? " is-terminada" : ""}`}>
+              {reserva.label} <b>{fmtQty(reserva.available)}</b>
+            </span>
+          ))}
+        </span>
+      )}
       <span className="stk-mres-fin">
         <span className={`mpn-saldo stk-libre is-${tonoLibre}`} title="Libre: en el depósito, sin obra asignada">Libre <span className="mst-num">{fmtQty(libre)}</span></span>
-        {reservado > 0.0001 && (
+        {/* Con una sola obra ya se lee en su pastilla; con varias, el total. */}
+        {reservado > 0.0001 && reservas.length > 1 && (
           <span className={`mpn-saldo stk-obras${soloTerminadas ? " is-terminada" : ""}`} title={reservasLabel(group)}>
-            {reservas.length === 1 ? reservas[0].label : "Obras"} <span className="mst-num">{fmtQty(reservado)}</span>
+            {reservas.length} obras <span className="mst-num">{fmtQty(reservado)}</span>
           </span>
         )}
         <span className={`stk-mres-min${tonoMin ? ` is-${tonoMin}` : ""}`}>
