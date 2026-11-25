@@ -10,7 +10,7 @@ import {
   Minimize2,
   ShieldCheck,
 } from "lucide-react";
-import logoK from "@/assets/logos/logo-k.png";
+import LogoK from "@/components/ui/LogoK";
 import {
   publishEgresoDisplay,
   readEgresoDisplay,
@@ -223,7 +223,7 @@ export default function PantallaEgresoScreen() {
       <style href="klasea-pantalla-retiro" precedence="default">{CSS}</style>
 
       <header className="pdr-barra">
-        <img src={logoK} alt="" className="pdr-logo" />
+        <LogoK size={40} titulo="" className="pdr-logo" />
         <div className="pdr-marca">
           <span>Pañol</span>
           <strong>{reasignando ? "Cambio de obra" : "Retiro de materiales"}</strong>
@@ -237,9 +237,8 @@ export default function PantallaEgresoScreen() {
 
       {enEspera ? (
         <section className="pdr-espera">
-          <img src={logoK} alt="" className="pdr-espera-logo" />
+          <LogoK size={84} titulo="" className="pdr-espera-logo" />
           <h1>Esperando el próximo retiro</h1>
-          <p>Lo que pañol vaya cargando aparece acá.</p>
         </section>
       ) : listo ? (
         <section className="pdr-listo">
@@ -293,7 +292,7 @@ const CSS = `
 
 /* Barra */
 .pdr .pdr-barra { display: flex; align-items: center; gap: 14px; flex-shrink: 0; padding: 14px 24px; border-bottom: 1px solid var(--border); }
-.pdr .pdr-logo { width: 40px; height: 40px; border-radius: 12px; object-fit: cover; }
+.pdr .pdr-logo { flex-shrink: 0; color: var(--text); }
 .pdr .pdr-marca { display: grid; min-width: 0; }
 .pdr .pdr-marca span { font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
 .pdr .pdr-marca strong { font-size: 20px; font-weight: 600; }
@@ -305,9 +304,8 @@ const CSS = `
 
 /* En espera */
 .pdr .pdr-espera { flex: 1; display: grid; place-content: center; justify-items: center; gap: 14px; padding: 24px; text-align: center; }
-.pdr .pdr-espera-logo { width: 84px; height: 84px; border-radius: 24px; opacity: .9; margin-bottom: 10px; }
+.pdr .pdr-espera-logo { color: var(--muted); margin-bottom: 10px; }
 .pdr .pdr-espera h1 { margin: 0; font-size: clamp(30px, 4vw, 52px); font-weight: 650; letter-spacing: -.02em; line-height: 1.08; }
-.pdr .pdr-espera p { margin: 0; font-size: clamp(16px, 1.6vw, 21px); color: var(--dim); }
 
 /* Cuerpo: lista + columna */
 .pdr .pdr-cuerpo { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(380px, 460px); }
