@@ -199,7 +199,7 @@ function FilaRenglon({ r, sede, conPedido = false, activa = false, enCarrito = 0
   return (
     <div className={`mst-res mpn-prod${activa ? " is-activa" : ""}`} role="option" aria-selected={activa} onMouseEnter={onResaltar}>
       <button type="button" className="mpn-prod-main" onClick={() => onTocar(r)}>
-        <span className="mst-res-foto"><FotoItem item={{ descripcion: r.descripcion, imagenUrl: r.material?.imagen_url }} /></span>
+        <span className="mst-res-foto"><FotoItem zoom item={{ descripcion: r.descripcion, imagenUrl: r.material?.imagen_url }} /></span>
         <span className="mst-res-texto">
           <span className="mst-res-nombre" style={{ display: "block" }}>{r.descripcion}</span>
           <span className="mst-res-sub" style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -237,7 +237,7 @@ function FilaMaterial({ m, activa = false, onResaltar, onTocar }) {
   return (
     <div className={`mst-res mpn-prod${activa ? " is-activa" : ""}`} role="option" aria-selected={activa} onMouseEnter={onResaltar}>
       <button type="button" className="mpn-prod-main" onClick={() => onTocar(m)}>
-        <span className="mst-res-foto"><FotoItem item={{ descripcion: m.descripcion, imagenUrl: m.imagen_url }} /></span>
+        <span className="mst-res-foto"><FotoItem zoom item={{ descripcion: m.descripcion, imagenUrl: m.imagen_url }} /></span>
         <span className="mst-res-texto">
           <span className="mst-res-nombre" style={{ display: "block" }}>{m.descripcion}</span>
           <span className="mst-res-sub" style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -353,7 +353,7 @@ function LineaIngreso({ l, sede, obraTexto, problema, onSumar, onTeclado, onQuit
       <span className="mst-destello" key={l.agregadoAt} aria-hidden="true" />
       <div className="mst-linea-fila">
         <span className="mst-res-foto" style={{ width: 34, height: 34, borderRadius: 9 }}>
-          <FotoItem item={{ descripcion: l.label, imagenUrl: l.imagenUrl }} />
+          <FotoItem zoom item={{ descripcion: l.label, imagenUrl: l.imagenUrl }} />
         </span>
         <div className="mst-linea-texto">
           <div className="mst-linea-nombre">{l.label}</div>

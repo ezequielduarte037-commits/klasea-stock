@@ -119,7 +119,7 @@ function ProductoFila({ grupo: g, origen, activa, enCarrito, onResaltar, onMarca
       onMouseEnter={onResaltar}
     >
       <button type="button" className="mpn-prod-main" onClick={() => onMarcar(g, null)}>
-        <span className="mst-res-foto"><FotoItem item={{ descripcion: g.label, imagenUrl: g.imagenUrl }} /></span>
+        <span className="mst-res-foto"><FotoItem zoom item={{ descripcion: g.label, imagenUrl: g.imagenUrl }} /></span>
         <span className="mst-res-texto">
           <span className="mst-res-nombre" style={{ display: "block" }}>{g.label}</span>
           <span className="mst-res-sub" style={{ display: "flex", alignItems: "center", gap: 6 }}>

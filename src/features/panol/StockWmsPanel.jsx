@@ -1113,7 +1113,7 @@ const FilaMaestro = memo(function FilaMaestro({ group, active, onOpen, primaryAc
         }
       }}
     >
-      <span className="mst-res-foto"><FotoItem item={{ descripcion: group.label, imagenUrl: group.imagenUrl }} /></span>
+      <span className="mst-res-foto"><FotoItem zoom item={{ descripcion: group.label, imagenUrl: group.imagenUrl }} /></span>
       <span className="mst-res-texto">
         <span className="mst-res-nombre" title={group.labelHistorico ? `${displayLabel} · antes se llamaba: ${group.labelHistorico}` : displayLabel}>{displayLabel}</span>
         <span className="mst-res-sub stk-mres-sub">
@@ -2735,7 +2735,7 @@ function ProductDetail({ group, isMobile, obras, sedeLocked, canReceive, canCrea
     <section className="stk-ficha" aria-label={`Ficha de ${group.label}`}>
       <div className="stk-ficha-cab">
         <div className="stk-ficha-fila">
-          <span className="mst-res-foto"><FotoItem item={{ descripcion: group.label, imagenUrl: group.imagenUrl }} /></span>
+          <span className="mst-res-foto"><FotoItem zoom item={{ descripcion: group.label, imagenUrl: group.imagenUrl }} /></span>
           <div style={{ minWidth: 0 }}>
             <h2 className="stk-ficha-titulo">{group.label}</h2>
             <div className="stk-ficha-meta">

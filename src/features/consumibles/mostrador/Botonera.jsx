@@ -33,7 +33,7 @@ export default function Botonera({ favoritos = [], resultados = [], buscando = f
                   onMouseEnter={() => onResaltar?.(i)}
                   onClick={() => onElegir(item)}
                 >
-                  <span className="mst-res-foto"><FotoItem item={item} /></span>
+                  <span className="mst-res-foto"><FotoItem zoom item={item} /></span>
                   <span className="mst-res-texto">
                     <span className="mst-res-nombre" style={{ display: "block" }}>{item.descripcion}</span>
                     <span className="mst-res-sub" style={{ display: "block" }}>

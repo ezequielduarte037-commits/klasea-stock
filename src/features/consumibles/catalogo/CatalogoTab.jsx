@@ -204,7 +204,7 @@ export default function CatalogoTab({ profile, sede }) {
                   <li key={i.id}>
                     <button type="button" className={`cat-fila${i.id === selId ? " is-sel" : ""}`} onClick={() => setSelId(i.id === selId ? null : i.id)}>
                       {/* La foto principal (la misma de la botonera del mostrador); sin foto, las iniciales. */}
-                      <span className="cat-thumb"><FotoItem item={i} /></span>
+                      <span className="cat-thumb"><FotoItem zoom item={i} /></span>
                       <span className="cat-fila-txt">
                         <span className="cat-fila-desc">{i.descripcion}</span>
                         {i.alias && <span className="cat-alias">Alias: {i.alias}</span>}

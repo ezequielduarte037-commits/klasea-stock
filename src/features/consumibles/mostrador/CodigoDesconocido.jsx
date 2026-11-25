@@ -58,7 +58,7 @@ export default function CodigoDesconocido({ codigo, catalogo = [], popularidad, 
           <div className="mst-resultados" style={{ maxHeight: "46vh", overflowY: "auto" }}>
             {candidatos.length ? candidatos.map((item) => (
               <button key={item.id} type="button" className="mst-res" onClick={() => elegir(item)} disabled={Boolean(vinculando)}>
-                <span className="mst-res-foto"><FotoItem item={item} /></span>
+                <span className="mst-res-foto"><FotoItem zoom item={item} /></span>
                 <span className="mst-res-texto">
                   <span className="mst-res-nombre" style={{ display: "block" }}>{item.descripcion}</span>
                   <span className="mst-res-sub" style={{ display: "block" }}>{[item.rubro, item.unidad].filter(Boolean).join(" · ")}</span>

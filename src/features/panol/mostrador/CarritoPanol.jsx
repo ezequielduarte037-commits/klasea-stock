@@ -161,7 +161,7 @@ export function LineaPanol({ linea: l, cart, ubicacion, problema, onSumar, onTec
       <span className="mst-destello" key={l.agregadoAt} aria-hidden="true" />
       <div className="mst-linea-fila">
         <span className="mst-res-foto" style={{ width: 34, height: 34, borderRadius: 9 }}>
-          <FotoItem item={{ descripcion: l.label, imagenUrl: l.material?.imagen_url }} />
+          <FotoItem zoom item={{ descripcion: l.label, imagenUrl: l.material?.imagen_url }} />
         </span>
         <div className="mst-linea-texto">
           <div className="mst-linea-nombre">{l.label}</div>
