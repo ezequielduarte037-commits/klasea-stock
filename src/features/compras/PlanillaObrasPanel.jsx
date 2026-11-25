@@ -1,4 +1,4 @@
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   AlertTriangle,
@@ -13,6 +13,8 @@ import {
   FlaskConical,
   LoaderCircle,
   Layers3,
+  Maximize2,
+  Minimize2,
   Package,
   PackageCheck,
   PlusCircle,
@@ -38,6 +40,7 @@ import { ensureObraMaterialSnapshotRow } from "@/features/materiales/api";
 import { crearPedidosPlanillaObras } from "@/features/compras/purchaseRequestsApi";
 import { guardarConfiguracionProductoObra } from "@/features/materiales/productosAsignadosApi";
 import Cargando from "@/components/ui/Cargando";
+import { plegarMenu } from "@/lib/menuLateral";
 import PlanillaHerramientas from "./PlanillaHerramientas";
 import PlanillaDetalle, { PlanillaFoto } from "./PlanillaDetalle";
 
@@ -89,6 +92,8 @@ const ORIGEN_TONOS = {
   maderas: { color: C.cyan, fondo: C.cyanL, borde: C.cyanB, texto: "Maderas", icono: TreePine },
   fuera_matriz: { color: C.red, fondo: C.redL, borde: C.redB, texto: "A revisar", icono: AlertTriangle },
 };
+
+const FOCO_KEY = "klasea.compras.planilla.foco";
 
 const MotionDiv = motion.div;
 const MotionButton = motion.button;
@@ -207,31 +212,66 @@ function CeldaCalor({ celda, vista }) {
     const texto = celda.soloConsumo
       ? (consumido > 0 ? mostrarNumero(consumido) : "—")
       : `${mostrarNumero(consumido).replace("—", "0")} / ${mostrarNumero(requerido).replace("—", "0")}`;
-    return <span className="celda-calor" style={{ color: completo ? "var(--green)" : "var(--violet)", fontSize: 12 }}>{texto}</span>;
+    return <span className="celda-calor"><b style={{ color: completo ? "var(--green)" : "var(--violet)", fontSize: 12.5 }}>{texto}</b></span>;
   }
 
   if (vista !== "todo") {
     const valor = cantidadDeVista(celda, vista);
     if (!(valor > 0)) return vacio;
     const meta = VISTAS.find((item) => item.valor === vista);
-    return <span className="celda-calor" style={{ color: meta?.color, fontWeight: 600 }}>{mostrarNumero(valor)}</span>;
+    return <span className="celda-calor"><b style={{ color: meta?.color }}>{mostrarNumero(valor)}</b></span>;
   }
 
-  const porPedir = cantidadDeVista(celda, "falta");
-  const enCompras = cantidadDeVista(celda, "compras");
-  const enPanol = Number(celda.enPanol) || 0;
-  const entregado = Number(celda.egresado) || 0;
+  const partes = [
+    { valor: "entregado", cantidad: Number(celda.egresado) || 0 },
+    { valor: "panol", cantidad: Number(celda.enPanol) || 0 },
+    { valor: "compras", cantidad: cantidadDeVista(celda, "compras") },
+    { valor: "falta", cantidad: cantidadDeVista(celda, "falta") },
+  ].filter((parte) => parte.cantidad > 0);
   if (celda.requiereProductoConcreto && !celda.productoDefinido) {
-    return <span className="celda-calor celda-definir-marca" style={{ color: "var(--violet)", fontWeight: 600 }}>?</span>;
+    return (
+      <span className="celda-calor celda-definir-marca">
+        <b style={{ color: "var(--violet)" }}>?</b>
+        <small style={{ color: "var(--violet)" }}>elegir</small>
+      </span>
+    );
   }
-  // Lo que falta pedir es casi toda la tabla en un barco nuevo: va en el color
-  // del texto. El rojo queda para "Comprar" y la cabecera de cada obra.
-  if (porPedir > 0) return <span className="celda-calor" style={{ color: "var(--text)" }}>{mostrarNumero(porPedir)}</span>;
-  if (enCompras > 0) return <span className="celda-calor" style={{ color: "var(--cyan)" }}>{mostrarNumero(enCompras)}</span>;
-  if (enPanol > 0) return <span className="celda-calor" style={{ color: "var(--teal)" }}>{mostrarNumero(enPanol)}</span>;
-  if (entregado > 0) return <span className="celda-calor" style={{ color: "var(--green)", opacity: .75 }}><Check size={12} strokeWidth={2.4} /></span>;
-  return <span className="celda-calor celda-vacia">—</span>;
+  if (!partes.length) return <span className="celda-calor celda-vacia">—</span>;
+
+  // Lo que hay que hacer primero manda: el número es eso y, si no es "por
+  // pedir" (lo normal), lleva su nombre abajo. Cuando la obra tiene un poco de
+  // cada cosa, la barra muestra cómo se reparte: verde lo entregado, teal lo
+  // que espera en el pañol, cian lo pedido y gris lo que nadie pidió.
+  const urgente = ["falta", "compras", "panol", "entregado"]
+    .map((valor) => partes.find((parte) => parte.valor === valor))
+    .find(Boolean);
+  const meta = ESTADO_CELDA[urgente.valor];
+  const total = partes.reduce((suma, parte) => suma + parte.cantidad, 0);
+  const parcial = partes.length > 1;
+  const todoEntregado = urgente.valor === "entregado";
+  return (
+    <span className={`celda-calor${parcial ? " es-parcial" : ""}`}>
+      <b style={{ color: meta.color }}>
+        {todoEntregado ? <Check size={14} strokeWidth={2.6} /> : mostrarNumero(urgente.cantidad)}
+      </b>
+      {urgente.valor !== "falta" || parcial ? <small style={{ color: meta.color }}>{meta.corto}</small> : null}
+      {parcial ? (
+        <i className="celda-barra" aria-hidden="true">
+          {partes.map((parte) => (
+            <i key={parte.valor} style={{ flexGrow: parte.cantidad / total, background: ESTADO_CELDA[parte.valor].barra }} />
+          ))}
+        </i>
+      ) : null}
+    </span>
+  );
 }
+
+const ESTADO_CELDA = {
+  falta: { color: "var(--text)", barra: "var(--border-2)", corto: "por pedir" },
+  compras: { color: "var(--cyan)", barra: "var(--cyan)", corto: "en compras" },
+  panol: { color: "var(--teal)", barra: "var(--teal)", corto: "en pañol" },
+  entregado: { color: "var(--green)", barra: "var(--green)", corto: "entregado" },
+};
 
 
 function EstadoNumero({ value, tone = "neutral", suffix = "" }) {
@@ -327,6 +367,12 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
   const [foto, setFoto] = useState(null);
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   const [vistaAbierta, setVistaAbierta] = useState(false);
+  // Modo foco: menú plegado, sin encabezado y la tabla a todo el alto.
+  const [foco, setFoco] = useState(() => {
+    try { return localStorage.getItem(FOCO_KEY) === "1"; } catch { return false; }
+  });
+  const [altoTabla, setAltoTabla] = useState(null);
+  const tablaRef = useRef(null);
   const filasPorBloque = isMobile ? FILAS_POR_BLOQUE.mobile : FILAS_POR_BLOQUE.desktop;
   const [limiteFilas, setLimiteFilas] = useState(filasPorBloque);
   const solicitudRef = useRef(0);
@@ -351,6 +397,12 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
   }, []);
 
   useEffect(() => { cargar(linea); }, [cargar, linea]);
+
+  useEffect(() => {
+    plegarMenu(foco && !isMobile ? true : null);
+    try { localStorage.setItem(FOCO_KEY, foco ? "1" : "0"); } catch { /* sin almacenamiento */ }
+  }, [foco, isMobile]);
+  useEffect(() => () => plegarMenu(null), []);
 
   function cambiarLinea(value) {
     if (value !== linea) {
@@ -1012,6 +1064,22 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
   };
 
   const columnas = obraSeleccionada ? 8 : 3 + obrasVisibles.length;
+
+  // La tabla ocupa lo que queda de pantalla debajo de ella (menos el pie). Se
+  // mide en vez de restar un número fijo: arriba cambian los filtros, la banda
+  // de "se elige por barco" y el modo foco.
+  useLayoutEffect(() => {
+    if (isMobile) return undefined;
+    const medir = () => {
+      const caja = tablaRef.current;
+      if (!caja) return;
+      const arriba = caja.getBoundingClientRect().top + (caja.closest(".ka-shell-content")?.scrollTop || 0);
+      setAltoTabla(Math.max(320, Math.round(window.innerHeight - Math.max(arriba, 0) - 64)));
+    };
+    medir();
+    window.addEventListener("resize", medir);
+    return () => window.removeEventListener("resize", medir);
+  });
   const cantidadFiltrosActivos = [
     vista !== "todo",
     origenFiltro !== "todos",
@@ -1040,7 +1108,12 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         .planilla-obras .planilla-detalle { display: grid; gap: 16px; padding: 18px; background: var(--panel-solid); border: 1px solid var(--border); border-radius: 14px; color: var(--text); max-height: 72vh; overflow-y: auto; animation: planilla-entrada .18s ease-out; }
         @keyframes planilla-entrada { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }
         .planilla-obras .planilla-celda-detalle { display: block; width: 100%; min-height: 44px; padding: 0; border: 1px solid transparent; border-radius: 3px; background: transparent; color: inherit; cursor: pointer; }
-        .planilla-obras .celda-calor { display: flex; align-items: center; justify-content: center; height: 44px; font-family: inherit; font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; }
+        .planilla-obras .celda-calor { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; height: 48px; padding: 0 8px; font-family: inherit; font-variant-numeric: tabular-nums; }
+        .planilla-obras .celda-calor > b { display: inline-flex; align-items: center; font-size: 15px; font-weight: 500; line-height: 1.1; }
+        .planilla-obras .celda-calor > small { font-size: 10px; font-weight: 500; line-height: 1.2; letter-spacing: .02em; white-space: nowrap; }
+        .planilla-obras .celda-calor.es-parcial { padding-bottom: 6px; }
+        .planilla-obras .celda-barra { position: absolute; left: 10px; right: 10px; bottom: 6px; display: flex; gap: 2px; height: 3px; }
+        .planilla-obras .celda-barra > i { display: block; min-width: 3px; border-radius: 2px; }
         .planilla-obras .celda-vacia { color: var(--border-2); font-weight: 400; }
         .planilla-obras .planilla-celda-detalle:hover { border-color: var(--blue); }
         .planilla-obras .planilla-celda-detalle[aria-pressed="true"] { outline: 2px solid var(--blue); outline-offset: -2px; }
@@ -1050,7 +1123,8 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         .planilla-compacta .planilla-nombre { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .planilla-compacta .planilla-origen-fila { display: none !important; }
         .planilla-compacta .planilla-celda-detalle { min-height: 34px; }
-        .planilla-compacta .celda-calor { height: 34px; font-size: 13px; }
+        .planilla-compacta .celda-calor { height: 38px; }
+        .planilla-compacta .celda-calor > small { display: none; }
         .planilla-obras .planilla-pie { display: flex; align-items: center; gap: 4px 18px; flex-wrap: wrap; padding: 10px 2px 0; }
         .planilla-obras .planilla-pie button { display: inline-flex; align-items: baseline; gap: 7px; border: 0; border-bottom: 1px solid transparent; background: transparent; padding: 4px 0; font-family: inherit; color: var(--dim); cursor: pointer; }
         .planilla-obras .planilla-pie button[aria-pressed="true"] { border-bottom-color: currentColor; color: var(--text); }
@@ -1107,7 +1181,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
       {/* Encabezado con el mismo lenguaje que el resto de Compras. Va con
           estilos en línea porque esta planilla también se abre desde Materiales.
           Sin KPIs arriba: los conteos por estado van en el pie de la tabla. */}
-      <section className="planilla-central" style={{ display: "grid", gap: 4 }}>
+      <section className="planilla-central" hidden={foco} style={{ display: foco ? "none" : "grid", gap: 4 }}>
         <div className="az-rotulo">{onPedir ? "Compras · Planificar" : "Materiales"}</div>
         <h2 className="az-subtitulo" style={{ margin: 0 }}>
           Planilla por <span>obra</span>
@@ -1234,6 +1308,13 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         <button type="button" aria-expanded={vistaAbierta} onClick={() => setVistaAbierta(actual => !actual)} style={{ ...control, borderRadius: 3, fontWeight: 500, background: "transparent", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, color: vistaAbierta ? C.blue : C.text }}>
           <Settings2 size={14} /> Vista
         </button>
+        {!isMobile ? (
+          <button type="button" onClick={() => setFoco((actual) => !actual)} aria-pressed={foco} aria-label="Modo foco"
+            title={foco ? "Volver a mostrar el menú y el encabezado" : "Plegar el menú y el encabezado para ver más filas"}
+            style={{ ...control, background: foco ? C.blueL : "transparent", color: foco ? C.blue : C.text, borderColor: foco ? C.blueB : C.border2, display: "grid", placeItems: "center", flex: "0 0 auto" }}>
+            {foco ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+          </button>
+        ) : null}
         <button type="button" onClick={() => cargar(linea, { refrescar: true })} disabled={cargando} aria-label="Actualizar" title="Actualizar datos" style={{ ...control, borderRadius: 3, fontWeight: 500, background: "transparent", display: "grid", placeItems: "center", flex: "0 0 auto" }}>
           {cargando ? <LoaderCircle size={14} className="spin" /> : <RotateCcw size={14} />}
         </button>
@@ -1415,7 +1496,7 @@ export default function PlanillaObrasPanel({ isMobile = false, onPedir, profile 
         </div>
       ) : (
         <div className={`planilla-workspace${filaDetalle ? " con-detalle" : ""}`}>
-        <div onScroll={manejarScrollPlanilla} role="region" aria-label="Planilla de materiales por obra, desplazable" tabIndex={0} className="planilla-tabla-wrap" style={{ ...panel, overflow: "auto", maxHeight: "calc(100vh - 250px)", minWidth: 0, position: "relative", scrollbarWidth: "thin", scrollPaddingTop: 52 }}>
+        <div onScroll={manejarScrollPlanilla} role="region" aria-label="Planilla de materiales por obra, desplazable" tabIndex={0} ref={tablaRef} className="planilla-tabla-wrap" style={{ ...panel, overflow: "auto", maxHeight: isMobile ? "72vh" : altoTabla || "calc(100vh - 250px)", minWidth: 0, position: "relative", scrollbarWidth: "thin", scrollPaddingTop: 52 }}>
           <table style={{ borderCollapse: "separate", borderSpacing: 0, tableLayout: "fixed", width: "100%", minWidth: obraSeleccionada ? anchoMaterial + 800 : anchoMaterial + 142 + obrasVisibles.length * anchoObra, fontFamily: C.sans }}>
             <colgroup><col style={{ width: anchoMaterial }} />{obraSeleccionada ? <><col style={{ width: 230 }} />{Array.from({ length: 6 }, (_, i) => <col key={i} style={{ width: 95 }} />)}</> : <><col style={{ width: 68 }} /><col style={{ width: 74 }} />{obrasVisibles.map(obra => <col key={obra.id} style={{ width: anchoObra }} />)}</>}</colgroup>
             <thead className="planilla-cabecera-obras">
