@@ -5,6 +5,7 @@ import {
   Bell,
   BellOff,
   Copy,
+  ExternalLink,
   File,
   FileArchive,
   FileSpreadsheet,
@@ -1251,13 +1252,15 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
                               {item.catalog_source === "panol" && item.material_id && <span className="cmp-tag" data-tono="teal">Del catálogo</span>}
                               {/* "> 0" y no el largo a secas: supplier_components vale [] por defecto y
                                   {0 && …} React lo dibuja como un "0" suelto. */}
-                              {(item.supplier_description || item.supplier_code || item.supplier_components?.length > 0) && (
+                              {(item.supplier_description || item.supplier_components?.length > 0) && (
                                 <span className="prov" title="Así se copia e imprime para el proveedor">
-                                  Para el proveedor: {item.supplier_description || `${item.supplier_components.length} renglones desglosados`}{item.supplier_code ? ` · ${item.supplier_code}` : ""}
+                                  Para el proveedor: {item.supplier_description || `${item.supplier_components.length} renglones desglosados`}
                                 </span>
                               )}
+                              {/* El código solo, sin descripción del proveedor, se leía "0 renglones desglosados · C42377". */}
+                              {item.supplier_code && <span className="prov" title="Código con el que se pide">Cód. {item.supplier_code}</span>}
+                              {isHttpUrl(item.link_url) && <a href={storageDownloadUrl(item.link_url, linkedAttachment?.name) || item.link_url} target="_blank" rel="noreferrer" title={item.link_url}>{linkedAttachment ? <><Paperclip size={12} /> Descargar adjunto</> : <><ExternalLink size={12} /> Link de compra</>}</a>}
                               {isHttpUrl(item.image_url) && <a href={item.image_url} target="_blank" rel="noreferrer"><ImageIcon size={12} /> Foto</a>}
-                              {isHttpUrl(item.link_url) && <a href={storageDownloadUrl(item.link_url, linkedAttachment?.name) || item.link_url} target="_blank" rel="noreferrer"><Paperclip size={12} /> {linkedAttachment ? "Descargar adjunto" : "Enlace"}</a>}
                               {item.notes && <span className="nota">{item.notes}</span>}
                             </div>
                           )}

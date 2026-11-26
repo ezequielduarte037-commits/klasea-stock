@@ -1297,6 +1297,25 @@ export const ITEM_STATUSES = [
   { value: "cancelado",  label: "Cancelado",  color: "#ef4444" },
 ];
 
+function esHttp(url) {
+  return /^https?:\/\//i.test(String(url || "").trim());
+}
+
+function linkWebDeProducto(links) {
+  const link = (Array.isArray(links) ? links : []).find(item => item?.kind !== "documento" && esHttp(item?.url || item?.link));
+  return link ? String(link.url || link.link).trim() : null;
+}
+
+function datosDeCompraDelProducto(item, links, fotos) {
+  if (item.catalog_source === "madera" || item.catalog_source === "laminacion") return {};
+  const extra = {};
+  const link = esHttp(item.link_url) ? null : linkWebDeProducto(links.get(item.material_id)) || linkWebDeProducto(links.get(item.requisito_material_id));
+  if (link) Object.assign(extra, { link_url: link, link_desde_producto: true });
+  const foto = esHttp(item.image_url) ? null : fotos.get(item.material_id);
+  if (esHttp(foto)) Object.assign(extra, { image_url: foto, foto_desde_producto: true });
+  return extra;
+}
+
 export async function fetchRequestItems(requestId) {
   const { data, error } = await supabase
     .from("purchase_request_items")
@@ -1307,11 +1326,16 @@ export async function fetchRequestItems(requestId) {
   const items = data || [];
   const ids = [...new Set(items.flatMap(item => [item.catalog_source === "madera" || item.catalog_source === "laminacion" ? null : item.material_id, item.requisito_material_id]).filter(Boolean))];
   if (!ids.length) return items;
-  const { data: products, error: productsError } = await supabase.from("panol_materiales").select("id,links").in("id", ids);
+  const { data: products, error: productsError } = await supabase.from("panol_materiales").select("id,links,imagen_url").in("id", ids);
   if (productsError) throw productsError;
   const links = new Map((products || []).map(product => [product.id, product.links || []]));
+  const fotos = new Map((products || []).map(product => [product.id, product.imagen_url || ""]));
   return items.map(item => ({
     ...item,
+    // Los pedidos de las listas de barco llegaban sin el link de compra ni la
+    // foto aunque el producto los tuviera. Si el renglón no trae los suyos, se
+    // muestran los del producto (sirve también para los pedidos ya hechos).
+    ...datosDeCompraDelProducto(item, links, fotos),
     material_document_links: links.get(item.material_id) || [],
     requirement_document_links: item.requisito_material_id !== item.material_id ? links.get(item.requisito_material_id) || [] : [],
     product_links: mergeDocumentAttachments(links.get(item.material_id) || [], links.get(item.requisito_material_id) || []),

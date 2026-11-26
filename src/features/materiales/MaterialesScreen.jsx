@@ -80,6 +80,7 @@ import PanelConsumiblesDeObra from "./obra/PanelConsumiblesDeObra";
 import { separarRecepcionesDeMatriz } from "./obra/recepcionesDeMatriz";
 import { sumarFueraDeMatriz } from "./obra/fueraDeMatriz";
 import PedidoObraModal from "./obra/PedidoObraModal";
+import { renglonParaCompras } from "./obra/pedidoCompras";
 import CambioEstadoLoteModal from "./obra/CambioEstadoLoteModal";
 import { enParalelo, esInstalado, estadoParaGuardar } from "./obra/cambioEstadoLote";
 import { adicionalSnapshotKey, cantidadPedidoValida } from "./obra/adicionalObra";
@@ -4759,6 +4760,8 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
         productoMaterialId: r.productoMaterialId || null,
         producto: r.producto || null,
         material,
+        links: r.links || [],
+        imagen_url: r.imagen_url || "",
         productoEstandar: !!r.productoEstandar,
         productoPorObra: r.productoPorObra === true,
         esRequisito: !!r.esRequisito,
@@ -4998,8 +5001,9 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
           attachments,
           obraId:obra.id,envioId:pedido.envioId,
           titulo:pedidoTitulo.trim() || buildPedidoTitulo({obra,rows:pedidoRows}),
-          descripcion:buildOrdenTexto({obra,lineaNombre,rows:pedidoRows,groupBy}),
-          items:pedidoRows.map(row=>({
+          // Sin descripción: repetía los ítems en texto y Compras los lee abajo.
+          descripcion:null,
+          items:pedidoRows.map(row=>{const compras=renglonParaCompras(row,{proveedorAlternativo:esProveedorAlternativo(row.proveedor)});return{
             snapshot_id:snapshotIdForOrderRow(row,saved),addon_id:row.addonId,
             description:row.descripcion,quantity:toNum(row.cantidad),unit:row.unidad||"unidad",
             material_id:row.productoMaterialId||row.materialId||null,
@@ -5007,9 +5011,10 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
             especificaciones:normalizeProductSpecs(row.especificaciones),
             proveedor:row.proveedor,codigo:row.codigo,categoria_id:row.material?.categoria_id||null,
             precio_unitario:row.precio?.amount??null,moneda:row.precio?.moneda||null,
-            notes:[esProveedorAlternativo(row.proveedor)?`Proveedores posibles: ${row.proveedor}. Compras debe elegir uno.`:"",row.obs].filter(Boolean).join(" · ")||null,
+            notes:compras.notes,
             ...(row.material?supplierSnapshotForMaterial(row.material,{proveedor:row.proveedor}):{}),
-          })),
+            supplier_code:compras.supplier_code,
+          };}),
         });
         setPedidoConfirm(null);
         await Promise.all([cargarAddons(),cargarSnapshot()]);
@@ -5022,7 +5027,8 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
         form: {
           // Si el usuario lo vació, se vuelve al sugerido antes que mandar un pedido sin nombre.
           title: pedidoTitulo.trim() || buildPedidoTitulo({ obra, rows: pedidoRows }),
-          description: buildOrdenTexto({ obra, lineaNombre, rows: pedidoRows, groupBy }),
+          // Sin descripción: repetía los ítems en texto y Compras los lee abajo.
+          description: "",
           priority: "media",
           source: "materiales_obra",
           project_id: obra.id,
@@ -5047,14 +5053,9 @@ export function ObraMatrizView({ obra, obras = [], linea, lineaNombre, categoria
           requisito_material_id: row.requisitoMaterialId || row.materialId || null,
           especificaciones: normalizeProductSpecs(row.especificaciones),
           catalog_source: "panol",
-          notes: [
-            row.requisitoDescripcion && row.requisitoDescripcion !== row.descripcion
-              ? `Requisito de matriz: ${row.requisitoDescripcion}`
-              : "",
-            esProveedorAlternativo(row.proveedor) ? `Proveedores posibles: ${row.proveedor}. Compras debe elegir uno.` : "",
-            row.obs,
-          ].filter(Boolean).join(" · ") || null,
           ...supplierSnapshot,
+          // Link de compra, foto, código y la nota sin el texto que arma el sistema.
+          ...renglonParaCompras(row, { proveedorAlternativo: esProveedorAlternativo(row.proveedor) }),
         });
         const snapId = snapshotIdForOrderRow(row, saved);
         if (snapId) {
