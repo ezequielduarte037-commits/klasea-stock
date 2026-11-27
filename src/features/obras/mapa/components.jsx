@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useCallback, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { C } from "@/theme";
-import logoKlaseaImg from "@/assets/logos/logo-klasea.png";
+import { marcaKSvg } from "@/lib/marcaK";
 import logoKImg from "@/assets/logos/logo-k.png";
 import { GLASS, VB_W, VB_H, KPI_W, KPI_W_COLLAPSED, RAIL_W, RAIL_W_COLLAPSED, MEMORIAS_DB, ZONAS, WALLS, BOAT_IMGS, LEGEND } from "@/features/obras/mapa/mapData";
 import { IC, getLineaTipo, MEMORIA_FIELDS_BY_TIPO } from "@/features/obras/mapa/memoriaFields";
@@ -538,7 +538,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
   },[onClose]);
 
   const handlePrint = () => {
-    const logoHdr = logoKlaseaImg;
+    const logoHdr = marcaKSvg({ color: "#fff", clase: "hdr-logo" });
     const logoFtr = logoKImg;
     const ac      = oC.glow;
     const pct     = obra?._pct ?? 0;
@@ -706,7 +706,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
       ".hdr-sub{display:flex;align-items:center;gap:10px;font-size:10px;color:rgba(255,255,255,.45);}",
       ".hdr-sub b{color:rgba(255,255,255,.75);font-weight:600;}",
       ".hdr-sep-v{width:1px;height:12px;background:var(--border-2);}",
-      ".hdr-logo{height:26px;mix-blend-mode:screen;align-self:center;margin:10px 16px 10px auto;}",
+      ".hdr-logo{width:30px;height:30px;flex:none;align-self:center;margin:10px 18px 10px auto;}",
 
       // Tabla principal
       ".wrap{flex:1;}",
@@ -771,7 +771,7 @@ function MemoriaHUD({ obra, puesto, oC, memoriaOverride, onSaveMemoria, notas=[]
               + (propietario ? "<div class='hdr-prop'>" + propietario + "</div>" : "")
               + (subMeta ? "<div class='hdr-sub'>" + subMeta + "</div>" : "")
             + "</div>"
-            + "<img class='hdr-logo' src='" + logoHdr + "' alt='Klase A'/>"
+            + logoHdr
           + "</div>"
         + "</div>"
 

@@ -235,7 +235,7 @@ function cargarLogoNavy() {
   if (logoCache === undefined)
     logoCache = Promise.resolve()
       .then(cargarMarcasPdf)
-      .catch(() => ({ logo: null, logotipo: null }));
+      .catch(() => ({ logo: null }));
   return logoCache;
 }
 
@@ -262,7 +262,6 @@ export async function construirPedidoPdf({ proveedor, filas, opciones = {} }) {
     titulo: nombreProveedor,
     detalle: `${filas.length} ítem${filas.length === 1 ? "" : "s"}  ·  ${fechaCorta(fecha)}`,
     logo: marcas.logo,
-    logotipo: marcas.logotipo,
   });
 
   const cabecera = [""];

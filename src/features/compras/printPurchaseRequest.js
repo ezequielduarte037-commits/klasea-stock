@@ -1,4 +1,4 @@
-import { CSS_PAPEL, FUENTES_PAPEL, fechaRotulo } from "@/lib/impresionKlasea";
+import { CSS_PAPEL, FUENTES_PAPEL, MARCA_PAPEL, fechaRotulo } from "@/lib/impresionKlasea";
 import DOMPurify from "dompurify";
 import { storageDownloadUrl } from "@/lib/attachmentDownload";
 import {
@@ -139,7 +139,7 @@ export async function copyPurchaseRequestText(request, target = window) {
   }
 }
 
-export function buildPurchaseRequestHtml(request, logoUrl) {
+export function buildPurchaseRequestHtml(request) {
   if (!request) return;
 
   const followers = request.followers ?? [];
@@ -190,8 +190,6 @@ export function buildPurchaseRequestHtml(request, logoUrl) {
         `).join("")}
       </div>`
     : "";
-
-  const absLogoUrl = logoUrl?.startsWith("/") ? window.location.origin + logoUrl : logoUrl;
 
   const obra = request.project?.codigo ? ["Obra", request.project.codigo] : request.destino ? ["Destino", request.destino] : null;
   const ficha = [
@@ -247,8 +245,8 @@ ${FUENTES_PAPEL}
 </div>
 <main class="kp-hoja">
 <header class="kp-barra">
-  <span class="kp-rotulo">Compras</span>
-  ${absLogoUrl ? `<span class="kp-marca-caja"><img class="kp-marca" src="${esc(absLogoUrl)}" alt="Klase A" /></span>` : '<span class="kp-marca-texto">KLASE A</span>'}
+  <span class="kp-rotulo">Klase A · Compras</span>
+  ${MARCA_PAPEL}
   <span class="kp-rotulo">${esc(fechaRotulo(request.created_at ? new Date(request.created_at) : new Date()))}</span>
 </header>
 
@@ -271,7 +269,7 @@ ${attachmentsHtml}
   return html;
 }
 
-export function printPurchaseRequest(request, logoUrl) {
+export function printPurchaseRequest(request) {
   if (!request) return;
   const win = window.open("", "_blank", "width=850,height=900");
   if (!win) {
@@ -279,7 +277,7 @@ export function printPurchaseRequest(request, logoUrl) {
     return;
   }
   win.document.open();
-  win.document.write(buildPurchaseRequestHtml(request, logoUrl));
+  win.document.write(buildPurchaseRequestHtml(request));
   win.document.close();
   win.document.getElementById("print-request").addEventListener("click", () => win.print());
   const copyButton = win.document.getElementById("copy-request");

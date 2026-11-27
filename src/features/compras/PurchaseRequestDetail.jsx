@@ -70,7 +70,6 @@ import {
 import { copyPurchaseRequestText, printPurchaseRequest } from "@/features/compras/printPurchaseRequest";
 import { ordenLineasDesdePedido } from "@/features/materiales/proveedorPedido";
 import CopiarOcProveedor from "@/components/CopiarOcProveedor";
-import logoKlasea from "@/assets/logos/logo-klasea.png";
 import { useResponsive } from "@/hooks/useResponsive";
 import {
   ITEM_TONOS,
@@ -1124,7 +1123,7 @@ export default function PurchaseRequestDetail({ requestId, profile, users = [], 
             <button type="button" className="ui-btn ui-btn-suave chico" title="Copiar el pedido completo para WhatsApp" onClick={handleCopyPurchaseText}>
               <Copy size={14} /> Copiar
             </button>
-            <button type="button" className="cmp-btn-ic" title="Imprimir o guardar PDF" aria-label="Imprimir o guardar el pedido como PDF" onClick={() => printPurchaseRequest({ ...request, items }, logoKlasea)}>
+            <button type="button" className="cmp-btn-ic" title="Imprimir o guardar PDF" aria-label="Imprimir o guardar el pedido como PDF" onClick={() => printPurchaseRequest({ ...request, items })}>
               <Printer size={15} />
             </button>
             {(manager || profile?.id === request.created_by) && (

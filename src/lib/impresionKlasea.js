@@ -6,13 +6,18 @@
 // Acá sí se puede usar la letra de la marca: Outfit en peso liviano.
 //
 // Estructura:
-//   <header class="kp-barra"><span class="kp-rotulo">Compras</span>LOGO<span class="kp-rotulo">12 NOV 2026</span></header>
+//   <header class="kp-barra"><span class="kp-rotulo">Klase A · Compras</span>${MARCA_PAPEL}<span class="kp-rotulo">12 NOV 2026</span></header>
 //   <p class="kp-eyebrow">Encargo a Compras</p>
 //   <h1 class="kp-titulo">Título</h1>
 //   <div class="kp-ficha"><div><span class="kp-rotulo">Obra</span><b>52-27</b></div>…</div>
 //   <h2 class="kp-seccion">Ítems</h2>
 //   <table class="kp-tabla">…</table>
 //   <footer class="kp-pie"><span>…</span><span>…</span></footer>
+
+import { marcaKSvg } from "./marcaK.js";
+
+// La K en su círculo, en vector, para el centro de la barra (va en tinta).
+export const MARCA_PAPEL = marcaKSvg({ clase: "kp-marca" });
 
 export const FUENTES_PAPEL = `<link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -53,12 +58,7 @@ export const CSS_PAPEL = `
   /* Barra de arriba: sección · marca · fecha */
   .kp-barra{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:16px;padding-bottom:12px;border-bottom:1px solid var(--kp-pelo)}
   .kp-barra > :last-child{text-align:right}
-  /* logo-klasea.png es blanco y trae mucho margen: se recorta al dibujo
-     (x 177-1376, y 324-683 de 1536x1024) y se pasa a tinta. El alto se
-     maneja con font-size. */
-  .kp-marca-caja{display:block;position:relative;overflow:hidden;font-size:20px;width:3.34em;height:1em}
-  .kp-marca{position:absolute;left:-.493em;top:-.9025em;width:4.278em;height:auto;max-width:none;filter:invert(1);opacity:.9}
-  .kp-marca-texto{font-weight:500;font-size:13px;letter-spacing:.32em}
+  .kp-marca{display:block;width:24px;height:24px;color:var(--kp-tinta)}
   .kp-rotulo{font-size:9px;font-weight:400;letter-spacing:.2em;text-transform:uppercase;color:var(--kp-gris)}
   .kp-barra .kp-rotulo{color:var(--kp-tinta)}
 

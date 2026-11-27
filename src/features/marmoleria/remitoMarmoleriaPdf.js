@@ -22,7 +22,7 @@ export function nombreArchivoRemitoMarmoleria(remito) {
   return `Remito-${numeroRemitoMarmoleria(remito.numero)}-${remito.fecha}.pdf`;
 }
 
-function dibujarCopia(doc, { remito, logo, logotipo, copia, top, bottom }) {
+function dibujarCopia(doc, { remito, logo, copia, top, bottom }) {
   const w = doc.internal.pageSize.getWidth();
   const h = doc.internal.pageSize.getHeight();
   const ancho = w - 2 * MARGIN;
@@ -63,20 +63,13 @@ function dibujarCopia(doc, { remito, logo, logotipo, copia, top, bottom }) {
   const rot = (str, x, y, opciones = {}) => rotulo(doc, str, x, y + (opciones.tam ?? 6.8) * 0.78, opciones);
 
   const encabezado = (soloNotas = false) => {
-    if (logotipo?.dataUrl) {
-      // El logotipo completo (K + KLASE A) ya dice el nombre.
-      const alto = 17;
-      doc.addImage(logotipo.dataUrl, "PNG", MARGIN, top + 2, alto / (logotipo.aspect || 0.25), alto, undefined, "FAST");
-      rot("Entrega de plantillas  ·  Marmolería", MARGIN, top + 28, { tam: 6.5, espacio: 1.1 });
-    } else {
-      let marcaX = MARGIN;
-      if (logo?.dataUrl) {
-        marca(doc, { centro: MARGIN + 11, y: top + 14, logo: logo.dataUrl, tam: 22 });
-        marcaX += 32;
-      }
-      rot("Klase A Yachts", marcaX, top + 6, { tam: 8, espacio: 1.6, color: TINTA });
-      rot("Entrega de plantillas  ·  Marmolería", marcaX, top + 20, { tam: 6.5, espacio: 1.1 });
+    let marcaX = MARGIN;
+    if (logo?.dataUrl) {
+      marca(doc, { centro: MARGIN + 11, y: top + 14, logo: logo.dataUrl, tam: 22 });
+      marcaX += 32;
     }
+    rot("Klase A Yachts", marcaX, top + 6, { tam: 8, espacio: 1.6, color: TINTA });
+    rot("Entrega de plantillas  ·  Marmolería", marcaX, top + 20, { tam: 6.5, espacio: 1.1 });
     rot(`Remito  ·  ${copia}`, right, top + 6, { align: "right", color: TINTA });
     texto(folio, right, top + 18, 17, false, INK, "right");
     texto(`Fecha: ${fechaTexto(remito.fecha)}`, right, top + 40, 8.5, false, MUTED, "right");
@@ -172,7 +165,7 @@ function dibujarCopia(doc, { remito, logo, logotipo, copia, top, bottom }) {
 
 // Dos copias recortables en una A4 cuando el contenido cabe con su tamaño
 // de letra normal. Los remitos extensos usan hojas completas, sin achicar texto.
-export function construirPdfRemitoMarmoleria({ remito, logo = null, logotipo = null }) {
+export function construirPdfRemitoMarmoleria({ remito, logo = null }) {
   if (!remito?.items?.length) throw new Error("El remito no tiene plantillas.");
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const w = doc.internal.pageSize.getWidth();
@@ -183,21 +176,21 @@ export function construirPdfRemitoMarmoleria({ remito, logo = null, logotipo = n
   // Medir con el mismo motor de tablas evita decidir por cantidad de renglones:
   // también importan las descripciones, materiales y nombres que se envuelven.
   const prueba = new jsPDF({ unit: "pt", format: "a4" });
-  const medida = dibujarCopia(prueba, { remito, logo, logotipo, copia: "ORIGINAL", top: TOP, bottom: h - TOP });
+  const medida = dibujarCopia(prueba, { remito, logo, copia: "ORIGINAL", top: TOP, bottom: h - TOP });
   const compactar = medida.paginas === 1
     && medida.altoContenido + SIGNATURE_HEIGHT + FOOTER_HEIGHT + 8 <= h / 2 - 2 * TOP;
   if (compactar) {
-    dibujarCopia(doc, { remito, logo, logotipo, copia: "ORIGINAL", top: TOP, bottom: h / 2 - TOP });
+    dibujarCopia(doc, { remito, logo, copia: "ORIGINAL", top: TOP, bottom: h / 2 - TOP });
     doc.setDrawColor(...RULE);
     doc.setLineWidth(0.5);
     doc.setLineDashPattern([3, 3], 0);
     doc.line(MARGIN, h / 2, w - MARGIN, h / 2);
     doc.setLineDashPattern([], 0);
-    dibujarCopia(doc, { remito, logo, logotipo, copia: "DUPLICADO", top: h / 2 + TOP, bottom: h - TOP });
+    dibujarCopia(doc, { remito, logo, copia: "DUPLICADO", top: h / 2 + TOP, bottom: h - TOP });
   } else {
-    dibujarCopia(doc, { remito, logo, logotipo, copia: "ORIGINAL", top: TOP + 10, bottom: h - 28 });
+    dibujarCopia(doc, { remito, logo, copia: "ORIGINAL", top: TOP + 10, bottom: h - 28 });
     doc.addPage();
-    dibujarCopia(doc, { remito, logo, logotipo, copia: "DUPLICADO", top: TOP + 10, bottom: h - 28 });
+    dibujarCopia(doc, { remito, logo, copia: "DUPLICADO", top: TOP + 10, bottom: h - 28 });
   }
   return doc;
 }

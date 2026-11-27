@@ -1,4 +1,4 @@
-import { CSS_PAPEL, FUENTES_PAPEL, fechaRotulo } from "@/lib/impresionKlasea";
+import { CSS_PAPEL, FUENTES_PAPEL, MARCA_PAPEL, fechaRotulo } from "@/lib/impresionKlasea";
 
 // Impresion / envio de FALTANTES de muebles de una unidad (barco).
 // Abre una ventana con el papel de la casa (lib/impresionKlasea). Permite imprimir,
@@ -21,7 +21,7 @@ function estadoBadge(estado) {
   return "";
 }
 
-export function printFaltantes({ linea, unidad, chapa, faltantes = [], total = 0 }, logoUrl) {
+export function printFaltantes({ linea, unidad, chapa, faltantes = [], total = 0 }) {
   const titulo = `${esc(linea)} · ${esc(unidad)}`;
   const fecha = new Date().toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
@@ -42,8 +42,6 @@ export function printFaltantes({ linea, unidad, chapa, faltantes = [], total = 0
     waLines.push("");
   }
   const waText = encodeURIComponent(waLines.join("\n").trim());
-
-  const absLogoUrl = logoUrl?.startsWith("/") ? window.location.origin + logoUrl : logoUrl;
 
   const seccionesHtml = faltantes.length
     ? Object.entries(groups).map(([sector, rows]) => `
@@ -98,8 +96,8 @@ ${FUENTES_PAPEL}
 
 <main class="kp-hoja">
   <header class="kp-barra">
-    <span class="kp-rotulo">Muebles</span>
-    ${absLogoUrl ? `<span class="kp-marca-caja"><img class="kp-marca" src="${esc(absLogoUrl)}" alt="Klase A" /></span>` : '<span class="kp-marca-texto">KLASE A</span>'}
+    <span class="kp-rotulo">Klase A · Muebles</span>
+    ${MARCA_PAPEL}
     <span class="kp-rotulo">${esc(fechaRotulo())}</span>
   </header>
 

@@ -23,12 +23,12 @@ function safePart(s) {
   return String(s || "ruta").normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").slice(0, 60);
 }
 
-export async function construirRutaPdf({ ruta, paradas = [], cadeteNombre = "" }, { logo = undefined, logotipo = null } = {}) {
+export async function construirRutaPdf({ ruta, paradas = [], cadeteNombre = "" }, { logo = undefined } = {}) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const ancho = doc.internal.pageSize.getWidth();
-  let marcas = { logo, logotipo };
+  let marcas = { logo };
   if (logo === undefined) {
-    try { marcas = await cargarMarcasPdf(); } catch { marcas = { logo: null, logotipo: null }; }
+    try { marcas = await cargarMarcasPdf(); } catch { marcas = { logo: null }; }
   }
 
   const hechas = paradas.filter((p) => p.estado === "hecho");
@@ -44,7 +44,6 @@ export async function construirRutaPdf({ ruta, paradas = [], cadeteNombre = "" }
     subtitulo: fmtFechaLarga(ruta?.fecha),
     detalle: ruta?.estado ? `Estado de la ruta: ${ruta.estado}` : "",
     logo: marcas.logo,
-    logotipo: marcas.logotipo,
   });
 
   y = cifras(doc, {

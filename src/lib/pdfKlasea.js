@@ -109,22 +109,18 @@ export function encabezado(doc, {
   subtitulo = "",
   detalle = "",
   logo = null,
-  logotipo = null,
   tamTitulo = 30,
 } = {}) {
   const ancho = doc.internal.pageSize.getWidth();
   const util = ancho - MARGEN * 2;
 
   // Barra de arriba: sección a la izquierda, la marca al centro y la fecha (o
-  // el número del papel) a la derecha. Con el logotipo completo (K + KLASE A)
-  // la marca ya dice el nombre y a la izquierda va sólo la sección.
+  // el número del papel) a la derecha.
   const yBarra = 40;
-  const conLogotipo = !!logotipo?.dataUrl;
-  const izquierda = conLogotipo ? seccion || "" : seccion ? `Klase A  ·  ${seccion}` : "Klase A Yachts";
-  if (izquierda) rotulo(doc, izquierda, MARGEN, yBarra, { color: TINTA });
+  const izquierda = seccion ? `Klase A  ·  ${seccion}` : "Klase A Yachts";
+  rotulo(doc, izquierda, MARGEN, yBarra, { color: TINTA });
   if (derecha) rotulo(doc, derecha, ancho - MARGEN, yBarra, { color: TINTA, align: "right" });
-  if (conLogotipo) marcaCompleta(doc, { centro: ancho / 2, y: yBarra, logotipo });
-  else marca(doc, { centro: ancho / 2, y: yBarra, logo });
+  marca(doc, { centro: ancho / 2, y: yBarra, logo });
   pelo(doc, MARGEN, yBarra + 14, ancho - MARGEN, yBarra + 14);
 
   let y = yBarra + 52;
@@ -168,17 +164,6 @@ export function marca(doc, { centro, y, logo = null, tam = 20 }) {
   doc.circle(centro, top + tam / 2, tam / 2 - 0.5, "S");
   fuente(doc, "normal", tam * 0.55, TINTA);
   doc.text("K", centro, top + tam / 2 + tam * 0.19, { align: "center" });
-}
-
-/**
- * El logotipo completo (K en su círculo + KLASE A), centrado sobre la barra.
- * `logotipo` es { dataUrl, aspect } de loadNavyWordmark (lib/pdfLogo).
- */
-export function marcaCompleta(doc, { centro, y, logotipo, alto = 17 }) {
-  const w = alto / (logotipo.aspect || 0.25);
-  try {
-    doc.addImage(logotipo.dataUrl, "PNG", centro - w / 2, y - alto + 4.5, w, alto, undefined, "FAST");
-  } catch { /* sin imagen queda la barra igual */ }
 }
 
 /**

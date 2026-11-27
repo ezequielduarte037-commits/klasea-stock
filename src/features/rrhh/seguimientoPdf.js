@@ -51,11 +51,11 @@ function detalleDeFila(row) {
   return row.justificacion?.motivo || "Sin marcación registrada";
 }
 
-export async function construirSeguimientoPdf({ empleado, desde, hasta, historial = [], resumen = {} }, { generadoPor = "", logo = undefined, logotipo = null } = {}) {
+export async function construirSeguimientoPdf({ empleado, desde, hasta, historial = [], resumen = {} }, { generadoPor = "", logo = undefined } = {}) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
-  let marcas = { logo, logotipo };
+  let marcas = { logo };
   if (logo === undefined) {
-    try { marcas = await cargarMarcasPdf(); } catch { marcas = { logo: null, logotipo: null }; }
+    try { marcas = await cargarMarcasPdf(); } catch { marcas = { logo: null }; }
   }
   const nombre = String(empleado?.nombre || "-");
   const ficha = [empleado?.dni ? `DNI ${empleado.dni}` : "", empleado?.sede || ""].filter(Boolean).join("   ·   ");
@@ -68,7 +68,6 @@ export async function construirSeguimientoPdf({ empleado, desde, hasta, historia
     subtitulo: `Del ${fmtFechaLarga(desde)} al ${fmtFechaLarga(hasta)}`,
     detalle: ficha,
     logo: marcas.logo,
-    logotipo: marcas.logotipo,
   });
 
   // ── Resumen ────────────────────────────────────────────────────────────────

@@ -30,7 +30,6 @@ import Cargando from "@/components/ui/Cargando";
 import { ChapaSwatch, chapaColor } from "@/features/muebles/chapa";
 import { printFaltantes } from "@/features/muebles/printFaltantes";
 import { loadNavyLogo } from "@/lib/pdfLogo";
-import logoKlasea from "@/assets/logos/logo-klasea.png";
 import { etapaMeta } from "../mueblesProduccion";
 import { Aviso, Estado, Mini, Modal, Tag, Vacio } from "../ui";
 
@@ -1277,7 +1276,7 @@ export default function RecepcionTab({ profile, esAdmin, destino, onIrSeguimient
       chapa,
       faltantes,
       total: filas.length,
-    }, logoKlasea);
+    });
   }
 
   // ── Riel: obras por línea ──

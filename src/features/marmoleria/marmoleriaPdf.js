@@ -175,7 +175,7 @@ function detalleBarco(barco) {
  * @param {{dataUrl: string, aspect?: number} | null} [opciones.logo]
  * @param {string} [opciones.fecha]  ISO; por defecto hoy
  */
-export function construirPdfMarmoleria({ piezas, lineaDe, logo = null, logotipo = null, fecha = hoyISO() }) {
+export function construirPdfMarmoleria({ piezas, lineaDe, logo = null, fecha = hoyISO() }) {
   const listado = armarListado(piezas, { lineaDe });
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const anchoHoja = doc.internal.pageSize.getWidth();
@@ -211,7 +211,6 @@ export function construirPdfMarmoleria({ piezas, lineaDe, logo = null, logotipo 
     titulo,
     detalle: `${plural(listado.total, "pieza", "piezas")} en ${plural(listado.barcos.length, "barco", "barcos")}`,
     logo: logo?.dataUrl || null,
-    logotipo,
   }) + 6;
 
   const encabezadoContinuacion = () => continuacionKlasea(doc, { seccion: "Marmolería", titulo, derecha: fechaRotulo(fecha) });

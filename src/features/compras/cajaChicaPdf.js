@@ -50,7 +50,7 @@ export function nombreArchivoCajaChica(cierre, hoy = new Date().toISOString().sl
   return `${name}-${hoy}.pdf`;
 }
 
-export function construirCajaChicaPdf({ rows = [], cierre = null, logo = null, logotipo = null, hoy = new Date().toISOString().slice(0, 10) }) {
+export function construirCajaChicaPdf({ rows = [], cierre = null, logo = null, hoy = new Date().toISOString().slice(0, 10) }) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const t = totalesCajaChica(rows);
   const saldoArs = t.ARS.ingresos - t.ARS.egresos;
@@ -67,7 +67,6 @@ export function construirCajaChicaPdf({ rows = [], cierre = null, logo = null, l
     subtitulo: periodo(cierre),
     detalle: cantidad,
     logo,
-    logotipo,
   });
 
   const notaUsd = (v) => (hayUsd ? fmtMoney(v, "USD") : null);

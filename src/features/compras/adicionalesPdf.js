@@ -303,7 +303,7 @@ async function cargarPdfLib() {
  * @returns {Promise<{ bytes: Uint8Array, paginas: number, avisos: string[] }>}
  */
 export async function construirDetalleAdicionales({
-  board, rows, compraDe, incluirSinImporte = true, logo = null, marca = null, adjuntos = new Map(), fecha = hoyISO(),
+  board, rows, compraDe, incluirSinImporte = true, logo = null, adjuntos = new Map(), fecha = hoyISO(),
 }) {
   const detalle = prepararDetalle(rows, { compraDe, incluirSinImporte });
   const avisos = [];
@@ -364,7 +364,7 @@ export async function construirDetalleAdicionales({
     return ARRIBA_CONTINUACION;
   };
 
-  // Primera hoja: la cabecera de la casa con el logotipo al centro, el barco
+  // Primera hoja: la cabecera de la casa con la marca al centro, el barco
   // en grande y los totales como ficha técnica (una cifra por moneda).
   let y = encabezadoKlasea(doc, {
     seccion: "Adicionales",
@@ -374,7 +374,6 @@ export async function construirDetalleAdicionales({
     subtitulo: textoPdf(descripcionObra),
     detalle: textoPdf(NO_FACTURA),
     logo,
-    logotipo: marca,
   });
 
   if (detalle.monedas.length) {
