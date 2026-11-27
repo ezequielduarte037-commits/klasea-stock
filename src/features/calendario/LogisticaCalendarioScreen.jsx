@@ -39,8 +39,6 @@ import {
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import Cargando from "@/components/ui/Cargando";
-import FondoOleaje from "@/components/ui/FondoOleaje";
-import { AnimatedNumber } from "@/components/ui/motion";
 import { C } from "@/theme";
 import { supabase } from "@/supabaseClient";
 import { cargarFeriadosAnio } from "@/features/rrhh/feriados";
@@ -350,21 +348,6 @@ function Kpi({ label, value, hint, tone = "blue", icon: Icon }) {
         {hint && <span style={{ display: "block", color: C.dim, fontSize: 10.5, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{hint}</span>}
       </span>
     </div>
-  );
-}
-
-function WeatherNote({ weather }) {
-  const today = weather[TODAY];
-  if (!today) return null;
-  const windy = Number(today.wind) >= 30;
-  const raining = Number(today.rain) >= 40;
-  return (
-    <span className="log-clima" title={`${weatherLabel(today.code)} · lluvia ${today.rain ?? 0}%`}>
-      {raining ? <CloudRain size={15} /> : <CloudSun size={15} />}
-      <b>{Math.round(today.max)}° / {Math.round(today.min)}°</b>
-      <span className={windy ? "is-wind" : ""}><Wind size={13} /> {Math.round(today.wind)} km/h</span>
-      <span className="log-clima-lugar">San Fernando</span>
-    </span>
   );
 }
 
@@ -1773,13 +1756,6 @@ export default function LogisticaCalendarioScreen({ profile }) {
     }
     return acc;
   }, [agendaFrom, agendaHolidayEnd, agendaRows, dateTo, holidays, milestones, obraFilter, providerFilter, query, status, transport]);
-  const metrics = useMemo(() => ({
-    pending: rows.filter((row) => row.estado === "solicitado").length,
-    proposals: rows.filter((row) => row.estado === "fecha_propuesta").length,
-    accepted: rows.filter((row) => row.estado === "fecha_aceptada").length,
-    week: rows.filter((row) => !["cancelado", "realizado"].includes(row.estado) && displayDate(row) >= TODAY && displayDate(row) <= dateAdd(TODAY, 7)).length,
-    urgent: rows.filter((row) => row.prioridad === "urgente" && !["cancelado", "realizado"].includes(row.estado)).length,
-  }), [rows]);
   const mergeableIds = useMemo(() => {
     const ids = new Set();
     rows.forEach((row) => {
@@ -1832,80 +1808,38 @@ export default function LogisticaCalendarioScreen({ profile }) {
     else if (isManager) setManualModal({ date });
   }
 
-  function showStatus(next) {
-    setStatus(next);
-    setView("solicitudes");
-  }
-
-  const ficha = [
-    { key: "solicitado", label: "Por coordinar", value: metrics.pending, tone: C.blue, onClick: () => showStatus("solicitado") },
-    { key: "fecha_propuesta", label: "Responde Técnica", value: metrics.proposals, tone: C.violet, onClick: () => showStatus("fecha_propuesta") },
-    metrics.accepted > 0 && { key: "fecha_aceptada", label: "Confirma Compras", value: metrics.accepted, tone: C.cyan, onClick: () => showStatus("fecha_aceptada") },
-    { key: "semana", label: "Próximos 7 días", value: metrics.week, tone: C.green, onClick: () => { setWeekStartDate(startOfWeek(TODAY)); setWeekDir(0); setView("semana"); } },
-    metrics.urgent > 0 && { key: "urgente", label: "Urgentes", value: metrics.urgent, tone: C.red },
-  ].filter(Boolean);
 
   return (
     <div className={`logistics-root${idle ? " is-quieto" : ""}`} style={{ position: "absolute", inset: 0, display: "flex", background: C.bg, color: C.text, fontFamily: C.sans, overflow: "hidden" }}>
       <style>{LOG_CSS}</style>
       <main className="log-main">
-        <header className="log-hero">
-          <FondoOleaje className="log-hero-agua" horizonte={0.45} filas={20} alfa={0.4} pausaInactivo={20000} />
-          <div className="log-head">
-            <div className="log-head-top">
-              <div className="log-head-textos">
-                <div className="az-rotulo">Movimientos y transportes</div>
-                <h1 className="az-titulo log-head-title"><span className="log-grad">Logística</span></h1>
-              </div>
-              <div className="log-actions">
-                {(role === "admin" || role === "tecnica") && <button type="button" className="log-btn is-ghost log-hide-sm" onClick={() => window.location.assign("/calendario-produccion")} title="Abrir el calendario de producción anterior"><CalendarDays size={15} /><span>Producción anterior</span></button>}
-                {isManager && <button type="button" className={`log-btn${canRequest ? "" : " is-primary"}`} onClick={() => setManualModal({ date: "" })} title="Agregar un movimiento coordinado por Compras"><Bike size={15} /><span className="log-label">Movimiento manual</span></button>}
-                {isManager && (
-                  <div style={{ position: "relative" }}>
-                    <button type="button" className="log-btn" onClick={() => setExportOpen((open) => !open)} title="Exportar informe"><Download size={15} /><span className="log-label">Exportar</span></button>
-                    {exportOpen && (
-                      <div className="log-menu">
-                        <button type="button" onClick={() => { exportMovementsCsv(filtered, "filtrado"); setExportOpen(false); }}><Download size={14} /> Exportar filtrado <b>{filtered.length}</b></button>
-                        <button type="button" onClick={() => { exportMovementsCsv(rows, "completo"); setExportOpen(false); }}><Download size={14} /> Exportar todo <b>{rows.length}</b></button>
-                        <small>CSV para Excel con fechas, proveedores, decisiones de unión y costos.</small>
-                      </div>
-                    )}
+        <header className="log-bar">
+          <h1 className="log-bar-title"><span className="log-grad">Logística</span></h1>
+          <nav className="log-tabs" aria-label="Vistas">
+            {availableViews.map(({ id, label }) => <button type="button" key={id} className={`az-tab${view === id ? " is-active" : ""}`} aria-selected={view === id} onClick={() => setView(id)}>{label}</button>)}
+          </nav>
+          <div className="log-actions">
+            {(role === "admin" || role === "tecnica") && <button type="button" className="log-btn is-icon log-hide-sm" aria-label="Calendario de producción anterior" onClick={() => window.location.assign("/calendario-produccion")} title="Abrir el calendario de producción anterior"><CalendarDays size={15} /></button>}
+            {isManager && <button type="button" className={`log-btn${canRequest ? "" : " is-primary"}`} onClick={() => setManualModal({ date: "" })} title="Agregar un movimiento coordinado por Compras"><Bike size={15} /><span className="log-label">Movimiento manual</span></button>}
+            {isManager && (
+              <div style={{ position: "relative" }}>
+                <button type="button" className="log-btn" onClick={() => setExportOpen((open) => !open)} title="Exportar informe"><Download size={15} /><span className="log-label">Exportar</span></button>
+                {exportOpen && (
+                  <div className="log-menu">
+                    <button type="button" onClick={() => { exportMovementsCsv(filtered, "filtrado"); setExportOpen(false); }}><Download size={14} /> Exportar filtrado <b>{filtered.length}</b></button>
+                    <button type="button" onClick={() => { exportMovementsCsv(rows, "completo"); setExportOpen(false); }}><Download size={14} /> Exportar todo <b>{rows.length}</b></button>
+                    <small>CSV para Excel con fechas, proveedores, decisiones de unión y costos.</small>
                   </div>
                 )}
-                <button type="button" className="log-btn is-icon" onClick={load} title="Actualizar" aria-label="Actualizar"><RefreshCw className={loading ? "spin" : ""} size={15} /></button>
-                {canRequest && <button type="button" className="log-btn is-primary" onClick={() => setRequestModal({ row: null, date: "" })}><Plus size={16} /><span className="log-label">Solicitar movimiento</span></button>}
               </div>
-            </div>
-            <div className="log-head-ficha">
-              <div className="az-ficha log-ficha">
-                {ficha.map((item, index) => {
-                  const Tag = item.onClick ? "button" : "div";
-                  return (
-                    <Tag
-                      type={item.onClick ? "button" : undefined}
-                      key={item.key}
-                      className={`az-dato log-dato${item.value ? " has-value" : ""}`}
-                      style={{ "--k": item.tone, animationDelay: `${120 + index * 70}ms` }}
-                      onClick={item.onClick}
-                      title={item.onClick ? `Ver ${item.label.toLowerCase()}` : undefined}
-                    >
-                      <div className="az-cifra"><AnimatedNumber value={item.value} duration={900} /></div>
-                      <div className="az-rotulo">{item.label}</div>
-                    </Tag>
-                  );
-                })}
-              </div>
-              <WeatherNote weather={weather} />
-            </div>
+            )}
+            <button type="button" className="log-btn is-icon log-hide-xs" onClick={load} title="Actualizar" aria-label="Actualizar"><RefreshCw className={loading ? "spin" : ""} size={15} /></button>
+            {canRequest && <button type="button" className="log-btn is-primary" onClick={() => setRequestModal({ row: null, date: "" })}><Plus size={16} /><span className="log-label">Solicitar movimiento</span><span className="log-label-short">Solicitar</span></button>}
           </div>
         </header>
         <div className="log-workspace">
-
-          <nav className="az-tabs log-tabs" aria-label="Vistas">
-            {availableViews.map(({ id, label }) => <button type="button" key={id} className={`az-tab${view === id ? " is-active" : ""}`} aria-selected={view === id} onClick={() => setView(id)}>{label}</button>)}
-          </nav>
-
           <section className="log-filters">
+            <label className="az-buscar log-buscar"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar" aria-label="Buscar carga, obra, proveedor, recorrido o solicitante" /></label>
             <div className="log-chips" role="group" aria-label="Transporte">
               {Object.entries(TRANSPORTES).map(([key, item]) => {
                 const active = transport === key;
@@ -1918,7 +1852,6 @@ export default function LogisticaCalendarioScreen({ profile }) {
                 );
               })}
             </div>
-            <label className="az-buscar log-buscar"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar" aria-label="Buscar carga, obra, proveedor, recorrido o solicitante" /></label>
             <select className="log-select" value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Estado"><option value="todos">Todos los estados</option>{Object.entries(ESTADOS).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}</select>
             <button type="button" className={`log-btn is-ghost${showAdvancedFilters || advancedFilterCount ? " is-on" : ""}`} onClick={() => setShowAdvancedFilters((open) => !open)}><SlidersHorizontal size={14} /> Más filtros{advancedFilterCount ? ` · ${advancedFilterCount}` : ""}</button>
             {hasAnyFilters && <button type="button" className="log-btn is-ghost is-danger" onClick={clearFilters}>Limpiar</button>}
@@ -2008,19 +1941,7 @@ const LOG_CSS = `
 .logistics-root .log-btn:disabled{opacity:.4;cursor:default}
 
 /* Encabezado */
-.logistics-root .log-head{display:grid;gap:28px;padding-top:30px}
-.logistics-root .log-head-top{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap}
-.logistics-root .log-head-title{margin-top:10px}
 .logistics-root .log-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.logistics-root .log-head-ficha{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap}
-.logistics-root .log-dato{background:transparent;border-top:0;border-right:0;border-bottom:0;text-align:left;font:inherit;color:inherit}
-.logistics-root button.log-dato{cursor:pointer}
-.logistics-root button.log-dato .az-cifra{transition:color .2s ease}
-.logistics-root button.log-dato:hover .az-cifra{color:var(--blue)}
-.logistics-root .log-clima{display:inline-flex;align-items:center;gap:9px;color:var(--dim);font-size:12.5px;white-space:nowrap}
-.logistics-root .log-clima b{color:var(--text);font-weight:400;font-variant-numeric:tabular-nums}
-.logistics-root .log-clima span{display:inline-flex;align-items:center;gap:4px}
-.logistics-root .log-clima .is-wind{color:var(--red)}
 .logistics-root .log-menu{position:absolute;top:44px;right:0;z-index:20;width:250px;padding:6px;border:1px solid var(--border-2);border-radius:3px;background:var(--panel-solid);box-shadow:0 18px 50px var(--shadow-strong);display:grid;gap:2px;animation:logModalIn .2s var(--log-ease) both}
 .logistics-root .log-menu button{display:flex;align-items:center;gap:8px;padding:9px 10px;border:0;border-radius:2px;background:transparent;color:var(--text);font:inherit;font-size:13px;text-align:left;cursor:pointer}
 .logistics-root .log-menu button:hover{background:var(--panel-2)}
@@ -2134,7 +2055,6 @@ const LOG_CSS = `
 
 @media(max-width:920px){
   .logistics-root .log-main{padding:0 14px 32px}
-  .logistics-root .log-head{gap:22px;padding-top:18px}
   .logistics-root .log-hide-sm{display:none}
   .logistics-root .log-actions .log-label{display:none}
   .logistics-root .log-actions .log-btn:not(.is-primary){width:42px;padding:0}
@@ -2149,7 +2069,6 @@ const LOG_CSS = `
   .logistics-root .log-manual-stop input:nth-of-type(1),.logistics-root .log-manual-stop input:nth-of-type(2){grid-column:2/3}
   .logistics-root .log-manual-stop button{grid-column:3/4;grid-row:1/3}
   .logistics-root .log-cost-grid{grid-template-columns:1fr!important}
-  .logistics-root .log-clima-lugar{display:none!important}
 }
 @media(max-width:640px){
   .logistics-root .log-actions .log-btn.is-primary .log-label{display:inline}
@@ -2163,6 +2082,13 @@ const LOG_CSS = `
 }
 
 /* ── Segunda pasada: color y movimiento ── */
+/* Barra única: título, vistas y acciones en un renglón */
+.logistics-root .log-bar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:28px;min-height:60px;padding:0 32px;border-bottom:1px solid var(--border);background:var(--topbar);-webkit-backdrop-filter:var(--glass-filter);backdrop-filter:var(--glass-filter)}
+.logistics-root .log-bar-title{margin:0;flex-shrink:0;font-size:19px;font-weight:300;letter-spacing:.18em;text-transform:uppercase;line-height:1}
+.logistics-root .log-bar .log-tabs{flex:1;min-width:0;display:flex;align-self:stretch;gap:26px;overflow-x:auto;scrollbar-width:none}
+.logistics-root .log-bar .log-tabs::-webkit-scrollbar{display:none}
+.logistics-root .log-bar .az-tab{min-height:60px}
+.logistics-root .log-bar .log-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
 @keyframes logSlideFromRight{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
 @keyframes logSlideFromLeft{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}
 @keyframes logCellIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
@@ -2174,12 +2100,7 @@ const LOG_CSS = `
 /* Portada con el agua de la marca */
 .logistics-root .log-main{padding:0 0 48px}
 .logistics-root .log-workspace{padding:22px 32px 0}
-.logistics-root .log-hero{position:relative;overflow:hidden;padding:0 32px 26px;border-bottom:1px solid var(--border);background:radial-gradient(900px 420px at 10% -30%,var(--glow-a),transparent 70%),radial-gradient(700px 380px at 95% 0%,var(--glow-b),transparent 70%)}
-.logistics-root .log-hero-agua{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;-webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 60%);mask-image:linear-gradient(180deg,transparent 0%,#000 60%);opacity:.85}
-.logistics-root .log-hero .log-head{position:relative;z-index:1;width:min(1480px,100%);margin:0 auto}
-.logistics-root .log-head-textos{min-width:0;animation:logFadeUp .55s var(--log-ease) both}
 .logistics-root .log-grad{background:var(--brand-grad);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:logGrad 2.4s var(--log-ease) both}
-.logistics-root .log-actions{animation:logFadeUp .55s .06s var(--log-ease) both}
 .logistics-root .log-btn.is-primary{background:var(--brand-grad);border-color:transparent;color:var(--inverse-text);box-shadow:0 8px 24px var(--blue-soft)}
 .logistics-root .log-btn.is-primary:hover:not(:disabled){background:var(--brand-grad);border-color:transparent;color:var(--inverse-text);opacity:1;transform:translateY(-1px);box-shadow:0 12px 30px var(--blue-border)}
 .logistics-root .log-btn.is-primary:active:not(:disabled){transform:translateY(0) scale(.98)}
@@ -2187,15 +2108,6 @@ const LOG_CSS = `
 .logistics-root .log-btn:not(.is-ghost):not(.is-primary){background:var(--topbar-soft);-webkit-backdrop-filter:var(--glass-filter);backdrop-filter:var(--glass-filter)}
 
 /* Números con su color */
-.logistics-root .log-dato{animation:logFadeUp .5s var(--log-ease) both}
-.logistics-root .log-dato .az-cifra{color:var(--dim);transition:transform .25s var(--log-ease),color .2s ease}
-.logistics-root .log-dato.has-value .az-cifra{color:var(--k)}
-.logistics-root .log-dato .az-rotulo{position:relative;padding-left:12px}
-.logistics-root .log-dato .az-rotulo::before{content:"";position:absolute;left:0;top:50%;width:6px;height:6px;margin-top:-3px;border-radius:50%;background:var(--k);opacity:.35}
-.logistics-root .log-dato.has-value .az-rotulo::before{opacity:1}
-.logistics-root button.log-dato:hover .az-cifra{color:var(--k);transform:translateY(-3px)}
-.logistics-root .log-clima{padding:8px 12px;border:1px solid var(--border);border-radius:3px;background:var(--topbar-soft);-webkit-backdrop-filter:var(--glass-filter);backdrop-filter:var(--glass-filter);animation:logFadeUp .55s .3s var(--log-ease) both}
-.logistics-root .log-clima>svg{color:var(--cyan)}
 
 /* Pestañas con subrayado de la marca que crece */
 .logistics-root .log-tabs .az-tab::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--brand-grad);transform:scaleX(0);transform-origin:left;transition:transform .4s var(--log-ease)}
@@ -2254,8 +2166,29 @@ const LOG_CSS = `
 .logistics-root .log-day-group-date.is-today{background:var(--brand-grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
 
 @media(max-width:920px){
-  .logistics-root .log-hero{padding:0 14px 20px}
   .logistics-root .log-workspace{padding:16px 14px 0}
-  .logistics-root .log-clima{width:100%}
 }
+
+.logistics-root .log-label-short{display:none}
+@media(max-width:1360px){
+  .logistics-root .log-bar .log-actions .log-btn:not(.is-primary) .log-label{display:none}
+  .logistics-root .log-bar .log-actions .log-btn:not(.is-primary){width:38px;padding:0}
+}
+@media(max-width:1100px){
+  .logistics-root .log-bar{position:static;flex-wrap:wrap;gap:0 10px;min-height:0;padding:12px 14px 0}
+  .logistics-root .log-bar-title{font-size:16px;letter-spacing:.16em}
+  .logistics-root .log-bar .log-actions{margin-left:auto}
+  .logistics-root .log-bar .log-tabs{order:3;flex-basis:100%;gap:22px;margin-top:8px}
+  .logistics-root .log-bar .az-tab{min-height:44px}
+}
+@media(max-width:640px){
+  .logistics-root .log-hide-xs{display:none}
+  .logistics-root .log-actions .log-btn.is-primary .log-label{display:none}
+  .logistics-root .log-actions .log-btn.is-primary .log-label-short{display:inline}
+}
+
+.logistics-root .log-filters{align-items:center;margin-top:0}
+.logistics-root .log-filters .log-chips{flex:0 1 auto;min-width:0}
+.logistics-root .log-filters .log-buscar{flex:1 1 220px}
+@media(max-width:920px){.logistics-root .log-filters .log-chips{flex-basis:100%;order:-1}}
 `;
