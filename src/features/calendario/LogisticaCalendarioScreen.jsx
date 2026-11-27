@@ -39,6 +39,8 @@ import {
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
 import Cargando from "@/components/ui/Cargando";
+import FondoOleaje from "@/components/ui/FondoOleaje";
+import { AnimatedNumber } from "@/components/ui/motion";
 import { C } from "@/theme";
 import { supabase } from "@/supabaseClient";
 import { cargarFeriadosAnio } from "@/features/rrhh/feriados";
@@ -386,7 +388,7 @@ function MovementCard({ row, onOpen, compact = false, index = 0, mergeHint = fal
   const shared = row.viaje_grupo_id;
   const separated = row.union_estado === "rechazada";
   return (
-    <button type="button" className={`log-row log-enter${compact ? " is-compact" : ""}`} onClick={() => onOpen(row)} style={{ "--ev": state.color, animationDelay: `${Math.min(index, 8) * 35}ms` }}>
+    <button type="button" className={`log-row log-enter${compact ? " is-compact" : ""}`} onClick={() => onOpen(row)} style={{ "--ev": state.color, "--tc": ui.color, "--ts": ui.soft, "--tb": ui.border, animationDelay: `${Math.min(index, 10) * 45}ms` }}>
       {!compact && (
         <span>
           <span className="log-row-time">{displayTime(row) || "—"}</span>
@@ -395,6 +397,7 @@ function MovementCard({ row, onOpen, compact = false, index = 0, mergeHint = fal
       )}
       <span style={{ minWidth: 0 }}>
         <span className="log-row-title">
+          <span className="log-row-icon"><TransportIcon type={type} size={15} /></span>
           {row.carga || row.titulo || "Movimiento"}
           {row.prioridad === "urgente" && <em className="log-flag is-red">Urgente</em>}
           {row.origen_manual && <em className="log-flag">Manual</em>}
@@ -1216,6 +1219,17 @@ function DetailPanel({ row, rows, profile, isManager, onClose, onReload, onEdit,
   );
 }
 
+function RainVeil({ probability = 0 }) {
+  const drops = Number(probability) >= 70 ? 9 : 6;
+  return (
+    <span className="log-rain" aria-hidden="true">
+      {Array.from({ length: drops }, (_, index) => (
+        <i key={index} style={{ left: `${6 + ((index * 23) % 90)}%`, animationDelay: `-${(index * .31).toFixed(2)}s`, animationDuration: `${1.3 + (index % 3) * .25}s` }} />
+      ))}
+    </span>
+  );
+}
+
 function DayWeather({ day }) {
   if (!day) return null;
   const raining = Number(day.rain) >= 40;
@@ -1263,7 +1277,7 @@ function dayClickProps(date, canCreate, onCreate) {
   };
 }
 
-function MonthView({ month, rows, milestones, weather, holidays, mergeableIds, onOpen, onMonth, onWeekOf, canCreateOn, createLabel, onCreate }) {
+function MonthView({ month, direction = 0, rows, milestones, weather, holidays, mergeableIds, onOpen, onMonth, onWeekOf, canCreateOn, createLabel, onCreate }) {
   const year = month.getFullYear();
   const monthIndex = month.getMonth();
   const first = new Date(year, monthIndex, 1);
@@ -1306,10 +1320,10 @@ function MonthView({ month, rows, milestones, weather, holidays, mergeableIds, o
         nextLabel="Mes siguiente"
       />
       <div className="log-scroll-x">
-        <div className="log-grid log-month">
-          {DIAS.map((day) => <div key={day} className="log-wd">{day}</div>)}
+        <div key={monthKey} className={`log-grid log-month log-slide${direction > 0 ? " from-right" : direction < 0 ? " from-left" : ""}`}>
+          {DIAS.map((day, index) => <div key={day} className={`log-wd${index > 4 ? " is-weekend" : ""}`}>{day}</div>)}
           {cells.map((date, index) => {
-            if (!date) return <div key={index} className={`log-day is-out${index % 7 > 4 ? " is-weekend" : ""}`} />;
+            if (!date) return <div key={index} className={`log-day is-out${index % 7 > 4 ? " is-weekend" : ""}`} style={{ "--i": index }} />;
             const events = byDate.get(date) || [];
             const marks = milestoneMap.get(date) || [];
             const dayWeather = weather[date];
@@ -1324,27 +1338,30 @@ function MonthView({ month, rows, milestones, weather, holidays, mergeableIds, o
                 key={date}
                 className={`log-day${date === TODAY ? " is-today" : ""}${date < TODAY ? " is-past" : ""}${weekend ? " is-weekend" : ""}${holiday ? " is-holiday" : ""}${canCreate ? " can-add" : ""}`}
                 title={holiday || undefined}
+                style={{ "--i": index }}
                 {...dayClickProps(date, canCreate, onCreate)}
               >
+                {Number(dayWeather?.rain) >= 40 && <RainVeil probability={dayWeather.rain} />}
                 <div className="log-day-top">
                   <span className="log-num">{parseDate(date).getDate()}</span>
                   <DayWeather day={dayWeather} />
                 </div>
                 {holiday && <div className="log-hol" title={holiday}>Feriado · {holiday}</div>}
-                {events.slice(0, eventLimit).map((row) => {
+                {events.slice(0, eventLimit).map((row, eventIndex) => {
                   const state = statusUi(row.estado);
+                  const ui = transportUi(transportsOf(row)[0]?.tipo);
                   const risky = hasCrane(row) && Number(dayWeather?.wind) >= 30;
                   const canMerge = mergeableIds?.has(row.id);
                   return (
                     <button
                       type="button"
                       key={row.id}
-                      className={`log-ev${risky ? " is-risk" : ""}`}
-                      style={{ "--ev": risky ? C.red : state.color }}
+                      className={`log-ev${risky ? " is-risk" : ""}${row.estado === "cancelado" ? " is-cancel" : ""}`}
+                      style={{ "--tc": risky ? C.red : ui.color, "--ts": risky ? C.redL : ui.soft, "--st": state.color, "--d": `${Math.min(index * 14 + eventIndex * 40, 520) + 120}ms` }}
                       onClick={() => onOpen(row)}
                       title={`${movementHeadline(row)} · ${workLabel(row)} · ${routeLabel(row)} · ${state.label}${canMerge ? " · Posible unión" : ""}${risky ? " · Revisar viento" : ""}`}
                     >
-                      <span className="log-ev-time">{displayTime(row) || "—"}</span>
+                      <span className="log-ev-time"><i className="log-ev-dot" />{displayTime(row) || "—"}</span>
                       <span className="log-ev-title">{row.carga || row.titulo || "Movimiento"}</span>
                       <span className="log-ev-meta">
                         <b>{workLabel(row)}</b>
@@ -1366,7 +1383,7 @@ function MonthView({ month, rows, milestones, weather, holidays, mergeableIds, o
   );
 }
 
-function WeekView({ weekStart, rows, milestones, weather, holidays, mergeableIds, onOpen, onWeek, canCreateOn, createLabel, onCreate }) {
+function WeekView({ weekStart, direction = 0, rows, milestones, weather, holidays, mergeableIds, onOpen, onWeek, canCreateOn, createLabel, onCreate }) {
   const dates = Array.from({ length: 7 }, (_, index) => dateAdd(weekStart, index));
   const weekEnd = dates[6];
   const byDate = new Map(dates.map((date) => [date, []]));
@@ -1403,7 +1420,7 @@ function WeekView({ weekStart, rows, milestones, weather, holidays, mergeableIds
         nextLabel="Semana siguiente"
       />
       <div className="log-scroll-x">
-        <div className="log-grid log-week">
+        <div key={weekStart} className={`log-grid log-week log-slide${direction > 0 ? " from-right" : direction < 0 ? " from-left" : ""}`}>
           {dates.map((date, index) => {
             const events = byDate.get(date) || [];
             const oldEvents = legacyByDate.get(date) || [];
@@ -1416,8 +1433,10 @@ function WeekView({ weekStart, rows, milestones, weather, holidays, mergeableIds
               <section
                 key={date}
                 className={`log-day log-wcol${date === TODAY ? " is-today" : ""}${date < TODAY ? " is-past" : ""}${weekend ? " is-weekend" : ""}${holiday ? " is-holiday" : ""}${canCreate ? " can-add" : ""}`}
+                style={{ "--i": index * 3 }}
                 {...dayClickProps(date, canCreate, onCreate)}
               >
+                {Number(dayWeather?.rain) >= 40 && <RainVeil probability={dayWeather.rain} />}
                 <header className="log-wcol-head">
                   <span>
                     <span className="log-wcol-wd">{DIAS[index]}</span>
@@ -1426,7 +1445,7 @@ function WeekView({ weekStart, rows, milestones, weather, holidays, mergeableIds
                   <DayWeather day={dayWeather} />
                 </header>
                 {holiday && <div className="log-hol" title={holiday}>Feriado · {holiday}</div>}
-                {events.map((row) => {
+                {events.map((row, eventIndex) => {
                   const ui = transportUi(transportsOf(row)[0]?.tipo);
                   const state = statusUi(row.estado);
                   const risky = hasCrane(row) && Number(dayWeather?.wind) >= 30;
@@ -1435,13 +1454,13 @@ function WeekView({ weekStart, rows, milestones, weather, holidays, mergeableIds
                     <button
                       type="button"
                       key={row.id}
-                      className={`log-ev is-tall${risky ? " is-risk" : ""}`}
-                      style={{ "--ev": risky ? C.red : state.color }}
+                      className={`log-ev is-tall${risky ? " is-risk" : ""}${row.estado === "cancelado" ? " is-cancel" : ""}`}
+                      style={{ "--tc": risky ? C.red : ui.color, "--ts": risky ? C.redL : ui.soft, "--st": state.color, "--d": `${120 + index * 45 + eventIndex * 60}ms` }}
                       onClick={() => onOpen(row)}
                       title={`${movementHeadline(row)} · ${workLabel(row)} · ${routeLabel(row)}${risky ? " · Revisar viento" : ""}`}
                     >
                       <span className="log-ev-time">{displayTime(row) || "—"}</span>
-                      <span className="log-ev-state" style={{ color: state.color }}>{state.short}</span>
+                      <span className="log-ev-state" style={{ color: state.color }}><i className="log-ev-dot" />{state.short}</span>
                       <span className="log-ev-title">{row.carga || row.titulo || "Movimiento"}</span>
                       <span className="log-ev-meta"><b>{workLabel(row)}</b>{canMerge && <Merge size={10} color={C.violet} style={{ flexShrink: 0 }} />}</span>
                       <span className="log-ev-meta" style={{ color: ui.color }}><TransportIcon type={transportsOf(row)[0]?.tipo} size={11} /><span>{transportSummary(row)}</span></span>
@@ -1566,6 +1585,27 @@ function exportMovementsCsv(items, scopeLabel = "filtrado") {
   URL.revokeObjectURL(url);
 }
 
+// La lluvia de los días se mueve mientras alguien usa la PC; después de un rato
+// quieto se pausa, porque la pantalla queda abierta todo el día.
+function useInactivo(ms) {
+  const [idle, setIdle] = useState(false);
+  useEffect(() => {
+    let timer = window.setTimeout(() => setIdle(true), ms);
+    const wake = () => {
+      window.clearTimeout(timer);
+      setIdle(false);
+      timer = window.setTimeout(() => setIdle(true), ms);
+    };
+    const events = ["pointermove", "pointerdown", "keydown", "wheel", "touchstart"];
+    events.forEach((name) => window.addEventListener(name, wake, { passive: true }));
+    return () => {
+      window.clearTimeout(timer);
+      events.forEach((name) => window.removeEventListener(name, wake));
+    };
+  }, [ms]);
+  return idle;
+}
+
 export default function LogisticaCalendarioScreen({ profile }) {
   const { isMobile } = useResponsive(920);
   const role = profile?.is_admin ? "admin" : profile?.role;
@@ -1590,6 +1630,9 @@ export default function LogisticaCalendarioScreen({ profile }) {
   const [exportOpen, setExportOpen] = useState(false);
   const [month, setMonth] = useState(() => parseDate(TODAY));
   const [weekStartDate, setWeekStartDate] = useState(() => startOfWeek(TODAY));
+  const [monthDir, setMonthDir] = useState(0);
+  const [weekDir, setWeekDir] = useState(0);
+  const idle = useInactivo(20000);
   const [selected, setSelected] = useState(null);
   const [requestModal, setRequestModal] = useState(null);
   const [manualModal, setManualModal] = useState(false);
@@ -1766,6 +1809,21 @@ export default function LogisticaCalendarioScreen({ profile }) {
   }
 
   const availableViews = VISTAS.filter((item) => !item.managerOnly || isManager);
+  const transportCounts = rows.reduce((acc, row) => {
+    if (row.estado === "cancelado") return acc;
+    new Set(transportsOf(row).map((item) => item.tipo)).forEach((tipo) => { acc[tipo] = (acc[tipo] || 0) + 1; });
+    return acc;
+  }, {});
+
+  function goMonth(next) {
+    setMonthDir(Math.sign(next.getFullYear() * 12 + next.getMonth() - (month.getFullYear() * 12 + month.getMonth())));
+    setMonth(next);
+  }
+
+  function goWeek(next) {
+    setWeekDir(Math.sign(next.localeCompare(weekStartDate)));
+    setWeekStartDate(next);
+  }
   const createLabel = canRequest ? "Solicitar" : "Agregar";
   const canCreateOn = (date) => canRequest ? date >= TODAY : isManager;
 
@@ -1780,23 +1838,24 @@ export default function LogisticaCalendarioScreen({ profile }) {
   }
 
   const ficha = [
-    { key: "solicitado", label: "Por coordinar", value: metrics.pending, onClick: () => showStatus("solicitado") },
-    { key: "fecha_propuesta", label: "Responde Técnica", value: metrics.proposals, onClick: () => showStatus("fecha_propuesta") },
-    metrics.accepted > 0 && { key: "fecha_aceptada", label: "Confirma Compras", value: metrics.accepted, onClick: () => showStatus("fecha_aceptada") },
-    { key: "semana", label: "Próximos 7 días", value: metrics.week, onClick: () => { setWeekStartDate(startOfWeek(TODAY)); setView("semana"); } },
-    metrics.urgent > 0 && { key: "urgente", label: "Urgentes", value: metrics.urgent, tone: "red" },
+    { key: "solicitado", label: "Por coordinar", value: metrics.pending, tone: C.blue, onClick: () => showStatus("solicitado") },
+    { key: "fecha_propuesta", label: "Responde Técnica", value: metrics.proposals, tone: C.violet, onClick: () => showStatus("fecha_propuesta") },
+    metrics.accepted > 0 && { key: "fecha_aceptada", label: "Confirma Compras", value: metrics.accepted, tone: C.cyan, onClick: () => showStatus("fecha_aceptada") },
+    { key: "semana", label: "Próximos 7 días", value: metrics.week, tone: C.green, onClick: () => { setWeekStartDate(startOfWeek(TODAY)); setWeekDir(0); setView("semana"); } },
+    metrics.urgent > 0 && { key: "urgente", label: "Urgentes", value: metrics.urgent, tone: C.red },
   ].filter(Boolean);
 
   return (
-    <div className="logistics-root" style={{ position: "absolute", inset: 0, display: "flex", background: C.bg, color: C.text, fontFamily: C.sans, overflow: "hidden" }}>
+    <div className={`logistics-root${idle ? " is-quieto" : ""}`} style={{ position: "absolute", inset: 0, display: "flex", background: C.bg, color: C.text, fontFamily: C.sans, overflow: "hidden" }}>
       <style>{LOG_CSS}</style>
       <main className="log-main">
-        <div className="log-workspace">
-          <header className="log-head">
+        <header className="log-hero">
+          <FondoOleaje className="log-hero-agua" horizonte={0.45} filas={20} alfa={0.4} pausaInactivo={20000} />
+          <div className="log-head">
             <div className="log-head-top">
-              <div style={{ minWidth: 0 }}>
+              <div className="log-head-textos">
                 <div className="az-rotulo">Movimientos y transportes</div>
-                <h1 className="az-titulo log-head-title">Logística</h1>
+                <h1 className="az-titulo log-head-title"><span className="log-grad">Logística</span></h1>
               </div>
               <div className="log-actions">
                 {(role === "admin" || role === "tecnica") && <button type="button" className="log-btn is-ghost log-hide-sm" onClick={() => window.location.assign("/calendario-produccion")} title="Abrir el calendario de producción anterior"><CalendarDays size={15} /><span>Producción anterior</span></button>}
@@ -1818,31 +1877,49 @@ export default function LogisticaCalendarioScreen({ profile }) {
               </div>
             </div>
             <div className="log-head-ficha">
-              <div className="az-ficha">
-                {ficha.map((item) => item.onClick ? (
-                  <button type="button" key={item.key} className="az-dato log-dato" onClick={item.onClick} title={`Ver ${item.label.toLowerCase()}`}>
-                    <div className="az-cifra">{item.value}</div>
-                    <div className="az-rotulo">{item.label}</div>
-                  </button>
-                ) : (
-                  <div key={item.key} className="az-dato log-dato">
-                    <div className="az-cifra" style={{ color: item.tone === "red" ? C.red : undefined }}>{item.value}</div>
-                    <div className="az-rotulo" style={{ color: item.tone === "red" ? C.red : undefined }}>{item.label}</div>
-                  </div>
-                ))}
+              <div className="az-ficha log-ficha">
+                {ficha.map((item, index) => {
+                  const Tag = item.onClick ? "button" : "div";
+                  return (
+                    <Tag
+                      type={item.onClick ? "button" : undefined}
+                      key={item.key}
+                      className={`az-dato log-dato${item.value ? " has-value" : ""}`}
+                      style={{ "--k": item.tone, animationDelay: `${120 + index * 70}ms` }}
+                      onClick={item.onClick}
+                      title={item.onClick ? `Ver ${item.label.toLowerCase()}` : undefined}
+                    >
+                      <div className="az-cifra"><AnimatedNumber value={item.value} duration={900} /></div>
+                      <div className="az-rotulo">{item.label}</div>
+                    </Tag>
+                  );
+                })}
               </div>
               <WeatherNote weather={weather} />
             </div>
-          </header>
+          </div>
+        </header>
+        <div className="log-workspace">
 
           <nav className="az-tabs log-tabs" aria-label="Vistas">
             {availableViews.map(({ id, label }) => <button type="button" key={id} className={`az-tab${view === id ? " is-active" : ""}`} aria-selected={view === id} onClick={() => setView(id)}>{label}</button>)}
           </nav>
 
           <section className="log-filters">
+            <div className="log-chips" role="group" aria-label="Transporte">
+              {Object.entries(TRANSPORTES).map(([key, item]) => {
+                const active = transport === key;
+                const count = transportCounts[key] || 0;
+                if (!count && !active) return null;
+                return (
+                  <button type="button" key={key} className={`log-chip${active ? " is-active" : ""}`} style={{ "--tc": item.color, "--ts": item.soft, "--tb": item.border }} aria-pressed={active} onClick={() => setTransport(active ? "todos" : key)}>
+                    <TransportIcon type={key} size={13} />{item.label}<b>{count}</b>
+                  </button>
+                );
+              })}
+            </div>
             <label className="az-buscar log-buscar"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar" aria-label="Buscar carga, obra, proveedor, recorrido o solicitante" /></label>
             <select className="log-select" value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Estado"><option value="todos">Todos los estados</option>{Object.entries(ESTADOS).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}</select>
-            <select className="log-select" value={transport} onChange={(event) => setTransport(event.target.value)} aria-label="Transporte"><option value="todos">Todo transporte</option>{Object.entries(TRANSPORTES).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}</select>
             <button type="button" className={`log-btn is-ghost${showAdvancedFilters || advancedFilterCount ? " is-on" : ""}`} onClick={() => setShowAdvancedFilters((open) => !open)}><SlidersHorizontal size={14} /> Más filtros{advancedFilterCount ? ` · ${advancedFilterCount}` : ""}</button>
             {hasAnyFilters && <button type="button" className="log-btn is-ghost is-danger" onClick={clearFilters}>Limpiar</button>}
             {showAdvancedFilters && (
@@ -1859,9 +1936,9 @@ export default function LogisticaCalendarioScreen({ profile }) {
           {error && <div className="log-error"><b>No se pudo abrir el calendario.</b><div style={{ marginTop: 4 }}>{error}</div></div>}
 
           {loading && !rows.length ? <Cargando texto="Trayendo movimientos…" /> : view === "calendario" ? (
-            <MonthView month={month} rows={filtered} milestones={milestones} weather={weather} holidays={holidays} mergeableIds={mergeableIds} onOpen={setSelected} onMonth={setMonth} onWeekOf={(date) => { setWeekStartDate(startOfWeek(date)); setView("semana"); }} canCreateOn={canCreateOn} createLabel={createLabel} onCreate={createOn} />
+            <MonthView month={month} rows={filtered} milestones={milestones} weather={weather} holidays={holidays} mergeableIds={mergeableIds} onOpen={setSelected} direction={monthDir} onMonth={goMonth} onWeekOf={(date) => { setWeekDir(0); setWeekStartDate(startOfWeek(date)); setView("semana"); }} canCreateOn={canCreateOn} createLabel={createLabel} onCreate={createOn} />
           ) : view === "semana" ? (
-            <WeekView weekStart={weekStartDate} rows={filtered} milestones={milestones} weather={weather} holidays={holidays} mergeableIds={mergeableIds} onOpen={setSelected} onWeek={setWeekStartDate} canCreateOn={canCreateOn} createLabel={createLabel} onCreate={createOn} />
+            <WeekView weekStart={weekStartDate} rows={filtered} milestones={milestones} weather={weather} holidays={holidays} mergeableIds={mergeableIds} onOpen={setSelected} direction={weekDir} onWeek={goWeek} canCreateOn={canCreateOn} createLabel={createLabel} onCreate={createOn} />
           ) : view === "costos" ? (
             <CostsView rows={filtered} />
           ) : view === "solicitudes" ? (
@@ -2083,5 +2160,102 @@ const LOG_CSS = `
   .logistics-root .log-cal-title{font-size:21px}
   .logistics-root .log-modal-backdrop{place-items:end stretch;padding:0}
   .logistics-root .log-modal-card{width:100%!important;max-height:92vh;border-radius:6px 6px 0 0;padding-bottom:env(safe-area-inset-bottom)}
+}
+
+/* ── Segunda pasada: color y movimiento ── */
+@keyframes logSlideFromRight{from{opacity:0;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes logSlideFromLeft{from{opacity:0;transform:translateX(-28px)}to{opacity:1;transform:none}}
+@keyframes logCellIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes logPop{from{opacity:0;transform:translateY(6px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes logRing{0%{box-shadow:0 0 0 0 var(--blue-border)}100%{box-shadow:0 0 0 12px transparent}}
+@keyframes logRain{0%{transform:translate3d(0,-20px,0) rotate(12deg);opacity:0}15%{opacity:.5}80%{opacity:.3}100%{transform:translate3d(-16px,150px,0) rotate(12deg);opacity:0}}
+@keyframes logGrad{from{background-position:0% 50%}to{background-position:100% 50%}}
+
+/* Portada con el agua de la marca */
+.logistics-root .log-main{padding:0 0 48px}
+.logistics-root .log-workspace{padding:22px 32px 0}
+.logistics-root .log-hero{position:relative;overflow:hidden;padding:0 32px 26px;border-bottom:1px solid var(--border);background:radial-gradient(900px 420px at 10% -30%,var(--glow-a),transparent 70%),radial-gradient(700px 380px at 95% 0%,var(--glow-b),transparent 70%)}
+.logistics-root .log-hero-agua{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;-webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 60%);mask-image:linear-gradient(180deg,transparent 0%,#000 60%);opacity:.85}
+.logistics-root .log-hero .log-head{position:relative;z-index:1;width:min(1480px,100%);margin:0 auto}
+.logistics-root .log-head-textos{min-width:0;animation:logFadeUp .55s var(--log-ease) both}
+.logistics-root .log-grad{background:var(--brand-grad);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:logGrad 2.4s var(--log-ease) both}
+.logistics-root .log-actions{animation:logFadeUp .55s .06s var(--log-ease) both}
+.logistics-root .log-btn.is-primary{background:var(--brand-grad);border-color:transparent;color:var(--inverse-text);box-shadow:0 8px 24px var(--blue-soft)}
+.logistics-root .log-btn.is-primary:hover:not(:disabled){background:var(--brand-grad);border-color:transparent;color:var(--inverse-text);opacity:1;transform:translateY(-1px);box-shadow:0 12px 30px var(--blue-border)}
+.logistics-root .log-btn.is-primary:active:not(:disabled){transform:translateY(0) scale(.98)}
+.logistics-root .log-btn{transition:color .2s ease,border-color .2s ease,background-color .2s ease,opacity .2s ease,transform .2s var(--log-ease),box-shadow .2s ease}
+.logistics-root .log-btn:not(.is-ghost):not(.is-primary){background:var(--topbar-soft);-webkit-backdrop-filter:var(--glass-filter);backdrop-filter:var(--glass-filter)}
+
+/* Números con su color */
+.logistics-root .log-dato{animation:logFadeUp .5s var(--log-ease) both}
+.logistics-root .log-dato .az-cifra{color:var(--dim);transition:transform .25s var(--log-ease),color .2s ease}
+.logistics-root .log-dato.has-value .az-cifra{color:var(--k)}
+.logistics-root .log-dato .az-rotulo{position:relative;padding-left:12px}
+.logistics-root .log-dato .az-rotulo::before{content:"";position:absolute;left:0;top:50%;width:6px;height:6px;margin-top:-3px;border-radius:50%;background:var(--k);opacity:.35}
+.logistics-root .log-dato.has-value .az-rotulo::before{opacity:1}
+.logistics-root button.log-dato:hover .az-cifra{color:var(--k);transform:translateY(-3px)}
+.logistics-root .log-clima{padding:8px 12px;border:1px solid var(--border);border-radius:3px;background:var(--topbar-soft);-webkit-backdrop-filter:var(--glass-filter);backdrop-filter:var(--glass-filter);animation:logFadeUp .55s .3s var(--log-ease) both}
+.logistics-root .log-clima>svg{color:var(--cyan)}
+
+/* Pestañas con subrayado de la marca que crece */
+.logistics-root .log-tabs .az-tab::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--brand-grad);transform:scaleX(0);transform-origin:left;transition:transform .4s var(--log-ease)}
+.logistics-root .log-tabs .az-tab.is-active::after{height:2px;background:var(--brand-grad);transform:scaleX(1)}
+
+/* Transportes como fichas de color (también filtran) */
+.logistics-root .log-chips{flex-basis:100%;display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:2px 0}
+.logistics-root .log-chips::-webkit-scrollbar{display:none}
+.logistics-root .log-chip{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px;flex-shrink:0;border:1px solid var(--border);border-radius:99px;background:transparent;color:var(--muted);font:inherit;font-size:12.5px;font-weight:500;cursor:pointer;transition:background-color .2s ease,border-color .2s ease,color .2s ease,transform .2s var(--log-ease)}
+.logistics-root .log-chip svg{color:var(--tc)}
+.logistics-root .log-chip b{color:var(--dim);font-weight:400;font-variant-numeric:tabular-nums}
+.logistics-root .log-chip:hover{border-color:var(--tb);color:var(--text);transform:translateY(-1px)}
+.logistics-root .log-chip.is-active{background:var(--ts);border-color:var(--tb);color:var(--tc)}
+.logistics-root .log-chip.is-active b{color:var(--tc)}
+
+/* El mes y la semana entran deslizándose hacia donde fuiste */
+.logistics-root .log-slide.from-right{animation:logSlideFromRight .45s var(--log-ease) both}
+.logistics-root .log-slide.from-left{animation:logSlideFromLeft .45s var(--log-ease) both}
+.logistics-root .log-slide .log-day{animation:logCellIn .45s var(--log-ease) both;animation-delay:calc(var(--i,0) * 12ms)}
+.logistics-root .log-wd.is-weekend{color:var(--violet)}
+.logistics-root .log-day>*:not(.log-rain){position:relative;z-index:1}
+.logistics-root .log-day.is-today{background:radial-gradient(circle at 18% 0%,var(--blue-soft),transparent 75%);box-shadow:inset 0 2px 0 var(--blue)}
+.logistics-root .log-day.is-today .log-num{background:var(--brand-grad);color:var(--inverse-text);animation:logRing 1.4s .5s ease-out 2}
+.logistics-root .log-day.can-add:hover{background:var(--panel-2)}
+.logistics-root .log-day.is-today.can-add:hover{background:radial-gradient(circle at 18% 0%,var(--blue-soft),var(--panel-2) 75%)}
+.logistics-root .log-day.is-holiday{background:linear-gradient(160deg,var(--red-soft),transparent 55%)}
+.logistics-root .log-add{transform:translateY(5px);transition:opacity .25s ease,transform .3s var(--log-ease),color .2s ease,border-color .2s ease,background-color .2s ease}
+.logistics-root .log-day:hover .log-add,.logistics-root .log-add:focus-visible{transform:none}
+.logistics-root .log-add:hover{background:var(--blue-soft);border-color:var(--blue-border);color:var(--blue)}
+
+/* Movimientos: color del transporte, punto del estado */
+.logistics-root .log-ev{border-left:3px solid var(--tc,var(--border-2));background:var(--ts,var(--panel-2));animation:logPop .4s var(--log-ease) both;animation-delay:var(--d,0ms);transition:background-color .2s ease,transform .2s var(--log-ease),box-shadow .2s ease}
+.logistics-root .log-ev:hover{background:var(--ts,var(--panel-2));transform:translateY(-1px);box-shadow:0 8px 20px var(--shadow)}
+.logistics-root .log-ev-time{display:inline-flex;align-items:center;gap:5px;color:var(--tc,var(--muted));font-weight:500}
+.logistics-root .log-ev-dot{display:inline-block;width:6px;height:6px;flex-shrink:0;border-radius:50%;background:var(--st,currentColor)}
+.logistics-root .log-ev-state{display:inline-flex;align-items:center;gap:5px}
+.logistics-root .log-ev-state .log-ev-dot{background:currentColor}
+.logistics-root .log-ev.is-cancel{opacity:.55}
+.logistics-root .log-ev.is-cancel .log-ev-title{text-decoration:line-through}
+.logistics-root .log-wcol.is-today{background:linear-gradient(180deg,var(--blue-soft),transparent 45%)}
+.logistics-root .log-wcol.is-today .log-wcol-head{border-bottom-color:var(--blue-border)}
+.logistics-root .log-wcol.is-today .log-wcol-num{background:var(--brand-grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.logistics-root .log-wcol.is-today .log-wcol-wd{color:var(--blue)}
+
+/* Lluvia en los días con más de 40 %: se pausa cuando nadie usa la PC */
+.logistics-root .log-rain{position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none;opacity:.6}
+.logistics-root .log-rain i{position:absolute;top:-18px;width:1px;height:14px;border-radius:99px;background:linear-gradient(to bottom,transparent,var(--cyan));transform:rotate(12deg);animation:logRain 1.5s linear infinite}
+.logistics-root.is-quieto .log-rain i,.logistics-root.is-quieto .log-grad{animation-play-state:paused}
+
+/* Agenda: ícono del transporte en color */
+.logistics-root .log-row-icon{width:30px;height:30px;flex-shrink:0;display:grid;place-items:center;border:1px solid var(--tb,var(--border));border-radius:3px;background:var(--ts,var(--panel));color:var(--tc,var(--muted));transition:transform .25s var(--log-ease)}
+.logistics-root button.log-row:hover .log-row-icon{transform:scale(1.08) rotate(-4deg)}
+.logistics-root .log-row{transition:background-color .2s ease,border-color .2s ease,transform .25s var(--log-ease),box-shadow .25s ease}
+.logistics-root button.log-row:hover{transform:translateX(3px);box-shadow:0 10px 26px var(--shadow)}
+.logistics-root .log-row-time{color:var(--text)}
+.logistics-root .log-day-group-date.is-today{background:var(--brand-grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+
+@media(max-width:920px){
+  .logistics-root .log-hero{padding:0 14px 20px}
+  .logistics-root .log-workspace{padding:16px 14px 0}
+  .logistics-root .log-clima{width:100%}
 }
 `;
