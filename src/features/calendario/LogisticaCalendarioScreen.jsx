@@ -38,6 +38,7 @@ import {
 } from "lucide-react";
 import { useResponsive } from "@/hooks/useResponsive";
 import { useToast } from "@/components/ui/Toast";
+import Cargando from "@/components/ui/Cargando";
 import { C } from "@/theme";
 import { supabase } from "@/supabaseClient";
 import { cargarFeriadosAnio } from "@/features/rrhh/feriados";
@@ -186,6 +187,13 @@ function fmtDate(value, long = false) {
     : { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 
+function fechaTitulo(value) {
+  const date = parseDate(value);
+  if (!date) return "Elegí la fecha";
+  const text = date.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" }).replace(",", "");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 function fmtMoney(value, currency = "ARS") {
   if (value == null || value === "") return "Sin cargar";
   return new Intl.NumberFormat("es-AR", { style: "currency", currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Number(value));
@@ -309,8 +317,8 @@ function sameTripCandidates(rows, draft, excludeId = null) {
 function StatusBadge({ status }) {
   const ui = statusUi(status);
   return (
-    <span className="log-status" style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 25, padding: "0 9px", borderRadius: 999, background: ui.soft, border: `1px solid ${ui.border}`, color: ui.color, fontSize: 10.5, fontWeight: 700, whiteSpace: "nowrap" }}>
-      <span className={!["realizado", "cancelado"].includes(status) ? "log-status-dot is-live" : "log-status-dot"} style={{ width: 6, height: 6, borderRadius: 99, background: ui.color }} />
+    <span className="log-state" style={{ color: ui.color }}>
+      <i />
       {ui.label}
     </span>
   );
@@ -343,111 +351,85 @@ function Kpi({ label, value, hint, tone = "blue", icon: Icon }) {
   );
 }
 
-function MiniMetric({ label, value, tone = "blue", icon: Icon }) {
-  const color = C[tone] || C.blue;
-  return (
-    <span className="log-metric" style={{ display: "inline-flex", alignItems: "center", gap: 7, height: 31, padding: "0 10px", borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, whiteSpace: "nowrap" }}>
-      <span style={{ color, display: "inline-flex" }}>{createElement(Icon, { size: 13 })}</span>
-      <b style={{ color: C.text, fontFamily: C.mono, fontSize: 12 }}>{value}</b>
-      <span style={{ fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>{label}</span>
-    </span>
-  );
-}
-
-function RainVeil({ probability = 0, compact = false }) {
-  const drops = Number(probability) >= 70 ? 8 : 5;
-  return (
-    <span className={`log-rain-veil${compact ? " is-compact" : ""}`} aria-hidden="true">
-      {Array.from({ length: drops }, (_, index) => (
-        <i
-          className="log-rain-drop"
-          key={index}
-          style={{
-            left: `${8 + ((index * 23) % 88)}%`,
-            animationDelay: `-${(index * .29).toFixed(2)}s`,
-            animationDuration: `${1.25 + (index % 3) * .24}s`,
-          }}
-        />
-      ))}
-    </span>
-  );
-}
-
-function WeatherStrip({ weather }) {
+function WeatherNote({ weather }) {
   const today = weather[TODAY];
   if (!today) return null;
-  const risky = Number(today.wind) >= 30;
+  const windy = Number(today.wind) >= 30;
   const raining = Number(today.rain) >= 40;
   return (
-    <span className={`log-weather${raining ? " is-raining" : ""}`} title={`${weatherLabel(today.code)} · lluvia ${today.rain ?? 0}%`} style={{ position: "relative", overflow: "hidden", display: "inline-flex", alignItems: "center", gap: 7, height: 31, padding: "0 10px", borderRadius: 9, border: `1px solid ${risky ? C.redB : C.cyanB}`, background: risky ? C.redL : C.cyanL, color: risky ? C.red : C.cyan, whiteSpace: "nowrap" }}>
-      {raining && <RainVeil compact probability={today.rain} />}
-      {raining ? <CloudRain size={14} /> : <CloudSun size={14} />}
-      <b style={{ fontFamily: C.mono, fontSize: 11.5 }}>{Math.round(today.max)}° / {Math.round(today.min)}°</b>
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10.5, fontWeight: 700 }}><Wind size={12} /> {Math.round(today.wind)} km/h</span>
-      <span style={{ color: C.dim, fontSize: 9.5 }}>San Fernando</span>
+    <span className="log-clima" title={`${weatherLabel(today.code)} · lluvia ${today.rain ?? 0}%`}>
+      {raining ? <CloudRain size={15} /> : <CloudSun size={15} />}
+      <b>{Math.round(today.max)}° / {Math.round(today.min)}°</b>
+      <span className={windy ? "is-wind" : ""}><Wind size={13} /> {Math.round(today.wind)} km/h</span>
+      <span className="log-clima-lugar">San Fernando</span>
     </span>
   );
 }
 
 function LegacyEventCard({ row, compact = false }) {
   return (
-    <div className="log-enter" style={{ width: "100%", padding: compact ? "9px 11px" : "11px 14px", display: "grid", gridTemplateColumns: compact ? "minmax(0,1fr)" : "76px minmax(0,1fr) auto", gap: 12, alignItems: "center", background: C.panel, border: `1px solid ${C.border}`, borderLeft: `3px solid ${C.violet}`, borderRadius: 11 }}>
-      {!compact && <span style={{ textAlign: "center", paddingRight: 12, borderRight: `1px solid ${C.border}` }}><b style={{ display: "block", color: C.text, fontFamily: C.mono, fontSize: 15 }}>{cleanTime(row.hora) || "—"}</b><small style={{ color: C.dim, fontSize: 9.5 }}>{fmtDate(row.fecha)}</small></span>}
-      <span style={{ minWidth: 0 }}><b style={{ display: "block", color: C.text, fontSize: 12.5 }}>{row.titulo}</b><span style={{ display: "block", color: C.dim, fontSize: 10.5, marginTop: 4 }}>{row.obra ? `${row.obra} · ` : ""}{row.notas || "Movimiento registrado en el calendario anterior"}</span></span>
-      <span style={{ color: C.violet, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", whiteSpace: "nowrap" }}>Registro anterior</span>
+    <div className={`log-row is-old${compact ? " is-compact" : ""}`}>
+      {!compact && <span className="log-row-time">{cleanTime(row.hora) || "—"}</span>}
+      <span style={{ minWidth: 0 }}>
+        <span className="log-row-title">{row.titulo}</span>
+        <span className="log-row-meta"><span>{row.obra ? `${row.obra} · ` : ""}{row.notas || "Movimiento registrado en el calendario anterior"}</span></span>
+      </span>
+      <span className="log-row-side"><span className="az-rotulo">Registro anterior</span></span>
     </div>
   );
 }
 
 function MovementCard({ row, onOpen, compact = false, index = 0, mergeHint = false }) {
-  const ui = transportUi(transportsOf(row)[0]?.tipo);
+  const type = transportsOf(row)[0]?.tipo;
+  const ui = transportUi(type);
+  const state = statusUi(row.estado);
   const shared = row.viaje_grupo_id;
   const separated = row.union_estado === "rechazada";
   return (
-    <button type="button" className="log-card log-enter" onClick={() => onOpen(row)} style={{ animationDelay: `${Math.min(index, 8) * 35}ms`, minHeight: compact ? 92 : 104, width: "100%", textAlign: "left", padding: compact ? "13px" : "15px 16px", display: "grid", gridTemplateColumns: compact ? "minmax(0,1fr)" : "88px minmax(0,1fr) auto", gap: compact ? 10 : 16, alignItems: "center", background: `radial-gradient(circle at 2% 50%, ${ui.soft}, transparent 30%), ${C.panelSolid}`, border: `1px solid ${C.border}`, borderLeft: `4px solid ${ui.color}`, borderRadius: 15, color: C.text, cursor: "pointer", fontFamily: C.sans }}>
+    <button type="button" className={`log-row log-enter${compact ? " is-compact" : ""}`} onClick={() => onOpen(row)} style={{ "--ev": state.color, animationDelay: `${Math.min(index, 8) * 35}ms` }}>
       {!compact && (
-        <span style={{ minHeight: 68, display: "grid", placeItems: "center", alignContent: "center", textAlign: "center", padding: "8px 10px", borderRadius: 11, border: `1px solid ${ui.border}`, background: ui.soft }}>
-          <span style={{ display: "block", color: ui.color, fontFamily: C.mono, fontSize: 19, lineHeight: 1, fontWeight: 750 }}>{displayTime(row) || "—"}</span>
-          <span style={{ display: "block", color: C.muted, fontSize: 9.8, marginTop: 6, fontWeight: 650 }}>{fmtDate(displayDate(row))}</span>
+        <span>
+          <span className="log-row-time">{displayTime(row) || "—"}</span>
+          <span className="log-row-date">{fmtDate(displayDate(row))}</span>
         </span>
       )}
       <span style={{ minWidth: 0 }}>
-        <span style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ width: 30, height: 30, flexShrink: 0, borderRadius: 9, display: "grid", placeItems: "center", color: ui.color, background: ui.soft, border: `1px solid ${ui.border}` }}><TransportIcon type={transportsOf(row)[0]?.tipo} size={15} /></span>
-          <span style={{ color: C.text, fontSize: compact ? 14.5 : 15.5, lineHeight: 1.2, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>{movementHeadline(row)}</span>
-          {row.prioridad === "urgente" && <span style={{ color: C.red, fontSize: 9.5, fontWeight: 750, textTransform: "uppercase" }}>Urgente</span>}
-          {row.origen_manual && <span style={{ padding: "3px 6px", borderRadius: 6, color: C.orange, background: "var(--orange-soft)", border: "1px solid var(--orange-border)", fontSize: 8.8, fontWeight: 750, textTransform: "uppercase" }}>Manual</span>}
+        <span className="log-row-title">
+          {row.carga || row.titulo || "Movimiento"}
+          {row.prioridad === "urgente" && <em className="log-flag is-red">Urgente</em>}
+          {row.origen_manual && <em className="log-flag">Manual</em>}
         </span>
-        <span style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 9, minWidth: 0, flexWrap: "wrap" }}>
-          <span style={{ padding: "4px 8px", borderRadius: 7, color: row.obra ? C.blue : C.dim, background: row.obra ? C.blueL : C.panel2, border: `1px solid ${row.obra ? C.blueB : C.border}`, fontFamily: C.mono, fontSize: 10.2, fontWeight: 750, letterSpacing: ".015em" }}>{workLabel(row)}</span>
-          <span style={{ color: C.muted, fontSize: 10.5, display: "inline-flex", alignItems: "center", gap: 4 }}><UserRound size={11} /> {actorName(row.solicitante)}</span>
-          <span style={{ color: C.muted, fontSize: 10.5, display: "inline-flex", alignItems: "center", gap: 4 }}><Truck size={11} /> {providerSummary(row)}</span>
-          <span style={{ color: C.dim, fontSize: 10.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 4 }}><Route size={11} /> {routeLabel(row)}</span>
+        <span className="log-row-meta">
+          <span className="log-row-obra">{workLabel(row)}</span>
+          <span style={{ color: ui.color }}><TransportIcon type={type} size={12} /> {transportSummary(row)}</span>
+          <span><Truck size={12} /> {providerSummary(row)}</span>
+          <span><UserRound size={12} /> {actorName(row.solicitante)}</span>
+          <span className="log-row-ruta"><Route size={12} /> {routeLabel(row)}</span>
         </span>
-        {compact && <span style={{ display: "block", color: C.dim, fontSize: 10.5, marginTop: 8 }}>{fmtDate(displayDate(row), true)} · {displayTime(row) || "Sin hora"}</span>}
+        {compact && <span className="log-row-meta"><span>{fmtDate(displayDate(row), true)} · {displayTime(row) || "Sin hora"}</span></span>}
       </span>
-      <span style={{ display: "grid", justifyItems: "end", gap: 7 }}>
+      <span className="log-row-side">
         <StatusBadge status={row.estado} />
-        {shared ? <span style={{ color: C.green, fontSize: 9.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}><Merge size={12} /> Viaje unido</span> : mergeHint ? <span style={{ color: C.violet, fontSize: 9.5, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}><Merge size={12} /> Posible unión</span> : separated ? <span style={{ color: C.dim, fontSize: 9.5, fontWeight: 700 }}>Flete separado</span> : null}
-        <ChevronRight size={17} color={C.dim} />
+        {shared ? <span className="log-row-note" style={{ color: C.green }}><Merge size={12} /> Viaje unido</span> : mergeHint ? <span className="log-row-note" style={{ color: C.violet }}><Merge size={12} /> Posible unión</span> : separated ? <span className="log-row-note">Flete separado</span> : null}
       </span>
     </button>
   );
 }
 
-const FIELD = { width: "100%", minHeight: 39, borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel, color: C.text, padding: "8px 10px", outline: "none", fontFamily: C.sans, fontSize: 13 };
-const LABEL = { display: "block", color: C.dim, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".12em", marginBottom: 5 };
+const FIELD = { width: "100%", minHeight: 40, borderRadius: 3, border: `1px solid ${C.border2}`, background: "transparent", color: C.text, padding: "8px 10px", outline: "none", fontFamily: C.sans, fontSize: 13.5 };
+const LABEL = { display: "block", color: C.dim, fontSize: 10.5, fontWeight: 500, textTransform: "uppercase", letterSpacing: ".18em", marginBottom: 7 };
 
-function ModalShell({ title, subtitle, onClose, children, width = 720 }) {
+function ModalShell({ eyebrow, title, subtitle, onClose, children, width = 720 }) {
   return (
-    <div className="log-modal-backdrop" onMouseDown={onClose} style={{ position: "fixed", inset: 0, zIndex: 12000, background: "var(--overlay-strong)", display: "grid", placeItems: "center", padding: 12 }}>
-      <div className="log-modal-card" onMouseDown={(event) => event.stopPropagation()} style={{ width, maxWidth: "100%", maxHeight: "94vh", overflow: "hidden", display: "flex", flexDirection: "column", background: C.panelSolid, border: `1px solid ${C.border2}`, borderRadius: 18, boxShadow: "0 24px 80px var(--shadow-strong)" }}>
-        <div style={{ padding: "15px 17px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <div>
-            <div style={{ color: C.text, fontSize: 15, fontWeight: 750 }}>{title}</div>
-            {subtitle && <div style={{ color: C.dim, fontSize: 11.5, marginTop: 3 }}>{subtitle}</div>}
+    <div className="log-modal-backdrop" onMouseDown={onClose}>
+      <div className="log-modal-card" onMouseDown={(event) => event.stopPropagation()} style={{ width }}>
+        <div className="log-modal-head">
+          <div style={{ minWidth: 0 }}>
+            {eyebrow && <div className="az-rotulo">{eyebrow}</div>}
+            <div className="log-modal-title">{title}</div>
+            {subtitle && <div className="log-modal-sub">{subtitle}</div>}
           </div>
-          <button type="button" onClick={onClose} aria-label="Cerrar" style={{ width: 32, height: 32, borderRadius: 9, display: "grid", placeItems: "center", color: C.dim, background: C.panel, border: `1px solid ${C.border}`, cursor: "pointer" }}><X size={16} /></button>
+          <button type="button" className="log-btn is-icon is-ghost" onClick={onClose} aria-label="Cerrar"><X size={17} /></button>
         </div>
         {children}
       </div>
@@ -459,7 +441,7 @@ function emptyStop(type, lugar = "") {
   return { tipo: type, lugar, direccion: "", recibe: "", telefono: "" };
 }
 
-function requestInitial(row) {
+function requestInitial(row, initialDate = "") {
   const onsite = row?.modalidad === "trabajo_en_sitio";
   const stops = Array.isArray(row?.paradas) && row.paradas.length >= (onsite ? 1 : 2)
     ? row.paradas
@@ -470,7 +452,7 @@ function requestInitial(row) {
     transportes: transportsOf(row?.id ? row : { tipo_transporte: "flete" }).map((item) => ({ ...item, proveedor: item.proveedor || "" })),
     obra: row?.obra || "",
     carga: row?.carga || row?.titulo || "",
-    fechaSolicitada: row?.fecha_solicitada || TODAY,
+    fechaSolicitada: row?.fecha_solicitada || initialDate || TODAY,
     horaSolicitada: cleanTime(row?.hora_solicitada) || "08:00",
     paradas: stops,
     observaciones: row?.notas || "",
@@ -482,9 +464,9 @@ function requestInitial(row) {
   };
 }
 
-function RequestModal({ row, rows, obras, profile, onClose, onSaved }) {
+function RequestModal({ row, rows, obras, profile, initialDate = "", onClose, onSaved }) {
   const toast = useToast();
-  const [form, setForm] = useState(() => requestInitial(row));
+  const [form, setForm] = useState(() => requestInitial(row, initialDate));
   const [saving, setSaving] = useState(false);
   const set = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
   const urgentByTime = dateDiffHours(form.fechaSolicitada, form.horaSolicitada) < 48;
@@ -555,7 +537,7 @@ function RequestModal({ row, rows, obras, profile, onClose, onSaved }) {
   }
 
   return (
-    <ModalShell title={row ? "Editar solicitud" : "Solicitar movimiento"} subtitle="Compras coordinará el transporte y confirmará el horario." onClose={onClose} width={820}>
+    <ModalShell eyebrow={row ? "Editar solicitud" : "Solicitar movimiento"} title={fechaTitulo(form.fechaSolicitada)} subtitle="Compras coordina el transporte y confirma el horario." onClose={onClose} width={820}>
       <div style={{ padding: 18, overflowY: "auto", display: "grid", gap: 18 }}>
         <section>
           <label style={LABEL}>Plantillas rápidas</label>
@@ -563,7 +545,7 @@ function RequestModal({ row, rows, obras, profile, onClose, onSaved }) {
             {PLANTILLAS.map((template) => {
               const active = form.plantillaCodigo === template.codigo;
               return (
-                <button key={template.codigo} type="button" onClick={() => applyTemplate(template)} style={{ padding: "10px 11px", borderRadius: 10, textAlign: "left", background: active ? C.blueL : C.panel, border: `1px solid ${active ? C.blueB : C.border}`, color: active ? C.blue : C.text, cursor: "pointer", fontFamily: C.sans }}>
+                <button key={template.codigo} type="button" onClick={() => applyTemplate(template)} style={{ padding: "10px 11px", borderRadius: 3, textAlign: "left", background: active ? C.blueL : C.panel, border: `1px solid ${active ? C.blueB : C.border}`, color: active ? C.blue : C.text, cursor: "pointer", fontFamily: C.sans }}>
                   <b style={{ display: "block", fontSize: 12.5 }}>{template.nombre}</b>
                   <span style={{ display: "block", color: C.dim, fontSize: 10.5, marginTop: 4, lineHeight: 1.3 }}>{template.detalle}</span>
                 </button>
@@ -573,8 +555,8 @@ function RequestModal({ row, rows, obras, profile, onClose, onSaved }) {
         </section>
 
         <section className="log-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
-          <button type="button" onClick={() => setMode("traslado")} style={{ padding: 10, borderRadius: 10, border: `1px solid ${form.modalidad === "traslado" ? C.blueB : C.border}`, background: form.modalidad === "traslado" ? C.blueL : C.panel, color: form.modalidad === "traslado" ? C.blue : C.dim, cursor: "pointer", fontWeight: 700 }}><Route size={15} /> Traslado entre lugares</button>
-          <button type="button" onClick={() => setMode("trabajo_en_sitio")} style={{ padding: 10, borderRadius: 10, border: `1px solid ${form.modalidad === "trabajo_en_sitio" ? C.violetB : C.border}`, background: form.modalidad === "trabajo_en_sitio" ? C.violetL : C.panel, color: form.modalidad === "trabajo_en_sitio" ? C.violet : C.dim, cursor: "pointer", fontWeight: 700 }}><MapPin size={15} /> Trabajo en un solo lugar</button>
+          <button type="button" onClick={() => setMode("traslado")} style={{ padding: 10, borderRadius: 3, border: `1px solid ${form.modalidad === "traslado" ? C.blueB : C.border}`, background: form.modalidad === "traslado" ? C.blueL : C.panel, color: form.modalidad === "traslado" ? C.blue : C.dim, cursor: "pointer", fontWeight: 600 }}><Route size={15} /> Traslado entre lugares</button>
+          <button type="button" onClick={() => setMode("trabajo_en_sitio")} style={{ padding: 10, borderRadius: 3, border: `1px solid ${form.modalidad === "trabajo_en_sitio" ? C.violetB : C.border}`, background: form.modalidad === "trabajo_en_sitio" ? C.violetL : C.panel, color: form.modalidad === "trabajo_en_sitio" ? C.violet : C.dim, cursor: "pointer", fontWeight: 600 }}><MapPin size={15} /> Trabajo en un solo lugar</button>
         </section>
 
         <section>
@@ -584,12 +566,12 @@ function RequestModal({ row, rows, obras, profile, onClose, onSaved }) {
               const quantity = Number(form.transportes.find((resource) => resource.tipo === key)?.cantidad) || 0;
               const active = quantity > 0;
               return (
-                <div key={key} style={{ minHeight: 74, padding: 8, borderRadius: 10, background: active ? item.soft : C.panel, border: `1px solid ${active ? item.border : C.border}`, color: active ? item.color : C.dim, fontFamily: C.sans }}>
+                <div key={key} style={{ minHeight: 74, padding: 8, borderRadius: 3, background: active ? item.soft : C.panel, border: `1px solid ${active ? item.border : C.border}`, color: active ? item.color : C.dim, fontFamily: C.sans }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, fontSize: 11.5, fontWeight: active ? 700 : 600 }}><Truck size={15} />{item.label}</div>
                   <div style={{ display: "grid", gridTemplateColumns: "24px 1fr 24px", gap: 4, alignItems: "center", marginTop: 9 }}>
-                    <button type="button" onClick={() => changeTransport(key, -1)} disabled={!active} style={{ width: 24, height: 24, borderRadius: 7, border: `1px solid ${active ? item.border : C.border}`, background: C.panelSolid, color: active ? item.color : C.dim, cursor: active ? "pointer" : "default" }}>−</button>
+                    <button type="button" onClick={() => changeTransport(key, -1)} disabled={!active} style={{ width: 24, height: 24, borderRadius: 3, border: `1px solid ${active ? item.border : C.border}`, background: C.panelSolid, color: active ? item.color : C.dim, cursor: active ? "pointer" : "default" }}>−</button>
                     <b style={{ textAlign: "center", fontFamily: C.mono, fontSize: 13 }}>{quantity}</b>
-                    <button type="button" onClick={() => changeTransport(key, 1)} style={{ width: 24, height: 24, borderRadius: 7, border: `1px solid ${item.border}`, background: C.panelSolid, color: item.color, cursor: "pointer" }}>+</button>
+                    <button type="button" onClick={() => changeTransport(key, 1)} style={{ width: 24, height: 24, borderRadius: 3, border: `1px solid ${item.border}`, background: C.panelSolid, color: item.color, cursor: "pointer" }}>+</button>
                   </div>
                 </div>
               );
@@ -600,28 +582,28 @@ function RequestModal({ row, rows, obras, profile, onClose, onSaved }) {
         <section className="log-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div>
             <label style={LABEL}>Obra / sector</label>
-            <input style={FIELD} list="logistica-obras" value={form.obra} onChange={(event) => set("obra", event.target.value)} placeholder="Ej. K55-2 o Taller" />
+            <input style={FIELD} list="logistica-obras" value={form.obra} onChange={(event) => set("obra", event.target.value)} />
             <datalist id="logistica-obras">{obras.map((obra) => <option key={obra.id} value={obra.codigo} />)}</datalist>
           </div>
           <div>
             <label style={LABEL}>{form.modalidad === "trabajo_en_sitio" ? "¿Qué trabajo se realiza? *" : "¿Qué se traslada? *"}</label>
-            <input style={FIELD} value={form.carga} onChange={(event) => set("carga", event.target.value)} placeholder={form.modalidad === "trabajo_en_sitio" ? "Izaje de motor, trabajo con grúa..." : "Techo, motor, cubierta, piezas..."} autoFocus />
+            <input style={FIELD} value={form.carga} onChange={(event) => set("carga", event.target.value)} autoFocus />
           </div>
         </section>
 
         <section>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
             <label style={{ ...LABEL, marginBottom: 0 }}>{form.modalidad === "trabajo_en_sitio" ? "Lugar del trabajo" : "Recorrido"}</label>
-            {form.modalidad === "traslado" && <button type="button" onClick={addStop} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${C.border}`, background: C.panel, color: C.blue, borderRadius: 8, padding: "6px 9px", cursor: "pointer", fontSize: 11.5, fontWeight: 700 }}><Plus size={13} /> Agregar parada</button>}
+            {form.modalidad === "traslado" && <button type="button" onClick={addStop} style={{ display: "inline-flex", alignItems: "center", gap: 5, border: `1px solid ${C.border}`, background: C.panel, color: C.blue, borderRadius: 3, padding: "6px 9px", cursor: "pointer", fontSize: 11.5, fontWeight: 600 }}><Plus size={13} /> Agregar parada</button>}
           </div>
           <div style={{ display: "grid", gap: 8 }}>
             {form.paradas.map((stop, index) => (
-              <div key={index} className="log-stop" style={{ display: "grid", gridTemplateColumns: "82px 1fr 1.35fr .85fr 34px", gap: 7, alignItems: "center", padding: 9, border: `1px solid ${C.border}`, borderRadius: 11, background: C.panel }}>
-                <span style={{ color: form.modalidad === "trabajo_en_sitio" ? C.violet : index === 0 ? C.green : index === form.paradas.length - 1 ? C.blue : C.violet, fontSize: 10, fontWeight: 750, textTransform: "uppercase" }}>{form.modalidad === "trabajo_en_sitio" ? "Lugar" : index === 0 ? "Origen" : index === form.paradas.length - 1 ? "Destino" : `Parada ${index}`}</span>
+              <div key={index} className="log-stop" style={{ display: "grid", gridTemplateColumns: "82px 1fr 1.35fr .85fr 34px", gap: 7, alignItems: "center", padding: 9, border: `1px solid ${C.border}`, borderRadius: 3, background: C.panel }}>
+                <span style={{ color: form.modalidad === "trabajo_en_sitio" ? C.violet : index === 0 ? C.green : index === form.paradas.length - 1 ? C.blue : C.violet, fontSize: 10, fontWeight: 600, textTransform: "uppercase" }}>{form.modalidad === "trabajo_en_sitio" ? "Lugar" : index === 0 ? "Origen" : index === form.paradas.length - 1 ? "Destino" : `Parada ${index}`}</span>
                 <input style={{ ...FIELD, minHeight: 35 }} value={stop.lugar} onChange={(event) => updateStop(index, "lugar", event.target.value)} placeholder="Lugar" />
                 <input style={{ ...FIELD, minHeight: 35 }} value={stop.direccion} onChange={(event) => updateStop(index, "direccion", event.target.value)} placeholder="Dirección" />
                 <input style={{ ...FIELD, minHeight: 35 }} value={stop.recibe} onChange={(event) => updateStop(index, "recibe", event.target.value)} placeholder="Quién recibe" />
-                <button type="button" disabled={form.paradas.length <= minStops} onClick={() => set("paradas", form.paradas.filter((_, idx) => idx !== index))} style={{ width: 32, height: 32, borderRadius: 8, display: "grid", placeItems: "center", border: `1px solid ${C.border}`, background: "transparent", color: form.paradas.length <= minStops ? C.dim : C.red, cursor: form.paradas.length <= minStops ? "default" : "pointer", opacity: form.paradas.length <= minStops ? .35 : 1 }}><X size={14} /></button>
+                <button type="button" disabled={form.paradas.length <= minStops} onClick={() => set("paradas", form.paradas.filter((_, idx) => idx !== index))} style={{ width: 32, height: 32, borderRadius: 3, display: "grid", placeItems: "center", border: `1px solid ${C.border}`, background: "transparent", color: form.paradas.length <= minStops ? C.dim : C.red, cursor: form.paradas.length <= minStops ? "default" : "pointer", opacity: form.paradas.length <= minStops ? .35 : 1 }}><X size={14} /></button>
               </div>
             ))}
           </div>
@@ -639,23 +621,23 @@ function RequestModal({ row, rows, obras, profile, onClose, onSaved }) {
         </section>
 
         {urgentByTime && (
-          <div style={{ display: "flex", gap: 9, padding: "10px 12px", borderRadius: 10, background: C.redL, border: `1px solid ${C.redB}`, color: C.red }}>
+          <div style={{ display: "flex", gap: 9, padding: "10px 12px", borderRadius: 3, background: C.redL, border: `1px solid ${C.redB}`, color: C.red }}>
             <AlertTriangle size={17} style={{ flexShrink: 0 }} />
             <div style={{ fontSize: 12, lineHeight: 1.4 }}><b>Solicitud con menos de 48 horas.</b> Se enviará igual, marcada como urgente para que Compras pueda priorizarla.</div>
           </div>
         )}
 
         {suggestions.length > 0 && (
-          <section style={{ padding: 12, borderRadius: 12, background: C.violetL, border: `1px solid ${C.violetB}` }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.violet, fontSize: 12, fontWeight: 750 }}><Merge size={15} /> Viajes que quizá se pueden aprovechar</div>
+          <section style={{ padding: 12, borderRadius: 3, background: C.violetL, border: `1px solid ${C.violetB}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.violet, fontSize: 12, fontWeight: 600 }}><Merge size={15} /> Viajes que quizá se pueden aprovechar</div>
             <div style={{ color: C.dim, fontSize: 10.5, marginTop: 4 }}>Podés sugerir la unión. Compras revisará espacio y recorrido antes de aprobarla.</div>
             <div style={{ display: "grid", gap: 6, marginTop: 9 }}>
               {suggestions.map((candidate) => {
                 const selected = form.viajeSugeridoId === candidate.id;
                 return (
-                  <button key={candidate.id} type="button" onClick={() => set("viajeSugeridoId", selected ? "" : candidate.id)} style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", textAlign: "left", padding: "8px 10px", borderRadius: 9, background: selected ? C.panelSolid : "transparent", border: `1px solid ${selected ? C.violet : C.violetB}`, color: C.text, cursor: "pointer" }}>
+                  <button key={candidate.id} type="button" onClick={() => set("viajeSugeridoId", selected ? "" : candidate.id)} style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", textAlign: "left", padding: "8px 10px", borderRadius: 3, background: selected ? C.panelSolid : "transparent", border: `1px solid ${selected ? C.violet : C.violetB}`, color: C.text, cursor: "pointer" }}>
                     <span style={{ minWidth: 0 }}><b style={{ fontSize: 12 }}>{movementHeadline(candidate)}</b><span style={{ display: "block", color: C.dim, fontSize: 10.5, marginTop: 3 }}>{fmtDate(displayDate(candidate))} · {candidate.obra || "Sin obra"} · {routeLabel(candidate)}</span></span>
-                    <span style={{ color: C.violet, fontSize: 10.5, fontWeight: 700, whiteSpace: "nowrap" }}>{selected ? "Seleccionado" : "Sugerir unión"}</span>
+                    <span style={{ color: C.violet, fontSize: 10.5, fontWeight: 600, whiteSpace: "nowrap" }}>{selected ? "Seleccionado" : "Sugerir unión"}</span>
                   </button>
                 );
               })}
@@ -665,18 +647,18 @@ function RequestModal({ row, rows, obras, profile, onClose, onSaved }) {
 
         <section>
           <label style={LABEL}>Observaciones</label>
-          <textarea style={{ ...FIELD, minHeight: 72, resize: "vertical" }} value={form.observaciones} onChange={(event) => set("observaciones", event.target.value)} placeholder="Medidas, cuidados de carga, teléfono, restricciones de horario..." />
+          <textarea style={{ ...FIELD, minHeight: 72, resize: "vertical" }} value={form.observaciones} onChange={(event) => set("observaciones", event.target.value)} />
         </section>
       </div>
-      <div style={{ padding: "12px 17px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end", gap: 8 }}>
-        <button type="button" onClick={onClose} style={{ padding: "9px 14px", borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontWeight: 650 }}>Cancelar</button>
-        <button type="button" disabled={!valid || saving} onClick={save} style={{ padding: "9px 16px", borderRadius: 9, border: `1px solid ${valid ? C.blueB : C.border}`, background: valid ? C.blueL : C.panel, color: valid ? C.blue : C.dim, opacity: saving ? .65 : 1, cursor: valid && !saving ? "pointer" : "default", fontWeight: 750, display: "inline-flex", alignItems: "center", gap: 7 }}><Send size={14} /> {saving ? "Guardando..." : row ? "Guardar cambios" : "Enviar solicitud"}</button>
+      <div className="log-modal-foot">
+        <button type="button" className="log-btn is-ghost" onClick={onClose}>Cancelar</button>
+        <button type="button" className="log-btn is-primary" disabled={!valid || saving} onClick={save}><Send size={14} /> {saving ? "Guardando…" : row ? "Guardar cambios" : "Enviar solicitud"}</button>
       </div>
     </ModalShell>
   );
 }
 
-function ManualMovementModal({ obras, profile, onClose, onSaved }) {
+function ManualMovementModal({ obras, profile, initialDate = "", onClose, onSaved }) {
   const toast = useToast();
   const manualFilesRef = useRef(null);
   const [saving, setSaving] = useState(false);
@@ -687,7 +669,7 @@ function ManualMovementModal({ obras, profile, onClose, onSaved }) {
     proveedor: "",
     carga: "",
     obras: [],
-    fecha: TODAY,
+    fecha: initialDate || TODAY,
     hora: "09:00",
     modalidad: "traslado",
     paradas: [emptyStop("origen"), emptyStop("destino")],
@@ -770,14 +752,14 @@ function ManualMovementModal({ obras, profile, onClose, onSaved }) {
   }
 
   return (
-    <ModalShell title="Agregar movimiento manual" subtitle="Para movimientos coordinados directamente por Compras: motomensajería, retiros, trámites o fletes." onClose={onClose} width={760}>
+    <ModalShell eyebrow="Movimiento manual" title={fechaTitulo(form.fecha)} subtitle="Coordinado directamente por Compras: motomensajería, retiros, trámites o fletes." onClose={onClose} width={760}>
       <div style={{ padding: 18, display: "grid", gap: 14, overflowY: "auto" }}>
         <section className="log-two" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
           <div><label style={LABEL}>Tipo de transporte</label><select value={form.tipoTransporte} onChange={(event) => set("tipoTransporte", event.target.value)} style={{ ...FIELD, color: type.color }}>{Object.entries(TRANSPORTES).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}</select></div>
-          <div><label style={LABEL}>Proveedor / responsable</label><input value={form.proveedor} onChange={(event) => set("proveedor", event.target.value)} list="manual-proveedores-logistica" style={FIELD} placeholder="Ej. mensajería, Hugo, Dani..." /><datalist id="manual-proveedores-logistica">{type.proveedores.map((provider) => <option key={provider} value={provider} />)}</datalist></div>
+          <div><label style={LABEL}>Proveedor / responsable</label><input value={form.proveedor} onChange={(event) => set("proveedor", event.target.value)} list="manual-proveedores-logistica" style={FIELD} /><datalist id="manual-proveedores-logistica">{type.proveedores.map((provider) => <option key={provider} value={provider} />)}</datalist></div>
         </section>
         <section className="log-two" style={{ display: "grid", gridTemplateColumns: "1.3fr .7fr", gap: 10 }}>
-          <div><label style={LABEL}>Título / qué se realiza *</label><input autoFocus value={form.carga} onChange={(event) => set("carga", event.target.value)} style={FIELD} placeholder="Retirar documentación, llevar repuestos..." /></div>
+          <div><label style={LABEL}>Título / qué se realiza *</label><input autoFocus value={form.carga} onChange={(event) => set("carga", event.target.value)} style={FIELD} /></div>
           <div>
             <label style={LABEL}>Obras / sector</label>
             <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 6 }}>
@@ -792,9 +774,8 @@ function ManualMovementModal({ obras, profile, onClose, onSaved }) {
                 }}
                 list="manual-obras-logistica"
                 style={FIELD}
-                placeholder={form.obras.length ? "Agregar otra obra..." : "K85-3, Compras..."}
               />
-              <button type="button" onClick={() => addObra()} style={{ minWidth: 38, borderRadius: 9, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", display: "grid", placeItems: "center" }} title="Agregar obra">
+              <button type="button" onClick={() => addObra()} style={{ minWidth: 38, borderRadius: 3, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", display: "grid", placeItems: "center" }} title="Agregar obra">
                 <Plus size={14} />
               </button>
             </div>
@@ -802,7 +783,7 @@ function ManualMovementModal({ obras, profile, onClose, onSaved }) {
             {form.obras.length > 0 && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 7 }}>
                 {form.obras.map((obra) => (
-                  <span key={obra} style={{ display: "inline-flex", alignItems: "center", gap: 5, maxWidth: "100%", padding: "4px 7px", borderRadius: 999, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, fontFamily: C.mono, fontSize: 10.5, fontWeight: 700 }}>
+                  <span key={obra} style={{ display: "inline-flex", alignItems: "center", gap: 5, maxWidth: "100%", padding: "4px 7px", borderRadius: 999, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, fontFamily: C.mono, fontSize: 10.5, fontWeight: 600 }}>
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{obra}</span>
                     <button type="button" onClick={() => removeObra(obra)} aria-label={`Quitar ${obra}`} style={{ border: 0, background: "transparent", color: C.blue, padding: 0, cursor: "pointer", display: "inline-flex" }}><X size={11} /></button>
                   </span>
@@ -817,25 +798,25 @@ function ManualMovementModal({ obras, profile, onClose, onSaved }) {
         </section>
         <section>
           <label style={LABEL}>Modalidad</label>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}><button onClick={() => setMode("traslado")} style={{ padding: 9, borderRadius: 9, border: `1px solid ${form.modalidad === "traslado" ? C.blueB : C.border}`, background: form.modalidad === "traslado" ? C.blueL : C.panel, color: form.modalidad === "traslado" ? C.blue : C.dim, cursor: "pointer", fontWeight: 700 }}><Route size={14} /> Traslado</button><button onClick={() => setMode("trabajo_en_sitio")} style={{ padding: 9, borderRadius: 9, border: `1px solid ${form.modalidad === "trabajo_en_sitio" ? C.violetB : C.border}`, background: form.modalidad === "trabajo_en_sitio" ? C.violetL : C.panel, color: form.modalidad === "trabajo_en_sitio" ? C.violet : C.dim, cursor: "pointer", fontWeight: 700 }}><MapPin size={14} /> Un solo lugar</button></div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}><button onClick={() => setMode("traslado")} style={{ padding: 9, borderRadius: 3, border: `1px solid ${form.modalidad === "traslado" ? C.blueB : C.border}`, background: form.modalidad === "traslado" ? C.blueL : C.panel, color: form.modalidad === "traslado" ? C.blue : C.dim, cursor: "pointer", fontWeight: 600 }}><Route size={14} /> Traslado</button><button onClick={() => setMode("trabajo_en_sitio")} style={{ padding: 9, borderRadius: 3, border: `1px solid ${form.modalidad === "trabajo_en_sitio" ? C.violetB : C.border}`, background: form.modalidad === "trabajo_en_sitio" ? C.violetL : C.panel, color: form.modalidad === "trabajo_en_sitio" ? C.violet : C.dim, cursor: "pointer", fontWeight: 600 }}><MapPin size={14} /> Un solo lugar</button></div>
         </section>
         <section>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8 }}>
             <label style={{ ...LABEL, marginBottom: 0 }}>{form.modalidad === "trabajo_en_sitio" ? "Lugar" : "Recorrido"}</label>
             {form.modalidad === "traslado" && (
-              <button type="button" onClick={addDestination} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 8, padding: "6px 9px", cursor: "pointer", fontSize: 11.5, fontWeight: 700 }}>
+              <button type="button" onClick={addDestination} style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, borderRadius: 3, padding: "6px 9px", cursor: "pointer", fontSize: 11.5, fontWeight: 600 }}>
                 <Plus size={13} /> Agregar destino
               </button>
             )}
           </div>
           <div style={{ display: "grid", gap: 8 }}>
             {form.paradas.map((stop, index) => (
-              <div key={`${stop.tipo}-${index}`} className="log-stop log-manual-stop" style={{ display: "grid", gridTemplateColumns: form.modalidad === "trabajo_en_sitio" ? "112px minmax(0,1fr) minmax(0,1.1fr)" : "92px minmax(0,1fr) minmax(0,1.1fr) 34px", gap: 7, alignItems: "center", padding: 9, border: `1px solid ${C.border}`, borderRadius: 11, background: C.panel }}>
-                <span style={{ color: form.modalidad === "trabajo_en_sitio" ? C.violet : index === 0 ? C.green : C.blue, fontSize: 10, fontWeight: 750, textTransform: "uppercase", lineHeight: 1.2 }}>{stopLabel(index)}</span>
-                <input value={stop.lugar} onChange={(event) => setStop(index, "lugar", event.target.value)} style={{ ...FIELD, minHeight: 35 }} placeholder={form.modalidad === "trabajo_en_sitio" ? "Galpón / lugar" : index === 0 ? "Desde dónde" : "Hacia dónde"} />
-                <input value={stop.direccion} onChange={(event) => setStop(index, "direccion", event.target.value)} style={{ ...FIELD, minHeight: 35 }} placeholder="Dirección / referencia" />
+              <div key={`${stop.tipo}-${index}`} className="log-stop log-manual-stop" style={{ display: "grid", gridTemplateColumns: form.modalidad === "trabajo_en_sitio" ? "112px minmax(0,1fr) minmax(0,1.1fr)" : "92px minmax(0,1fr) minmax(0,1.1fr) 34px", gap: 7, alignItems: "center", padding: 9, border: `1px solid ${C.border}`, borderRadius: 3, background: C.panel }}>
+                <span style={{ color: form.modalidad === "trabajo_en_sitio" ? C.violet : index === 0 ? C.green : C.blue, fontSize: 10, fontWeight: 600, textTransform: "uppercase", lineHeight: 1.2 }}>{stopLabel(index)}</span>
+                <input value={stop.lugar} onChange={(event) => setStop(index, "lugar", event.target.value)} style={{ ...FIELD, minHeight: 35 }} placeholder="Lugar" />
+                <input value={stop.direccion} onChange={(event) => setStop(index, "direccion", event.target.value)} style={{ ...FIELD, minHeight: 35 }} placeholder="Dirección" />
                 {form.modalidad === "traslado" && (
-                  <button type="button" disabled={form.paradas.length <= requiredStops} onClick={() => removeStop(index)} title="Quitar parada" style={{ width: 32, height: 32, borderRadius: 8, display: "grid", placeItems: "center", border: `1px solid ${C.border}`, background: "transparent", color: form.paradas.length <= requiredStops ? C.dim : C.red, cursor: form.paradas.length <= requiredStops ? "default" : "pointer", opacity: form.paradas.length <= requiredStops ? .35 : 1 }}>
+                  <button type="button" disabled={form.paradas.length <= requiredStops} onClick={() => removeStop(index)} title="Quitar parada" style={{ width: 32, height: 32, borderRadius: 3, display: "grid", placeItems: "center", border: `1px solid ${C.border}`, background: "transparent", color: form.paradas.length <= requiredStops ? C.dim : C.red, cursor: form.paradas.length <= requiredStops ? "default" : "pointer", opacity: form.paradas.length <= requiredStops ? .35 : 1 }}>
                     <X size={14} />
                   </button>
                 )}
@@ -844,17 +825,17 @@ function ManualMovementModal({ obras, profile, onClose, onSaved }) {
           </div>
         </section>
         <section className="log-two" style={{ display: "grid", gridTemplateColumns: "1fr 90px", gap: 10 }}>
-          <div><label style={LABEL}>Costo</label><input type="number" min="0" step="0.01" value={form.costo} onChange={(event) => set("costo", event.target.value)} style={FIELD} placeholder="Importe opcional" /></div>
+          <div><label style={LABEL}>Costo</label><input type="number" min="0" step="0.01" value={form.costo} onChange={(event) => set("costo", event.target.value)} style={FIELD} /></div>
           <div><label style={LABEL}>Moneda</label><select value={form.moneda} onChange={(event) => set("moneda", event.target.value)} style={FIELD}><option>ARS</option><option>USD</option></select></div>
         </section>
-        <section style={{ padding: 11, borderRadius: 11, border: `1px solid ${C.border}`, background: C.panel }}>
+        <section style={{ padding: 11, borderRadius: 3, border: `1px solid ${C.border}`, background: C.panel }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8 }}>
             <label style={{ ...LABEL, marginBottom: 0 }}>Archivos adjuntos</label>
             <span style={{ color: C.dim, fontSize: 9.5 }}>PDF, DXF, fotos, OT ? hasta 50 MB</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "120px minmax(0,1fr)", gap: 7 }}>
             <select value={manualFileCategory} onChange={(event) => setManualFileCategory(event.target.value)} style={{ ...FIELD, height: 35 }}>{Object.entries(ARCHIVO_CATEGORIAS).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}</select>
-            <button type="button" onClick={() => manualFilesRef.current?.click()} style={{ minHeight: 35, borderRadius: 9, border: `1px dashed ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+            <button type="button" onClick={() => manualFilesRef.current?.click()} style={{ minHeight: 35, borderRadius: 3, border: `1px dashed ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", fontWeight: 600, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
               <Paperclip size={14} /> {manualFiles.length ? `${manualFiles.length} archivo${manualFiles.length === 1 ? "" : "s"} seleccionado${manualFiles.length === 1 ? "" : "s"}` : "Adjuntar archivos"}
             </button>
             <input ref={manualFilesRef} type="file" multiple onChange={(event) => { setSelectedFiles(event.target.files); event.target.value = ""; }} style={{ display: "none" }} />
@@ -862,7 +843,7 @@ function ManualMovementModal({ obras, profile, onClose, onSaved }) {
           {manualFiles.length > 0 && (
             <div style={{ display: "grid", gap: 5, marginTop: 8 }}>
               {manualFiles.map((file, index) => (
-                <div key={`${file.name}-${file.size}-${index}`} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.panelSolid }}>
+                <div key={`${file.name}-${file.size}-${index}`} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 3, border: `1px solid ${C.border}`, background: C.panelSolid }}>
                   <span style={{ minWidth: 0, color: C.text, fontSize: 11.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name} <small style={{ color: C.dim }}>{fmtFileSize(file.size)}</small></span>
                   <button type="button" onClick={() => setManualFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))} style={{ border: 0, background: "transparent", color: C.red, cursor: "pointer", display: "inline-flex" }} title="Quitar archivo"><X size={13} /></button>
                 </div>
@@ -870,10 +851,10 @@ function ManualMovementModal({ obras, profile, onClose, onSaved }) {
             </div>
           )}
         </section>
-        <div><label style={LABEL}>Detalle de costo / comprobante</label><input value={form.costoDetalle} onChange={(event) => set("costoDetalle", event.target.value)} style={FIELD} placeholder="Factura, referencia, forma de pago..." /></div>
-        <div><label style={LABEL}>Observaciones</label><textarea value={form.observaciones} onChange={(event) => set("observaciones", event.target.value)} style={{ ...FIELD, minHeight: 68, resize: "vertical" }} placeholder="Indicaciones, contacto, documentación a retirar..." /></div>
+        <div><label style={LABEL}>Detalle de costo / comprobante</label><input value={form.costoDetalle} onChange={(event) => set("costoDetalle", event.target.value)} style={FIELD} /></div>
+        <div><label style={LABEL}>Observaciones</label><textarea value={form.observaciones} onChange={(event) => set("observaciones", event.target.value)} style={{ ...FIELD, minHeight: 68, resize: "vertical" }} /></div>
       </div>
-      <div style={{ padding: "12px 17px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end", gap: 8 }}><button onClick={onClose} style={{ padding: "9px 14px", borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontWeight: 700 }}>Cancelar</button><button disabled={!valid || saving} onClick={save} style={{ padding: "9px 15px", borderRadius: 9, border: `1px solid ${valid ? type.border : C.border}`, background: valid ? type.soft : C.panel, color: valid ? type.color : C.dim, cursor: valid && !saving ? "pointer" : "default", opacity: saving ? .6 : 1, fontWeight: 750 }}><Plus size={14} /> {saving ? "Guardando..." : "Agregar al calendario"}</button></div>
+      <div className="log-modal-foot"><button type="button" className="log-btn is-ghost" onClick={onClose}>Cancelar</button><button type="button" className="log-btn is-primary" disabled={!valid || saving} onClick={save}><Plus size={14} /> {saving ? "Guardando…" : "Agregar al calendario"}</button></div>
     </ModalShell>
   );
 }
@@ -913,7 +894,7 @@ function CoordinationModal({ row, mode, profile, onClose, onSaved }) {
   }
 
   return (
-    <ModalShell title={mode === "confirm" ? "Confirmar movimiento" : "Proponer otra fecha"} subtitle={`${row.carga} · solicitado por ${actorName(row.solicitante)}`} onClose={onClose} width={520}>
+    <ModalShell eyebrow={mode === "confirm" ? "Confirmar movimiento" : "Proponer otra fecha"} title={row.carga || "Movimiento"} subtitle={`Solicitado por ${actorName(row.solicitante)}`} onClose={onClose} width={520}>
       <div style={{ padding: 18, display: "grid", gap: 14, overflowY: "auto" }}>
         <div>
           <label style={LABEL}>Proveedores por transporte *</label>
@@ -921,10 +902,10 @@ function CoordinationModal({ row, mode, profile, onClose, onSaved }) {
             {resources.map((resource, index) => {
               const type = transportUi(resource.tipo);
               return (
-                <div key={`${resource.tipo}-${index}`} style={{ display: "grid", gridTemplateColumns: "150px minmax(0,1fr)", gap: 8, alignItems: "center", padding: 9, borderRadius: 10, border: `1px solid ${type.border}`, background: type.soft }}>
+                <div key={`${resource.tipo}-${index}`} style={{ display: "grid", gridTemplateColumns: "150px minmax(0,1fr)", gap: 8, alignItems: "center", padding: 9, borderRadius: 3, border: `1px solid ${type.border}`, background: type.soft }}>
                   <b style={{ color: type.color, fontSize: 12 }}>{resource.cantidad} × {type.label}</b>
                   <div>
-                    <input style={FIELD} list={`providers-${resource.tipo}-${index}`} value={resource.proveedor || ""} onChange={(event) => setProvider(index, event.target.value)} placeholder="Seleccionar o escribir proveedor" />
+                    <input style={FIELD} list={`providers-${resource.tipo}-${index}`} value={resource.proveedor || ""} onChange={(event) => setProvider(index, event.target.value)} placeholder="Proveedor" />
                     <datalist id={`providers-${resource.tipo}-${index}`}>{type.proveedores.map((name) => <option key={name} value={name} />)}</datalist>
                   </div>
                 </div>
@@ -936,12 +917,12 @@ function CoordinationModal({ row, mode, profile, onClose, onSaved }) {
           <div><label style={LABEL}>{mode === "confirm" ? "Fecha confirmada" : "Fecha propuesta"}</label><input type="date" style={FIELD} value={date} onChange={(event) => setDate(event.target.value)} /></div>
           <div><label style={LABEL}>Hora</label><input type="time" style={FIELD} value={time} onChange={(event) => setTime(event.target.value)} /></div>
         </div>
-        {mode === "propose" && <div style={{ padding: "9px 11px", borderRadius: 9, border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, fontSize: 11.5 }}>El solicitante deberá aceptar esta fecha. Después, Compras realizará la confirmación final del movimiento.</div>}
-        <div><label style={LABEL}>Mensaje</label><textarea style={{ ...FIELD, minHeight: 68, resize: "vertical" }} value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Disponibilidad, condiciones o aclaraciones..." /></div>
+        {mode === "propose" && <div style={{ padding: "9px 11px", borderRadius: 3, border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, fontSize: 11.5 }}>El solicitante deberá aceptar esta fecha. Después, Compras realizará la confirmación final del movimiento.</div>}
+        <div><label style={LABEL}>Mensaje</label><textarea style={{ ...FIELD, minHeight: 68, resize: "vertical" }} value={message} onChange={(event) => setMessage(event.target.value)} /></div>
       </div>
-      <div style={{ padding: "12px 17px", borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end", gap: 8 }}>
-        <button onClick={onClose} style={{ padding: "9px 14px", borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontWeight: 650 }}>Cancelar</button>
-        <button disabled={!valid || saving} onClick={save} style={{ padding: "9px 15px", borderRadius: 9, border: `1px solid ${mode === "confirm" ? C.greenB : C.violetB}`, background: mode === "confirm" ? C.greenL : C.violetL, color: mode === "confirm" ? C.green : C.violet, cursor: valid ? "pointer" : "default", opacity: valid ? 1 : .45, fontWeight: 750 }}>{saving ? "Guardando..." : mode === "confirm" ? "Confirmar" : "Enviar propuesta"}</button>
+      <div className="log-modal-foot">
+        <button type="button" className="log-btn is-ghost" onClick={onClose}>Cancelar</button>
+        <button type="button" className="log-btn is-primary" disabled={!valid || saving} onClick={save}>{saving ? "Guardando…" : mode === "confirm" ? "Confirmar" : "Enviar propuesta"}</button>
       </div>
     </ModalShell>
   );
@@ -1062,44 +1043,44 @@ function DetailPanel({ row, rows, profile, isManager, onClose, onReload, onEdit,
     <div className="log-detail-backdrop" onMouseDown={onClose} style={{ position: "fixed", inset: 0, zIndex: 11000, background: "var(--overlay)", display: "flex", justifyContent: "flex-end", padding: 8 }}>
       <aside onMouseDown={(event) => event.stopPropagation()} className="log-detail log-detail-sheet" style={{ width: 520, maxWidth: "100%", height: "100%", overflowY: "auto", background: C.panelSolid, border: `1px solid ${C.border2}`, borderRadius: 18, boxShadow: "-20px 0 70px var(--shadow-strong)", color: C.text }}>
         <div className="log-detail-header" style={{ position: "sticky", top: 0, zIndex: 2, padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", background: C.topbar, backdropFilter: "blur(18px)", borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ display: "flex", gap: 9, alignItems: "center" }}><button onClick={onClose} style={{ width: 31, height: 31, display: "grid", placeItems: "center", borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, cursor: "pointer" }}><ArrowRight size={16} /></button><div><div style={{ fontSize: 13.5, fontWeight: 750 }}>Detalle del movimiento</div><div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>Registro #{String(row.id).slice(0, 8)}</div></div></div>
+          <div style={{ display: "flex", gap: 9, alignItems: "center" }}><button onClick={onClose} style={{ width: 31, height: 31, display: "grid", placeItems: "center", borderRadius: 3, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, cursor: "pointer" }}><ArrowRight size={16} /></button><div><div style={{ fontSize: 13.5, fontWeight: 600 }}>Detalle del movimiento</div><div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>Registro #{String(row.id).slice(0, 8)}</div></div></div>
           <StatusBadge status={row.estado} />
         </div>
 
         <div style={{ padding: 18, display: "grid", gap: 18 }}>
-          <section className="log-detail-hero" style={{ padding: 15, margin: "-2px -2px 0", borderRadius: 14, border: `1px solid ${C.border}`, background: `radial-gradient(circle at 100% 0%, ${transportUi(transportsOf(row)[0]?.tipo).soft}, transparent 48%), ${C.panel}` }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 7px", borderRadius: 7, color: transportUi(transportsOf(row)[0]?.tipo).color, background: transportUi(transportsOf(row)[0]?.tipo).soft, border: `1px solid ${transportUi(transportsOf(row)[0]?.tipo).border}`, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em" }}><TransportIcon type={transportsOf(row)[0]?.tipo} size={11} /> {row.modalidad === "trabajo_en_sitio" ? "Trabajo en sitio" : "Traslado"}</span>
-            {row.origen_manual && <span style={{ display: "inline-flex", marginLeft: 6, padding: "4px 7px", borderRadius: 7, color: C.orange, background: "var(--orange-soft)", border: "1px solid var(--orange-border)", fontSize: 9.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em" }}>Carga manual</span>}
-            <h2 style={{ margin: "9px 0 0", color: C.text, fontSize: 22, lineHeight: 1.2 }}>{movementHeadline(row)}</h2>
+          <section className="log-detail-hero" style={{ padding: 15, margin: "-2px -2px 0", borderRadius: 3, border: `1px solid ${C.border}`, background: `radial-gradient(circle at 100% 0%, ${transportUi(transportsOf(row)[0]?.tipo).soft}, transparent 48%), ${C.panel}` }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 7px", borderRadius: 3, color: transportUi(transportsOf(row)[0]?.tipo).color, background: transportUi(transportsOf(row)[0]?.tipo).soft, border: `1px solid ${transportUi(transportsOf(row)[0]?.tipo).border}`, fontSize: 9.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".08em" }}><TransportIcon type={transportsOf(row)[0]?.tipo} size={11} /> {row.modalidad === "trabajo_en_sitio" ? "Trabajo en sitio" : "Traslado"}</span>
+            {row.origen_manual && <span style={{ display: "inline-flex", marginLeft: 6, padding: "4px 7px", borderRadius: 3, color: C.orange, background: "var(--orange-soft)", border: "1px solid var(--orange-border)", fontSize: 9.5, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".08em" }}>Carga manual</span>}
+            <h2 style={{ margin: "10px 0 0", color: C.text, fontSize: 24, fontWeight: 300, lineHeight: 1.2 }}>{movementHeadline(row)}</h2>
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginTop: 10, color: C.dim, fontSize: 11.5 }}>
-              {row.obra && <span style={{ color: C.blue, fontFamily: C.mono, fontWeight: 700 }}>{row.obra}</span>}
+              {row.obra && <span style={{ color: C.blue, fontFamily: C.mono, fontWeight: 600 }}>{row.obra}</span>}
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><UserRound size={13} /> Pedido por {actorName(row.solicitante)}</span>
-              {row.prioridad === "urgente" && <span style={{ color: C.red, fontWeight: 750 }}>Urgente</span>}
+              {row.prioridad === "urgente" && <span style={{ color: C.red, fontWeight: 600 }}>Urgente</span>}
             </div>
           </section>
 
           {row.estado === "fecha_propuesta" && own && (
-            <section style={{ padding: 13, borderRadius: 12, background: C.violetL, border: `1px solid ${C.violetB}` }}>
-              <div style={{ color: C.violet, fontSize: 12.5, fontWeight: 750 }}>Compras propuso {fmtDate(row.fecha_propuesta, true)} a las {cleanTime(row.hora_propuesta)}</div>
+            <section style={{ padding: 13, borderRadius: 3, background: C.violetL, border: `1px solid ${C.violetB}` }}>
+              <div style={{ color: C.violet, fontSize: 12.5, fontWeight: 600 }}>Compras propuso {fmtDate(row.fecha_propuesta, true)} a las {cleanTime(row.hora_propuesta)}</div>
               {row.propuesta_mensaje && <div style={{ color: C.muted, fontSize: 11.5, marginTop: 6 }}>{row.propuesta_mensaje}</div>}
               <div style={{ display: "flex", gap: 7, marginTop: 11 }}>
-                <button disabled={saving} onClick={() => action(() => responderFechaMovimiento(row, true, profile), "Fecha aceptada. Compras debe realizar la confirmación final.")} style={{ flex: 1, padding: 9, borderRadius: 9, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 750 }}><Check size={14} /> Aceptar fecha</button>
-                <button disabled={saving} onClick={() => action(() => responderFechaMovimiento(row, false, profile), "Propuesta rechazada. Compras fue avisado.")} style={{ flex: 1, padding: 9, borderRadius: 9, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, cursor: "pointer", fontWeight: 750 }}><X size={14} /> Rechazar</button>
+                <button disabled={saving} onClick={() => action(() => responderFechaMovimiento(row, true, profile), "Fecha aceptada. Compras debe realizar la confirmación final.")} style={{ flex: 1, padding: 9, borderRadius: 3, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 600 }}><Check size={14} /> Aceptar fecha</button>
+                <button disabled={saving} onClick={() => action(() => responderFechaMovimiento(row, false, profile), "Propuesta rechazada. Compras fue avisado.")} style={{ flex: 1, padding: 9, borderRadius: 3, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, cursor: "pointer", fontWeight: 600 }}><X size={14} /> Rechazar</button>
               </div>
             </section>
           )}
 
           {row.estado === "fecha_aceptada" && (
-            <section style={{ padding: 13, borderRadius: 12, background: C.cyanL, border: `1px solid ${C.cyanB}` }}>
-              <div style={{ color: C.cyan, fontSize: 12.5, fontWeight: 750 }}>Fecha aceptada por Técnica</div>
+            <section style={{ padding: 13, borderRadius: 3, background: C.cyanL, border: `1px solid ${C.cyanB}` }}>
+              <div style={{ color: C.cyan, fontSize: 12.5, fontWeight: 600 }}>Fecha aceptada por Técnica</div>
               <div style={{ color: C.muted, fontSize: 11.5, marginTop: 5 }}>{fmtDate(row.fecha_propuesta, true)} a las {cleanTime(row.hora_propuesta) || "sin hora"}. Falta la confirmación definitiva de Compras.</div>
-              {isManager && <button disabled={saving} onClick={() => action(() => confirmarFechaAceptadaMovimiento(row, profile), "Movimiento confirmado definitivamente.")} style={{ width: "100%", marginTop: 11, padding: 10, borderRadius: 9, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 750 }}><CheckCircle2 size={15} /> Confirmar movimiento</button>}
+              {isManager && <button disabled={saving} onClick={() => action(() => confirmarFechaAceptadaMovimiento(row, profile), "Movimiento confirmado definitivamente.")} style={{ width: "100%", marginTop: 11, padding: 10, borderRadius: 3, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 600 }}><CheckCircle2 size={15} /> Confirmar movimiento</button>}
             </section>
           )}
 
           <section style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            <div style={{ padding: 11, borderRadius: 10, background: C.panel, border: `1px solid ${C.border}` }}><span style={LABEL}>Fecha solicitada</span><b style={{ color: C.text, fontFamily: C.mono, fontSize: 13 }}>{fmtDate(row.fecha_solicitada)} · {cleanTime(row.hora_solicitada) || "Sin hora"}</b></div>
-            <div style={{ padding: 11, borderRadius: 10, background: C.panel, border: `1px solid ${C.border}` }}><span style={LABEL}>{row.estado === "fecha_propuesta" ? "Fecha propuesta" : row.estado === "fecha_aceptada" ? "Aceptada · falta Compras" : "Fecha confirmada"}</span><b style={{ color: row.estado === "fecha_aceptada" ? C.cyan : row.fecha_confirmada ? C.green : row.fecha_propuesta ? C.violet : C.dim, fontFamily: C.mono, fontSize: 13 }}>{row.fecha_confirmada || row.fecha_propuesta ? `${fmtDate(row.fecha_confirmada || row.fecha_propuesta)} · ${cleanTime(row.hora_confirmada || row.hora_propuesta) || "Sin hora"}` : "Pendiente"}</b></div>
+            <div style={{ padding: 11, borderRadius: 3, background: C.panel, border: `1px solid ${C.border}` }}><span style={LABEL}>Fecha solicitada</span><b style={{ color: C.text, fontFamily: C.mono, fontSize: 13 }}>{fmtDate(row.fecha_solicitada)} · {cleanTime(row.hora_solicitada) || "Sin hora"}</b></div>
+            <div style={{ padding: 11, borderRadius: 3, background: C.panel, border: `1px solid ${C.border}` }}><span style={LABEL}>{row.estado === "fecha_propuesta" ? "Fecha propuesta" : row.estado === "fecha_aceptada" ? "Aceptada · falta Compras" : "Fecha confirmada"}</span><b style={{ color: row.estado === "fecha_aceptada" ? C.cyan : row.fecha_confirmada ? C.green : row.fecha_propuesta ? C.violet : C.dim, fontFamily: C.mono, fontSize: 13 }}>{row.fecha_confirmada || row.fecha_propuesta ? `${fmtDate(row.fecha_confirmada || row.fecha_propuesta)} · ${cleanTime(row.hora_confirmada || row.hora_propuesta) || "Sin hora"}` : "Pendiente"}</b></div>
           </section>
 
           <section>
@@ -1108,18 +1089,18 @@ function DetailPanel({ row, rows, profile, isManager, onClose, onReload, onEdit,
               {(row.paradas || []).map((stop, index) => (
                 <div key={index} style={{ position: "relative", display: "grid", gridTemplateColumns: "26px minmax(0,1fr)", gap: 9, paddingBottom: index < row.paradas.length - 1 ? 15 : 0 }}>
                   {index < row.paradas.length - 1 && <span style={{ position: "absolute", left: 12, top: 22, bottom: 0, width: 1, background: C.border2 }} />}
-                  <span style={{ width: 25, height: 25, borderRadius: 8, display: "grid", placeItems: "center", color: index === 0 ? C.green : index === row.paradas.length - 1 ? C.blue : C.violet, background: C.panel, border: `1px solid ${C.border}` }}><MapPin size={13} /></span>
+                  <span style={{ width: 25, height: 25, borderRadius: 3, display: "grid", placeItems: "center", color: index === 0 ? C.green : index === row.paradas.length - 1 ? C.blue : C.violet, background: C.panel, border: `1px solid ${C.border}` }}><MapPin size={13} /></span>
                   <span style={{ minWidth: 0 }}><b style={{ color: C.text, fontSize: 12.5 }}>{stop.lugar || stop.direccion || `Parada ${index + 1}`}</b>{stop.direccion && stop.lugar && <span style={{ display: "block", color: C.dim, fontSize: 11, marginTop: 2 }}>{stop.direccion}</span>}{stop.recibe && <span style={{ display: "block", color: C.muted, fontSize: 10.5, marginTop: 3 }}>Recibe: {stop.recibe}{stop.telefono ? ` · ${stop.telefono}` : ""}</span>}</span>
                 </div>
               ))}
             </div>
           </section>
 
-          {row.notas && <section><span style={LABEL}>Observaciones</span><div style={{ padding: 11, borderRadius: 10, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, fontSize: 12, lineHeight: 1.5 }}>{row.notas}</div></section>}
+          {row.notas && <section><span style={LABEL}>Observaciones</span><div style={{ padding: 11, borderRadius: 3, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, fontSize: 12, lineHeight: 1.5 }}>{row.notas}</div></section>}
 
-          <section style={{ padding: 13, borderRadius: 12, background: C.panel, border: `1px solid ${C.border}` }}>
+          <section style={{ padding: 13, borderRadius: 3, background: C.panel, border: `1px solid ${C.border}` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: attachments.length ? 10 : 0 }}>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 7, color: C.text, fontSize: 12.5, fontWeight: 750 }}><Paperclip size={14} /> Documentación <small style={{ color: C.dim, fontFamily: C.mono }}>{attachments.length}</small></span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 7, color: C.text, fontSize: 12.5, fontWeight: 600 }}><Paperclip size={14} /> Documentación <small style={{ color: C.dim, fontFamily: C.mono }}>{attachments.length}</small></span>
               <span style={{ color: C.dim, fontSize: 9.5 }}>Fotos, PDF y archivos · hasta 50 MB</span>
             </div>
             {!!attachments.length && <div style={{ display: "grid", gap: 6, marginBottom: 10 }}>
@@ -1128,97 +1109,97 @@ function DetailPanel({ row, rows, profile, isManager, onClose, onReload, onEdit,
                 const isImage = String(file.mime_type || "").startsWith("image/");
                 const canRemove = isManager || file.created_by === profile?.id;
                 return (
-                  <div key={file.id} style={{ minWidth: 0, padding: "8px 9px", borderRadius: 9, border: `1px solid ${C.border}`, background: C.panelSolid, display: "grid", gridTemplateColumns: "28px minmax(0,1fr) auto", gap: 8, alignItems: "center" }}>
-                    <span style={{ width: 28, height: 28, borderRadius: 7, display: "grid", placeItems: "center", background: C.panel, color: category.color }}>{isImage ? <ImageIcon size={14} /> : <FileText size={14} />}</span>
+                  <div key={file.id} style={{ minWidth: 0, padding: "8px 9px", borderRadius: 3, border: `1px solid ${C.border}`, background: C.panelSolid, display: "grid", gridTemplateColumns: "28px minmax(0,1fr) auto", gap: 8, alignItems: "center" }}>
+                    <span style={{ width: 28, height: 28, borderRadius: 3, display: "grid", placeItems: "center", background: C.panel, color: category.color }}>{isImage ? <ImageIcon size={14} /> : <FileText size={14} />}</span>
                     <a href={file.url} target="_blank" rel="noreferrer" style={{ minWidth: 0, color: C.text, textDecoration: "none" }}><b style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11.5 }}>{file.nombre}</b><small style={{ display: "block", color: C.dim, marginTop: 2 }}>{category.label}{fmtFileSize(file.size_bytes) ? ` · ${fmtFileSize(file.size_bytes)}` : ""}{file.autor?.username ? ` · ${file.autor.username}` : ""}</small></a>
-                    {canRemove && <button disabled={saving} onClick={() => removeAttachment(file)} title="Eliminar archivo" style={{ width: 28, height: 28, borderRadius: 7, border: "1px solid transparent", background: "transparent", color: C.red, cursor: "pointer", display: "grid", placeItems: "center" }}><Trash2 size={13} /></button>}
+                    {canRemove && <button disabled={saving} onClick={() => removeAttachment(file)} title="Eliminar archivo" style={{ width: 28, height: 28, borderRadius: 3, border: "1px solid transparent", background: "transparent", color: C.red, cursor: "pointer", display: "grid", placeItems: "center" }}><Trash2 size={13} /></button>}
                   </div>
                 );
               })}
             </div>}
             <div style={{ display: "grid", gridTemplateColumns: "120px minmax(0,1fr)", gap: 7 }}>
               <select value={attachmentCategory} onChange={(event) => setAttachmentCategory(event.target.value)} style={{ ...FIELD, height: 35 }}>{Object.entries(ARCHIVO_CATEGORIAS).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}</select>
-              <button disabled={uploading} onClick={() => fileInputRef.current?.click()} style={{ minHeight: 35, borderRadius: 9, border: `1px dashed ${uploading ? C.border : C.blueB}`, background: uploading ? C.panel : C.blueL, color: uploading ? C.dim : C.blue, cursor: uploading ? "default" : "pointer", fontWeight: 700 }}><Upload size={14} /> {uploading ? "Subiendo..." : "Adjuntar archivos"}</button>
+              <button disabled={uploading} onClick={() => fileInputRef.current?.click()} style={{ minHeight: 35, borderRadius: 3, border: `1px dashed ${uploading ? C.border : C.blueB}`, background: uploading ? C.panel : C.blueL, color: uploading ? C.dim : C.blue, cursor: uploading ? "default" : "pointer", fontWeight: 600 }}><Upload size={14} /> {uploading ? "Subiendo..." : "Adjuntar archivos"}</button>
               <input ref={fileInputRef} type="file" multiple onChange={uploadAttachments} style={{ display: "none" }} />
             </div>
           </section>
 
           {isManager && row.estado === "solicitado" && (
             <section style={{ display: "grid", gap: 7 }}>
-              <button onClick={() => onCoordinate("confirm")} style={{ padding: 10, borderRadius: 10, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 750 }}><CheckCircle2 size={15} /> Confirmar fecha solicitada</button>
-              <button onClick={() => onCoordinate("propose")} style={{ padding: 10, borderRadius: 10, border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, cursor: "pointer", fontWeight: 750 }}><Clock3 size={15} /> Proponer otra fecha</button>
+              <button onClick={() => onCoordinate("confirm")} style={{ padding: 10, borderRadius: 3, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 600 }}><CheckCircle2 size={15} /> Confirmar fecha solicitada</button>
+              <button onClick={() => onCoordinate("propose")} style={{ padding: 10, borderRadius: 3, border: `1px solid ${C.violetB}`, background: C.violetL, color: C.violet, cursor: "pointer", fontWeight: 600 }}><Clock3 size={15} /> Proponer otra fecha</button>
             </section>
           )}
 
           {!!sharedRows.length && (
-            <section style={{ padding: 13, borderRadius: 12, border: `1px solid ${C.greenB}`, background: C.greenL }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.green, fontSize: 12.5, fontWeight: 750 }}><Merge size={15} /> Transporte compartido confirmado</div>
+            <section style={{ padding: 13, borderRadius: 3, border: `1px solid ${C.greenB}`, background: C.greenL }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, color: C.green, fontSize: 12.5, fontWeight: 600 }}><Merge size={15} /> Transporte compartido confirmado</div>
               {row.union_decidido_at && <div style={{ color: C.dim, fontSize: 9.8, marginTop: 4 }}>Decidió {actorName(row.union_decidido_por_perfil)} · {new Date(row.union_decidido_at).toLocaleString("es-AR")}</div>}
-              <div style={{ display: "grid", gap: 5, marginTop: 9 }}>{sharedRows.map((item) => <div key={item.id} style={{ padding: "7px 9px", borderRadius: 8, background: C.panel, border: `1px solid ${C.greenB}` }}><b style={{ display: "block", color: C.text, fontSize: 11.5 }}>{movementHeadline(item)}</b><small style={{ display: "block", color: C.dim, marginTop: 2 }}>{item.obra || "Sin obra"} · {routeLabel(item)}</small></div>)}</div>
+              <div style={{ display: "grid", gap: 5, marginTop: 9 }}>{sharedRows.map((item) => <div key={item.id} style={{ padding: "7px 9px", borderRadius: 3, background: C.panel, border: `1px solid ${C.greenB}` }}><b style={{ display: "block", color: C.text, fontSize: 11.5 }}>{movementHeadline(item)}</b><small style={{ display: "block", color: C.dim, marginTop: 2 }}>{item.obra || "Sin obra"} · {routeLabel(item)}</small></div>)}</div>
             </section>
           )}
 
           {row.union_estado === "rechazada" && row.union_observacion && (
-            <section style={{ padding: 12, borderRadius: 11, border: `1px solid ${C.border}`, background: C.panel }}>
-              <div style={{ color: C.muted, fontSize: 11.5, fontWeight: 750 }}><Truck size={14} /> Transporte separado</div>
+            <section style={{ padding: 12, borderRadius: 3, border: `1px solid ${C.border}`, background: C.panel }}>
+              <div style={{ color: C.muted, fontSize: 11.5, fontWeight: 600 }}><Truck size={14} /> Transporte separado</div>
               <div style={{ color: C.dim, fontSize: 10.5, marginTop: 4 }}>{row.union_observacion}</div>
               {row.union_decidido_at && <div style={{ color: C.dim, fontSize: 9.5, marginTop: 5 }}>Decidió {actorName(row.union_decidido_por_perfil)} · {new Date(row.union_decidido_at).toLocaleString("es-AR")}</div>}
             </section>
           )}
 
           {isManager && candidates.length > 0 && !mergeCandidate && !["realizado", "cancelado"].includes(row.estado) && (
-            <section style={{ padding: 13, borderRadius: 12, border: `1px solid ${C.violetB}`, background: `linear-gradient(135deg, ${C.violetL}, ${C.panel})` }}>
+            <section style={{ padding: 13, borderRadius: 3, border: `1px solid ${C.violetB}`, background: `linear-gradient(135deg, ${C.violetL}, ${C.panel})` }}>
               <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}><span><b style={{ display: "block", color: C.violet, fontSize: 12.5 }}>Posible viaje compartido</b><small style={{ display: "block", color: C.dim, marginTop: 3 }}>Coinciden fecha y tipo de transporte. Revisá espacio y recorrido.</small></span><Merge size={17} color={C.violet} /></div>
               <div style={{ display: "grid", gap: 6, marginTop: 10 }}>
                 {candidates.map((candidate) => (
-                  <button key={candidate.id} disabled={saving} onClick={() => { setMergeCandidate(candidate); setMergeNote(""); }} style={{ padding: "10px 11px", borderRadius: 9, border: `1px solid ${C.violetB}`, background: C.panelSolid, color: C.text, cursor: "pointer", display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", alignItems: "center", gap: 10, textAlign: "left" }}><span style={{ minWidth: 0 }}><b style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11.8 }}>{movementHeadline(candidate)}</b><small style={{ display: "block", color: C.dim, marginTop: 4 }}>{fmtDate(displayDate(candidate), true)} · {candidate.obra || "Sin obra"} · {routeLabel(candidate)}</small></span><span style={{ color: C.violet, fontSize: 10.5, fontWeight: 700, whiteSpace: "nowrap" }}>Comparar <ChevronRight size={12} /></span></button>
+                  <button key={candidate.id} disabled={saving} onClick={() => { setMergeCandidate(candidate); setMergeNote(""); }} style={{ padding: "10px 11px", borderRadius: 3, border: `1px solid ${C.violetB}`, background: C.panelSolid, color: C.text, cursor: "pointer", display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", alignItems: "center", gap: 10, textAlign: "left" }}><span style={{ minWidth: 0 }}><b style={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11.8 }}>{movementHeadline(candidate)}</b><small style={{ display: "block", color: C.dim, marginTop: 4 }}>{fmtDate(displayDate(candidate), true)} · {candidate.obra || "Sin obra"} · {routeLabel(candidate)}</small></span><span style={{ color: C.violet, fontSize: 10.5, fontWeight: 600, whiteSpace: "nowrap" }}>Comparar <ChevronRight size={12} /></span></button>
                 ))}
               </div>
             </section>
           )}
 
           {isManager && mergeCandidate && (
-            <section className="log-enter" style={{ padding: 14, borderRadius: 13, border: `1px solid ${C.violetB}`, background: C.violetL }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}><span><b style={{ display: "block", color: C.violet, fontSize: 13 }}>Evaluar unión de transportes</b><small style={{ display: "block", color: C.muted, marginTop: 3 }}>Compras confirma si ambas cargas entran y el recorrido es compatible.</small></span><button onClick={() => setMergeCandidate(null)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, cursor: "pointer" }}><X size={13} /></button></div>
+            <section className="log-enter" style={{ padding: 14, borderRadius: 3, border: `1px solid ${C.violetB}`, background: C.violetL }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}><span><b style={{ display: "block", color: C.violet, fontSize: 13 }}>Evaluar unión de transportes</b><small style={{ display: "block", color: C.muted, marginTop: 3 }}>Compras confirma si ambas cargas entran y el recorrido es compatible.</small></span><button onClick={() => setMergeCandidate(null)} style={{ width: 28, height: 28, borderRadius: 3, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, cursor: "pointer" }}><X size={13} /></button></div>
               <div style={{ display: "grid", gap: 7, marginTop: 11 }}>
-                {[row, mergeCandidate].map((item, index) => <div key={item.id} style={{ padding: 11, borderRadius: 10, border: `1px solid ${index === 0 ? C.blueB : C.violetB}`, background: C.panelSolid }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}><span style={{ color: index === 0 ? C.blue : C.violet, fontSize: 9, fontWeight: 750, textTransform: "uppercase", letterSpacing: ".1em" }}>{index === 0 ? "Movimiento actual" : "Movimiento a combinar"}</span><span style={{ color: C.dim, fontFamily: C.mono, fontSize: 9.5 }}>{fmtDate(displayDate(item))} · {displayTime(item) || "Sin hora"}</span></div><b style={{ display: "block", color: C.text, fontSize: 12.5, marginTop: 6 }}>{movementHeadline(item)}</b><div style={{ display: "grid", gap: 3, color: C.dim, fontSize: 10.5, marginTop: 6 }}><span><b style={{ color: C.muted }}>Obra:</b> {item.obra || "Sin obra"}</span><span><b style={{ color: C.muted }}>Recorrido:</b> {routeLabel(item)}</span><span><b style={{ color: C.muted }}>Proveedor:</b> {providerSummary(item)}</span></div></div>)}
+                {[row, mergeCandidate].map((item, index) => <div key={item.id} style={{ padding: 11, borderRadius: 3, border: `1px solid ${index === 0 ? C.blueB : C.violetB}`, background: C.panelSolid }}><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}><span style={{ color: index === 0 ? C.blue : C.violet, fontSize: 9, fontWeight: 600, textTransform: "uppercase", letterSpacing: ".1em" }}>{index === 0 ? "Movimiento actual" : "Movimiento a combinar"}</span><span style={{ color: C.dim, fontFamily: C.mono, fontSize: 9.5 }}>{fmtDate(displayDate(item))} · {displayTime(item) || "Sin hora"}</span></div><b style={{ display: "block", color: C.text, fontSize: 12.5, marginTop: 6 }}>{movementHeadline(item)}</b><div style={{ display: "grid", gap: 3, color: C.dim, fontSize: 10.5, marginTop: 6 }}><span><b style={{ color: C.muted }}>Obra:</b> {item.obra || "Sin obra"}</span><span><b style={{ color: C.muted }}>Recorrido:</b> {routeLabel(item)}</span><span><b style={{ color: C.muted }}>Proveedor:</b> {providerSummary(item)}</span></div></div>)}
               </div>
-              <div style={{ marginTop: 10, padding: "8px 10px", borderRadius: 9, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, fontSize: 10.5 }}><AlertTriangle size={13} color={C.violet} /> El sistema detecta la coincidencia; Compras debe validar capacidad física y horarios.</div>
-              <textarea value={mergeNote} onChange={(event) => setMergeNote(event.target.value)} placeholder="Observación opcional: no entra por volumen, recorridos incompatibles..." style={{ ...FIELD, minHeight: 62, marginTop: 9, resize: "vertical" }} />
+              <div style={{ marginTop: 10, padding: "8px 10px", borderRadius: 3, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, fontSize: 10.5 }}><AlertTriangle size={13} color={C.violet} /> El sistema detecta la coincidencia; Compras debe validar capacidad física y horarios.</div>
+              <textarea value={mergeNote} onChange={(event) => setMergeNote(event.target.value)} placeholder="Observación" style={{ ...FIELD, minHeight: 62, marginTop: 9, resize: "vertical" }} />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginTop: 9 }}>
-                <button disabled={saving} onClick={() => decideMerge(false)} style={{ padding: 10, borderRadius: 9, border: `1px solid ${C.border2}`, background: C.panel, color: C.muted, cursor: "pointer", fontWeight: 700 }}><Truck size={14} /> Pedir otro flete</button>
-                <button disabled={saving} onClick={() => decideMerge(true)} style={{ padding: 10, borderRadius: 9, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 750 }}><Merge size={14} /> Aceptar unión</button>
+                <button disabled={saving} onClick={() => decideMerge(false)} style={{ padding: 10, borderRadius: 3, border: `1px solid ${C.border2}`, background: C.panel, color: C.muted, cursor: "pointer", fontWeight: 600 }}><Truck size={14} /> Pedir otro flete</button>
+                <button disabled={saving} onClick={() => decideMerge(true)} style={{ padding: 10, borderRadius: 3, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 600 }}><Merge size={14} /> Aceptar unión</button>
               </div>
             </section>
           )}
 
           {isManager && (
-            <section style={{ padding: 13, borderRadius: 12, background: C.panel, border: `1px solid ${C.border}` }}>
+            <section style={{ padding: 13, borderRadius: 3, background: C.panel, border: `1px solid ${C.border}` }}>
               <span style={LABEL}>Costo del movimiento</span>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 82px", gap: 7 }}><input type="number" min="0" step="0.01" style={FIELD} value={cost} onChange={(event) => setCost(event.target.value)} placeholder="Importe" /><select style={FIELD} value={currency} onChange={(event) => setCurrency(event.target.value)}><option>ARS</option><option>USD</option></select></div>
-              <input style={{ ...FIELD, marginTop: 7 }} value={costDetail} onChange={(event) => setCostDetail(event.target.value)} placeholder="Detalle, factura o referencia" />
-              <button disabled={saving} onClick={() => action(() => guardarCostoMovimiento(row, { costo: cost, moneda: currency, detalle: costDetail }, profile), "Costo guardado.")} style={{ width: "100%", marginTop: 7, padding: 8, borderRadius: 9, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", fontWeight: 700 }}><Banknote size={14} /> Guardar costo</button>
+              <input style={{ ...FIELD, marginTop: 7 }} value={costDetail} onChange={(event) => setCostDetail(event.target.value)} placeholder="Detalle" />
+              <button disabled={saving} onClick={() => action(() => guardarCostoMovimiento(row, { costo: cost, moneda: currency, detalle: costDetail }, profile), "Costo guardado.")} style={{ width: "100%", marginTop: 7, padding: 8, borderRadius: 3, border: `1px solid ${C.blueB}`, background: C.blueL, color: C.blue, cursor: "pointer", fontWeight: 600 }}><Banknote size={14} /> Guardar costo</button>
               {row.costo_updated_by && <div style={{ color: C.dim, fontSize: 10, marginTop: 7 }}>Última carga: {actorName(row.costo_por)}</div>}
             </section>
           )}
 
           <section style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
-            {own && row.estado === "solicitado" && <button onClick={onEdit} style={{ padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontWeight: 700 }}>Editar solicitud</button>}
-            {isManager && row.estado === "confirmado" && <button disabled={saving} onClick={() => action(() => actualizarEstadoMovimiento(row, "realizado", profile), "Movimiento marcado como realizado.")} style={{ padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 700 }}>Marcar realizado</button>}
-            {isManager && !["realizado", "cancelado"].includes(row.estado) && <button disabled={saving} onClick={() => action(() => actualizarEstadoMovimiento(row, "cancelado", profile), "Movimiento cancelado.")} style={{ padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.redB}`, background: "transparent", color: C.red, cursor: "pointer", fontWeight: 700 }}>Cancelar movimiento</button>}
+            {own && row.estado === "solicitado" && <button onClick={onEdit} style={{ padding: "8px 10px", borderRadius: 3, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontWeight: 600 }}>Editar solicitud</button>}
+            {isManager && row.estado === "confirmado" && <button disabled={saving} onClick={() => action(() => actualizarEstadoMovimiento(row, "realizado", profile), "Movimiento marcado como realizado.")} style={{ padding: "8px 10px", borderRadius: 3, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 600 }}>Marcar realizado</button>}
+            {isManager && !["realizado", "cancelado"].includes(row.estado) && <button disabled={saving} onClick={() => action(() => actualizarEstadoMovimiento(row, "cancelado", profile), "Movimiento cancelado.")} style={{ padding: "8px 10px", borderRadius: 3, border: `1px solid ${C.redB}`, background: "transparent", color: C.red, cursor: "pointer", fontWeight: 600 }}>Cancelar movimiento</button>}
           </section>
 
           {isManager && (
             <section style={{ paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
               {!deleteConfirm ? (
-                <button disabled={saving} onClick={() => setDeleteConfirm(true)} style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid transparent", background: "transparent", color: C.red, cursor: "pointer", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}><Trash2 size={14} /> Eliminar movimiento</button>
+                <button disabled={saving} onClick={() => setDeleteConfirm(true)} style={{ padding: "8px 10px", borderRadius: 3, border: "1px solid transparent", background: "transparent", color: C.red, cursor: "pointer", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6 }}><Trash2 size={14} /> Eliminar movimiento</button>
               ) : (
-                <div style={{ padding: 12, borderRadius: 11, border: `1px solid ${C.redB}`, background: C.redL }}>
-                  <div style={{ color: C.red, fontSize: 12.5, fontWeight: 750 }}>¿Eliminar definitivamente “{row.carga || row.titulo}”?</div>
+                <div style={{ padding: 12, borderRadius: 3, border: `1px solid ${C.redB}`, background: C.redL }}>
+                  <div style={{ color: C.red, fontSize: 12.5, fontWeight: 600 }}>¿Eliminar definitivamente “{row.carga || row.titulo}”?</div>
                   <div style={{ marginTop: 4, color: C.muted, fontSize: 11 }}>Se eliminarán este movimiento y su historial. Esta acción no se puede deshacer.</div>
                   <div style={{ display: "flex", justifyContent: "flex-end", gap: 7, marginTop: 11 }}>
-                    <button disabled={saving} onClick={() => setDeleteConfirm(false)} style={{ padding: "8px 11px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontWeight: 700 }}>Conservar</button>
-                    <button disabled={saving} onClick={removeMovement} style={{ padding: "8px 11px", borderRadius: 8, border: `1px solid ${C.redB}`, background: C.red, color: "white", cursor: saving ? "default" : "pointer", opacity: saving ? .55 : 1, fontWeight: 750, display: "inline-flex", alignItems: "center", gap: 6 }}><Trash2 size={14} /> {saving ? "Eliminando..." : "Sí, eliminar"}</button>
+                    <button disabled={saving} onClick={() => setDeleteConfirm(false)} style={{ padding: "8px 11px", borderRadius: 3, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontWeight: 600 }}>Conservar</button>
+                    <button disabled={saving} onClick={removeMovement} style={{ padding: "8px 11px", borderRadius: 3, border: `1px solid ${C.redB}`, background: C.red, color: "white", cursor: saving ? "default" : "pointer", opacity: saving ? .55 : 1, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 6 }}><Trash2 size={14} /> {saving ? "Eliminando..." : "Sí, eliminar"}</button>
                   </div>
                 </div>
               )}
@@ -1226,8 +1207,8 @@ function DetailPanel({ row, rows, profile, isManager, onClose, onReload, onEdit,
           )}
 
           <section>
-            <button onClick={() => setHistoryOpen((value) => !value)} style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", border: 0, borderTop: `1px solid ${C.border}`, background: "transparent", color: C.muted, cursor: "pointer", fontWeight: 700 }}><span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><History size={14} /> Historial completo</span><span>{historyOpen ? "Ocultar" : `${history.length} cambios`}</span></button>
-            {historyOpen && <div style={{ display: "grid", gap: 8, paddingTop: 5 }}>{history.map((item) => <div key={item.id} style={{ paddingLeft: 12, borderLeft: `2px solid ${statusUi(item.estado_nuevo).border}` }}><div style={{ color: C.text, fontSize: 11.5, fontWeight: 700 }}>{String(item.accion || "Cambio").replaceAll("_", " ")}</div><div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>{actorName(item.actor)} · {new Date(item.created_at).toLocaleString("es-AR")}</div></div>)}</div>}
+            <button onClick={() => setHistoryOpen((value) => !value)} style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", border: 0, borderTop: `1px solid ${C.border}`, background: "transparent", color: C.muted, cursor: "pointer", fontWeight: 600 }}><span style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><History size={14} /> Historial completo</span><span>{historyOpen ? "Ocultar" : `${history.length} cambios`}</span></button>
+            {historyOpen && <div style={{ display: "grid", gap: 8, paddingTop: 5 }}>{history.map((item) => <div key={item.id} style={{ paddingLeft: 12, borderLeft: `2px solid ${statusUi(item.estado_nuevo).border}` }}><div style={{ color: C.text, fontSize: 11.5, fontWeight: 600 }}>{String(item.accion || "Cambio").replaceAll("_", " ")}</div><div style={{ color: C.dim, fontSize: 10.5, marginTop: 2 }}>{actorName(item.actor)} · {new Date(item.created_at).toLocaleString("es-AR")}</div></div>)}</div>}
           </section>
         </div>
       </aside>
@@ -1235,13 +1216,61 @@ function DetailPanel({ row, rows, profile, isManager, onClose, onReload, onEdit,
   );
 }
 
-function MonthView({ month, rows, milestones, weather, holidays, mergeableIds, onOpen, onMonth }) {
+function DayWeather({ day }) {
+  if (!day) return null;
+  const raining = Number(day.rain) >= 40;
+  const windy = Number(day.wind) >= 30;
+  return (
+    <span className={`log-wx${windy ? " is-wind" : raining ? " is-rain" : ""}`} title={`${weatherLabel(day.code)} · lluvia ${day.rain ?? 0}% · viento ${Math.round(day.wind)} km/h`}>
+      {windy ? <Wind size={11} /> : raining ? <CloudRain size={11} /> : <CloudSun size={11} />}{Math.round(day.max)}°
+    </span>
+  );
+}
+
+function CalendarNav({ title, year, summary, todayLabel, onToday, onPrev, onNext, prevLabel, nextLabel }) {
+  return (
+    <div className="log-cal-head">
+      <div style={{ minWidth: 0 }}>
+        <h2 className="log-cal-title">{title}{year && <small>{year}</small>}</h2>
+        {summary && <div className="az-rotulo" style={{ marginTop: 10 }}>{summary}</div>}
+      </div>
+      <div className="log-cal-nav">
+        <button type="button" className="log-btn" onClick={onToday}>{todayLabel}</button>
+        <button type="button" className="log-btn is-icon" aria-label={prevLabel} title={prevLabel} onClick={onPrev}><ChevronLeft size={16} /></button>
+        <button type="button" className="log-btn is-icon" aria-label={nextLabel} title={nextLabel} onClick={onNext}><ChevronRight size={16} /></button>
+      </div>
+    </div>
+  );
+}
+
+function summaryText(movements, legacy, holidays) {
+  return [
+    `${movements} movimiento${movements === 1 ? "" : "s"}`,
+    legacy ? `${legacy} anterior${legacy === 1 ? "" : "es"}` : "",
+    holidays ? `${holidays} feriado${holidays === 1 ? "" : "s"}` : "",
+  ].filter(Boolean).join(" · ");
+}
+
+// Un clic en el espacio libre del día abre el pedido con esa fecha. Los
+// movimientos y el botón de agregar paran el clic para no abrir dos cosas.
+function dayClickProps(date, canCreate, onCreate) {
+  if (!canCreate) return {};
+  return {
+    onClick: (event) => {
+      if (event.target.closest("button, a")) return;
+      onCreate(date);
+    },
+  };
+}
+
+function MonthView({ month, rows, milestones, weather, holidays, mergeableIds, onOpen, onMonth, onWeekOf, canCreateOn, createLabel, onCreate }) {
   const year = month.getFullYear();
   const monthIndex = month.getMonth();
   const first = new Date(year, monthIndex, 1);
   const leading = (first.getDay() + 6) % 7;
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-  const cells = Array.from({ length: 42 }, (_, index) => {
+  const weeks = Math.ceil((leading + daysInMonth) / 7);
+  const cells = Array.from({ length: weeks * 7 }, (_, index) => {
     const day = index - leading + 1;
     if (day < 1 || day > daysInMonth) return null;
     return localDate(new Date(year, monthIndex, day));
@@ -1252,73 +1281,82 @@ function MonthView({ month, rows, milestones, weather, holidays, mergeableIds, o
     if (!byDate.has(key)) byDate.set(key, []);
     byDate.get(key).push(row);
   });
+  byDate.forEach((items) => items.sort((a, b) => displayTime(a).localeCompare(displayTime(b))));
   const milestoneMap = new Map();
   milestones.filter((row) => row.tipo !== "feriado").forEach((row) => {
     if (!milestoneMap.has(row.fecha)) milestoneMap.set(row.fecha, []);
     milestoneMap.get(row.fecha).push(row);
   });
-  const visibleMovements = rows.filter((row) => displayDate(row)?.startsWith(`${year}-${String(monthIndex + 1).padStart(2, "0")}`)).length;
   const monthKey = `${year}-${String(monthIndex + 1).padStart(2, "0")}`;
+  const visibleMovements = rows.filter((row) => displayDate(row)?.startsWith(monthKey)).length;
   const visibleMilestones = milestones.filter((row) => row.tipo !== "feriado" && row.fecha?.startsWith(monthKey)).length;
   const visibleHolidays = [...holidays.keys()].filter((date) => date.startsWith(monthKey)).length;
 
   return (
-    <section className="log-calendar-shell log-view-enter" style={{ background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 18, overflow: "hidden", boxShadow: "0 18px 55px var(--shadow)" }}>
-      <div className="log-calendar-top" style={{ minHeight: 68, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, borderBottom: `1px solid ${C.border}`, background: `linear-gradient(115deg, ${C.panelSolid}, ${C.topbarSoft})` }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 11, minWidth: 0 }}>
-          <span className="log-month-icon" style={{ width: 38, height: 38, borderRadius: 11, display: "grid", placeItems: "center", color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}` }}><CalendarDays size={18} /></span>
-          <span style={{ minWidth: 0 }}><small style={{ display: "block", color: C.dim, fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".13em" }}>Agenda logística</small><strong style={{ display: "block", color: C.text, fontSize: 17, lineHeight: 1.2, textTransform: "capitalize", marginTop: 2 }}>{MESES[monthIndex]} <span style={{ color: C.dim, fontFamily: C.mono, fontWeight: 600 }}>{year}</span></strong></span>
-          <span className="log-month-summary" style={{ color: C.dim, fontSize: 10.5, marginLeft: 5 }}>{visibleMovements} movimiento{visibleMovements === 1 ? "" : "s"}{visibleMilestones ? ` · ${visibleMilestones} anteriores` : ""}{visibleHolidays ? ` · ${visibleHolidays} feriado${visibleHolidays === 1 ? "" : "s"}` : ""}</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <button className="log-soft-button" onClick={() => onMonth(parseDate(TODAY))} style={{ height: 31, padding: "0 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontSize: 10.5, fontWeight: 700 }}>Hoy</button>
-          <span style={{ display: "flex", padding: 3, borderRadius: 10, border: `1px solid ${C.border}`, background: C.panel }}>
-            <button className="log-icon-button" aria-label="Mes anterior" onClick={() => onMonth(new Date(year, monthIndex - 1, 1))} style={{ width: 29, height: 27, display: "grid", placeItems: "center", borderRadius: 7, border: 0, background: "transparent", color: C.muted, cursor: "pointer" }}><ChevronLeft size={15} /></button>
-            <button className="log-icon-button" aria-label="Mes siguiente" onClick={() => onMonth(new Date(year, monthIndex + 1, 1))} style={{ width: 29, height: 27, display: "grid", placeItems: "center", borderRadius: 7, border: 0, background: "transparent", color: C.muted, cursor: "pointer" }}><ChevronRight size={15} /></button>
-          </span>
-        </div>
-      </div>
-      <div className="log-calendar" style={{ minWidth: 900 }}>
-        <div className="log-weekdays" style={{ display: "grid", gridTemplateColumns: CALENDAR_COLUMNS, borderBottom: `1px solid ${C.border}`, background: C.panel }}>{DIAS.map((day, index) => <div key={day} style={{ padding: "9px 10px", color: index > 4 ? C.violet : C.dim, background: index > 4 ? C.violetL : "transparent", fontSize: 9, fontWeight: 750, textTransform: "uppercase", letterSpacing: ".14em", textAlign: "center" }}>{day}</div>)}</div>
-        <div style={{ display: "grid", gridTemplateColumns: CALENDAR_COLUMNS }}>
+    <section className="log-view-enter">
+      <CalendarNav
+        title={MESES[monthIndex]}
+        year={year}
+        summary={summaryText(visibleMovements, visibleMilestones, visibleHolidays)}
+        todayLabel="Hoy"
+        onToday={() => onMonth(parseDate(TODAY))}
+        onPrev={() => onMonth(new Date(year, monthIndex - 1, 1))}
+        onNext={() => onMonth(new Date(year, monthIndex + 1, 1))}
+        prevLabel="Mes anterior"
+        nextLabel="Mes siguiente"
+      />
+      <div className="log-scroll-x">
+        <div className="log-grid log-month">
+          {DIAS.map((day) => <div key={day} className="log-wd">{day}</div>)}
           {cells.map((date, index) => {
-            const events = date ? byDate.get(date) || [] : [];
-            const marks = date ? milestoneMap.get(date) || [] : [];
-            const dayWeather = date ? weather[date] : null;
-            const holiday = date ? holidays.get(date) : null;
-            const raining = Number(dayWeather?.rain) >= 40;
+            if (!date) return <div key={index} className={`log-day is-out${index % 7 > 4 ? " is-weekend" : ""}`} />;
+            const events = byDate.get(date) || [];
+            const marks = milestoneMap.get(date) || [];
+            const dayWeather = weather[date];
+            const holiday = holidays.get(date);
             const weekend = index % 7 > 4;
+            const canCreate = canCreateOn(date);
             const eventLimit = holiday ? 2 : 3;
             const visibleMarks = Math.max(0, eventLimit - events.length);
+            const hidden = Math.max(0, events.length - eventLimit) + Math.max(0, marks.length - visibleMarks);
             return (
-              <div className={`log-calendar-cell${date === TODAY ? " is-today" : ""}${weekend ? " is-weekend" : ""}${holiday ? " is-holiday" : ""}${raining ? " is-raining" : ""}${!date ? " is-empty" : ""}`} key={index} title={holiday || undefined} style={{ minHeight: 132, padding: 8, overflow: "hidden", borderRight: index % 7 !== 6 ? `1px solid ${C.border}` : 0, borderBottom: index < 35 ? `1px solid ${C.border}` : 0, background: !date ? C.panel : date === TODAY ? C.blueL : holiday ? `linear-gradient(145deg, ${C.redL}, transparent 62%)` : weekend ? C.panel : "transparent" }}>
-                {raining && <RainVeil probability={dayWeather.rain} />}
-                {date && <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", color: date === TODAY ? C.blue : holiday ? C.red : C.dim, fontFamily: C.mono, fontSize: 10.5, fontWeight: 700, marginBottom: 7 }}><span className="log-day-number" style={{ width: 24, height: 24, borderRadius: 8, display: "grid", placeItems: "center", background: date === TODAY ? C.blue : holiday ? C.redL : "transparent", border: holiday && date !== TODAY ? `1px solid ${C.redB}` : "1px solid transparent", color: date === TODAY ? "white" : holiday ? C.red : weekend ? C.muted : C.dim }}>{parseDate(date).getDate()}</span>{dayWeather && <span title={`${weatherLabel(dayWeather.code)} · viento ${Math.round(dayWeather.wind)} km/h · lluvia ${dayWeather.rain ?? 0}%`} style={{ display: "inline-flex", alignItems: "center", gap: 3, color: Number(dayWeather.wind) >= 30 ? C.red : raining ? C.cyan : C.dim, fontSize: 8.5 }}>{raining ? <CloudRain size={10} /> : <CloudSun size={10} />}{Math.round(dayWeather.max)}°</span>}</div>}
-                {holiday && <div className="log-holiday-label" title={holiday} style={{ margin: "-2px 0 5px", color: C.red, fontSize: 8.5, fontWeight: 750, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><span style={{ display: "inline-block", width: 5, height: 5, marginRight: 4, borderRadius: 99, background: C.red }} />Feriado · {holiday}</div>}
+              <div
+                key={date}
+                className={`log-day${date === TODAY ? " is-today" : ""}${date < TODAY ? " is-past" : ""}${weekend ? " is-weekend" : ""}${holiday ? " is-holiday" : ""}${canCreate ? " can-add" : ""}`}
+                title={holiday || undefined}
+                {...dayClickProps(date, canCreate, onCreate)}
+              >
+                <div className="log-day-top">
+                  <span className="log-num">{parseDate(date).getDate()}</span>
+                  <DayWeather day={dayWeather} />
+                </div>
+                {holiday && <div className="log-hol" title={holiday}>Feriado · {holiday}</div>}
                 {events.slice(0, eventLimit).map((row) => {
-                  const ui = transportUi(transportsOf(row)[0]?.tipo);
                   const state = statusUi(row.estado);
                   const risky = hasCrane(row) && Number(dayWeather?.wind) >= 30;
                   const canMerge = mergeableIds?.has(row.id);
-                  const title = row.carga || row.titulo || "Movimiento";
                   return (
-                    <button className="log-event-pill" key={row.id} onClick={() => onOpen(row)} title={`${movementHeadline(row)} · ${workLabel(row)} · ${routeLabel(row)}${canMerge ? " · Posible unión" : ""}${risky ? " · Revisar viento" : ""}`} style={{ minHeight: 43, width: "100%", display: "grid", gridTemplateColumns: "auto minmax(0,1fr) auto", alignItems: "start", gap: 7, textAlign: "left", overflow: "hidden", marginBottom: 5, padding: "6px 8px", borderRadius: 9, border: `1px solid ${risky ? C.redB : ui.border}`, borderLeft: `3px solid ${risky ? C.red : state.color}`, background: risky ? C.redL : ui.soft, color: risky ? C.red : C.text, cursor: "pointer" }}>
-                      <span style={{ paddingTop: 1, color: risky ? C.red : ui.color, fontFamily: C.mono, fontSize: 9.5, fontWeight: 750 }}>{displayTime(row) || "—"}</span>
-                      <span style={{ minWidth: 0, display: "grid", gap: 2 }}>
-                        <strong style={{ color: C.text, fontSize: 10.7, lineHeight: 1.15, fontWeight: 750, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{title}</strong>
-                        <small style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 4, color: C.dim, fontSize: 9.1, lineHeight: 1.1, overflow: "hidden", whiteSpace: "nowrap" }}>
-                          <b style={{ flexShrink: 0, color: row.obra ? C.blue : C.dim, fontFamily: C.mono, fontWeight: 750 }}>{workLabel(row)}</b>
-                          <span style={{ color: C.border2 }}>·</span>
-                          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{transportSummary(row)}</span>
-                        </small>
+                    <button
+                      type="button"
+                      key={row.id}
+                      className={`log-ev${risky ? " is-risk" : ""}`}
+                      style={{ "--ev": risky ? C.red : state.color }}
+                      onClick={() => onOpen(row)}
+                      title={`${movementHeadline(row)} · ${workLabel(row)} · ${routeLabel(row)} · ${state.label}${canMerge ? " · Posible unión" : ""}${risky ? " · Revisar viento" : ""}`}
+                    >
+                      <span className="log-ev-time">{displayTime(row) || "—"}</span>
+                      <span className="log-ev-title">{row.carga || row.titulo || "Movimiento"}</span>
+                      <span className="log-ev-meta">
+                        <b>{workLabel(row)}</b>
+                        <span>{transportSummary(row)}</span>
+                        {canMerge && <Merge size={10} color={C.violet} style={{ flexShrink: 0 }} />}
                       </span>
-                      {canMerge && <Merge size={9} color={C.violet} style={{ marginTop: 3 }} />}
                     </button>
                   );
                 })}
-                {events.length > eventLimit && <div style={{ color: C.blue, fontSize: 8.8, fontWeight: 700, padding: "1px 4px" }}>+{events.length - eventLimit} movimientos</div>}
-                {marks.slice(0, visibleMarks).map((mark) => <div className="log-legacy-pill" key={mark.id} title={mark.notas || "Registro del calendario anterior"} style={{ marginTop: 4, padding: "4px 6px", borderRadius: 6, border: `1px dashed ${C.border2}`, background: C.panel2, color: C.muted, fontSize: 8.6, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>◇ {cleanTime(mark.hora) ? `${cleanTime(mark.hora)} · ` : ""}{mark.titulo}{mark.obra ? ` · ${mark.obra}` : ""}</div>)}
-                {marks.length > visibleMarks && <div style={{ color: C.dim, fontSize: 8.5, marginTop: 3 }}>+{marks.length - visibleMarks} anteriores</div>}
+                {marks.slice(0, visibleMarks).map((mark) => <div className="log-old" key={mark.id} title={mark.notas || "Registro del calendario anterior"}>{cleanTime(mark.hora) ? `${cleanTime(mark.hora)} · ` : ""}{mark.titulo}{mark.obra ? ` · ${mark.obra}` : ""}</div>)}
+                {hidden > 0 && <button type="button" className="log-more" onClick={() => onWeekOf(date)}>+{hidden} más</button>}
+                {canCreate && <button type="button" className="log-add" onClick={() => onCreate(date)} aria-label={`${createLabel} para el ${fechaTitulo(date).toLowerCase()}`}><Plus size={12} /> {createLabel}</button>}
               </div>
             );
           })}
@@ -1328,7 +1366,7 @@ function MonthView({ month, rows, milestones, weather, holidays, mergeableIds, o
   );
 }
 
-function WeekView({ weekStart, rows, milestones, weather, holidays, mergeableIds, onOpen, onWeek }) {
+function WeekView({ weekStart, rows, milestones, weather, holidays, mergeableIds, onOpen, onWeek, canCreateOn, createLabel, onCreate }) {
   const dates = Array.from({ length: 7 }, (_, index) => dateAdd(weekStart, index));
   const weekEnd = dates[6];
   const byDate = new Map(dates.map((date) => [date, []]));
@@ -1342,66 +1380,78 @@ function WeekView({ weekStart, rows, milestones, weather, holidays, mergeableIds
     if (legacyByDate.has(row.fecha)) legacyByDate.get(row.fecha).push(row);
   });
   const total = [...byDate.values()].reduce((sum, items) => sum + items.length, 0);
+  const legacyTotal = [...legacyByDate.values()].reduce((sum, items) => sum + items.length, 0);
+  const holidayTotal = dates.filter((date) => holidays.has(date)).length;
+  const startDate = parseDate(weekStart);
+  const endDate = parseDate(weekEnd);
+  const sameMonth = startDate.getMonth() === endDate.getMonth();
+  const title = sameMonth
+    ? `${startDate.getDate()} – ${endDate.getDate()} ${MESES[endDate.getMonth()]}`
+    : `${startDate.getDate()} ${MESES[startDate.getMonth()].slice(0, 3)} – ${endDate.getDate()} ${MESES[endDate.getMonth()].slice(0, 3)}`;
 
   return (
-    <section className="log-week-shell log-view-enter" style={{ background: C.panelSolid, border: `1px solid ${C.border}`, borderRadius: 18, overflow: "hidden", boxShadow: "0 18px 55px var(--shadow)" }}>
-      <div className="log-calendar-top" style={{ minHeight: 68, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, borderBottom: `1px solid ${C.border}`, background: `linear-gradient(115deg, ${C.panelSolid}, ${C.topbarSoft})` }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 11, minWidth: 0 }}>
-          <span className="log-month-icon" style={{ width: 38, height: 38, borderRadius: 11, display: "grid", placeItems: "center", color: C.violet, background: C.violetL, border: `1px solid ${C.violetB}` }}><CalendarRange size={18} /></span>
-          <span style={{ minWidth: 0 }}>
-            <small style={{ display: "block", color: C.dim, fontSize: 9, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".13em" }}>Vista operativa semanal</small>
-            <strong style={{ display: "block", color: C.text, fontSize: 15.5, lineHeight: 1.2, textTransform: "capitalize", marginTop: 2 }}>{fmtDate(weekStart, true)} — {fmtDate(weekEnd, true)}</strong>
-          </span>
-          <span className="log-month-summary" style={{ color: C.dim, fontSize: 10.5, marginLeft: 5 }}>{total} movimiento{total === 1 ? "" : "s"}</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <button className="log-soft-button" onClick={() => onWeek(startOfWeek(TODAY))} style={{ height: 31, padding: "0 10px", borderRadius: 8, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontSize: 10.5, fontWeight: 700 }}>Esta semana</button>
-          <span style={{ display: "flex", padding: 3, borderRadius: 10, border: `1px solid ${C.border}`, background: C.panel }}>
-            <button className="log-icon-button" aria-label="Semana anterior" onClick={() => onWeek(dateAdd(weekStart, -7))} style={{ width: 29, height: 27, display: "grid", placeItems: "center", borderRadius: 7, border: 0, background: "transparent", color: C.muted, cursor: "pointer" }}><ChevronLeft size={15} /></button>
-            <button className="log-icon-button" aria-label="Semana siguiente" onClick={() => onWeek(dateAdd(weekStart, 7))} style={{ width: 29, height: 27, display: "grid", placeItems: "center", borderRadius: 7, border: 0, background: "transparent", color: C.muted, cursor: "pointer" }}><ChevronRight size={15} /></button>
-          </span>
-        </div>
-      </div>
-
-      <div style={{ overflowX: "auto" }}>
-        <div className="log-week-grid" style={{ minWidth: 1180, display: "grid", gridTemplateColumns: "repeat(5,minmax(170px,1fr)) repeat(2,minmax(145px,.82fr))" }}>
+    <section className="log-view-enter">
+      <CalendarNav
+        title={title}
+        year={endDate.getFullYear()}
+        summary={summaryText(total, legacyTotal, holidayTotal)}
+        todayLabel="Esta semana"
+        onToday={() => onWeek(startOfWeek(TODAY))}
+        onPrev={() => onWeek(dateAdd(weekStart, -7))}
+        onNext={() => onWeek(dateAdd(weekStart, 7))}
+        prevLabel="Semana anterior"
+        nextLabel="Semana siguiente"
+      />
+      <div className="log-scroll-x">
+        <div className="log-grid log-week">
           {dates.map((date, index) => {
             const events = byDate.get(date) || [];
             const oldEvents = legacyByDate.get(date) || [];
             const dayWeather = weather[date];
             const holiday = holidays.get(date);
-            const raining = Number(dayWeather?.rain) >= 40;
             const weekend = index > 4;
-            const today = date === TODAY;
+            const canCreate = canCreateOn(date);
+            const day = parseDate(date);
             return (
-              <section className={`log-week-day${today ? " is-today" : ""}${holiday ? " is-holiday" : ""}`} key={date} style={{ position: "relative", minHeight: 440, padding: 10, overflow: "hidden", borderRight: index < 6 ? `1px solid ${C.border}` : 0, background: today ? C.blueL : holiday ? `linear-gradient(155deg, ${C.redL}, transparent 42%)` : weekend ? C.panel : "transparent" }}>
-                {raining && <RainVeil probability={dayWeather.rain} />}
-                <header style={{ position: "relative", zIndex: 1, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 7, paddingBottom: 9, marginBottom: 9, borderBottom: `1px solid ${holiday ? C.redB : C.border}` }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                    <b style={{ width: 32, height: 32, flexShrink: 0, display: "grid", placeItems: "center", borderRadius: 10, color: today ? "white" : holiday ? C.red : weekend ? C.violet : C.text, background: today ? C.blue : holiday ? C.redL : weekend ? C.violetL : C.panel2, border: `1px solid ${today ? C.blueB : holiday ? C.redB : weekend ? C.violetB : C.border}`, fontFamily: C.mono, fontSize: 14 }}>{parseDate(date).getDate()}</b>
-                    <span style={{ minWidth: 0 }}><strong style={{ display: "block", color: holiday ? C.red : C.text, fontSize: 11.5, textTransform: "capitalize" }}>{parseDate(date).toLocaleDateString("es-AR", { weekday: "long" })}</strong><small style={{ display: "block", color: C.dim, marginTop: 2, fontSize: 9.5, textTransform: "capitalize" }}>{parseDate(date).toLocaleDateString("es-AR", { month: "long" })}</small></span>
+              <section
+                key={date}
+                className={`log-day log-wcol${date === TODAY ? " is-today" : ""}${date < TODAY ? " is-past" : ""}${weekend ? " is-weekend" : ""}${holiday ? " is-holiday" : ""}${canCreate ? " can-add" : ""}`}
+                {...dayClickProps(date, canCreate, onCreate)}
+              >
+                <header className="log-wcol-head">
+                  <span>
+                    <span className="log-wcol-wd">{DIAS[index]}</span>
+                    <span className="log-wcol-num">{day.getDate()}</span>
                   </span>
-                  {dayWeather && <span title={`${weatherLabel(dayWeather.code)} · lluvia ${dayWeather.rain ?? 0}% · viento ${Math.round(dayWeather.wind)} km/h`} style={{ display: "inline-flex", alignItems: "center", gap: 3, color: Number(dayWeather.wind) >= 30 ? C.red : raining ? C.cyan : C.dim, fontFamily: C.mono, fontSize: 9, whiteSpace: "nowrap" }}>{raining ? <CloudRain size={11} /> : <CloudSun size={11} />}{Math.round(dayWeather.max)}°</span>}
+                  <DayWeather day={dayWeather} />
                 </header>
-                {holiday && <div title={holiday} style={{ position: "relative", zIndex: 1, marginBottom: 8, padding: "5px 7px", borderRadius: 7, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, fontSize: 9, fontWeight: 700, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Feriado · {holiday}</div>}
-                <div style={{ position: "relative", zIndex: 1, display: "grid", gap: 7 }}>
-                  {events.map((row) => {
-                    const ui = transportUi(transportsOf(row)[0]?.tipo);
-                    const state = statusUi(row.estado);
-                    const risky = hasCrane(row) && Number(dayWeather?.wind) >= 30;
-                    const canMerge = mergeableIds?.has(row.id);
-                    return (
-                      <button className="log-week-event" key={row.id} onClick={() => onOpen(row)} title={`${movementHeadline(row)} · ${workLabel(row)} · ${routeLabel(row)}`} style={{ width: "100%", minHeight: 82, padding: "9px 10px", display: "grid", gap: 6, textAlign: "left", borderRadius: 11, border: `1px solid ${risky ? C.redB : ui.border}`, borderLeft: `3px solid ${risky ? C.red : state.color}`, background: risky ? C.redL : `linear-gradient(145deg, ${ui.soft}, ${C.panelSolid} 78%)`, color: C.text, cursor: "pointer", fontFamily: C.sans, overflow: "hidden" }}>
-                        <span style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}><b style={{ color: risky ? C.red : ui.color, fontFamily: C.mono, fontSize: 11.5 }}>{displayTime(row) || "Sin hora"}</b><span style={{ color: state.color, fontSize: 8.5, fontWeight: 750, textTransform: "uppercase", whiteSpace: "nowrap" }}>{state.short}</span></span>
-                        <strong style={{ color: C.text, fontSize: 12.5, lineHeight: 1.25, fontWeight: 750, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{row.carga || row.titulo || "Movimiento"}</strong>
-                        <span style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, color: C.dim, fontSize: 9.5, whiteSpace: "nowrap" }}><b style={{ flexShrink: 0, color: row.obra ? C.blue : C.dim, fontFamily: C.mono }}>{workLabel(row)}</b><span>·</span><span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{transportSummary(row)}</span>{canMerge && <Merge size={10} color={C.violet} style={{ flexShrink: 0 }} />}</span>
-                        <span style={{ color: C.dim, fontSize: 9.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}><Route size={10} /> {routeLabel(row)}</span>
-                      </button>
-                    );
-                  })}
-                  {oldEvents.map((row) => <div key={row.id} style={{ padding: "7px 8px", borderRadius: 8, border: `1px dashed ${C.border2}`, background: C.panel2, color: C.muted, fontSize: 9.5, lineHeight: 1.3 }}><b style={{ display: "block", color: C.text }}>{row.titulo}</b>{row.obra ? `Obra ${row.obra}` : "Registro anterior"}</div>)}
-                  {!events.length && !oldEvents.length && <div style={{ minHeight: 76, display: "grid", placeItems: "center", border: `1px dashed ${C.border}`, borderRadius: 10, color: C.dim, fontSize: 10.5, textAlign: "center" }}>Sin movimientos</div>}
-                </div>
+                {holiday && <div className="log-hol" title={holiday}>Feriado · {holiday}</div>}
+                {events.map((row) => {
+                  const ui = transportUi(transportsOf(row)[0]?.tipo);
+                  const state = statusUi(row.estado);
+                  const risky = hasCrane(row) && Number(dayWeather?.wind) >= 30;
+                  const canMerge = mergeableIds?.has(row.id);
+                  return (
+                    <button
+                      type="button"
+                      key={row.id}
+                      className={`log-ev is-tall${risky ? " is-risk" : ""}`}
+                      style={{ "--ev": risky ? C.red : state.color }}
+                      onClick={() => onOpen(row)}
+                      title={`${movementHeadline(row)} · ${workLabel(row)} · ${routeLabel(row)}${risky ? " · Revisar viento" : ""}`}
+                    >
+                      <span className="log-ev-time">{displayTime(row) || "—"}</span>
+                      <span className="log-ev-state" style={{ color: state.color }}>{state.short}</span>
+                      <span className="log-ev-title">{row.carga || row.titulo || "Movimiento"}</span>
+                      <span className="log-ev-meta"><b>{workLabel(row)}</b>{canMerge && <Merge size={10} color={C.violet} style={{ flexShrink: 0 }} />}</span>
+                      <span className="log-ev-meta" style={{ color: ui.color }}><TransportIcon type={transportsOf(row)[0]?.tipo} size={11} /><span>{transportSummary(row)}</span></span>
+                      <span className="log-ev-meta"><Route size={11} /><span>{routeLabel(row)}</span></span>
+                    </button>
+                  );
+                })}
+                {oldEvents.map((row) => <div key={row.id} className="log-old" title={row.notas || "Registro del calendario anterior"}>{row.titulo}{row.obra ? ` · ${row.obra}` : ""}</div>)}
+                {!events.length && !oldEvents.length && !canCreate && <div className="log-wcol-empty">Sin movimientos</div>}
+                {canCreate && <button type="button" className="log-add" onClick={() => onCreate(date)} aria-label={`${createLabel} para el ${fechaTitulo(date).toLowerCase()}`}><Plus size={12} /> {createLabel}</button>}
               </section>
             );
           })}
@@ -1716,180 +1766,322 @@ export default function LogisticaCalendarioScreen({ profile }) {
   }
 
   const availableViews = VISTAS.filter((item) => !item.managerOnly || isManager);
+  const createLabel = canRequest ? "Solicitar" : "Agregar";
+  const canCreateOn = (date) => canRequest ? date >= TODAY : isManager;
+
+  function createOn(date) {
+    if (canRequest) setRequestModal({ row: null, date });
+    else if (isManager) setManualModal({ date });
+  }
+
+  function showStatus(next) {
+    setStatus(next);
+    setView("solicitudes");
+  }
+
+  const ficha = [
+    { key: "solicitado", label: "Por coordinar", value: metrics.pending, onClick: () => showStatus("solicitado") },
+    { key: "fecha_propuesta", label: "Responde Técnica", value: metrics.proposals, onClick: () => showStatus("fecha_propuesta") },
+    metrics.accepted > 0 && { key: "fecha_aceptada", label: "Confirma Compras", value: metrics.accepted, onClick: () => showStatus("fecha_aceptada") },
+    { key: "semana", label: "Próximos 7 días", value: metrics.week, onClick: () => { setWeekStartDate(startOfWeek(TODAY)); setView("semana"); } },
+    metrics.urgent > 0 && { key: "urgente", label: "Urgentes", value: metrics.urgent, tone: "red" },
+  ].filter(Boolean);
 
   return (
     <div className="logistics-root" style={{ position: "absolute", inset: 0, display: "flex", background: C.bg, color: C.text, fontFamily: C.sans, overflow: "hidden" }}>
-      <style>{`
-        @keyframes logFadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes logSlideIn{from{opacity:.35;transform:translateX(24px) scale(.985)}to{opacity:1;transform:translateX(0) scale(1)}}
-        @keyframes logModalIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
-        @keyframes logBackdrop{from{opacity:0}to{opacity:1}}
-        @keyframes logPulse{0%,100%{box-shadow:0 0 0 0 currentColor}50%{box-shadow:0 0 0 4px transparent}}
-        @keyframes logSpin{to{transform:rotate(360deg)}}
-        @keyframes logRainFall{0%{transform:translate3d(0,-20px,0) rotate(11deg);opacity:0}16%{opacity:.46}82%{opacity:.28}100%{transform:translate3d(-18px,150px,0) rotate(11deg);opacity:0}}
-        .log-main{background:radial-gradient(circle at 92% 4%,var(--blue-soft),transparent 24%),radial-gradient(circle at 12% 88%,var(--violet-soft),transparent 26%)}
-        .log-view-enter,.log-enter{animation:logFadeUp .34s cubic-bezier(.2,.8,.2,1) both}
-        .log-card{position:relative;overflow:hidden;transition:transform .18s cubic-bezier(.2,.8,.2,1),border-color .18s ease,box-shadow .18s ease,background .18s ease}
-        .log-card::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,var(--blue-soft),transparent 72%);transform:translateX(-120%);opacity:0;transition:transform .55s ease,opacity .2s ease;pointer-events:none}
-        .log-card:hover{transform:translateY(-2px);border-color:var(--border-2)!important;box-shadow:0 14px 34px var(--shadow)}
-        .log-card:hover::after{transform:translateX(120%);opacity:.55}
-        .log-card:active{transform:translateY(0) scale(.997)}
-        .log-metric,.log-weather{transition:transform .16s ease,border-color .16s ease,background .16s ease}
-        .log-metric:hover,.log-weather:hover{transform:translateY(-1px);border-color:var(--border-2)!important}
-        .log-weather>*:not(.log-rain-veil),.log-calendar-cell>*:not(.log-rain-veil){position:relative;z-index:1}
-        .log-rain-veil{position:absolute!important;z-index:0!important;inset:0;overflow:hidden;pointer-events:none;border-radius:inherit;opacity:.58}
-        .log-rain-veil.is-compact{opacity:.34}
-        .log-rain-drop{position:absolute;top:-18px;width:1px;height:13px;border-radius:99px;background:linear-gradient(to bottom,transparent,var(--cyan));transform:rotate(11deg);animation:logRainFall 1.5s linear infinite;filter:drop-shadow(0 0 2px var(--cyan))}
-        .log-status-dot.is-live{animation:logPulse 2.2s ease-in-out infinite}
-        .log-icon-button,.log-soft-button,.log-tab,.log-primary-action{transition:transform .15s ease,background .15s ease,color .15s ease,border-color .15s ease,box-shadow .15s ease}
-        .log-icon-button:hover,.log-soft-button:hover{color:var(--text)!important;background:var(--panel-2)!important;transform:translateY(-1px)}
-        .log-tab:hover{color:var(--text)!important;background:var(--panel-2)!important}
-        .log-tab.is-active{box-shadow:0 5px 15px var(--shadow)}
-        .log-primary-action:hover{transform:translateY(-1px);box-shadow:0 10px 24px var(--shadow-strong)}
-        .log-primary-action:active{transform:translateY(0) scale(.98)}
-        .log-event-pill{transition:transform .14s ease,filter .14s ease,box-shadow .14s ease}
-        .log-event-pill:hover{transform:translateX(2px);filter:saturate(1.12);box-shadow:0 5px 14px var(--shadow)}
-        .log-week-event{transition:transform .16s cubic-bezier(.2,.8,.2,1),filter .16s ease,box-shadow .16s ease,border-color .16s ease}
-        .log-week-event:hover{transform:translateY(-2px);filter:saturate(1.08);border-color:var(--border-2)!important;box-shadow:0 10px 24px var(--shadow)}
-        .log-week-day{transition:background .16s ease,box-shadow .16s ease}
-        .log-week-day:hover{z-index:1;box-shadow:inset 0 0 0 1px var(--border-2)}
-        .log-calendar-cell{position:relative;transition:background .16s ease,box-shadow .16s ease}
-        .log-calendar-cell:not(.is-empty):hover{z-index:1;box-shadow:inset 0 0 0 1px var(--border-2);background:var(--panel-2)!important}
-        .log-calendar-cell.is-holiday:not(.is-empty):hover{background:linear-gradient(145deg,var(--red-soft),var(--panel-2) 68%)!important}
-        .log-calendar-cell.is-today::before{content:"";position:absolute;inset:0 auto 0 0;width:2px;background:var(--blue);box-shadow:0 0 16px var(--blue)}
-        .log-day-number{transition:transform .16s ease}
-        .log-calendar-cell:hover .log-day-number{transform:scale(1.08)}
-        .log-detail-backdrop,.log-modal-backdrop{animation:logBackdrop .18s ease both;backdrop-filter:blur(4px)}
-        .log-detail-sheet{animation:logSlideIn .28s cubic-bezier(.2,.8,.2,1) both;scrollbar-width:thin;scrollbar-color:var(--border-2) transparent}
-        .log-modal-card{animation:logModalIn .24s cubic-bezier(.2,.8,.2,1) both}
-        .log-detail-header::after{content:"";position:absolute;left:16px;right:16px;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,var(--blue-border),transparent)}
-        .log-detail-hero{transition:border-color .18s ease,box-shadow .18s ease}
-        .log-detail-hero:hover{border-color:var(--border-2)!important;box-shadow:0 12px 30px var(--shadow)}
-        .log-day-group{animation:logFadeUp .32s cubic-bezier(.2,.8,.2,1) both}
-        .spin{animation:logSpin .8s linear infinite}
-        .log-card:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
-        .log-main::-webkit-scrollbar,.log-detail::-webkit-scrollbar{width:8px;height:8px}
-        .log-main::-webkit-scrollbar-thumb,.log-detail::-webkit-scrollbar-thumb{background:var(--border-2);border-radius:99px}
-        .log-calendar-shell{isolation:isolate}
-        .logistics-root button svg{vertical-align:middle}
-        @media(max-width:920px){
-          .log-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}
-          .log-main{padding:12px!important}
-          .log-title-copy{min-width:0!important;flex:1}
-          .log-title-copy p{display:none}
-          .log-view-tabs{order:3;flex-basis:100%}
-          .log-header-actions{margin-left:auto}
-          .log-operational-strip{overflow-x:auto;flex-wrap:nowrap!important;scrollbar-width:none}
-          .log-operational-strip::-webkit-scrollbar{display:none}
-          .log-operational-strip>span[style*="flex: 1"]{display:none}
-          .log-filters{align-items:stretch!important}
-          .log-filter-advanced{grid-template-columns:repeat(2,minmax(0,1fr))!important}
-          .log-detail-backdrop{padding:0!important}
-          .log-detail{width:100%!important;border-radius:0!important;border:0!important}
-          .log-transport-grid{grid-template-columns:repeat(3,1fr)!important}
-          .log-stop{grid-template-columns:70px 1fr 34px!important}
-          .log-stop input:nth-of-type(2),.log-stop input:nth-of-type(3){grid-column:2/3}
-          .log-manual-stop{grid-template-columns:82px minmax(0,1fr) 34px!important}
-          .log-manual-stop input:nth-of-type(1),.log-manual-stop input:nth-of-type(2){grid-column:2/3}
-          .log-manual-stop button{grid-column:3/4;grid-row:1/3}
-          .log-cost-grid{grid-template-columns:1fr!important}
-        }
-        @media(max-width:620px){
-          .log-two{grid-template-columns:1fr!important}
-          .log-kpis{grid-template-columns:1fr 1fr!important}
-          .log-card{grid-template-columns:minmax(0,1fr)!important}
-          .log-card>span:last-child{display:flex!important;align-items:center!important;justify-content:space-between!important;justify-items:initial!important;flex-wrap:wrap!important}
-          .log-transport-grid{grid-template-columns:repeat(2,1fr)!important}
-          .log-filter-advanced{grid-template-columns:1fr!important}
-          .log-header{gap:9px!important;padding-top:8px!important;padding-bottom:8px!important}
-          .log-title-copy h1{font-size:15px!important}
-          .log-title-icon{width:34px!important;height:34px!important}
-          .log-production-button span{display:none}
-          .log-manual-button span,.log-export-button span{display:none}
-          .log-manual-button,.log-export-button{width:36px!important;padding:0!important;justify-content:center!important}
-          .log-primary-action span{display:none}
-          .log-primary-action{width:36px!important;padding:0!important;justify-content:center!important}
-          .log-calendar-top{min-height:60px!important}
-          .log-month-summary{display:none}
-          .log-weather span:last-child{display:none}
-        }
-        @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
-      `}</style>
-      <main style={{ flex: 1, minWidth: 0, height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <header className="log-header" style={{ flexShrink: 0, minHeight: 72, padding: "10px 22px", borderBottom: `1px solid ${C.border}`, background: C.topbar, backdropFilter: "blur(20px)", display: "flex", alignItems: "center", gap: 13, flexWrap: "wrap", boxShadow: "0 7px 28px var(--shadow)" }}>
-          <div className="log-title-icon" style={{ width: 40, height: 40, borderRadius: 12, display: "grid", placeItems: "center", background: `linear-gradient(145deg, ${C.blueL}, ${C.cyanL})`, border: `1px solid ${C.blueB}`, color: C.blue, boxShadow: "inset 0 1px 0 rgba(255,255,255,.12), 0 8px 22px var(--shadow)" }}><Route size={19} /></div>
-          <div className="log-title-copy" style={{ minWidth: 190 }}><h1 style={{ margin: 0, color: C.text, fontSize: 17, fontWeight: 750, letterSpacing: "-.01em" }}>Logística y movimientos</h1><p style={{ margin: "3px 0 0", color: C.dim, fontSize: 11.5 }}>Coordinación de transportes, recursos y documentación.</p></div>
-          <nav className="log-view-tabs" style={{ display: "flex", gap: 3, padding: 3, borderRadius: 11, border: `1px solid ${C.border}`, background: C.panel, overflowX: "auto" }}>{availableViews.map(({ id, label, icon: Icon }) => <button className={`log-tab${view === id ? " is-active" : ""}`} key={id} onClick={() => setView(id)} style={{ height: 32, padding: "0 11px", borderRadius: 8, border: `1px solid ${view === id ? C.border2 : "transparent"}`, background: view === id ? C.panelSolid : "transparent", color: view === id ? C.text : C.dim, cursor: "pointer", fontWeight: view === id ? 700 : 600, fontSize: 11.5, display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>{createElement(Icon, { size: 13 })}{label}</button>)}</nav>
-          <div style={{ flex: 1 }} />
-          <div className="log-header-actions" style={{ display: "flex", alignItems: "center", gap: 7 }}>
-            {(role === "admin" || role === "tecnica") && <button className="log-soft-button log-production-button" onClick={() => window.location.assign("/calendario-produccion")} title="Abrir el calendario de producción anterior" style={{ height: 36, padding: "0 11px", borderRadius: 9, display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.border}`, background: C.panel, color: C.muted, cursor: "pointer", fontWeight: 700, fontSize: 10.5 }}><CalendarDays size={14} /><span>Producción anterior</span></button>}
-            {isManager && <button className="log-soft-button log-manual-button" onClick={() => setManualModal(true)} title="Agregar movimiento manual" style={{ height: 36, padding: "0 11px", borderRadius: 9, display: "inline-flex", alignItems: "center", gap: 6, border: "1px solid var(--orange-border)", background: "var(--orange-soft)", color: C.orange, cursor: "pointer", fontWeight: 700, fontSize: 10.5 }}><Bike size={14} /><span>Movimiento manual</span></button>}
-            {isManager && <div style={{ position: "relative" }}><button className="log-soft-button log-export-button" onClick={() => setExportOpen((open) => !open)} title="Exportar informe" style={{ height: 36, padding: "0 11px", borderRadius: 9, display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${C.greenB}`, background: C.greenL, color: C.green, cursor: "pointer", fontWeight: 700, fontSize: 10.5 }}><Download size={14} /><span>Exportar</span></button>{exportOpen && <div className="log-modal-card" style={{ position: "absolute", top: 42, right: 0, zIndex: 20, width: 238, padding: 7, borderRadius: 11, border: `1px solid ${C.border2}`, background: C.panelSolid, boxShadow: "0 18px 50px var(--shadow-strong)", display: "grid", gap: 4 }}><button onClick={() => { exportMovementsCsv(filtered, "filtrado"); setExportOpen(false); }} style={{ padding: "9px 10px", borderRadius: 8, border: 0, background: C.blueL, color: C.blue, cursor: "pointer", textAlign: "left", fontWeight: 700 }}><Download size={13} /> Exportar filtrado ({filtered.length})</button><button onClick={() => { exportMovementsCsv(rows, "completo"); setExportOpen(false); }} style={{ padding: "9px 10px", borderRadius: 8, border: 0, background: "transparent", color: C.muted, cursor: "pointer", textAlign: "left", fontWeight: 700 }}><Download size={13} /> Exportar todo ({rows.length})</button><small style={{ padding: "4px 7px", color: C.dim, lineHeight: 1.35 }}>CSV para Excel con fechas, proveedores, decisiones de unión y costos.</small></div>}</div>}
-            <button className="log-icon-button" onClick={load} title="Actualizar" style={{ width: 36, height: 36, borderRadius: 9, display: "grid", placeItems: "center", border: `1px solid ${C.border}`, background: C.panel, color: C.dim, cursor: "pointer" }}><RefreshCw className={loading ? "spin" : ""} size={15} /></button>
-            {canRequest && <button className="log-primary-action" onClick={() => setRequestModal({ row: null })} style={{ height: 37, padding: "0 14px", borderRadius: 9, display: "inline-flex", alignItems: "center", gap: 7, border: `1px solid ${C.blueB}`, background: `linear-gradient(135deg, ${C.blue}, ${C.cyan})`, color: "white", cursor: "pointer", fontWeight: 750, fontSize: 12 }}><Plus size={15} /><span>Solicitar movimiento</span></button>}
-          </div>
-        </header>
+      <style>{LOG_CSS}</style>
+      <main className="log-main">
+        <div className="log-workspace">
+          <header className="log-head">
+            <div className="log-head-top">
+              <div style={{ minWidth: 0 }}>
+                <div className="az-rotulo">Movimientos y transportes</div>
+                <h1 className="az-titulo log-head-title">Logística</h1>
+              </div>
+              <div className="log-actions">
+                {(role === "admin" || role === "tecnica") && <button type="button" className="log-btn is-ghost log-hide-sm" onClick={() => window.location.assign("/calendario-produccion")} title="Abrir el calendario de producción anterior"><CalendarDays size={15} /><span>Producción anterior</span></button>}
+                {isManager && <button type="button" className={`log-btn${canRequest ? "" : " is-primary"}`} onClick={() => setManualModal({ date: "" })} title="Agregar un movimiento coordinado por Compras"><Bike size={15} /><span className="log-label">Movimiento manual</span></button>}
+                {isManager && (
+                  <div style={{ position: "relative" }}>
+                    <button type="button" className="log-btn" onClick={() => setExportOpen((open) => !open)} title="Exportar informe"><Download size={15} /><span className="log-label">Exportar</span></button>
+                    {exportOpen && (
+                      <div className="log-menu">
+                        <button type="button" onClick={() => { exportMovementsCsv(filtered, "filtrado"); setExportOpen(false); }}><Download size={14} /> Exportar filtrado <b>{filtered.length}</b></button>
+                        <button type="button" onClick={() => { exportMovementsCsv(rows, "completo"); setExportOpen(false); }}><Download size={14} /> Exportar todo <b>{rows.length}</b></button>
+                        <small>CSV para Excel con fechas, proveedores, decisiones de unión y costos.</small>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <button type="button" className="log-btn is-icon" onClick={load} title="Actualizar" aria-label="Actualizar"><RefreshCw className={loading ? "spin" : ""} size={15} /></button>
+                {canRequest && <button type="button" className="log-btn is-primary" onClick={() => setRequestModal({ row: null, date: "" })}><Plus size={16} /><span className="log-label">Solicitar movimiento</span></button>}
+              </div>
+            </div>
+            <div className="log-head-ficha">
+              <div className="az-ficha">
+                {ficha.map((item) => item.onClick ? (
+                  <button type="button" key={item.key} className="az-dato log-dato" onClick={item.onClick} title={`Ver ${item.label.toLowerCase()}`}>
+                    <div className="az-cifra">{item.value}</div>
+                    <div className="az-rotulo">{item.label}</div>
+                  </button>
+                ) : (
+                  <div key={item.key} className="az-dato log-dato">
+                    <div className="az-cifra" style={{ color: item.tone === "red" ? C.red : undefined }}>{item.value}</div>
+                    <div className="az-rotulo" style={{ color: item.tone === "red" ? C.red : undefined }}>{item.label}</div>
+                  </div>
+                ))}
+              </div>
+              <WeatherNote weather={weather} />
+            </div>
+          </header>
 
-        <div className="log-main" style={{ flex: 1, overflowY: "auto", padding: 18 }}>
-          <div className="log-workspace" style={{ width: "min(1480px,100%)", margin: "0 auto", display: "grid", gap: 12 }}>
-            <section className="log-operational-strip log-view-enter" style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", padding: 7, borderRadius: 12, border: `1px solid ${C.border}`, background: C.topbarSoft, backdropFilter: "blur(14px)" }}>
-              <MiniMetric label="Por coordinar" value={metrics.pending} tone="blue" icon={FileClock} />
-              <MiniMetric label="Responde Técnica" value={metrics.proposals} tone="violet" icon={Clock3} />
-              {metrics.accepted > 0 && <MiniMetric label="Confirma Compras" value={metrics.accepted} tone="cyan" icon={CheckCircle2} />}
-              <MiniMetric label="Próximos 7 días" value={metrics.week} tone="green" icon={CalendarDays} />
-              {metrics.urgent > 0 && <MiniMetric label="Urgentes" value={metrics.urgent} tone="red" icon={AlertTriangle} />}
-              <span style={{ flex: 1 }} />
-              <WeatherStrip weather={weather} />
-            </section>
+          <nav className="az-tabs log-tabs" aria-label="Vistas">
+            {availableViews.map(({ id, label }) => <button type="button" key={id} className={`az-tab${view === id ? " is-active" : ""}`} aria-selected={view === id} onClick={() => setView(id)}>{label}</button>)}
+          </nav>
 
-            <section className="log-filters log-view-enter" style={{ padding: 9, borderRadius: 13, background: C.panelSolid, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", boxShadow: "0 10px 28px var(--shadow)" }}>
-                <div style={{ position: "relative", flex: "1 1 300px" }}><Search size={14} style={{ position: "absolute", left: 12, top: 12, color: query ? C.blue : C.dim, transition: "color .15s ease" }} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar carga, obra, proveedor, recorrido o solicitante..." style={{ ...FIELD, minHeight: 38, paddingLeft: 34, background: C.panel }} /></div>
-                <select value={status} onChange={(event) => setStatus(event.target.value)} style={{ ...FIELD, width: 185 }}><option value="todos">Todos los estados</option>{Object.entries(ESTADOS).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}</select>
-                <select value={transport} onChange={(event) => setTransport(event.target.value)} style={{ ...FIELD, width: 150 }}><option value="todos">Todo transporte</option>{Object.entries(TRANSPORTES).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}</select>
-                <button onClick={() => setShowAdvancedFilters((open) => !open)} style={{ minHeight: 39, padding: "0 11px", borderRadius: 9, border: `1px solid ${showAdvancedFilters || advancedFilterCount ? C.violetB : C.border}`, background: showAdvancedFilters || advancedFilterCount ? C.violetL : C.panel, color: showAdvancedFilters || advancedFilterCount ? C.violet : C.dim, cursor: "pointer", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}><SlidersHorizontal size={13} /> Más filtros{advancedFilterCount ? ` · ${advancedFilterCount}` : ""}</button>
-                {hasAnyFilters && <button onClick={clearFilters} style={{ minHeight: 39, padding: "0 10px", borderRadius: 9, border: "1px solid transparent", background: "transparent", color: C.red, cursor: "pointer", fontWeight: 700 }}>Limpiar</button>}
-                {showAdvancedFilters && <div className="log-filter-advanced log-enter" style={{ flexBasis: "100%", paddingTop: 9, borderTop: `1px solid ${C.border}`, display: "grid", gridTemplateColumns: "repeat(4,minmax(150px,1fr)) auto", gap: 8, alignItems: "end" }}><div><label style={LABEL}>Desde</label><input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} style={FIELD} /></div><div><label style={LABEL}>Hasta</label><input type="date" value={dateTo} min={dateFrom || undefined} onChange={(event) => setDateTo(event.target.value)} style={FIELD} /></div><div><label style={LABEL}>Obra / sector</label><select value={obraFilter} onChange={(event) => setObraFilter(event.target.value)} style={FIELD}><option value="todos">Todas</option>{filterOptions.obras.map((obra) => <option key={obra} value={obra}>{obra}</option>)}</select></div><div><label style={LABEL}>Proveedor</label><select value={providerFilter} onChange={(event) => setProviderFilter(event.target.value)} style={FIELD}><option value="todos">Todos</option>{filterOptions.providers.map((provider) => <option key={provider} value={provider}>{provider}</option>)}</select></div><div style={{ minHeight: 39, display: "flex", alignItems: "center", color: C.dim, fontFamily: C.mono, fontSize: 10.5 }}>{filtered.length} resultados</div></div>}
-            </section>
+          <section className="log-filters">
+            <label className="az-buscar log-buscar"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar" aria-label="Buscar carga, obra, proveedor, recorrido o solicitante" /></label>
+            <select className="log-select" value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Estado"><option value="todos">Todos los estados</option>{Object.entries(ESTADOS).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}</select>
+            <select className="log-select" value={transport} onChange={(event) => setTransport(event.target.value)} aria-label="Transporte"><option value="todos">Todo transporte</option>{Object.entries(TRANSPORTES).map(([key, item]) => <option key={key} value={key}>{item.label}</option>)}</select>
+            <button type="button" className={`log-btn is-ghost${showAdvancedFilters || advancedFilterCount ? " is-on" : ""}`} onClick={() => setShowAdvancedFilters((open) => !open)}><SlidersHorizontal size={14} /> Más filtros{advancedFilterCount ? ` · ${advancedFilterCount}` : ""}</button>
+            {hasAnyFilters && <button type="button" className="log-btn is-ghost is-danger" onClick={clearFilters}>Limpiar</button>}
+            {showAdvancedFilters && (
+              <div className="log-filter-advanced log-enter">
+                <div><label style={LABEL}>Desde</label><input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} style={FIELD} /></div>
+                <div><label style={LABEL}>Hasta</label><input type="date" value={dateTo} min={dateFrom || undefined} onChange={(event) => setDateTo(event.target.value)} style={FIELD} /></div>
+                <div><label style={LABEL}>Obra / sector</label><select value={obraFilter} onChange={(event) => setObraFilter(event.target.value)} style={FIELD}><option value="todos">Todas</option>{filterOptions.obras.map((obra) => <option key={obra} value={obra}>{obra}</option>)}</select></div>
+                <div><label style={LABEL}>Proveedor</label><select value={providerFilter} onChange={(event) => setProviderFilter(event.target.value)} style={FIELD}><option value="todos">Todos</option>{filterOptions.providers.map((provider) => <option key={provider} value={provider}>{provider}</option>)}</select></div>
+                <div className="az-rotulo" style={{ alignSelf: "center" }}>{filtered.length} resultados</div>
+              </div>
+            )}
+          </section>
 
-            {error && <div style={{ padding: 13, borderRadius: 11, background: C.redL, border: `1px solid ${C.redB}`, color: C.red, fontSize: 12 }}><b>No se pudo abrir el nuevo calendario.</b><div style={{ marginTop: 4 }}>{error}</div><div style={{ marginTop: 5, color: C.muted }}>Aplicá la migración 20260803180000_calendario_logistica_operativa.sql en Supabase y reintentá.</div></div>}
+          {error && <div className="log-error"><b>No se pudo abrir el calendario.</b><div style={{ marginTop: 4 }}>{error}</div></div>}
 
-            {loading ? <div className="log-view-enter" style={{ padding: 64, textAlign: "center", color: C.dim, border: `1px solid ${C.border}`, borderRadius: 16, background: C.panelSolid }}><span style={{ width: 42, height: 42, display: "grid", placeItems: "center", margin: "0 auto", borderRadius: 13, color: C.blue, background: C.blueL, border: `1px solid ${C.blueB}` }}><RefreshCw size={19} className="spin" /></span><div style={{ marginTop: 11, color: C.muted, fontSize: 12, fontWeight: 700 }}>Preparando la agenda logística</div><div style={{ marginTop: 3, fontSize: 10.5 }}>Movimientos, clima y documentación.</div></div> : view === "calendario" ? (
-              <div style={{ overflowX: "auto" }}><MonthView month={month} rows={filtered} milestones={milestones} weather={weather} holidays={holidays} mergeableIds={mergeableIds} onOpen={setSelected} onMonth={setMonth} /></div>
-            ) : view === "semana" ? (
-              <WeekView weekStart={weekStartDate} rows={filtered} milestones={milestones} weather={weather} holidays={holidays} mergeableIds={mergeableIds} onOpen={setSelected} onWeek={setWeekStartDate} />
-            ) : view === "costos" ? (
-              <CostsView rows={filtered} />
-            ) : view === "solicitudes" ? (
-              <div className="log-view-enter" style={{ display: "grid", gap: 10 }}>{filtered.sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at))).map((row, index) => <MovementCard key={row.id} row={row} onOpen={setSelected} compact={isMobile} index={index} mergeHint={mergeableIds.has(row.id)} />)}{!filtered.length && <div style={{ padding: 48, textAlign: "center", color: C.dim, border: `1px dashed ${C.border2}`, borderRadius: 15, background: C.panel }}>No hay solicitudes con estos filtros.</div>}</div>
-            ) : (
-              <div className="log-view-enter" style={{ display: "grid", gap: 20 }}>
-                {Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([date, dateRows], groupIndex) => {
-                  const holiday = holidays.get(date);
-                  const count = dateRows.movements.length + dateRows.legacy.length;
-                  return <section className="log-day-group" key={date} style={{ animationDelay: `${Math.min(groupIndex, 8) * 40}ms` }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 9 }}>
-                      <span style={{ minWidth: date === TODAY ? 48 : 0, padding: date === TODAY ? "5px 9px" : 0, borderRadius: 8, border: date === TODAY ? `1px solid ${C.blueB}` : 0, background: date === TODAY ? C.blueL : "transparent", color: date === TODAY ? C.blue : C.text, fontSize: 12, fontWeight: 750, textTransform: "capitalize" }}>{date === TODAY ? "Hoy" : fmtDate(date, true)}</span>
-                      {holiday && <span title={holiday} style={{ maxWidth: 280, padding: "4px 8px", borderRadius: 7, border: `1px solid ${C.redB}`, background: C.redL, color: C.red, fontSize: 9.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Feriado · {holiday}</span>}
-                      <span style={{ flex: 1, height: 1, background: C.border }} />
-                      {count > 0 && <span style={{ height: 23, minWidth: 23, padding: "0 7px", borderRadius: 99, border: `1px solid ${C.border}`, background: C.panel, color: C.dim, display: "grid", placeItems: "center", fontFamily: C.mono, fontSize: 9.5 }}>{count}</span>}
+          {loading && !rows.length ? <Cargando texto="Trayendo movimientos…" /> : view === "calendario" ? (
+            <MonthView month={month} rows={filtered} milestones={milestones} weather={weather} holidays={holidays} mergeableIds={mergeableIds} onOpen={setSelected} onMonth={setMonth} onWeekOf={(date) => { setWeekStartDate(startOfWeek(date)); setView("semana"); }} canCreateOn={canCreateOn} createLabel={createLabel} onCreate={createOn} />
+          ) : view === "semana" ? (
+            <WeekView weekStart={weekStartDate} rows={filtered} milestones={milestones} weather={weather} holidays={holidays} mergeableIds={mergeableIds} onOpen={setSelected} onWeek={setWeekStartDate} canCreateOn={canCreateOn} createLabel={createLabel} onCreate={createOn} />
+          ) : view === "costos" ? (
+            <CostsView rows={filtered} />
+          ) : view === "solicitudes" ? (
+            <div className="log-view-enter log-list">
+              {[...filtered].sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at))).map((row, index) => <MovementCard key={row.id} row={row} onOpen={setSelected} compact={isMobile} index={index} mergeHint={mergeableIds.has(row.id)} />)}
+              {!filtered.length && <div className="log-empty">No hay solicitudes con estos filtros.</div>}
+            </div>
+          ) : (
+            <div className="log-view-enter log-agenda">
+              {Object.entries(groups).sort(([a], [b]) => a.localeCompare(b)).map(([date, dateRows], groupIndex) => {
+                const holiday = holidays.get(date);
+                const count = dateRows.movements.length + dateRows.legacy.length;
+                return (
+                  <section className="log-day-group" key={date} style={{ animationDelay: `${Math.min(groupIndex, 8) * 40}ms` }}>
+                    <div className="log-day-group-head">
+                      <span className={`log-day-group-date${date === TODAY ? " is-today" : ""}`}>{date === TODAY ? "Hoy" : fechaTitulo(date)}</span>
+                      {holiday && <span className="log-hol" title={holiday}>Feriado · {holiday}</span>}
+                      <span className="log-day-group-line" />
+                      {count > 0 && <span className="az-rotulo">{count}</span>}
+                      {canCreateOn(date) && <button type="button" className="log-btn is-ghost is-sm" onClick={() => createOn(date)}><Plus size={13} /> {createLabel}</button>}
                     </div>
-                    <div style={{ display: "grid", gap: 7 }}>
+                    <div className="log-list">
                       {dateRows.movements.map((row, index) => <MovementCard key={row.id} row={row} onOpen={setSelected} compact={isMobile} index={index} mergeHint={mergeableIds.has(row.id)} />)}
                       {dateRows.legacy.map((row) => <LegacyEventCard key={`legacy-${row.id}`} row={row} compact={isMobile} />)}
                     </div>
-                  </section>;
-                })}
-                {!Object.keys(groups).length && <div style={{ padding: 56, textAlign: "center", color: C.dim, border: `1px dashed ${C.border2}`, borderRadius: 13 }}><Truck size={26} style={{ marginBottom: 9 }} /><div style={{ color: C.text, fontWeight: 700 }}>No hay movimientos próximos</div><div style={{ fontSize: 11.5, marginTop: 4 }}>Probá cambiar los filtros o creá una solicitud.</div></div>}
-              </div>
-            )}
-          </div>
+                  </section>
+                );
+              })}
+              {!Object.keys(groups).length && <div className="log-empty"><Truck size={24} /><div>No hay movimientos próximos</div></div>}
+            </div>
+          )}
         </div>
       </main>
 
-      {requestModal && <RequestModal row={requestModal.row} rows={rows} obras={obras} profile={profile} onClose={() => setRequestModal(null)} onSaved={closeAndReload} />}
-      {manualModal && <ManualMovementModal obras={obras} profile={profile} onClose={() => setManualModal(false)} onSaved={closeAndReload} />}
+      {requestModal && <RequestModal row={requestModal.row} initialDate={requestModal.date || ""} rows={rows} obras={obras} profile={profile} onClose={() => setRequestModal(null)} onSaved={closeAndReload} />}
+      {manualModal && <ManualMovementModal obras={obras} profile={profile} initialDate={manualModal.date || ""} onClose={() => setManualModal(false)} onSaved={closeAndReload} />}
       {selected && <DetailPanel row={selected} rows={rows} profile={profile} isManager={isManager} onClose={() => setSelected(null)} onReload={load} onEdit={() => { setRequestModal({ row: selected }); setSelected(null); }} onCoordinate={(mode) => setCoordination({ row: selected, mode })} />}
       {coordination && <CoordinationModal row={coordination.row} mode={coordination.mode} profile={profile} onClose={() => setCoordination(null)} onSaved={closeAndReload} />}
     </div>
   );
 }
+
+const LOG_CSS = `
+@keyframes logFadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes logSlideIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+@keyframes logModalIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes logBackdrop{from{opacity:0}to{opacity:1}}
+@keyframes logSpin{to{transform:rotate(360deg)}}
+.logistics-root{--log-ease:cubic-bezier(.22,1,.36,1)}
+.logistics-root .log-main{flex:1;min-width:0;height:100%;overflow-y:auto;padding:0 32px 48px}
+.logistics-root .log-workspace{width:min(1480px,100%);margin:0 auto;display:grid;gap:22px}
+.logistics-root .log-view-enter,.logistics-root .log-enter,.logistics-root .log-day-group{animation:logFadeUp .38s var(--log-ease) both}
+.logistics-root .spin{animation:logSpin .8s linear infinite}
+.logistics-root button svg{vertical-align:middle;flex-shrink:0}
+
+/* Botones */
+.logistics-root .log-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:38px;padding:0 14px;border:1px solid var(--border-2);border-radius:3px;background:transparent;color:var(--muted);font:inherit;font-size:13px;font-weight:500;white-space:nowrap;cursor:pointer;transition:color .2s ease,border-color .2s ease,background-color .2s ease,opacity .2s ease}
+.logistics-root .log-btn:hover:not(:disabled){color:var(--text);border-color:var(--border-3);background:var(--panel)}
+.logistics-root .log-btn.is-ghost{border-color:transparent}
+.logistics-root .log-btn.is-ghost:hover:not(:disabled){border-color:transparent;background:var(--panel-2)}
+.logistics-root .log-btn.is-on{color:var(--violet)}
+.logistics-root .log-btn.is-danger{color:var(--red)}
+.logistics-root .log-btn.is-primary{background:var(--text);border-color:var(--text);color:var(--bg);font-weight:600}
+.logistics-root .log-btn.is-primary:hover:not(:disabled){background:var(--text);border-color:var(--text);color:var(--bg);opacity:.86}
+.logistics-root .log-btn.is-icon{width:38px;padding:0}
+.logistics-root .log-btn.is-sm{height:30px;padding:0 10px;font-size:12px}
+.logistics-root .log-btn:disabled{opacity:.4;cursor:default}
+
+/* Encabezado */
+.logistics-root .log-head{display:grid;gap:28px;padding-top:30px}
+.logistics-root .log-head-top{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap}
+.logistics-root .log-head-title{margin-top:10px}
+.logistics-root .log-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.logistics-root .log-head-ficha{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap}
+.logistics-root .log-dato{background:transparent;border-top:0;border-right:0;border-bottom:0;text-align:left;font:inherit;color:inherit}
+.logistics-root button.log-dato{cursor:pointer}
+.logistics-root button.log-dato .az-cifra{transition:color .2s ease}
+.logistics-root button.log-dato:hover .az-cifra{color:var(--blue)}
+.logistics-root .log-clima{display:inline-flex;align-items:center;gap:9px;color:var(--dim);font-size:12.5px;white-space:nowrap}
+.logistics-root .log-clima b{color:var(--text);font-weight:400;font-variant-numeric:tabular-nums}
+.logistics-root .log-clima span{display:inline-flex;align-items:center;gap:4px}
+.logistics-root .log-clima .is-wind{color:var(--red)}
+.logistics-root .log-menu{position:absolute;top:44px;right:0;z-index:20;width:250px;padding:6px;border:1px solid var(--border-2);border-radius:3px;background:var(--panel-solid);box-shadow:0 18px 50px var(--shadow-strong);display:grid;gap:2px;animation:logModalIn .2s var(--log-ease) both}
+.logistics-root .log-menu button{display:flex;align-items:center;gap:8px;padding:9px 10px;border:0;border-radius:2px;background:transparent;color:var(--text);font:inherit;font-size:13px;text-align:left;cursor:pointer}
+.logistics-root .log-menu button:hover{background:var(--panel-2)}
+.logistics-root .log-menu button b{margin-left:auto;color:var(--dim);font-weight:400;font-variant-numeric:tabular-nums}
+.logistics-root .log-menu small{padding:6px 10px 4px;color:var(--dim);font-size:11.5px;line-height:1.4}
+
+/* Pestañas y filtros */
+.logistics-root .log-tabs{overflow-x:auto;scrollbar-width:none;flex-wrap:nowrap}
+.logistics-root .log-tabs::-webkit-scrollbar{display:none}
+.logistics-root .log-filters{display:flex;align-items:flex-end;gap:12px 18px;flex-wrap:wrap;margin-top:-6px}
+.logistics-root .log-buscar{flex:1 1 280px}
+.logistics-root .log-select{height:40px;min-width:150px;padding:0 4px 0 0;border:0;border-bottom:1px solid var(--border-2);border-radius:0;background:transparent;color:var(--text);font:inherit;font-size:13.5px;font-weight:400;outline:none;cursor:pointer}
+.logistics-root .log-select:focus{border-bottom-color:var(--text)}
+/* El tema claro pinta todos los campos de blanco con !important; el :not(#…) le gana sin tocar la regla general. */
+.logistics-root .log-buscar>input:not(#log-sin-caja),.logistics-root .log-select:not(#log-sin-caja){background:transparent!important}
+.logistics-root .log-filter-advanced{flex-basis:100%;display:grid;grid-template-columns:repeat(4,minmax(150px,1fr)) auto;gap:12px;align-items:end;padding-top:14px;border-top:1px solid var(--border)}
+.logistics-root .log-error{padding:14px 16px;border:1px solid var(--red-border);border-left:2px solid var(--red);border-radius:3px;color:var(--red);font-size:13px}
+.logistics-root .log-empty{display:grid;justify-items:center;gap:10px;padding:56px 20px;border:1px dashed var(--border-2);border-radius:3px;color:var(--dim);font-size:13.5px;text-align:center}
+
+/* Calendario */
+.logistics-root .log-cal-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.logistics-root .log-cal-title{margin:0;font-size:26px;font-weight:300;line-height:1;letter-spacing:.14em;text-transform:uppercase;color:var(--text)}
+.logistics-root .log-cal-title small{margin-left:14px;font-size:inherit;color:var(--dim);font-variant-numeric:tabular-nums}
+.logistics-root .log-cal-nav{display:flex;align-items:center;gap:6px}
+.logistics-root .log-scroll-x{overflow-x:auto}
+.logistics-root .log-grid{display:grid;border-top:1px solid var(--border);border-left:1px solid var(--border)}
+.logistics-root .log-month{grid-template-columns:repeat(5,minmax(130px,1fr)) repeat(2,minmax(100px,.7fr));min-width:860px}
+.logistics-root .log-week{grid-template-columns:repeat(5,minmax(160px,1fr)) repeat(2,minmax(130px,.75fr));min-width:1100px}
+.logistics-root .log-wd{padding:12px 10px 10px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);color:var(--dim);font-size:10.5px;font-weight:500;letter-spacing:.2em;text-transform:uppercase}
+.logistics-root .log-day{position:relative;min-width:0;min-height:132px;padding:8px 8px 36px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:4px;transition:background-color .2s ease}
+.logistics-root .log-day.is-weekend{background:var(--panel)}
+.logistics-root .log-day.is-out{background:transparent;background-image:repeating-linear-gradient(135deg,transparent 0 9px,var(--panel) 9px 10px)}
+.logistics-root .log-day.can-add{cursor:pointer}
+.logistics-root .log-day.can-add:hover{background:var(--panel-2)}
+.logistics-root .log-day.is-today{box-shadow:inset 0 2px 0 var(--text)}
+.logistics-root .log-day-top{display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:26px;margin-bottom:2px}
+.logistics-root .log-num{width:26px;height:26px;display:grid;place-items:center;border-radius:50%;color:var(--muted);font-size:14px;font-weight:400;font-variant-numeric:tabular-nums}
+.logistics-root .log-day.is-past .log-num{color:var(--dim);opacity:.7}
+.logistics-root .log-day.is-holiday .log-num{color:var(--red)}
+.logistics-root .log-day.is-today .log-num{background:var(--text);color:var(--bg);font-weight:600;opacity:1}
+.logistics-root .log-wx{display:inline-flex;align-items:center;gap:3px;color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums}
+.logistics-root .log-wx.is-wind{color:var(--red)}
+.logistics-root .log-wx.is-rain{color:var(--cyan)}
+.logistics-root .log-hol{min-width:0;color:var(--red);font-size:10.5px;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.logistics-root .log-ev{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:baseline;gap:1px 7px;width:100%;padding:5px 7px 6px 8px;border:0;border-left:2px solid var(--ev,var(--border-2));border-radius:2px;background:var(--panel-2);color:var(--text);font:inherit;text-align:left;cursor:pointer;transition:background-color .2s ease}
+.logistics-root .log-ev:hover{background:var(--panel-3)}
+.logistics-root .log-ev.is-risk{background:var(--red-soft)}
+.logistics-root .log-ev-time{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+.logistics-root .log-ev-title{min-width:0;font-size:12.5px;font-weight:500;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.logistics-root .log-ev-meta{grid-column:2;min-width:0;display:flex;align-items:center;gap:5px;color:var(--dim);font-size:10.5px;line-height:1.3;white-space:nowrap;overflow:hidden}
+.logistics-root .log-ev-meta>span{overflow:hidden;text-overflow:ellipsis}
+.logistics-root .log-ev-meta b{flex-shrink:0;color:var(--blue);font-weight:500}
+.logistics-root .log-ev-state{justify-self:end;font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase}
+.logistics-root .log-ev.is-tall{grid-template-columns:minmax(0,1fr) auto;gap:4px 8px;padding:9px 10px 10px 11px}
+.logistics-root .log-ev.is-tall .log-ev-title{grid-column:1/-1;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:13px}
+.logistics-root .log-ev.is-tall .log-ev-meta{grid-column:1/-1}
+.logistics-root .log-old{min-width:0;padding:3px 7px;border-left:2px dashed var(--border-2);color:var(--dim);font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.logistics-root .log-more{align-self:flex-start;padding:2px 0;border:0;background:transparent;color:var(--blue);font:inherit;font-size:11.5px;cursor:pointer}
+.logistics-root .log-more:hover{text-decoration:underline}
+.logistics-root .log-add{position:absolute;left:8px;right:8px;bottom:7px;height:24px;display:flex;align-items:center;gap:5px;padding:0 7px;border:1px dashed var(--border-3);border-radius:2px;background:transparent;color:var(--muted);font:inherit;font-size:11.5px;opacity:0;cursor:pointer;transition:opacity .2s ease,color .2s ease,border-color .2s ease}
+.logistics-root .log-day:hover .log-add,.logistics-root .log-add:focus-visible{opacity:1}
+.logistics-root .log-add:hover{color:var(--text);border-color:var(--text)}
+@media (hover:none){.logistics-root .log-add{opacity:1;border-color:var(--border-2)}}
+.logistics-root .log-wcol{min-height:470px;padding:14px 10px 44px;gap:7px}
+.logistics-root .log-wcol-head{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;padding-bottom:12px;margin-bottom:4px;border-bottom:1px solid var(--border)}
+.logistics-root .log-wcol-wd{display:block;color:var(--dim);font-size:10.5px;font-weight:500;letter-spacing:.2em;text-transform:uppercase}
+.logistics-root .log-wcol-num{display:block;margin-top:6px;color:var(--text);font-size:30px;font-weight:300;line-height:1;font-variant-numeric:tabular-nums}
+.logistics-root .log-wcol.is-past .log-wcol-num{color:var(--dim)}
+.logistics-root .log-wcol.is-holiday .log-wcol-num{color:var(--red)}
+.logistics-root .log-wcol.is-today .log-wcol-num{color:var(--blue)}
+.logistics-root .log-wcol .log-add{position:static;flex-shrink:0;height:30px;margin-top:2px;opacity:.55;border-color:var(--border-2)}
+.logistics-root .log-wcol:hover .log-add{opacity:1}
+.logistics-root .log-wcol{padding-bottom:14px}
+.logistics-root .log-wcol-empty{padding:18px 0;color:var(--dim);font-size:12px;text-align:center}
+
+/* Agenda y solicitudes */
+.logistics-root .log-agenda{display:grid;gap:28px}
+.logistics-root .log-list{display:grid;gap:8px}
+.logistics-root .log-day-group-head{display:flex;align-items:center;gap:12px;margin-bottom:12px;min-height:30px}
+.logistics-root .log-day-group-date{color:var(--text);font-size:13px;font-weight:500;letter-spacing:.14em;text-transform:uppercase;white-space:nowrap}
+.logistics-root .log-day-group-date.is-today{color:var(--blue)}
+.logistics-root .log-day-group-line{flex:1;height:1px;background:var(--border)}
+.logistics-root .log-row{display:grid;grid-template-columns:84px minmax(0,1fr) auto;gap:20px;align-items:center;width:100%;padding:14px 18px 14px 16px;border:1px solid var(--border);border-left:2px solid var(--ev,var(--border-2));border-radius:3px;background:transparent;color:var(--text);font:inherit;text-align:left;cursor:pointer;transition:background-color .2s ease,border-color .2s ease}
+.logistics-root button.log-row:hover{background:var(--panel);border-top-color:var(--border-3);border-right-color:var(--border-3);border-bottom-color:var(--border-3)}
+.logistics-root .log-row.is-old{border-left-style:dashed;cursor:default}
+.logistics-root .log-row.is-compact{grid-template-columns:minmax(0,1fr);gap:10px}
+.logistics-root .log-row-time{display:block;font-size:24px;font-weight:300;line-height:1;font-variant-numeric:tabular-nums}
+.logistics-root .log-row-date{display:block;margin-top:6px;color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums}
+.logistics-root .log-row-title{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:15px;font-weight:500;line-height:1.3}
+.logistics-root .log-row-meta{display:flex;align-items:center;flex-wrap:wrap;gap:4px 16px;margin-top:7px;color:var(--dim);font-size:12px}
+.logistics-root .log-row-meta>span{display:inline-flex;align-items:center;gap:5px;min-width:0}
+.logistics-root .log-row-obra{color:var(--blue)}
+.logistics-root .log-row-ruta{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.logistics-root .log-row-side{display:grid;justify-items:end;gap:7px}
+.logistics-root .log-row.is-compact .log-row-side{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.logistics-root .log-row-note{display:inline-flex;align-items:center;gap:5px;color:var(--dim);font-size:11.5px}
+.logistics-root .log-flag{font-style:normal;color:var(--dim);font-size:10.5px;font-weight:500;letter-spacing:.14em;text-transform:uppercase}
+.logistics-root .log-flag.is-red{color:var(--red)}
+.logistics-root .log-state{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:500;white-space:nowrap}
+.logistics-root .log-state i{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+/* Diálogos y detalle */
+.logistics-root .log-modal-backdrop{position:fixed;inset:0;z-index:12000;display:grid;place-items:center;padding:12px;background:var(--overlay-strong);animation:logBackdrop .18s ease both}
+.logistics-root .log-modal-card{max-width:100%;max-height:94vh;overflow:hidden;display:flex;flex-direction:column;background:var(--panel-solid);border:1px solid var(--border-2);border-radius:4px;box-shadow:0 24px 80px var(--shadow-strong);animation:logModalIn .26s var(--log-ease) both}
+.logistics-root .log-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:20px 22px 16px;border-bottom:1px solid var(--border)}
+.logistics-root .log-modal-title{margin-top:8px;color:var(--text);font-size:22px;font-weight:300;line-height:1.2;letter-spacing:.01em}
+.logistics-root .log-modal-sub{margin-top:5px;color:var(--dim);font-size:12.5px}
+.logistics-root .log-modal-foot{display:flex;justify-content:flex-end;gap:8px;padding:14px 22px;border-top:1px solid var(--border)}
+.logistics-root .log-detail-backdrop{animation:logBackdrop .18s ease both}
+.logistics-root .log-detail-sheet{animation:logSlideIn .3s var(--log-ease) both;border-radius:4px!important;scrollbar-width:thin;scrollbar-color:var(--border-2) transparent}
+
+@media(max-width:920px){
+  .logistics-root .log-main{padding:0 14px 32px}
+  .logistics-root .log-head{gap:22px;padding-top:18px}
+  .logistics-root .log-hide-sm{display:none}
+  .logistics-root .log-actions .log-label{display:none}
+  .logistics-root .log-actions .log-btn:not(.is-primary){width:42px;padding:0}
+  .logistics-root .log-btn{height:42px}
+  .logistics-root .log-filter-advanced{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .logistics-root .log-detail-backdrop{padding:0!important}
+  .logistics-root .log-detail{width:100%!important;border-radius:0!important;border:0!important}
+  .logistics-root .log-transport-grid{grid-template-columns:repeat(3,1fr)!important}
+  .logistics-root .log-stop{grid-template-columns:70px 1fr 34px!important}
+  .logistics-root .log-stop input:nth-of-type(2),.logistics-root .log-stop input:nth-of-type(3){grid-column:2/3}
+  .logistics-root .log-manual-stop{grid-template-columns:82px minmax(0,1fr) 34px!important}
+  .logistics-root .log-manual-stop input:nth-of-type(1),.logistics-root .log-manual-stop input:nth-of-type(2){grid-column:2/3}
+  .logistics-root .log-manual-stop button{grid-column:3/4;grid-row:1/3}
+  .logistics-root .log-cost-grid{grid-template-columns:1fr!important}
+  .logistics-root .log-clima-lugar{display:none!important}
+}
+@media(max-width:640px){
+  .logistics-root .log-actions .log-btn.is-primary .log-label{display:inline}
+  .logistics-root .log-two{grid-template-columns:1fr!important}
+  .logistics-root .log-transport-grid{grid-template-columns:repeat(2,1fr)!important}
+  .logistics-root .log-filter-advanced{grid-template-columns:1fr}
+  .logistics-root .log-select{flex:1 1 140px;min-width:0}
+  .logistics-root .log-cal-title{font-size:21px}
+  .logistics-root .log-modal-backdrop{place-items:end stretch;padding:0}
+  .logistics-root .log-modal-card{width:100%!important;max-height:92vh;border-radius:6px 6px 0 0;padding-bottom:env(safe-area-inset-bottom)}
+}
+`;
