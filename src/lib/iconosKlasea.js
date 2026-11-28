@@ -216,6 +216,29 @@ export const ICONOS_KLASEA = {
     circulo(8, 8, 1.5),
   ],
 
+  // ── Sólo en la portada ─────────────────────────────────────────────
+  // Barras: los indicadores de stock de madera.
+  "/admin": [
+    "M3.5 20.5h17",
+    "M7 17v-5M11 17V6.5M15 17v-3.5M19 17V9",
+  ],
+  "/movimientos": [
+    "M4 8h15M16 5l3 3-3 3",
+    "M20 16H5M8 13l-3 3 3 3",
+  ],
+  // Tablilla con renglones: órdenes de compra de madera.
+  "/pedidos": [
+    caja(5, 4.5, 14, 16.5, 2),
+    caja(9, 3, 6, 3, 1),
+    "M8.5 11h7M8.5 14.5h7M8.5 18h4",
+  ],
+  // Recorrido con origen y destino: la hoja de ruta del cadete.
+  "/cadete": [
+    circulo(6, 18, 2),
+    circulo(18, 6, 2),
+    "M8 18h7.5a3 3 0 0 0 0-6h-7a3 3 0 0 1 0-6H16",
+  ],
+
   // ── Resto ──────────────────────────────────────────────────────────────
   // Ancla: los barcos ya entregados.
   "/postventa": [

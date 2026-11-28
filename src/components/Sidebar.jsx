@@ -1,39 +1,16 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Eye, Gauge, KeyRound, LogOut, Maximize, Moon, Phone, Pin, PinOff, Search, Sun, X } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
+import IconoKlasea from "@/components/ui/IconoKlasea";
 import LogoK from "@/components/ui/LogoK";
 import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
-import { ICONO_GENERICO, trazosDeRuta } from "@/lib/iconosKlasea";
 import { C } from "@/theme";
 import { useTheme } from "@/theme/useTheme";
 import NotificacionesBell from "@/components/NotificacionesBell";
 import ChangePasswordModal from "@/features/cuenta/ChangePasswordModal";
 import VincularWhatsAppModal from "@/features/cuenta/VincularWhatsAppModal";
 import { supabase } from "@/supabaseClient";
-
-// ─── ÍCONOS ───────────────────────────────────────────────────────────────────
-// Los dibujos viven en lib/iconosKlasea.js (grilla de 24, trazo de 1,5). Antes
-// estaban acá en una grilla de 16 estirada a 18 px, cada uno con su lógica.
-function Icon({ id, size = 20 }) {
-  const trazos = trazosDeRuta(id);
-  // Sin ícono propio cae un círculo pelado: en dev avisa para que se note al
-  // agregar una ruta nueva al menú.
-  if (!trazos && import.meta.env.DEV) {
-    console.warn(`[Sidebar] La ruta "${id}" no tiene ícono en lib/iconosKlasea.js; se dibuja el genérico.`);
-  }
-  return (
-    <svg
-      width={size} height={size} viewBox="0 0 24 24" aria-hidden="true"
-      fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"
-      style={{ display: "block", flexShrink: 0 }}
-    >
-      {(trazos ?? ICONO_GENERICO).map((trazo, i) => (typeof trazo === "string"
-        ? <path key={i} d={trazo} />
-        : <path key={i} d={trazo.d} fill="currentColor" stroke="none" />))}
-    </svg>
-  );
-}
 
 /** Riel de íconos y panel abierto (px). */
 const ANCHO_ABIERTO = 272;
@@ -417,7 +394,7 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
         }}
       >
         {on && <span className="sb-marca-activa" />}
-        <span className="sb-icon"><Icon id={href} size={20} /></span>
+        <span className="sb-icon"><IconoKlasea ruta={href} size={20} /></span>
         <span className="sb-label sb-texto">{label}</span>
         {hayBadge && <span className="sb-contador sb-texto">{badge > 99 ? "99+" : badge}</span>}
         {hayBadge && <span className="sb-contador-mini sb-solo-cerrado" aria-hidden="true">{badge > 99 ? "99" : badge}</span>}

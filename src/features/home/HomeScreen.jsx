@@ -14,10 +14,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  Anchor, Armchair, ArrowLeftRight, BarChart3, BookOpen, ClipboardList, Gem, Layers,
-  LayoutList, NotebookText, PackageCheck, Route, Settings, Ship, ShoppingCart, TreePine, Truck, Wrench,
-} from "lucide-react";
+import IconoKlasea from "@/components/ui/IconoKlasea";
 import { supabase } from "@/supabaseClient";
 import { hasAdminAccess } from "@/lib/permissions";
 import { fechaLarga, primerNombre, saludoSegunHora } from "@/lib/saludo";
@@ -25,25 +22,32 @@ import { useAhora } from "@/hooks/useAhora";
 import { BuscarPortada, Indicador, Portada, PortadaHero, SeccionPortada, TarjetaModulo } from "@/components/ui/Portada";
 
 // ─── MÓDULOS ───────────────────────────────────────────────────
+// Los íconos son los propios de Klase A, los mismos del menú lateral: cada
+// tarjeta usa el dibujo de su ruta (Maderas entra por /panol y lleva el pino).
+const icono = (ruta) => {
+  const Icono = (props) => <IconoKlasea ruta={ruta} {...props} />;
+  Icono.displayName = `Icono(${ruta})`;
+  return Icono;
+};
 const MODULOS = [
-  { href:"/torneria",         label:"Tornería",          desc:"Materiales de Mecánica, talleres y regresos parciales", tono:"azul",    Icono:Wrench,         roles:["mecanica","tecnica","oficina","admin","compras"] },
-  { href:"/panol",            label:"Maderas",           desc:"Ingresos, egresos y stock de madera",                    tono:"teal",    Icono:TreePine,       roles:["panol","oficina","admin"] },
-  { href:"/laminacion",       label:"Laminación",        desc:"Stock y movimientos de materiales de laminación",        tono:"verde",   Icono:Layers,         roles:["panol","oficina","admin","laminacion"] },
-  { href:"/obras",            label:"Obras",             desc:"Mapa de producción y estado de barcos",                  tono:"azul",    Icono:Ship,           roles:["oficina","admin"] },
-  { href:"/memorias",         label:"Memorias",          desc:"Memorias descriptivas activas por barco",                tono:"azul",    Icono:NotebookText,   roles:["oficina","admin"] },
-  { href:"/marmoleria",       label:"Marmolería",        desc:"Seguimiento de piezas y líneas de mármol",               tono:"azul",    Icono:Gem,            roles:["oficina","admin"] },
-  { href:"/muebles",          label:"Muebles",           desc:"Fabricación, enchapado, herrajes y recepción",           tono:"azul",    Icono:Armchair,       roles:["oficina","admin","muebles","compras"] },
-  { href:"/obras-laminacion", label:"Por Obra",          desc:"Laminación desglosada por obra",                         tono:"verde",   Icono:LayoutList,     roles:["oficina","admin"] },
-  { href:"/admin",            label:"Inventario",        desc:"KPIs de stock y alertas de materiales de madera",        tono:"teal",    Icono:BarChart3,      roles:["oficina","admin"] },
-  { href:"/movimientos",      label:"Movimientos",       desc:"Ingresos y egresos de maderas del depósito",             tono:"teal",    Icono:ArrowLeftRight, roles:["oficina","admin"] },
-  { href:"/pedidos",          label:"Pedidos",           desc:"Órdenes de compra de materiales de madera",              tono:"teal",    Icono:ClipboardList,  roles:["oficina","admin"] },
-  { href:"/compras",          label:"Compras",           desc:"Solicitudes internas y seguimiento de compras",          tono:"violeta", Icono:ShoppingCart,   roles:["panol","oficina","admin","compras"] },
-  { href:"/cadete",           label:"Hoja de ruta",      desc:"Rutas del cadete: paradas, retiros y su caja chica",     tono:"violeta", Icono:Route,          roles:["oficina","admin","compras"] },
-  { href:"/calendario",       label:"Logística",         desc:"Solicitudes, coordinación y agenda de transportes",      tono:"violeta", Icono:Truck,          roles:["admin","tecnica","administracion","compras"] },
-  { href:"/recepcion-panol",  label:"Recepción y egresos", desc:"Envíos a pañol: recepción, faltantes, egresos y seguimiento por sede", tono:"cian",    Icono:PackageCheck, roles:["panol","oficina","admin","compras"] },
-  { href:"/postventa",        label:"Barcos Entregados", desc:"Post venta y flota en el agua",                          tono:"cian",    Icono:Anchor,         roles:["oficina","admin"] },
-  { href:"/configuracion",    label:"Configuración",     desc:"Usuarios, roles y configuración",                        tono:"rojo",    Icono:Settings,       roles:["admin"] },
-  { href:"/procedimientos",   label:"Procedimientos",    desc:"Instructivos y guías de operación",                      tono:"neutro",  Icono:BookOpen,       roles:["panol","oficina","admin","laminacion","muebles","mecanica","electricidad"] },
+  { href:"/torneria",         label:"Tornería",          desc:"Materiales de Mecánica, talleres y regresos parciales", tono:"azul",    Icono:icono("/torneria"), roles:["mecanica","tecnica","oficina","admin","compras"] },
+  { href:"/panol",            label:"Maderas",           desc:"Ingresos, egresos y stock de madera",                    tono:"teal",    Icono:icono("/madera"), roles:["panol","oficina","admin"] },
+  { href:"/laminacion",       label:"Laminación",        desc:"Stock y movimientos de materiales de laminación",        tono:"verde",   Icono:icono("/laminacion"), roles:["panol","oficina","admin","laminacion"] },
+  { href:"/obras",            label:"Obras",             desc:"Mapa de producción y estado de barcos",                  tono:"azul",    Icono:icono("/obras"), roles:["oficina","admin"] },
+  { href:"/memorias",         label:"Memorias",          desc:"Memorias descriptivas activas por barco",                tono:"azul",    Icono:icono("/memorias"), roles:["oficina","admin"] },
+  { href:"/marmoleria",       label:"Marmolería",        desc:"Seguimiento de piezas y líneas de mármol",               tono:"azul",    Icono:icono("/marmoleria"), roles:["oficina","admin"] },
+  { href:"/muebles",          label:"Muebles",           desc:"Fabricación, enchapado, herrajes y recepción",           tono:"azul",    Icono:icono("/muebles"), roles:["oficina","admin","muebles","compras"] },
+  { href:"/obras-laminacion", label:"Por Obra",          desc:"Laminación desglosada por obra",                         tono:"verde",   Icono:icono("/obras-laminacion"), roles:["oficina","admin"] },
+  { href:"/admin",            label:"Inventario",        desc:"KPIs de stock y alertas de materiales de madera",        tono:"teal",    Icono:icono("/admin"), roles:["oficina","admin"] },
+  { href:"/movimientos",      label:"Movimientos",       desc:"Ingresos y egresos de maderas del depósito",             tono:"teal",    Icono:icono("/movimientos"), roles:["oficina","admin"] },
+  { href:"/pedidos",          label:"Pedidos",           desc:"Órdenes de compra de materiales de madera",              tono:"teal",    Icono:icono("/pedidos"), roles:["oficina","admin"] },
+  { href:"/compras",          label:"Compras",           desc:"Solicitudes internas y seguimiento de compras",          tono:"violeta", Icono:icono("/compras"), roles:["panol","oficina","admin","compras"] },
+  { href:"/cadete",           label:"Hoja de ruta",      desc:"Rutas del cadete: paradas, retiros y su caja chica",     tono:"violeta", Icono:icono("/cadete"), roles:["oficina","admin","compras"] },
+  { href:"/calendario",       label:"Logística",         desc:"Solicitudes, coordinación y agenda de transportes",      tono:"violeta", Icono:icono("/calendario"), roles:["admin","tecnica","administracion","compras"] },
+  { href:"/recepcion-panol",  label:"Recepción y egresos", desc:"Envíos a pañol: recepción, faltantes, egresos y seguimiento por sede", tono:"cian",    Icono:icono("/recepcion-panol"), roles:["panol","oficina","admin","compras"] },
+  { href:"/postventa",        label:"Barcos Entregados", desc:"Post venta y flota en el agua",                          tono:"cian",    Icono:icono("/postventa"), roles:["oficina","admin"] },
+  { href:"/configuracion",    label:"Configuración",     desc:"Usuarios, roles y configuración",                        tono:"rojo",    Icono:icono("/configuracion"), roles:["admin"] },
+  { href:"/procedimientos",   label:"Procedimientos",    desc:"Instructivos y guías de operación",                      tono:"neutro",  Icono:icono("/procedimientos"), roles:["panol","oficina","admin","laminacion","muebles","mecanica","electricidad"] },
 ];
 
 const MODULE_ROLE_OVERRIDES = {
