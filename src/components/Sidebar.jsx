@@ -4,6 +4,7 @@ import { Link, useLocation } from "react-router-dom";
 import LogoK from "@/components/ui/LogoK";
 import { useResponsive } from "@/hooks/useResponsive";
 import { hasAdminAccess } from "@/lib/permissions";
+import { ICONO_GENERICO, trazosDeRuta } from "@/lib/iconosKlasea";
 import { C } from "@/theme";
 import { useTheme } from "@/theme/useTheme";
 import NotificacionesBell from "@/components/NotificacionesBell";
@@ -11,307 +12,28 @@ import ChangePasswordModal from "@/features/cuenta/ChangePasswordModal";
 import VincularWhatsAppModal from "@/features/cuenta/VincularWhatsAppModal";
 import { supabase } from "@/supabaseClient";
 
-// ─── SVG ICONS ────────────────────────────────────────────────────────────────
-function Icon({ id, color = "currentColor", size = 14 }) {
-  const p = { stroke: color, fill: "none", strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round" };
-  const paths = {
-   // Dos tablones con su veta. Antes era un rectángulo partido al medio, que
-   // podía ser cualquier cosa.
-   "/madera": <>
-      <rect x="1.5" y="4" width="13" height="3.4" rx="1.2" {...p}/>
-      <rect x="1.5" y="8.6" width="13" height="3.4" rx="1.2" {...p}/>
-      <path d="M4.5 5.7h4M4.5 10.3h6" {...p}/>
-    </>,
-    "/panol": <>
-      <path d="M3 7V5a5 5 0 0 1 10 0v2" {...p}/>
-      <rect x="1" y="7" width="14" height="9" rx="2" {...p}/>
-      <path d="M8 11v2" {...p}/>
-    </>,
-    "/scan": <>
-      <rect x="1.5" y="1.5" width="4" height="4" rx="1" {...p}/>
-      <rect x="10.5" y="1.5" width="4" height="4" rx="1" {...p}/>
-      <rect x="1.5" y="10.5" width="4" height="4" rx="1" {...p}/>
-      <path d="M10.5 10.5h2v2M14.5 10.5v4M10.5 14.5h2" {...p}/>
-    </>,
-    "/laminacion": <>
-      <path d="M1 6l7-4 7 4-7 4z" {...p}/>
-      <path d="M1 11l7 4 7-4" {...p}/>
-    </>,
-    "/laminacion-chubut": <>
-      <path d="M1 6l7-4 7 4-7 4z" {...p}/>
-      <path d="M1 11l7 4 7-4" {...p}/>
-      <circle cx="13.5" cy="13.5" r="2" {...p}/>
-    </>,
-    // Yate de motor de perfil: casco + superestructura con parabrisas inclinado
-    // + antena. Antes era una silueta de persona (cabeza + hombros), que no
-    // decía nada de una obra en producción.
-    "/obras": <>
-      <path d="M1.5 9c1.1 2.7 3.3 4.1 6.5 4.1s5.4-1.4 6.5-4.1z" {...p}/>
-      <path d="M4 9V5.6h4L10.8 9" {...p}/>
-      <path d="M6.2 5.6V3.2" {...p}/>
-    </>,
-    "/semaforo": <>
-      <rect x="4" y="1" width="8" height="14" rx="2" {...p}/>
-      <circle cx="8" cy="4.5" r="1.5" fill={color} stroke="none"/>
-      <circle cx="8" cy="8" r="1.5" fill={color} stroke="none"/>
-      <circle cx="8" cy="11.5" r="1.5" fill={color} stroke="none"/>
-    </>,
-    "/memorias": <>
-      <rect x="2" y="2" width="12" height="12" rx="2" {...p}/>
-      <path d="M5 5h6M5 8h6M5 11h4" {...p}/>
-      <path d="M4 2v12" {...p}/>
-    </>,
-    "/revisiones": <>
-      <rect x="3" y="2" width="10" height="13" rx="2" {...p}/>
-      <path d="M6 2V1h4v1" {...p}/>
-      <path d="M5.5 8.5l1.8 1.8L10.5 7" {...p}/>
-    </>,
-    "/marmoleria": <>
-      <path d="M8 1l7 7-7 7-7-7z" {...p}/>
-      <path d="M8 5.5l2.5 2.5-2.5 2.5-2.5-2.5z" {...p}/>
-    </>,
-    "/muebles": <>
-      <rect x="1" y="6" width="14" height="6" rx="1.5" {...p}/>
-      <path d="M1 12v2M15 12v2M4 6V4M12 6V4" {...p}/>
-    </>,
-    // Llave fija en diagonal: representa el taller de Tornería. Antes era una
-    // rueda dentada genérica que se confundía con "configuración".
-    "/torneria": <>
-      <path d="M9.8 4.2a0.7 0.7 0 0 0 0 0.9l1.1 1.1a0.7 0.7 0 0 0 0.9 0l2.5-2.5a4 4 0 0 1-5.3 5.3l-4.6 4.6a1.4 1.4 0 0 1-2-2l4.6-4.6a4 4 0 0 1 5.3-5.3l-2.5 2.5z" {...p}/>
-    </>,
-    "/procedimientos": <>
-      <rect x="3" y="1" width="10" height="14" rx="1.5" {...p}/>
-      <path d="M6 5h4M6 8h4M6 11h2.5" {...p}/>
-    </>,
-    // Corte transversal de casco dentro del molde (dos "U" concéntricas).
-    // Antes era una casa con puerta, que en un astillero no venía a cuento.
-    "/obras-laminacion": <>
-      <path d="M2 2.5v5.5a6 6 0 0 0 12 0V2.5" {...p}/>
-      <path d="M4.5 2.5v5.5a3.5 3.5 0 0 0 7 0V2.5" {...p}/>
-    </>,
-    // Plantilla con líneas de corte punteadas. Antes era idéntico a Memorias
-    // (mismo recuadro con renglones), así que no se distinguían en la lista.
-    "/laminacion/plantillas": <>
-      <rect x="1.5" y="2.5" width="13" height="11" rx="1.8" {...p}/>
-      <path d="M1.5 6.8h13" {...p} strokeDasharray="2 1.6"/>
-      <path d="M6 2.5v11" {...p} strokeDasharray="2 1.6"/>
-    </>,
-    "/admin": <>
-      <rect x="1" y="1" width="6" height="6" rx="1" {...p}/>
-      <rect x="9" y="1" width="6" height="6" rx="1" {...p}/>
-      <rect x="1" y="9" width="6" height="6" rx="1" {...p}/>
-      <rect x="9" y="9" width="6" height="6" rx="1" {...p}/>
-    </>,
-    "/movimientos": <>
-      <path d="M8 2v12" {...p}/>
-      <path d="M5 5l3-3 3 3" {...p}/>
-      <path d="M5 11l3 3 3-3" {...p}/>
-    </>,
-    "/pedidos": <>
-      <rect x="3" y="1" width="10" height="14" rx="1.5" {...p}/>
-      <path d="M6 6.5l1.5 1.5 3-3" {...p}/>
-      <path d="M6 10.5h4" {...p}/>
-    </>,
-    "/compras": <>
-      <path d="M2 3h2l1.4 7h6.8l1.4-4.5H5" {...p}/>
-      <circle cx="6.2" cy="13" r="1" {...p}/>
-      <circle cx="11.8" cy="13" r="1" {...p}/>
-      <path d="M7 7h4" {...p}/>
-    </>,
-    "/materiales": <>
-      <rect x="2" y="2" width="12" height="4" rx="1" {...p}/>
-      <rect x="2" y="7" width="12" height="7" rx="1" {...p}/>
-      <path d="M5 10h6M5 12h4" {...p}/>
-    </>,
-    "/consumibles-caja": <>
-      <rect x="2" y="4" width="12" height="8" rx="1.5" {...p}/>
-      <path d="M4.5 6v4M6.5 6v4M9 6v4M11.5 6v4" {...p}/>
-    </>,
-    "/catalogo-maestro": <>
-      <rect x="1.5" y="2" width="13" height="12" rx="2" {...p}/>
-      <path d="M4.5 5h7M4.5 8h7M4.5 11h4" {...p}/>
-      <circle cx="12.5" cy="11.5" r="2" fill="var(--bg, transparent)" {...p}/>
-      <path d="M14 13l1 1" {...p}/>
-    </>,
-    "/stock-panol": <>
-      <path d="M2 5l6-3 6 3-6 3z" {...p}/>
-      <path d="M2 5v6l6 3 6-3V5" {...p}/>
-      <path d="M8 8v6" {...p}/>
-      <path d="M4.5 6.2l6-3" {...p}/>
-    </>,
-    "/motores-y-grupos": <>
-      <rect x="2" y="5.5" width="9.5" height="7" rx="1.5" {...p}/>
-      <path d="M4.5 5.5V3.5h4.5v2" {...p}/>
-      <path d="M11.5 7.5h2.5v3h-2.5M2 9H.8" {...p}/>
-      <path d="M7.3 7l-1.6 2.2h2.1L6.2 11.4" {...p}/>
-    </>,
-    "/stock-panol?tab=sobrantes": <>
-      <path d="M3 3h10v10H3z" {...p}/>
-      <path d="M6 3v10M3 7h10" {...p}/>
-      <path d="M11 11.5l1.2 1.2 2.3-2.4" {...p}/>
-    </>,
-    "/inicio-panol": <>
-      <path d="M2 7.5L8 2l6 5.5V14H2z" {...p}/>
-      <path d="M5.5 14v-4h5v4M5 7h6" {...p}/>
-    </>,
-    "/recepcion-panol": <>
-      <path d="M2 5l6-3 6 3-6 3zM2 5v7l6 3 6-3V5M8 8v7" {...p}/>
-      <path d="M11 9h4M13 7l2 2-2 2" {...p}/>
-    </>,
-    "/scan-pedido": <>
-      <path d="M2 3h2l1.2 7h7L14 5H5" {...p}/>
-      <circle cx="6.5" cy="13" r="1" {...p}/>
-      <circle cx="11.5" cy="13" r="1" {...p}/>
-    </>,
-    // Las pestañas de pañol comparten ruta base y sin un icono propio por
-    // pestaña se veian todas con el mismo cajon. Cada accion tiene el suyo.
-    "/recepcion-panol?tab=recepcion": <>
-      <path d="M2 9h3l1 2h4l1-2h3" {...p}/>
-      <path d="M2 9v3.5a1.5 1.5 0 0 0 1.5 1.5h9a1.5 1.5 0 0 0 1.5-1.5V9" {...p}/>
-      <path d="M8 1.5v5M5.8 4.3L8 6.5l2.2-2.2" {...p}/>
-    </>,
-    "/recepcion-panol?tab=ingresar": <>
-      <rect x="2" y="7.5" width="12" height="6.5" rx="1.5" {...p}/>
-      <path d="M8 1v4.5M5.8 3.3L8 5.5l2.2-2.2" {...p}/>
-    </>,
-    "/remitos-panol": <>
-      <rect x="2" y="3" width="12" height="9.5" rx="1.5" {...p}/>
-      <path d="M4.5 6h7M4.5 8.5h5M5 14h6" {...p}/>
-      <path d="M1 2v3M1 2h3M15 2h-3M15 2v3" {...p}/>
-    </>,
-    "/ingresos-panol": <>
-      <rect x="2" y="7.5" width="12" height="6.5" rx="1.5" {...p}/>
-      <path d="M8 1v4.5M5.8 3.3L8 5.5l2.2-2.2" {...p}/>
-    </>,
-    "/egresos-panol": <>
-      <rect x="2" y="7.5" width="12" height="6.5" rx="1.5" {...p}/>
-      <path d="M8 5.5V1M5.8 3.2L8 1l2.2 2.2" {...p}/>
-    </>,
-    "/consumibles": <>
-      <path d="M3.5 3.5c0-1.1 2-2 4.5-2s4.5.9 4.5 2" {...p}/>
-      <path d="M3.5 3.5v9c0 1.1 2 2 4.5 2s4.5-.9 4.5-2v-9" {...p}/>
-      <path d="M3.5 8c0 1.1 2 2 4.5 2s4.5-.9 4.5-2" {...p}/>
-    </>,
-    "/stock-panol?tab=maestro": <>
-      <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" {...p}/>
-      <path d="M1.5 6h13M6 6v7.5" {...p}/>
-    </>,
-    "/stock-panol?tab=mapa": <>
-      <path d="M1.5 4L6 2l4 2 4.5-2v10L10 14l-4-2-4.5 2z" {...p}/>
-      <path d="M6 2v10M10 4v10" {...p}/>
-    </>,
-    "/stock-panol?tab=movimientos": <>
-      <path d="M2.5 5.5h9M9.5 3l2.5 2.5-2.5 2.5" {...p}/>
-      <path d="M13.5 10.5h-9M6.5 8L4 10.5 6.5 13" {...p}/>
-    </>,
-    "/configuracion": <>
-      <circle cx="8" cy="8" r="2" {...p}/>
-      <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3 3l1.5 1.5M11.5 11.5L13 13M3 13l1.5-1.5M11.5 4.5L13 3" {...p}/>
-    </>,
-    "/calendario": <>
-      <rect x="1" y="3" width="14" height="12" rx="2" {...p}/>
-      <path d="M5 1v3M11 1v3M1 7h14" {...p}/>
-      <path d="M4 10h2M7 10h2M10 10h2M4 13h2M7 13h2" {...p}/>
-    </>,
-    // Casco con tilde: "barco entregado". Antes era un tilde genérico en un
-    // cuadrado, igual a cualquier otro "hecho" del sistema.
-    "/postventa": <>
-      <path d="M2 10c1 2.4 2.9 3.6 6 3.6s5-1.2 6-3.6z" {...p}/>
-      <path d="M5 6.6l1.7 1.7L11 3" {...p}/>
-    </>,
-    "/rrhh": <>
-      <circle cx="5.5" cy="5" r="2.5" {...p}/>
-      <path d="M1 14c0-2.5 2-4 4.5-4S10 11.5 10 14" {...p}/>
-      <path d="M11 5.5a2.5 2.5 0 1 0 0-0.01" {...p}/>
-      <path d="M11.5 10c2 .3 3.5 1.8 3.5 4" {...p}/>
-    </>,
-    // Billete con signo peso. Es la pantalla de carga de precios: nada de
-    // etiquetas con agujerito, que a 14px quedan hechas un borrón.
-    "/precios": <>
-      <rect x="1.5" y="3.5" width="13" height="9" rx="1.5" {...p}/>
-      <path d="M9.6 6.6c-.4-.5-1-.7-1.6-.7-1 0-1.7.5-1.7 1.2 0 1.7 3.4.8 3.4 2.4 0 .8-.8 1.3-1.8 1.3-.7 0-1.3-.2-1.7-.7" {...p}/>
-      <path d="M8 5.1v6" {...p}/>
-    </>,
-    // Hoja con la esquina doblada y dos renglones: el papel de solicitud que
-    // llega al mostrador. La esquina es lo que la separa de /procedimientos y
-    // /memorias, que son recuadros llenos.
-    "/solicitudes-panol": <>
-      <path d="M3 2.2h6.2L13 5.6v8.2a1.2 1.2 0 0 1-1.2 1.2H4.2A1.2 1.2 0 0 1 3 13.8z" {...p}/>
-      <path d="M9.2 2.2v3.4H13" {...p}/>
-      <path d="M5.5 9h5M5.5 11.6h3" {...p}/>
-    </>,
-    "/consumibles?tab=solicitudes": <>
-      <path d="M3 2.2h6.2L13 5.6v8.2a1.2 1.2 0 0 1-1.2 1.2H4.2A1.2 1.2 0 0 1 3 13.8z" {...p}/>
-      <path d="M9.2 2.2v3.4H13" {...p}/>
-      <path d="M5.5 9h5M5.5 11.6h3" {...p}/>
-    </>,
-    // Escalera ascendente: las tandas de compra de una obra, una tras otra.
-    // Se probaron tres cajas apiladas (leía como torta) y un carrito con flecha
-    // (a 14px quedaba hecho un borrón); la escalera es la única que se entiende
-    // en los dos tamaños y no se parece a ningún vecino del menú.
-    "/compras-etapa": <>
-      <path d="M1.5 13.6h4.3V9.4h4.3V5.2h4.4V2.4" {...p}/>
-    </>,
-    // Calculadora: visor arriba y teclas abajo. Los puntos son lo que la separa
-    // de /materiales y /procedimientos, que a 14px son el mismo recuadro con
-    // renglones.
-    // Salvavidas: el aro, el centro y los cuatro tirantes. Es el único icono
-    // redondo del menú, así que se encuentra sin leer.
-    "/pedido-panol": <>
-      <rect x="3" y="2" width="10" height="12" rx="1.5" {...p}/>
-      <path d="M5.5 5.5h5M5.5 8h5M5.5 10.5l1 1 2-2" {...p}/>
-    </>,
-    "/tickets": <>
-      <circle cx="8" cy="8" r="6.2" {...p}/>
-      <circle cx="8" cy="8" r="2.4" {...p}/>
-      <path d="M3.6 3.6l2.7 2.7M12.4 3.6l-2.7 2.7M3.6 12.4l2.7-2.7M12.4 12.4l-2.7-2.7" {...p}/>
-    </>,
-    "/costo-barco": <>
-      <rect x="3" y="1.5" width="10" height="13" rx="1.8" {...p}/>
-      <path d="M5.4 4.6h5.2" {...p}/>
-      <path d="M5.6 8h.01M8 8h.01M10.4 8h.01" {...p}/>
-      <path d="M5.6 11.4h.01M8 11.4h.01M10.4 11.4h.01" {...p}/>
-    </>,
-  };
-  // Busca primero el icono exacto (ruta + ?tab=...) y si no hay, el de la ruta base.
-  const dibujo = paths[id] ?? paths[String(id).split("?")[0]] ?? null;
-
-  // Sin icono propio caía un círculo pelado, indistinguible de un icono real:
-  // así fue como /precios y /compras-etapa quedaron con "circulitos" sin que
-  // nadie lo notara. En dev avisa por consola para que se vea al agregar la ruta.
-  if (!dibujo && import.meta.env.DEV) {
-    console.warn(`[Sidebar] La ruta "${id}" no tiene icono en el mapa \`paths\`; se dibuja el círculo genérico.`);
+// ─── ÍCONOS ───────────────────────────────────────────────────────────────────
+// Los dibujos viven en lib/iconosKlasea.js (grilla de 24, trazo de 1,5). Antes
+// estaban acá en una grilla de 16 estirada a 18 px, cada uno con su lógica.
+function Icon({ id, size = 20 }) {
+  const trazos = trazosDeRuta(id);
+  // Sin ícono propio cae un círculo pelado: en dev avisa para que se note al
+  // agregar una ruta nueva al menú.
+  if (!trazos && import.meta.env.DEV) {
+    console.warn(`[Sidebar] La ruta "${id}" no tiene ícono en lib/iconosKlasea.js; se dibuja el genérico.`);
   }
-
   return (
-    <svg width={size} height={size} viewBox="0 0 16 16" style={{ display: "block", flexShrink: 0 }}>
-      {dibujo ?? <circle cx="8" cy="8" r="4" stroke={color} fill="none" strokeWidth={1.5}/>}
+    <svg
+      width={size} height={size} viewBox="0 0 24 24" aria-hidden="true"
+      fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"
+      style={{ display: "block", flexShrink: 0 }}
+    >
+      {(trazos ?? ICONO_GENERICO).map((trazo, i) => (typeof trazo === "string"
+        ? <path key={i} d={trazo} />
+        : <path key={i} d={trazo.d} fill="currentColor" stroke="none" />))}
     </svg>
   );
 }
-
-// ─── SECTION ACCENT COLORS ────────────────────────────────────────────────────
-// Cada bloque del menú conserva su color aun sin hover. Las mezclas parten de
-// tokens del tema para mantener contraste en oscuro, claro y alto contraste.
-const SC = {
-  operacion:          "var(--teal)",
-  consulta:           "var(--indigo)",
-  apoyo:              "color-mix(in srgb, var(--green) 72%, var(--orange))",
-  inventario:         "var(--cyan)",
-  produccion:         "var(--blue)",
-  mecanica:           "color-mix(in srgb, var(--blue) 65%, var(--teal))",
-  compras:            "var(--orange)",
-  panol:              "var(--teal)",
-  catalogo:           "var(--violet)",
-  precios:            "var(--green)",
-  logistica:          "color-mix(in srgb, var(--cyan) 58%, var(--orange))",
-  gestion_laminacion: "color-mix(in srgb, var(--green) 68%, var(--cyan))",
-  postventa:          "color-mix(in srgb, var(--cyan) 65%, var(--blue))",
-  rrhh:               "color-mix(in srgb, var(--violet) 58%, var(--red))",
-  sistema:            "var(--red)",
-  instrucciones:      "color-mix(in srgb, var(--indigo) 66%, var(--blue))",
-  ayuda:              "color-mix(in srgb, var(--orange) 56%, var(--violet))",
-};
 
 /** Riel de íconos y panel abierto (px). */
 const ANCHO_ABIERTO = 272;
@@ -344,12 +66,17 @@ function leerFijado() {
 // todo saltaba de lugar y, peor, la campanita se desmontaba y se volvía a montar
 // en cada pasada del mouse (canales de realtime y consultas de nuevo cada vez).
 const CSS = `
-  @keyframes sb-in    { from{opacity:0;transform:translateX(-10px)} to{opacity:1;transform:translateX(0)} }
+  @keyframes sb-in    { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
   @keyframes sb-fondo { from{opacity:0} }
   @media (max-width: 900px) {
     body { overscroll-behavior: none; }
   }
 
+  /* Aire Azimut, como Listas de compras: monocromo, rótulos finos y espaciados,
+     radio 3 y un solo acento, la línea con el degradé de la marca en la
+     pantalla abierta. Antes cada sección tenía su color y cada ícono su
+     pastilla con halo: once colores compitiendo con el contenido. El color
+     queda para lo que pide atención (los contadores). */
   .sb-aside { font-family: 'Outfit', system-ui, sans-serif; }
   /* Lo que sólo se ve con el panel abierto: se desvanece y además sale del
      orden de tabulación mientras está cerrado. */
@@ -360,102 +87,103 @@ const CSS = `
   .sb-solo-cerrado { transition: opacity .12s ease; }
   .sb-aside[data-abierto="true"] .sb-solo-cerrado { opacity: 0; }
 
-  .sb-marca { height: 66px; flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 0 12px 0 16px; border-bottom: 1px solid var(--border); }
-  .sb-logo { width: 36px; height: 36px; flex-shrink: 0; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 11px; background: var(--panel-2); color: var(--text); }
+  /* Todo lo que queda a la vista en el riel se centra en x = 34 (la mitad de
+     68): logo, lupa, íconos, campanita y avatar. */
+  .sb-marca { height: 64px; flex-shrink: 0; display: flex; align-items: center; gap: 14px; padding: 0 12px 0 19px; border-bottom: 1px solid var(--border); }
+  .sb-logo { width: 30px; height: 30px; flex-shrink: 0; display: grid; place-items: center; color: var(--text); }
   .sb-marca-textos { flex: 1; min-width: 0; }
+  .sb-marca-nombre { font-size: 13px; font-weight: 400; letter-spacing: .32em; line-height: 1.1; color: var(--text); }
+  .sb-marca-bajada { margin-top: 5px; font-size: 9.5px; font-weight: 500; letter-spacing: .26em; line-height: 1; text-transform: uppercase; color: var(--subtle); }
 
+  /* Buscador: sólo la línea de abajo, como az-buscar. */
   .sb-buscar {
-    width: 100%; height: 40px; display: flex; align-items: center; gap: 11px;
-    padding: 0 10px 0 13px; overflow: hidden;
-    border: 1px solid var(--border); border-radius: 11px;
-    background: var(--panel); color: var(--dim);
+    width: 100%; height: 40px; display: flex; align-items: center; gap: 14px;
+    padding: 0 2px 0 14px; overflow: hidden;
+    border: 0; border-bottom: 1px solid var(--border); border-radius: 0;
+    background: transparent; color: var(--dim);
     font: inherit; text-align: left;
-    transition: color .16s, background-color .16s, border-color .16s;
+    transition: color .16s, border-color .16s;
   }
-  .sb-buscar:hover { color: var(--text); border-color: var(--border-2); background: var(--panel-2); }
-  .sb-buscar kbd { border: 1px solid var(--border); background: var(--panel-2); color: var(--dim); border-radius: 6px; padding: 2px 6px; font-size: 10.5px; font-family: 'JetBrains Mono', monospace; }
+  .sb-buscar:hover { color: var(--text); border-bottom-color: var(--border-2); }
+  .sb-buscar kbd { border: 1px solid var(--border); background: transparent; color: var(--subtle); border-radius: 3px; padding: 2px 6px; font-size: 10px; font-family: 'JetBrains Mono', monospace; letter-spacing: .04em; }
 
   .sb-nav { scrollbar-width: thin; scrollbar-color: var(--border-2) transparent; overflow-x: hidden; }
   .sb-nav::-webkit-scrollbar { width: 6px; }
   .sb-nav::-webkit-scrollbar-track { background: transparent; }
   .sb-nav::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
   /* Riel cerrado: sin barra de scroll. En Windows la barra ocupa ~11 px y
-     achicaba cada ítem de 10–58 a 10–47 px: el fondo del ítem activo quedaba
-     corrido a la izquierda del ícono y el contador de pendientes, cortado. Se
-     sigue scrolleando con la rueda, y al abrir el panel la barra vuelve. */
+     corría el ítem activo y cortaba el contador. Se sigue scrolleando con la
+     rueda, y al abrir el panel la barra vuelve. */
   .sb-aside[data-abierto="false"] .sb-nav { scrollbar-width: none; }
   .sb-aside[data-abierto="false"] .sb-nav::-webkit-scrollbar { display: none; }
 
-  .sb-grupo { height: 30px; margin-top: 8px; display: flex; align-items: center; gap: 11px; padding-left: 31px; overflow: hidden; }
-  .sb-grupo-punto { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; background: var(--sb-col); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sb-col) 13%, transparent); }
-  .sb-grupo-texto { font-size: 11px; letter-spacing: .09em; color: var(--sb-col); text-transform: uppercase; font-weight: 700; }
+  /* Rótulo de grupo: como az-rotulo. En el riel, un pelo corto en su lugar. */
+  .sb-grupo { position: relative; height: 28px; margin-top: 14px; display: flex; align-items: center; padding-left: 24px; overflow: hidden; }
+  .sb-grupo-raya { position: absolute; left: 27px; top: 50%; width: 14px; height: 1px; background: var(--border-2); }
+  .sb-grupo-texto { font-size: 10px; font-weight: 500; letter-spacing: .22em; text-transform: uppercase; color: var(--subtle); }
 
   .sb-item {
     position: relative; overflow: hidden;
-    height: 40px; margin: 2px 10px; padding: 0 10px 0 15px;
-    display: flex; align-items: center; gap: 12px;
-    border-radius: 11px;
-    color: var(--muted); font-size: 13.5px; font-weight: 500;
+    height: 38px; margin: 1px 10px; padding: 0 10px 0 14px;
+    display: flex; align-items: center; gap: 14px;
+    border-radius: 3px;
+    color: var(--muted); font-size: 13.5px; font-weight: 400; letter-spacing: .01em;
     text-decoration: none !important;
     transition: color .16s, background-color .16s;
   }
-  .sb-item:hover { background: color-mix(in srgb, var(--sb-col) 8%, var(--panel-solid)); color: var(--text); }
-  .sb-item.sb-activo { background: color-mix(in srgb, var(--sb-col) 13%, var(--panel-solid)); color: var(--text); font-weight: 600; }
-  .sb-item:active { transform: scale(.985); }
-  .sb-icon { width: 18px; height: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--sb-col); border-radius: 6px; background: color-mix(in srgb, var(--sb-col) 12%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sb-col) 8%, transparent); transition: background-color .16s, box-shadow .16s; }
-  .sb-item:hover .sb-icon, .sb-item.sb-activo .sb-icon { background: color-mix(in srgb, var(--sb-col) 20%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--sb-col) 12%, transparent); }
+  .sb-item:hover { background: color-mix(in srgb, var(--text) 5%, transparent); color: var(--text); }
+  .sb-item.sb-activo { background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); font-weight: 500; }
+  .sb-item:active { transform: scale(.99); }
+  .sb-icon { width: 20px; height: 20px; flex-shrink: 0; display: grid; place-items: center; color: var(--dim); transition: color .16s; }
+  .sb-item:hover .sb-icon, .sb-item.sb-activo .sb-icon { color: var(--text); }
   .sb-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  .sb-marca-activa { position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--sb-col); }
+  .sb-marca-activa { position: absolute; left: 0; top: 8px; bottom: 8px; width: 2px; border-radius: 0 2px 2px 0; background: linear-gradient(180deg, var(--blue), var(--cyan)); }
   .sb-contador, .sb-contador-mini {
     display: inline-flex; align-items: center; justify-content: center;
-    border: 1px solid var(--cyan-border); border-radius: 999px;
-    background: var(--cyan-soft); color: var(--cyan);
-    font-family: 'JetBrains Mono', monospace; font-weight: 700; line-height: 1; box-sizing: border-box;
+    border-radius: 999px; background: var(--cyan-soft); color: var(--cyan);
+    font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; box-sizing: border-box;
   }
-  .sb-contador { min-width: 22px; height: 20px; padding: 0 6px; font-size: 10.5px; flex-shrink: 0; }
-  /* left 26 y no 30: con dos dígitos el contador mide 21 px y desde 30 se pasaba
-     del borde del ítem (58 px en el riel), que lo cortaba. Queda anclado a la
-     izquierda para que no viaje mientras el panel se abre o se cierra. */
-  .sb-contador-mini { position: absolute; left: 26px; top: 3px; min-width: 16px; height: 16px; padding: 0 4px; font-size: 9px; }
+  .sb-contador { min-width: 24px; height: 20px; padding: 0 7px; font-size: 11px; flex-shrink: 0; border: 1px solid var(--cyan-border); }
+  /* Anclado a la izquierda para que no viaje mientras el panel se abre. Con
+     dos dígitos mide ~20 px y desde 27 entra en los 48 del ítem en el riel. */
+  .sb-contador-mini { position: absolute; left: 27px; top: 3px; min-width: 16px; height: 16px; padding: 0 4px; font-size: 9.5px; box-shadow: 0 0 0 2px var(--sb-fondo); }
 
-  .sb-pie { flex-shrink: 0; display: grid; gap: 8px; padding: 10px 0 12px; border-top: 1px solid var(--border); overflow: hidden; }
-  .sb-pie-fila { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px 0 14px; }
+  .sb-pie { flex-shrink: 0; display: grid; gap: 6px; padding: 10px 0 12px; border-top: 1px solid var(--border); overflow: hidden; }
+  .sb-pie-fila { display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 0 12px 0 16px; }
   .sb-avatar {
-    position: relative; width: 40px; height: 40px; flex-shrink: 0;
+    position: relative; width: 36px; height: 36px; flex-shrink: 0;
     display: grid; place-items: center;
-    border: 1px solid var(--blue-border); border-radius: 12px;
-    background: var(--blue-soft); color: var(--text);
-    font-size: 13px; font-weight: 700;
+    border: 1px solid var(--border-2); border-radius: 50%;
+    background: transparent; color: var(--text);
+    font-size: 12px; font-weight: 500; letter-spacing: .06em;
   }
-  .sb-avatar::after { content: ""; position: absolute; right: -2px; bottom: -2px; width: 11px; height: 11px; border-radius: 50%; background: var(--green); border: 2px solid var(--sb-fondo); box-sizing: border-box; }
+  .sb-avatar::after { content: ""; position: absolute; right: -1px; bottom: -1px; width: 10px; height: 10px; border-radius: 50%; background: var(--green); border: 2px solid var(--sb-fondo); box-sizing: border-box; }
+  .sb-usuario { font-size: 13.5px; font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; }
+  .sb-rol { margin-top: 3px; font-size: 9.5px; font-weight: 500; letter-spacing: .22em; text-transform: uppercase; color: var(--subtle); }
   .sb-boton {
-    width: 34px; height: 34px; flex-shrink: 0;
+    width: 32px; height: 32px; flex-shrink: 0;
     display: grid; place-items: center; padding: 0;
-    border: 1px solid var(--border); border-radius: 10px;
+    border: 1px solid transparent; border-radius: 3px;
     background: transparent; color: var(--dim);
     transition: color .18s, background-color .18s, border-color .18s;
   }
-  .sb-boton:hover { color: var(--text); border-color: var(--border-2); background: var(--panel-2); }
-  .sb-boton.is-activo { color: var(--blue); border-color: var(--blue-border); background: var(--blue-soft); }
-  .sb-salir:hover { color: var(--red); border-color: var(--red-border); background: var(--red-soft); }
-  /* Fila de herramientas: con el panel abierto hay 244 px útiles. Antes sumaba
-     264 (campanita de 40, tres botones bordeados de 34 y el tema) y el selector
-     de tema quedaba cortado contra el borde. La campanita va con padding 16 para
-     seguir centrada en la columna del riel (16 + 36/2 = 34). */
-  .sb-pie-fila.es-herramientas { gap: 4px; padding-left: 16px; }
+  .sb-boton:hover { color: var(--text); background: color-mix(in srgb, var(--text) 6%, transparent); }
+  .sb-boton.is-activo { color: var(--text); border-color: var(--border-2); background: color-mix(in srgb, var(--text) 8%, transparent); }
+  .sb-salir:hover { color: var(--red); background: var(--red-soft); }
+  /* Fila de herramientas: con el panel abierto hay 244 px útiles; la
+     campanita queda centrada en la columna del riel (16 + 36/2 = 34). */
+  .sb-pie-fila.es-herramientas { gap: 4px; }
   .sb-herramientas { display: flex; align-items: center; gap: 2px; }
-  .sb-herramientas .sb-boton { width: 32px; height: 32px; border-color: transparent; }
-  .sb-herramientas .sb-boton:hover { border-color: transparent; }
-  .sb-tema { display: flex; gap: 2px; margin-left: auto; padding: 2px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); flex-shrink: 0; }
-  .sb-tema button { width: 26px; height: 26px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--dim); transition: color .16s, background-color .16s; }
-  .sb-tema button:hover { color: var(--text); background: var(--panel-2); }
-  .sb-tema button[aria-checked="true"] { color: var(--text); background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--border-2); }
+  .sb-tema { display: flex; margin-left: auto; border: 1px solid var(--border); border-radius: 3px; flex-shrink: 0; overflow: hidden; }
+  .sb-tema button { width: 28px; height: 26px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--subtle); transition: color .16s, background-color .16s; }
+  .sb-tema button + button { border-left: 1px solid var(--border); }
+  .sb-tema button:hover { color: var(--text); }
+  .sb-tema button[aria-checked="true"] { color: var(--bg); background: var(--text); }
 
   /* Celular: cajón siempre abierto y blancos más grandes para el dedo. */
   .sb-aside[data-movil="true"] .sb-item { height: 46px; font-size: 14.5px; }
-  .sb-aside[data-movil="true"] .sb-boton,
-  .sb-aside[data-movil="true"] .sb-herramientas .sb-boton { width: 40px; height: 40px; }
-  .sb-aside[data-movil="true"] .sb-tema button { width: 34px; height: 34px; }
+  .sb-aside[data-movil="true"] .sb-boton { width: 40px; height: 40px; }
+  .sb-aside[data-movil="true"] .sb-tema button { width: 38px; height: 34px; }
 `;
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
@@ -534,9 +262,9 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
     : /pampa/i.test(String(profile?.sede ?? "")) ? "Pampa"
     : "";
   const veGalpon = (galpon) => profile?.is_admin || !sedePropia || sedePropia === galpon;
-  const itemsLaminacion = (color, base) => <>
-    {veGalpon("Pampa") && item("/laminacion", sedePropia ? "Laminación" : "Laminación · Pampa", color, true, base, "Stock, ingresos, egresos y pedidos del galpón de Pampa.")}
-    {veGalpon("Chubut") && item("/laminacion-chubut", sedePropia ? "Laminación" : "Laminación · Chubut", color, true, base + 5, "Stock, ingresos, egresos y pedidos del galpón de Chubut.")}
+  const itemsLaminacion = (base) => <>
+    {veGalpon("Pampa") && item("/laminacion", sedePropia ? "Laminación" : "Laminación · Pampa", true, base, "Stock, ingresos, egresos y pedidos del galpón de Pampa.")}
+    {veGalpon("Chubut") && item("/laminacion-chubut", sedePropia ? "Laminación" : "Laminación · Chubut", true, base + 5, "Stock, ingresos, egresos y pedidos del galpón de Chubut.")}
   </>;
   const esDemo   = profile?.is_demo === true;
   const broadAccess = hasAdminAccess(profile);
@@ -668,7 +396,7 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
   // La misma estructura en el riel y abierto: el ícono queda en la columna
   // centrada de 68 px y el nombre aparece al abrir. En el riel el nombre va
   // en el aria-label y en el title; abierto, el title muestra la ayuda.
-  const item = (href, label, c, exact = true, delay = 0, info = "", badge = null) => {
+  const item = (href, label, exact = true, delay = 0, info = "", badge = null) => {
     const [hrefPath, hrefQuery = ""] = href.split("?");
     const expectedParams = new URLSearchParams(hrefQuery);
     const currentParams = new URLSearchParams(search);
@@ -685,12 +413,11 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
         aria-current={on ? "page" : undefined}
         onClick={() => { if (isMobile) cerrarMenu(); }}
         style={{
-          "--sb-col": c ?? C.muted,
           animation: `sb-in .28s cubic-bezier(.22,1,.36,1) ${Math.min(delay, 260)}ms both`,
         }}
       >
         {on && <span className="sb-marca-activa" />}
-        <span className="sb-icon"><Icon id={href} color="currentColor" size={18} /></span>
+        <span className="sb-icon"><Icon id={href} size={20} /></span>
         <span className="sb-label sb-texto">{label}</span>
         {hayBadge && <span className="sb-contador sb-texto">{badge > 99 ? "99+" : badge}</span>}
         {hayBadge && <span className="sb-contador-mini sb-solo-cerrado" aria-hidden="true">{badge > 99 ? "99" : badge}</span>}
@@ -700,9 +427,9 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
 
   // ── GRUPO ─────────────────────────────────────────────────────────────────
   // Alto fijo en los dos estados para que la lista no salte al abrir.
-  const group = (label, c, delay = 0) => (
-    <div key={`g${label}`} className="sb-grupo" style={{ "--sb-col": c || C.dim, animation: `sb-in .28s cubic-bezier(.22,1,.36,1) ${Math.min(delay, 260)}ms both` }}>
-      <span className="sb-grupo-punto" />
+  const group = (label, delay = 0) => (
+    <div key={`g${label}`} className="sb-grupo" style={{ animation: `sb-in .28s cubic-bezier(.22,1,.36,1) ${Math.min(delay, 260)}ms both` }}>
+      <span className="sb-grupo-raya sb-solo-cerrado" aria-hidden="true" />
       <span className="sb-grupo-texto sb-texto">{label}</span>
     </div>
   );
@@ -770,11 +497,11 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
       {/* MARCA ───────────────────────────────────────────────────────────── */}
       <div className="sb-marca" style={{ animation: "sb-in .42s cubic-bezier(.22,1,.36,1) .06s both" }}>
         <div className="sb-logo">
-          <LogoK size={24} titulo="Klase A" />
+          <LogoK size={30} titulo="Klase A" />
         </div>
         <div className="sb-marca-textos sb-texto">
-          <div style={{ fontWeight: 750, letterSpacing: ".16em", fontSize: 13, lineHeight: 1.1, color: C.text }}>KLASE A</div>
-          <div style={{ fontSize: 11.5, color: C.dim, marginTop: 3, fontWeight: 500 }}>Astillero · producción</div>
+          <div className="sb-marca-nombre">KLASE A</div>
+          <div className="sb-marca-bajada">Astillero</div>
         </div>
         {isMobile ? (
           <button
@@ -784,7 +511,7 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
             className="sb-boton"
             style={{ width: 40, height: 40, borderColor: "transparent" }}
           >
-            <X size={19} />
+            <X size={19} strokeWidth={1.5} />
           </button>
         ) : (
           <button
@@ -795,7 +522,7 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
             aria-label={fijado ? "Soltar el menú" : "Fijar el menú abierto"}
             aria-pressed={fijado}
           >
-            {fijado ? <PinOff size={15} /> : <Pin size={15} />}
+            {fijado ? <PinOff size={15} strokeWidth={1.5} /> : <Pin size={15} strokeWidth={1.5} />}
           </button>
         )}
       </div>
@@ -814,8 +541,8 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
           aria-label="Buscar en todo Klase A"
           style={{ height: isMobile ? 44 : 40 }}
         >
-          <Search size={16} strokeWidth={2} style={{ flexShrink: 0 }} />
-          <span className="sb-texto" style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 500 }}>Buscar</span>
+          <Search size={16} strokeWidth={1.5} style={{ flexShrink: 0 }} />
+          <span className="sb-texto" style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 400 }}>Buscar</span>
           {!isMobile && <kbd className="sb-texto">Ctrl K</kbd>}
         </button>
       </div>
@@ -823,150 +550,150 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
       {/* NAV ───────────────────────────────────────────────────────────── */}
       <nav className="sb-nav" style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingBottom: 8, paddingTop: 4 }}>
         {esPanol && <>
-          {group("Operación diaria", SC.operacion, 55)}
-          {item("/inicio-panol", "Panel de pañol", SC.operacion, true, 65, "Resumen de pendientes, equipos y próximas recepciones.")}
-          {item("/ingresos-panol", "Ingresar materiales", SC.operacion, true, 75, "El mostrador de entrada: lo de los pedidos en camino y lo que llega sin pedido, con el lector.")}
-          {item("/egresos-panol", "Egresar materiales", SC.operacion, true, 80, "Preparar y registrar entregas de materiales a personas u obras.")}
-          {item("/recepcion-panol?tab=recepcion", "Pedidos", SC.operacion, true, 85, "Todos los pedidos a pañol, su historial y novedades, y el ingreso completo.")}
-          {item("/remitos-panol", "Remitos", SC.operacion, true, 95, "Escanear y guardar los papeles por barco, proveedor o carpeta, y buscarlos. No mueve stock.")}
-          {item("/consumibles?tab=solicitudes", "Solicitudes", SC.operacion, true, 100, "El papel de pedido cargado en el sistema: armar los ítems, imprimir la hoja completa y firmar el retiro con NFC.")}
+          {group("Operación diaria", 55)}
+          {item("/inicio-panol", "Panel de pañol", true, 65, "Resumen de pendientes, equipos y próximas recepciones.")}
+          {item("/ingresos-panol", "Ingresar materiales", true, 75, "El mostrador de entrada: lo de los pedidos en camino y lo que llega sin pedido, con el lector.")}
+          {item("/egresos-panol", "Egresar materiales", true, 80, "Preparar y registrar entregas de materiales a personas u obras.")}
+          {item("/recepcion-panol?tab=recepcion", "Pedidos", true, 85, "Todos los pedidos a pañol, su historial y novedades, y el ingreso completo.")}
+          {item("/remitos-panol", "Remitos", true, 95, "Escanear y guardar los papeles por barco, proveedor o carpeta, y buscarlos. No mueve stock.")}
+          {item("/consumibles?tab=solicitudes", "Solicitudes", true, 100, "El papel de pedido cargado en el sistema: armar los ítems, imprimir la hoja completa y firmar el retiro con NFC.")}
           {/* Consumibles reúne lo que antes eran dos renglones (Consumibles y Caja de
               consumibles): mostrador, conteo, ingresos y stock en un solo lugar. */}
-          {item("/consumibles", "Consumibles", SC.operacion, true, 105, "El mostrador del pañol: nada sale sin registro. También conteo, ingresos y stock.")}
+          {item("/consumibles", "Consumibles", true, 105, "El mostrador del pañol: nada sale sin registro. También conteo, ingresos y stock.")}
 
           {divider("panol-consulta")}
-          {group("Consultar", SC.consulta, 120)}
-          {item("/materiales", "Listas de los barcos", SC.consulta, true, 125, "Lo que lleva cada barco y en qué está: pendiente, en compras, en pañol o entregado. Sólo consulta, sin precios.")}
-          {item("/stock-panol?tab=maestro", "Stock maestro", SC.consulta, true, 130, "Existencias reales, ubicaciones y detalle por producto.")}
-          {item("/catalogo-maestro", "Catálogo maestro", SC.consulta, true, 135, "Buscar fichas de producto y consultar su vínculo con el stock, sin editar cantidades.")}
-          {item("/stock-panol?tab=mapa", "Mapa del pañol", SC.consulta, true, 140, "Plano de estanterías y productos ubicados.")}
-          {item("/stock-panol?tab=movimientos", "Movimientos", SC.consulta, true, 150, "Kardex general de ingresos, asignaciones y egresos.")}
-          {item("/motores-y-grupos", "Motores y grupos", SC.consulta, true, 155, "Motores y grupos electrógenos por barco, en el galpón y entregados, con su número de serie.")}
-          {item("/compras", "Pedidos a compras", SC.consulta, true, 160, "Pedidos propios y actualizaciones enviadas por Compras.")}
+          {group("Consultar", 120)}
+          {item("/materiales", "Listas de los barcos", true, 125, "Lo que lleva cada barco y en qué está: pendiente, en compras, en pañol o entregado. Sólo consulta, sin precios.")}
+          {item("/stock-panol?tab=maestro", "Stock maestro", true, 130, "Existencias reales, ubicaciones y detalle por producto.")}
+          {item("/catalogo-maestro", "Catálogo maestro", true, 135, "Buscar fichas de producto y consultar su vínculo con el stock, sin editar cantidades.")}
+          {item("/stock-panol?tab=mapa", "Mapa del pañol", true, 140, "Plano de estanterías y productos ubicados.")}
+          {item("/stock-panol?tab=movimientos", "Movimientos", true, 150, "Kardex general de ingresos, asignaciones y egresos.")}
+          {item("/motores-y-grupos", "Motores y grupos", true, 155, "Motores y grupos electrógenos por barco, en el galpón y entregados, con su número de serie.")}
+          {item("/compras", "Pedidos a compras", true, 160, "Pedidos propios y actualizaciones enviadas por Compras.")}
 
           {divider("panol-apoyo")}
-          {group("Áreas de apoyo", SC.apoyo, 175)}
-          {item("/madera", "Maderas", SC.apoyo, true, 185, "Stock y pedidos específicos de maderas.")}
-          {itemsLaminacion(SC.apoyo, 195)}
-          {item("/scan-pedido", "Pedir reposición", SC.apoyo, true, 205, "Crear rápidamente un pedido interno a Compras.")}
+          {group("Áreas de apoyo", 175)}
+          {item("/madera", "Maderas", true, 185, "Stock y pedidos específicos de maderas.")}
+          {itemsLaminacion(195)}
+          {item("/scan-pedido", "Pedir reposición", true, 205, "Crear rápidamente un pedido interno a Compras.")}
         </>}
 
         {esGestion && <>
-          {group("Inventario", SC.inventario, 60)}
-          {item("/madera", "Maderas", SC.inventario, true, 70, "Stock, ingresos, egresos, movimientos y pedidos de maderas.")}
-          {itemsLaminacion(SC.inventario, 80)}
-          {item("/scan", "Escáner", SC.inventario, true, 90, "Egreso de madera por escáner.")}
+          {group("Inventario", 60)}
+          {item("/madera", "Maderas", true, 70, "Stock, ingresos, egresos, movimientos y pedidos de maderas.")}
+          {itemsLaminacion(80)}
+          {item("/scan", "Escáner", true, 90, "Egreso de madera por escáner.")}
         </>}
 
         {esGestion && <>
           {divider("prod")}
-          {group("Producción", SC.produccion, 120)}
-          {item("/obras",       "Obras",       SC.produccion, true, 140, "Gestión de tareas y seguimiento de avance de cascos en producción.")}
-          {item("/compras-etapa", "Compras por etapa", SC.produccion, true, 145, "Las tandas de compra de cada obra con sus materiales, y los pedidos que salen de ahí.")}
-          {item("/memorias",    "Memorias",    SC.produccion, true, 150, "Memorias descriptivas de barcos activos en formato planilla para reunión.")}
-          {item("/revisiones",  "Revisiones técnicas", SC.produccion, true, 155, "Etapa de carga: los dueños de cada línea depuran la matriz y las etapas, y la liberan para Compras.")}
-          {item("/marmoleria",  "Marmolería",  SC.produccion, true, 160, "Stock de materiales y cortes (ej. Dekton) para cubiertas y baños.")}
-          {item("/muebles",     "Muebles",     SC.produccion, true, 180, "Producción, despiece y ensamblaje de mobiliario.")}
-          {item("/torneria",    "Tornería",    SC.produccion, true, 190, "Materiales de Mecánica: salidas a Tornería o Plegadora y regresos parciales.")}
-          {item("/calendario", "Logística", SC.produccion, true, 200, "Solicitudes, coordinación, agenda y costos de transportes del astillero.")}
+          {group("Producción", 120)}
+          {item("/obras", "Obras", true, 140, "Gestión de tareas y seguimiento de avance de cascos en producción.")}
+          {item("/compras-etapa", "Compras por etapa", true, 145, "Las tandas de compra de cada obra con sus materiales, y los pedidos que salen de ahí.")}
+          {item("/memorias", "Memorias", true, 150, "Memorias descriptivas de barcos activos en formato planilla para reunión.")}
+          {item("/revisiones", "Revisiones técnicas", true, 155, "Etapa de carga: los dueños de cada línea depuran la matriz y las etapas, y la liberan para Compras.")}
+          {item("/marmoleria", "Marmolería", true, 160, "Stock de materiales y cortes (ej. Dekton) para cubiertas y baños.")}
+          {item("/muebles", "Muebles", true, 180, "Producción, despiece y ensamblaje de mobiliario.")}
+          {item("/torneria", "Tornería", true, 190, "Materiales de Mecánica: salidas a Tornería o Plegadora y regresos parciales.")}
+          {item("/calendario", "Logística", true, 200, "Solicitudes, coordinación, agenda y costos de transportes del astillero.")}
         </>}
 
         {esMecanica && !esGestion && <>
-          {group("Mecánica", SC.mecanica, 120)}
-          {item("/torneria", "Tornería", SC.mecanica, true, 140, "Seguimiento desde el celular de materiales enviados a Tornería y Plegadora.")}
+          {group("Mecánica", 120)}
+          {item("/torneria", "Tornería", true, 140, "Seguimiento desde el celular de materiales enviados a Tornería y Plegadora.")}
         </>}
 
         {puedePedirCompras && !esPanol && <>
           {divider("compras")}
-          {group(comprasGroup, SC.compras, 205)}
-          {item("/compras", comprasLabel, SC.compras, true, 215, "Solicitudes internas a compras con seguimiento y usuarios en copia.", esCompras || realAdmin ? comprasBadge : null)}
+          {group(comprasGroup, 205)}
+          {item("/compras", comprasLabel, true, 215, "Solicitudes internas a compras con seguimiento y usuarios en copia.", esCompras || realAdmin ? comprasBadge : null)}
           {/* Atajos de Compras: una cuenta Compras con admin ya los tiene en Producción y Pañol. */}
-          {esCompras && !esGestion && item("/consumibles?tab=solicitudes", "Solicitudes de pañol", SC.compras, true, 216, "Pedidos de pañol completos, editables y vinculados a los faltantes de compras.")}
+          {esCompras && !esGestion && item("/consumibles?tab=solicitudes", "Solicitudes de pañol", true, 216, "Pedidos de pañol completos, editables y vinculados a los faltantes de compras.")}
           {/* El rol compras ve acá los pedidos generados por etapa de producción (gestión ya lo ve en Producción). */}
-          {esCompras && !esGestion && item("/compras-etapa", "Compras por etapa", SC.compras, true, 217, "Las tandas de compra de cada obra con sus materiales, y los pedidos que salen de ahí.")}
-          {esCompras && !esGestion && item("/muebles", "Muebles y herrajes", SC.compras, true, 218, "Seguimiento de Oberti y Morph, OT de enchapado y kits de herrajes.")}
-          {esCompras && !esGestion && item("/calendario", "Logística", SC.compras, true, 219, "Aprobar solicitudes, coordinar proveedores y registrar costos de transportes.")}
-          {(esCompras || realAdmin) && item("/semaforo", "Semáforo", SC.compras, true, 220, "Semáforo de producción: estado visual de avance por obra.")}
+          {esCompras && !esGestion && item("/compras-etapa", "Compras por etapa", true, 217, "Las tandas de compra de cada obra con sus materiales, y los pedidos que salen de ahí.")}
+          {esCompras && !esGestion && item("/muebles", "Muebles y herrajes", true, 218, "Seguimiento de Oberti y Morph, OT de enchapado y kits de herrajes.")}
+          {esCompras && !esGestion && item("/calendario", "Logística", true, 219, "Aprobar solicitudes, coordinar proveedores y registrar costos de transportes.")}
+          {(esCompras || realAdmin) && item("/semaforo", "Semáforo", true, 220, "Semáforo de producción: estado visual de avance por obra.")}
         </>}
 
-        {esCompras && !esGestion && item("/torneria", "Tornería y mecanizados", SC.compras, true, 219, "Seguimiento de materiales de Mecánica solicitados por Tornería.")}
+        {esCompras && !esGestion && item("/torneria", "Tornería y mecanizados", true, 219, "Seguimiento de materiales de Mecánica solicitados por Tornería.")}
 
         {esGestion && <>
           {divider("panol-rec")}
-          {group("Pañol", SC.panol, 216)}
-          {item("/recepcion-panol", "Recepción y egresos", SC.panol, true, 217, "Pedidos a pañol: recepción, faltantes, egresos y seguimiento por sede.")}
-          {item("/consumibles?tab=solicitudes", "Solicitudes", SC.panol, true, 218, "Los papeles de pedido a pañol digitalizados, con estado por ítem y comprobante de retiro.")}
-          {item("/consumibles", "Consumibles", SC.panol, true, 218, "Stock, reposición, precios de Rebollar y consumo por obra y por persona.")}
-          {item("/pedido-panol", "Solicitud a pañol", SC.panol, true, 219, "Los consumibles que tu cuadrilla necesita: cargada hasta las 15, se retira al día siguiente a las 7.")}
-          {item("/stock-panol", "Stock", SC.panol, true, 219, "Stock real del pañol por obra, proveedor, rubro y categoría.")}
-          {item("/motores-y-grupos", "Motores y grupos", SC.panol, true, 220, "Motores y grupos electrógenos por barco: disponibles, pendientes de recepción y números de serie.")}
+          {group("Pañol", 216)}
+          {item("/recepcion-panol", "Recepción y egresos", true, 217, "Pedidos a pañol: recepción, faltantes, egresos y seguimiento por sede.")}
+          {item("/consumibles?tab=solicitudes", "Solicitudes", true, 218, "Los papeles de pedido a pañol digitalizados, con estado por ítem y comprobante de retiro.")}
+          {item("/consumibles", "Consumibles", true, 218, "Stock, reposición, precios de Rebollar y consumo por obra y por persona.")}
+          {item("/pedido-panol", "Solicitud a pañol", true, 219, "Los consumibles que tu cuadrilla necesita: cargada hasta las 15, se retira al día siguiente a las 7.")}
+          {item("/stock-panol", "Stock", true, 219, "Stock real del pañol por obra, proveedor, rubro y categoría.")}
+          {item("/motores-y-grupos", "Motores y grupos", true, 220, "Motores y grupos electrógenos por barco: disponibles, pendientes de recepción y números de serie.")}
         </>}
 
         {puedeVerCatalogo && !esPanol && <>
           {divider("panol-cat")}
-          {group("Catálogo", SC.catalogo, 218)}
-          {item("/catalogo-maestro", "Catálogo maestro", SC.catalogo, true, 224, "Identidad única de productos, alias, códigos y vínculo de solo lectura con Pañol.")}
-          {puedeVerMateriales && item("/materiales", "Listas de compras", SC.catalogo, true, 228, "Matrices y listas de materiales por sector, línea y obra.")}
+          {group("Catálogo", 218)}
+          {item("/catalogo-maestro", "Catálogo maestro", true, 224, "Identidad única de productos, alias, códigos y vínculo de solo lectura con Pañol.")}
+          {puedeVerMateriales && item("/materiales", "Listas de compras", true, 228, "Matrices y listas de materiales por sector, línea y obra.")}
         </>}
 
         {puedeVerPrecios && <>
           {divider("precios")}
-          {group("Precios", SC.precios, 230)}
-          {item("/costo-barco", "Costo del barco", SC.precios, true, 231, "Cuánto sale el material de cada modelo, con qué cobertura de precios y qué falta cotizar.")}
-          {item("/precios", "Carga de precios", SC.precios, true, 232, "Remitos y facturas leídos con IA, lista de precios editable e historial de cambios.")}
+          {group("Precios", 230)}
+          {item("/costo-barco", "Costo del barco", true, 231, "Cuánto sale el material de cada modelo, con qué cobertura de precios y qué falta cotizar.")}
+          {item("/precios", "Carga de precios", true, 232, "Remitos y facturas leídos con IA, lista de precios editable e historial de cambios.")}
         </>}
 
         {esAdministracion && puedeVerLogistica && <>
           {divider("logistica-admin")}
-          {group("Logística", SC.logistica, 235)}
-          {item("/calendario", "Solicitar movimientos", SC.logistica, true, 237, "Solicitudes de fletes, camiones, hidrogrúas y grúas.")}
+          {group("Logística", 235)}
+          {item("/calendario", "Solicitar movimientos", true, 237, "Solicitudes de fletes, camiones, hidrogrúas y grúas.")}
         </>}
 
         {esGestion && <>
           {divider("lam-prod")}
-          {group("Producción · Laminación", SC.gestion_laminacion, 200)}
-          {item("/obras-laminacion", "Por obra", SC.gestion_laminacion, false, 220, "Detalle de materiales de laminación imputados por casco.")}
-          {puedeEditarPlantillas && item("/laminacion/plantillas", "Plantillas", SC.gestion_laminacion, true, 225, "Recetas base por línea de producción de laminación.")}
+          {group("Producción · Laminación", 200)}
+          {item("/obras-laminacion", "Por obra", false, 220, "Detalle de materiales de laminación imputados por casco.")}
+          {puedeEditarPlantillas && item("/laminacion/plantillas", "Plantillas", true, 225, "Recetas base por línea de producción de laminación.")}
         </>}
 
         {esGestion && <>
           {divider("pv")}
-          {group("Post Venta", SC.postventa, 370)}
-          {item("/postventa", "Barcos Entregados", SC.postventa, true, 390, "Seguimiento de garantías y servicios realizados a clientes.")}
+          {group("Post Venta", 370)}
+          {item("/postventa", "Barcos Entregados", true, 390, "Seguimiento de garantías y servicios realizados a clientes.")}
         </>}
 
         {esRrhh && <>
           {divider("rrhh")}
-          {group("RRHH", SC.rrhh, 395)}
-          {item("/rrhh", "Presentismo", SC.rrhh, true, 400, "Asistencia, horas extras e informes del fichero Hikvision.")}
+          {group("RRHH", 395)}
+          {item("/rrhh", "Presentismo", true, 400, "Asistencia, horas extras e informes del fichero Hikvision.")}
         </>}
 
         {esAdmin && <>
           {divider("sys")}
-          {group("Sistema", SC.sistema, 410)}
-          {item("/configuracion", "Configuración", SC.sistema, true, 430, "Ajustes globales del sistema, altas y permisos de usuarios.")}
+          {group("Sistema", 410)}
+          {item("/configuracion", "Configuración", true, 430, "Ajustes globales del sistema, altas y permisos de usuarios.")}
         </>}
 
         {(esGestion || ["laminacion","muebles","mecanica","electricidad"].includes(role)) && <>
           {divider("ins")}
-          {group("Instrucciones", SC.instrucciones, 450)}
-          {item("/procedimientos", "Procedimientos", SC.instrucciones, true, 470, "Manuales, normativas y protocolos de trabajo del astillero.")}
+          {group("Instrucciones", 450)}
+          {item("/procedimientos", "Procedimientos", true, 470, "Manuales, normativas y protocolos de trabajo del astillero.")}
         </>}
 
         {/* El carril planificado de consumibles: cada encargado arma desde el
             celular lo que su cuadrilla retira mañana. Pañol y clientes no lo usan. */}
         {!esGestion && !esPanol && role !== "cliente" && <>
           {divider("pedido-panol")}
-          {group("Pañol", SC.panol, 440)}
-          {item("/pedido-panol", "Solicitud a pañol", SC.panol, true, 445, "Los consumibles que tu cuadrilla necesita: cargada hasta las 15, se retira al día siguiente a las 7.")}
+          {group("Pañol", 440)}
+          {item("/pedido-panol", "Solicitud a pañol", true, 445, "Los consumibles que tu cuadrilla necesita: cargada hasta las 15, se retira al día siguiente a las 7.")}
         </>}
 
         {/* Sin condición de rol: pedirle algo al sistema lo tiene que poder
             hacer cualquiera que entre. Va al final porque no es parte del
             trabajo diario, pero está siempre a la vista. */}
         {divider("tk")}
-          {group("Ayuda", SC.ayuda, 490)}
-          {item("/tickets", "Tickets", SC.ayuda, true, 500, "Pedir una mejora, avisar un problema y seguir en qué anda.")}
+          {group("Ayuda", 490)}
+          {item("/tickets", "Tickets", true, 500, "Pedir una mejora, avisar un problema y seguir en qué anda.")}
       </nav>
 
       {/* PIE ─────────────────────────────────────────────────────────────────
@@ -982,7 +709,7 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
               profile={profile}
               size={36}
               iconSize={17}
-              estiloBoton={{ borderRadius: 11, background: "transparent" }}
+              estiloBoton={{ borderRadius: 3, background: "transparent" }}
             />
           )}
           <div className="sb-herramientas sb-solo-abierto">
@@ -1003,7 +730,7 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
               role !== "cliente" && { key: "whatsapp", title: "Vincular WhatsApp", Icono: Phone, onClick: () => setWaOpen(true) },
             ].filter(Boolean).map(({ key, title, Icono, onClick }) => (
               <button key={key} type="button" onClick={onClick} title={title} aria-label={title} className="sb-boton">
-                {React.createElement(Icono, { size: 15 })}
+                {React.createElement(Icono, { size: 16, strokeWidth: 1.5 })}
               </button>
             ))}
           </div>
@@ -1022,7 +749,7 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
                 aria-label={title}
                 onClick={() => setTheme(value)}
               >
-                {React.createElement(ThemeIcon, { size: 13 })}
+                {React.createElement(ThemeIcon, { size: 14, strokeWidth: 1.5 })}
               </button>
             ))}
           </div>
@@ -1031,10 +758,8 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
         <div className="sb-pie-fila">
           <div className="sb-avatar" title={`${username} · ${role}`}>{initials || "?"}</div>
           <div className="sb-texto" style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13.5, color: C.text, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis" }}>
-              {username}
-            </div>
-            <div style={{ fontSize: 12, color: C.dim, fontWeight: 500, textTransform: "capitalize", marginTop: 1 }}>{role}</div>
+            <div className="sb-usuario">{username}</div>
+            <div className="sb-rol">{role}</div>
           </div>
           <button
             type="button"
@@ -1043,7 +768,7 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
             aria-label="Cerrar sesión"
             className="sb-boton sb-salir sb-solo-abierto"
           >
-            <LogOut size={15} />
+            <LogOut size={16} strokeWidth={1.5} />
           </button>
         </div>
 
@@ -1056,9 +781,9 @@ export default function Sidebar({ profile, signOut, abiertoMovil = false, onCerr
               aria-label="Modo liviano"
               aria-pressed={modoLiviano}
               className={modoLiviano ? "sb-boton is-activo" : "sb-boton"}
-              style={{ width: 40, height: 40 }}
+              style={{ width: 36, height: 36 }}
             >
-              <Gauge size={16} />
+              <Gauge size={16} strokeWidth={1.5} />
             </button>
             <span className="sb-texto" style={{ fontSize: 12.5, fontWeight: 600, color: modoLiviano ? C.green : C.dim }}>
               Modo liviano {modoLiviano ? "activo" : "desactivado"}
